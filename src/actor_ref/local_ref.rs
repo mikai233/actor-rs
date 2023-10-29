@@ -1,5 +1,4 @@
-use crate::actor_path::TActorPath;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 use std::time::Duration;
 
 use tokio::sync::mpsc::error::TrySendError;
@@ -7,18 +6,25 @@ use tracing::warn;
 
 use crate::actor::Message;
 use crate::actor_path::ActorPath;
+use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::cell::envelope::Envelope;
 use crate::message::ActorMessage;
 use crate::net::mailbox::MailboxSender;
+use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
 pub struct LocalActorRef {
+    system: ActorSystem,
     path: ActorPath,
     sender: MailboxSender,
 }
 
 impl TActorRef for LocalActorRef {
+    fn system(&self) -> ActorSystem {
+        self.system.clone()
+    }
+
     fn path(&self) -> &ActorPath {
         &self.path
     }
@@ -29,15 +35,16 @@ impl TActorRef for LocalActorRef {
             sender,
         };
         if let Some(error) = self.sender.message.try_send(envelop).err() {
+            let actor: ActorRef = self.clone().into();
             match error {
                 TrySendError::Full(envelop) => {
                     let name = envelop.name();
                     match envelop.sender {
                         None => {
-                            warn!("message {} to {} was not delivered because mailbox is full",name,self);
+                            warn!("message {} to {} was not delivered because mailbox is full",name,actor);
                         }
                         Some(sender) => {
-                            warn!("message {} from {} to {} was not delivered because mailbox is full",name,sender,self);
+                            warn!("message {} from {} to {} was not delivered because mailbox is full",name,sender,actor);
                         }
                     }
                 }
@@ -45,23 +52,15 @@ impl TActorRef for LocalActorRef {
                     let name = envelop.name();
                     match envelop.sender {
                         None => {
-                            warn!("message {} to {} was not delivered because actor stopped",name,self);
+                            warn!("message {} to {} was not delivered because actor stopped",name,actor);
                         }
                         Some(sender) => {
-                            warn!("message {} from {} to {} was not delivered because actor stopped",name,sender,self);
+                            warn!("message {} from {} to {} was not delivered because actor stopped",name,sender,actor);
                         }
                     }
                 }
             }
         }
-    }
-}
-
-impl Display for LocalActorRef {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let path = self.path();
-        let uid = path.uid();
-        write!(f, "Actor[{}#{}]", path, uid)
     }
 }
 

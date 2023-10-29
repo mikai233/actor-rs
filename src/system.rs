@@ -1,37 +1,35 @@
-use std::ops::Deref;
-use std::sync::{Arc, Mutex, RwLock};
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::{Arc, RwLock};
+
+use futures::FutureExt;
+use futures::stream::FuturesUnordered;
+use tracing::error;
+
 use crate::actor::Actor;
-use crate::actor::context::ActorThreadPool;
+use crate::actor::context::{ActorThreadPool, ActorThreadPoolMessage};
 use crate::actor_path::ActorPath;
 use crate::actor_ref::ActorRef;
+use crate::cell::runtime::ActorRuntime;
 use crate::props::Props;
 use crate::provider::{ActorRefFactory, ActorRefProvider};
 
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
-    inner: Arc<RwLock<Inner>>,
-}
-
-#[derive(Debug)]
-struct Inner {
     name: String,
-    pool: ActorThreadPool,
-    provider: ActorRefProvider,
+    pub(crate) spawner: crossbeam::channel::Sender<ActorThreadPoolMessage>,
+    pool: Arc<RwLock<ActorThreadPool>>,
 }
 
 impl ActorSystem {
     fn new(name: String) -> Self {
-        todo!()
-        // let pool = ActorThreadPool::new();
-        // let inner = Inner {
-        //     name,
-        //     pool,
-        //     provider: (),
-        // };
-        // let system = Self {
-        //     inner: Arc::new(RwLock::new(inner)),
-        // };
-        // system
+        let pool = ActorThreadPool::new();
+        let system = Self {
+            name,
+            spawner: pool.sender.clone(),
+            pool: Arc::new(RwLock::new(pool)),
+        };
+        system
     }
     fn name(&self) -> String {
         todo!()
@@ -56,7 +54,7 @@ impl ActorSystem {
 
 impl ActorRefFactory for ActorSystem {
     fn system(&self) -> &ActorSystem {
-        todo!()
+        self
     }
 
     fn provider(&self) -> &ActorRefProvider {
@@ -72,10 +70,23 @@ impl ActorRefFactory for ActorSystem {
     }
 
     fn actor_of<T>(&self, actor: T, arg: T::A, props: Props, name: Option<String>) -> ActorRef where T: Actor {
-        todo!()
+        let actor_rt = make_actor_runtime::<T>(actor, arg);
+        let actor_ref = actor_rt.actor_ref.clone();
+        let spawn_fn = move |futures: &mut FuturesUnordered<Pin<Box<dyn Future<Output=()>>>>| {
+            futures.push(actor_rt.run().boxed_local());
+        };
+        if self.spawner.send(ActorThreadPoolMessage::SpawnActor(Box::new(spawn_fn))).is_err() {
+            let name = std::any::type_name::<T>();
+            error!("spawn actor {} error, actor thread pool shutdown",name);
+        }
+        actor_ref
     }
 
     fn stop(&self, actor: &ActorRef) {
         todo!()
     }
+}
+
+fn make_actor_runtime<T>(actor: T, arg: T::A) -> ActorRuntime<T> where T: Actor {
+    todo!()
 }

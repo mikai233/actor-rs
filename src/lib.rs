@@ -12,6 +12,7 @@ mod net;
 mod cell;
 mod cluster;
 mod actor;
+mod guardian;
 
 #[test]
 fn test(){

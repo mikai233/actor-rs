@@ -16,6 +16,7 @@ use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::remote_ref::RemoteActorRef;
 use crate::address::Address;
 use crate::message::{ActorMessage, MessageID};
+use crate::system::ActorSystem;
 
 pub mod local_ref;
 pub mod remote_ref;
@@ -37,6 +38,7 @@ impl ActorRef {
 
 #[enum_dispatch(ActorRef)]
 pub trait TActorRef: Debug + Send + Sync + 'static {
+    fn system(&self) -> ActorSystem;
     fn path(&self) -> &ActorPath;
     fn tell(&self, message: ActorMessage, sender: Option<ActorRef>);
 }

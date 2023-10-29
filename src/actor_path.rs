@@ -78,8 +78,8 @@ impl Display for ActorPath {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct RootActorPath {
-    inner: Arc<RootInner>,
+pub struct RootActorPath {
+    pub inner: Arc<RootInner>,
 }
 
 impl Deref for RootActorPath {
@@ -91,7 +91,7 @@ impl Deref for RootActorPath {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct RootInner {
+pub struct RootInner {
     address: Address,
     name: String,
 }
@@ -156,7 +156,7 @@ impl RootActorPath {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct ChildActorPath {
+pub struct ChildActorPath {
     inner: Arc<ChildInner>,
 }
 
@@ -169,7 +169,7 @@ impl Deref for ChildActorPath {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct ChildInner {
+pub struct ChildInner {
     parent: ActorPath,
     name: String,
     uid: i32,

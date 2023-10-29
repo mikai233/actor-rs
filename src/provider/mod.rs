@@ -1,9 +1,8 @@
 use enum_dispatch::enum_dispatch;
-use crate::actor::Actor;
 
+use crate::actor::Actor;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::ActorRef;
-use crate::actor_ref::local_ref::LocalActorRef;
 use crate::props::Props;
 use crate::provider::local_provider::LocalActorRefProvider;
 use crate::provider::remote_provider::RemoteActorRefProvider;
@@ -15,7 +14,7 @@ pub(crate) mod local_provider;
 
 #[enum_dispatch]
 #[derive(Debug, Clone)]
-pub(crate) enum ActorRefProvider {
+pub enum ActorRefProvider {
     LocalActorRefProvider,
     RemoteActorRefProvider,
 }

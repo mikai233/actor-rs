@@ -132,19 +132,19 @@ impl<A> ActorContext<A> where A: Actor {
     }
 }
 
-pub(crate) enum SpawnMessage {
+pub(crate) enum ActorThreadPoolMessage {
     SpawnActor(Box<dyn FnOnce(&mut FuturesUnordered<Pin<Box<dyn Future<Output=()>>>>) + Send + 'static>)
 }
 
 #[derive(Debug)]
 pub(crate) struct ActorThreadPool {
-    pub(crate) sender: crossbeam::channel::Sender<SpawnMessage>,
+    pub(crate) sender: crossbeam::channel::Sender<ActorThreadPoolMessage>,
     pub(crate) handles: Vec<std::thread::JoinHandle<()>>,
 }
 
 impl ActorThreadPool {
     pub fn new() -> Self {
-        let (tx, rx) = crossbeam::channel::bounded::<SpawnMessage>(100);
+        let (tx, rx) = crossbeam::channel::bounded::<ActorThreadPoolMessage>(100);
         let mut handles = vec![];
         let cpus = num_cpus::get();
         for cpu in 1..=cpus {
@@ -152,7 +152,7 @@ impl ActorThreadPool {
             let handle = std::thread::spawn(move || {
                 let rt = tokio::runtime::Builder::new_current_thread()
                     .thread_name_fn(move || {
-                        format!("local_set_thread_{}", cpu)
+                        format!("actor_dispatcher_{}", cpu)
                     })
                     .enable_all()
                     .build()
@@ -163,7 +163,7 @@ impl ActorThreadPool {
                     tokio::task::spawn_blocking(move || {
                         for message in rx {
                             match message {
-                                SpawnMessage::SpawnActor(spawn_fn) => {
+                                ActorThreadPoolMessage::SpawnActor(spawn_fn) => {
                                     if let Err(_) = m_tx.send(spawn_fn) {
                                         error!("send spawn actor message error, receiver closed");
                                     }

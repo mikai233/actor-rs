@@ -1,27 +1,24 @@
-use crate::actor_path::TActorPath;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 use std::sync::Arc;
 
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::message::ActorMessage;
 use crate::net::tcp_transport::TcpTransport;
+use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
 pub struct RemoteActorRef {
+    system: ActorSystem,
     transport: Arc<TcpTransport>,
     path: ActorPath,
 }
 
-impl Display for RemoteActorRef {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let path = self.path();
-        let uid = path.uid();
-        write!(f, "Actor[{}#{}]", path, uid)
-    }
-}
-
 impl TActorRef for RemoteActorRef {
+    fn system(&self) -> ActorSystem {
+        self.system.clone()
+    }
+
     fn path(&self) -> &ActorPath {
         todo!()
     }
