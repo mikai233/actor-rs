@@ -1,17 +1,21 @@
+use std::collections::VecDeque;
 use std::fmt::{Debug, Display, Formatter};
+use std::str::FromStr;
 
+use anyhow::Context;
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use url::Url;
 
 use crate::actor::Message;
 use crate::actor_path::ActorPath;
+use crate::actor_path::TActorPath;
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::remote_ref::RemoteActorRef;
 use crate::address::Address;
 use crate::message::{ActorMessage, MessageID};
-use crate::system::ActorSystem;
 
 pub mod local_ref;
 pub mod remote_ref;
@@ -59,16 +63,91 @@ pub trait ActorRefExt: TActorRef {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct SerializedActorRef {
     pub address: Address,
     pub path: Vec<String>,
     pub uid: i32,
 }
 
+impl FromStr for SerializedActorRef {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let url = Url::parse(s).context(format!("invalid url {}", s))?;
+        let scheme = url.scheme().to_string();
+        let username = url.username().to_string();
+        let host = url.domain().map(|d| d.to_string());
+        let port = url.port();
+        let mut path = url.path().split("/").map(|s| s.to_string()).collect::<Vec<_>>();
+        path.remove(0);
+        let uid: i32 = url.fragment().unwrap_or("0").parse()?;
+        let address = Address {
+            protocol: scheme,
+            system: username,
+            host,
+            port,
+        };
+        let actor_ref = SerializedActorRef {
+            address,
+            path,
+            uid,
+        };
+        Ok(actor_ref)
+    }
+}
+
 impl Display for SerializedActorRef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let path = self.path.join("/");
-        write!(f, "SerializedActorRef[{}{}#{}]", self.address, path, self.uid)
+        write!(f, "{}/{}#{}", self.address, self.path.join("/"), self.uid)
+    }
+}
+
+impl Into<SerializedActorRef> for ActorRef {
+    fn into(self) -> SerializedActorRef {
+        let p = self.path();
+        let mut path = VecDeque::new();
+        path.push_front(p.name().clone());
+        let mut parent = p.parent();
+        loop {
+            match &parent {
+                ActorPath::RootActorPath(r) => {
+                    path.push_front(r.name().clone());
+                    break;
+                }
+                ActorPath::ChildActorPath(c) => {
+                    path.push_front(c.name().clone());
+                }
+            }
+            parent = parent.parent();
+        }
+        SerializedActorRef {
+            address: p.address().clone(),
+            path: path.into_iter().collect(),
+            uid: p.uid(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod ref_test {
+    use crate::actor_ref::SerializedActorRef;
+    use crate::address::Address;
+
+    #[test]
+    fn test_serde() {
+        let actor_ref = SerializedActorRef {
+            address: Address {
+                protocol: "tcp".to_string(),
+                system: "game".to_string(),
+                host: Some("127.0.0.1".to_string()),
+                port: Some(1122),
+            },
+            path: vec!["a".to_string(), "b".to_string()],
+            uid: 112132434,
+        };
+        let url = actor_ref.to_string();
+        let de_actor_ref: SerializedActorRef = url.parse().unwrap();
+        assert_eq!(actor_ref, de_actor_ref);
     }
 }

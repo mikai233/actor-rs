@@ -20,6 +20,7 @@ bytes = "1.5"
 stubborn-io = "0.3"
 crossbeam = "0.8"
 num_cpus = "1.16"
+url = "2.4"
 
 [dev-dependencies]
 ctor = "0.2"
