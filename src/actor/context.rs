@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::RwLockReadGuard;
+use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -21,7 +21,8 @@ pub trait Context: ActorRefFactory {
     fn myself(&self) -> &ActorRef;
     fn sender(&self) -> Option<&ActorRef>;
     fn children(&self) -> RwLockReadGuard<BTreeMap<String, ActorRef>>;
-    fn child(&self, name: String) -> Option<&ActorRef>;
+    fn children_mut(&self) -> RwLockWriteGuard<BTreeMap<String, ActorRef>>;
+    fn child(&self, name: &String) -> Option<ActorRef>;
     fn parent(&self) -> Option<&ActorRef>;
     fn watch(&self, subject: &ActorRef);
     fn watch_with(&self, subject: &ActorRef, message: ActorMessage);
@@ -52,19 +53,19 @@ impl<A> ActorRefFactory for ActorContext<A> where A: Actor {
     }
 
     fn provider(&self) -> &ActorRefProvider {
-        &self.system.provider()
+        self.system.provider()
     }
 
     fn guardian(&self) -> &ActorRef {
         todo!()
     }
 
-    fn lookup_root(&self) -> &ActorRef {
+    fn lookup_root(&self) -> ActorRef {
         todo!()
     }
 
-    fn actor_of<T>(&self, actor: T, arg: T::A, props: Props, name: Option<String>) -> ActorRef where T: Actor {
-        let supervisor = self.cell.myself.clone();
+    fn actor_of<T>(&self, actor: T, arg: T::A, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> where T: Actor {
+        let supervisor = self.cell.myself();
         todo!()
     }
 
@@ -75,7 +76,7 @@ impl<A> ActorRefFactory for ActorContext<A> where A: Actor {
 
 impl<A> Context for ActorContext<A> where A: Actor {
     fn myself(&self) -> &ActorRef {
-        &self.cell.myself
+        self.cell.myself()
     }
 
     fn sender(&self) -> Option<&ActorRef> {
@@ -83,15 +84,19 @@ impl<A> Context for ActorContext<A> where A: Actor {
     }
 
     fn children(&self) -> RwLockReadGuard<BTreeMap<String, ActorRef>> {
-        self.cell.children.read().unwrap()
+        self.cell.children().read().unwrap()
     }
 
-    fn child(&self, name: String) -> Option<&ActorRef> {
-        todo!()
+    fn children_mut(&self) -> RwLockWriteGuard<BTreeMap<String, ActorRef>> {
+        self.cell.children().write().unwrap()
+    }
+
+    fn child(&self, name: &String) -> Option<ActorRef> {
+        self.cell.children().read().unwrap().get(name).cloned()
     }
 
     fn parent(&self) -> Option<&ActorRef> {
-        self.cell.parent.as_ref().map(|c| &c.myself)
+        self.cell.parent().map(|p| p.myself())
     }
 
     fn watch(&self, subject: &ActorRef) {

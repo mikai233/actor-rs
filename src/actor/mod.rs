@@ -5,7 +5,7 @@ use crate::actor::context::ActorContext;
 
 pub mod context;
 
-pub trait Actor: Send + Sync + Sized + Debug + 'static {
+pub trait Actor: Send + Sync + Sized + 'static {
     type M: Message;
     type S: State;
     type A: Arg;

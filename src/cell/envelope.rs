@@ -8,7 +8,7 @@ pub(crate) struct Envelope {
 }
 
 impl Envelope {
-    pub fn name(&self) -> &'static str {
+    pub fn name(&self) -> &str {
         self.message.name()
     }
 }

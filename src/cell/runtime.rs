@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::sync::Arc;
 
 use tokio::task::yield_now;
 use tracing::error;
@@ -9,7 +8,7 @@ use crate::actor::context::{ActorContext, Context};
 use crate::actor_ref::ActorRef;
 use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
-use crate::message::{ActorMessage, Signal};
+use crate::message::{ActorMessage, ActorSignalMessage};
 use crate::net::mailbox::Mailbox;
 use crate::props::Props;
 use crate::provider::ActorRefFactory;
@@ -21,7 +20,7 @@ pub struct ActorRuntime<T> where T: Actor {
     pub(crate) handler: T,
     pub(crate) props: Props,
     pub(crate) system: ActorSystem,
-    pub(crate) parent: Option<Arc<ActorCell>>,
+    pub(crate) parent: Option<ActorCell>,
     pub(crate) mailbox: Mailbox,
     pub(crate) arg: T::A,
 }
@@ -37,11 +36,8 @@ impl<T> ActorRuntime<T> where T: Actor {
             mut mailbox,
             arg
         } = self;
-        let cell = ActorCell {
-            parent,
-            myself: actor_ref,
-            children: Arc::new(Default::default()),
-        };
+        let actor = std::any::type_name::<T>();
+        let cell = ActorCell::new(parent, actor_ref);
         let mut context = ActorContext {
             state: ActorState::Init,
             cell,
@@ -53,8 +49,8 @@ impl<T> ActorRuntime<T> where T: Actor {
         let mut state = match handler.pre_start(&mut context, arg) {
             Ok(state) => state,
             Err(err) => {
-                error!("actor {:?} pre start error {:?}",handler,err);
-                context.stop(context.myself());
+                error!("actor {:?} pre start error {:?}",actor,err);
+                context.stop(&context.myself());
                 while let Some(message) = mailbox.signal.recv().await {
                     if Self::handle_signal(&mut context, message).await {
                         break;
@@ -88,7 +84,7 @@ impl<T> ActorRuntime<T> where T: Actor {
             }
         }
         if let Some(err) = handler.post_stop(&mut context, &mut state).err() {
-            error!("actor {:?} post stop error {:?}",handler,err);
+            error!("actor {:?} post stop error {:?}",actor,err);
         }
         for task in context.tasks {
             task.abort();
@@ -97,40 +93,48 @@ impl<T> ActorRuntime<T> where T: Actor {
         context.state = ActorState::Stopped;
     }
 
-    async fn handle_signal(context: &mut ActorContext<T>, signal: Signal) -> bool {
-        async fn signal_parent<T>(context: &mut ActorContext<T>, signal: Signal) where T: Actor {
+    async fn handle_signal(context: &mut ActorContext<T>, envelope: Envelope) -> bool {
+        let Envelope { message, sender } = envelope;
+        context.sender = sender;
+        async fn signal_parent<T>(context: &mut ActorContext<T>, signal: ActorSignalMessage) where T: Actor {
             if let Some(parent) = context.parent().clone() {
                 // parent.signal(signal).await;
             }
         }
-        match signal {
-            Signal::Stop => {
-                context.state = ActorState::Stopping;
-                if context.children().is_empty() {
-                    // signal_parent(context, Signal::Terminated(context.myself.clone())).await;
-                    return true;
-                } else {
-                    for child in context.children().values() {
-                        // child.signal(SignalMessage::Stop).await;
+        match message {
+            ActorMessage::Signal(signal) => {
+                match signal {
+                    ActorSignalMessage::Terminate => {
+                        context.state = ActorState::Stopping;
+                        if context.children().is_empty() {
+                            // signal_parent(context, Signal::Terminated(context.myself.clone())).await;
+                            return true;
+                        } else {
+                            for child in context.children().values() {
+                                // child.signal(SignalMessage::Stop).await;
+                            }
+                            context.state = ActorState::WaitingChildrenStop;
+                        }
                     }
-                    context.state = ActorState::WaitingChildrenStop;
+                    ActorSignalMessage::Terminated(who) => {
+                        // context.children.retain(|child| { *child != who });
+                        // if matches!(context.state, ActorState::WaitingChildrenStop) {
+                        //     if context.children.is_empty() {
+                        //         signal_parent(context, SignalMessage::Terminated(context.myself.untyped())).await;
+                        //         return true;
+                        //     }
+                        // }
+                    }
                 }
             }
-            Signal::Terminated(who) => {
-                // context.children.retain(|child| { *child != who });
-                // if matches!(context.state, ActorState::WaitingChildrenStop) {
-                //     if context.children.is_empty() {
-                //         signal_parent(context, SignalMessage::Terminated(context.myself.untyped())).await;
-                //         return true;
-                //     }
-                // }
-            }
+            _ => panic!("unreachable branch, expect signal")
         }
+        context.sender.take();
         return false;
     }
 
-    fn handle_message(context: &mut ActorContext<T>, state: &mut T::S, handler: &T, envelop: Envelope) -> bool {
-        let Envelope { message, sender } = envelop;
+    fn handle_message(context: &mut ActorContext<T>, state: &mut T::S, handler: &T, envelope: Envelope) -> bool {
+        let Envelope { message, sender } = envelope;
         context.sender = sender;
         let message = match message {
             ActorMessage::Local(l) => {
@@ -141,7 +145,8 @@ impl<T> ActorRuntime<T> where T: Actor {
                     Err(message) => {
                         match handler.transform(message) {
                             None => {
-                                error!("actor {:?} handle unexpected message",handler);
+                                let actor = std::any::type_name::<T>();
+                                error!("actor {} handle unexpected message",actor);
                                 return false;
                             }
                             Some(message) => message
@@ -152,10 +157,12 @@ impl<T> ActorRuntime<T> where T: Actor {
             ActorMessage::Remote(r) => {
                 todo!()
             }
+            ActorMessage::Signal(_) => panic!("unreachable signal branch")
         };
 
         if let Some(error) = handler.on_recv(context, state, message).err() {
-            error!("actor: {:?} handle message error: {:?}",handler,error);
+            let actor = std::any::type_name::<T>();
+            error!("actor {} handle message error: {:?}",actor,error);
             return true;
         }
         context.sender.take();

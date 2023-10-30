@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::actor_path::ActorPath;
 use crate::actor_ref::ActorRef;
 use crate::cell::ActorCell;
@@ -5,6 +7,11 @@ use crate::provider::{ActorRefFactory, TActorRefProvider};
 
 #[derive(Debug, Clone)]
 pub struct LocalActorRefProvider {
+    inner: Arc<Inner>,
+}
+
+#[derive(Debug)]
+struct Inner {
     guardian: ActorCell,
 }
 

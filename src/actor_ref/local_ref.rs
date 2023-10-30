@@ -15,9 +15,9 @@ use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
 pub struct LocalActorRef {
-    system: ActorSystem,
-    path: ActorPath,
-    sender: MailboxSender,
+    pub system: ActorSystem,
+    pub path: ActorPath,
+    pub sender: MailboxSender,
 }
 
 impl TActorRef for LocalActorRef {
@@ -34,29 +34,44 @@ impl TActorRef for LocalActorRef {
             message,
             sender,
         };
-        if let Some(error) = self.sender.message.try_send(envelop).err() {
-            let actor: ActorRef = self.clone().into();
-            match error {
-                TrySendError::Full(envelop) => {
-                    let name = envelop.name();
-                    match envelop.sender {
-                        None => {
-                            warn!("message {} to {} was not delivered because mailbox is full",name,actor);
-                        }
-                        Some(sender) => {
-                            warn!("message {} from {} to {} was not delivered because mailbox is full",name,sender,actor);
-                        }
+        match &envelop.message {
+            ActorMessage::Local(_) | ActorMessage::Remote(_) => {
+                if let Some(error) = self.sender.message.try_send(envelop).err() {
+                    self.report_send_error(error);
+                }
+            }
+            ActorMessage::Signal(_) => {
+                if let Some(error) = self.sender.signal.try_send(envelop).err() {
+                    self.report_send_error(error);
+                }
+            }
+        }
+    }
+}
+
+impl LocalActorRef {
+    fn report_send_error(&self, error: TrySendError<Envelope>) {
+        let actor: ActorRef = self.clone().into();
+        match error {
+            TrySendError::Full(envelop) => {
+                let name = envelop.name();
+                match &envelop.sender {
+                    None => {
+                        warn!("message {} to {} was not delivered because mailbox is full",name,actor);
+                    }
+                    Some(sender) => {
+                        warn!("message {} from {} to {} was not delivered because mailbox is full",name,sender,actor);
                     }
                 }
-                TrySendError::Closed(envelop) => {
-                    let name = envelop.name();
-                    match envelop.sender {
-                        None => {
-                            warn!("message {} to {} was not delivered because actor stopped",name,actor);
-                        }
-                        Some(sender) => {
-                            warn!("message {} from {} to {} was not delivered because actor stopped",name,sender,actor);
-                        }
+            }
+            TrySendError::Closed(envelop) => {
+                let name = envelop.name();
+                match &envelop.sender {
+                    None => {
+                        warn!("message {} to {} was not delivered because actor stopped",name,actor);
+                    }
+                    Some(sender) => {
+                        warn!("message {} from {} to {} was not delivered because actor stopped",name,sender,actor);
                     }
                 }
             }

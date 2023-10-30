@@ -1,11 +1,11 @@
 use std::any::Any;
 use std::fmt::{Debug, Formatter};
 
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use crate::actor::Message;
+use serde::de::DeserializeOwned;
 
-use crate::actor_ref::{ActorRef, SerializedActorRef};
+use crate::actor::Message;
+use crate::actor_ref::SerializedActorRef;
 use crate::ext::encode_bytes;
 
 pub trait MessageID: Sized {
@@ -16,6 +16,7 @@ pub trait MessageID: Sized {
 pub enum ActorMessage {
     Local(ActorLocalMessage),
     Remote(ActorRemoteMessage),
+    Signal(ActorSignalMessage),
 }
 
 impl ActorMessage {
@@ -42,13 +43,16 @@ impl ActorMessage {
         Ok(remote)
     }
 
-    pub fn name(&self) -> &'static str {
+    pub fn name(&self) -> &str {
         match self {
             ActorMessage::Local(l) => {
                 l.name
             }
             ActorMessage::Remote(r) => {
                 r.name
+            }
+            ActorMessage::Signal(s) => {
+                s.name()
             }
         }
     }
@@ -76,7 +80,13 @@ pub struct ActorRemoteMessage {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) enum Signal {
-    Stop,
+pub(crate) enum ActorSignalMessage {
+    Terminate,
     Terminated(SerializedActorRef),
+}
+
+impl ActorSignalMessage {
+    pub(crate) fn name(&self) -> &String {
+        todo!()
+    }
 }

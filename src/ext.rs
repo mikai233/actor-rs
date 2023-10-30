@@ -1,6 +1,11 @@
+use std::sync::atomic::{AtomicI64, Ordering};
+
 use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
 use tracing_subscriber::fmt::time::LocalTime;
+
+const BASE64_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+~";
+static ACTOR_NAME_OFFSET: AtomicI64 = AtomicI64::new(0);
 
 pub fn read_u16(src: &BytesMut, offset: usize) -> anyhow::Result<u16> {
     let mut u16_bytes = [0u8; 2];
@@ -35,4 +40,29 @@ pub fn init_logger(level: tracing::Level) {
         .event_format(format)
         .with_max_level(level)
         .init();
+}
+
+fn base64(l: i64, mut s: String) -> String {
+    let index = l & 63;
+    let (_, c) = BASE64_CHARS.char_indices().find(|x| { x.0 == index as usize }).unwrap();
+    s.push(c);
+    let next = (l >> 6).abs();
+    if next == 0 { s } else { base64(next, s) }
+}
+
+pub fn random_actor_name() -> String {
+    let num = ACTOR_NAME_OFFSET.fetch_add(1, Ordering::Relaxed);
+    base64(num, "$".to_string())
+}
+
+#[cfg(test)]
+mod ext_test {
+    use crate::ext::random_actor_name;
+
+    #[test]
+    fn test_random_name() {
+        for _ in 0..10000 {
+            random_actor_name();
+        }
+    }
 }

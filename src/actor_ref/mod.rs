@@ -1,8 +1,9 @@
 use std::collections::VecDeque;
 use std::fmt::{Debug, Display, Formatter};
+use std::net::SocketAddrV4;
 use std::str::FromStr;
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
@@ -65,7 +66,7 @@ pub trait ActorRefExt: TActorRef {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SerializedActorRef {
     pub address: Address,
     pub path: Vec<String>,
@@ -79,16 +80,16 @@ impl FromStr for SerializedActorRef {
         let url = Url::parse(s).context(format!("invalid url {}", s))?;
         let scheme = url.scheme().to_string();
         let username = url.username().to_string();
-        let host = url.domain().map(|d| d.to_string());
-        let port = url.port();
+        let host = url.domain().ok_or(anyhow!("no host found in url {}",s))?;
+        let port = url.port().ok_or(anyhow!("no port found in url {}",s))?;
+        let addr: SocketAddrV4 = format!("{}:{}", host, port).parse()?;
         let mut path = url.path().split("/").map(|s| s.to_string()).collect::<Vec<_>>();
         path.remove(0);
         let uid: i32 = url.fragment().unwrap_or("0").parse()?;
         let address = Address {
             protocol: scheme,
             system: username,
-            host,
-            port,
+            addr,
         };
         let actor_ref = SerializedActorRef {
             address,
@@ -142,8 +143,7 @@ mod ref_test {
             address: Address {
                 protocol: "tcp".to_string(),
                 system: "game".to_string(),
-                host: Some("127.0.0.1".to_string()),
-                port: Some(1122),
+                addr: "127.0.0.1:1122".parse().unwrap(),
             },
             path: vec!["a".to_string(), "b".to_string()],
             uid: 112132434,

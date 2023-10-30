@@ -15,6 +15,7 @@ dependencies = [
  "etcd-client",
  "futures",
  "num_cpus",
+ "rand",
  "serde",
  "stubborn-io",
  "thiserror",

@@ -1,11 +1,11 @@
 use tokio::sync::mpsc::{Receiver, Sender};
-use crate::cell::envelope::Envelope;
-use crate::message::Signal;
 
+use crate::cell::envelope::Envelope;
+use crate::message::ActorSignalMessage;
 
 pub(crate) struct Mailbox {
     pub(crate) message: Receiver<Envelope>,
-    pub(crate) signal: Receiver<Signal>,
+    pub(crate) signal: Receiver<Envelope>,
 }
 
 impl Mailbox {
@@ -20,5 +20,5 @@ impl Mailbox {
 #[derive(Debug, Clone)]
 pub(crate) struct MailboxSender {
     pub(crate) message: Sender<Envelope>,
-    pub(crate) signal: Sender<Signal>,
+    pub(crate) signal: Sender<Envelope>,
 }

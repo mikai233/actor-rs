@@ -29,8 +29,8 @@ pub trait ActorRefFactory {
     fn system(&self) -> &ActorSystem;
     fn provider(&self) -> &ActorRefProvider;
     fn guardian(&self) -> &ActorRef;
-    fn lookup_root(&self) -> &ActorRef;
-    fn actor_of<T>(&self, actor: T, arg: T::A, props: Props, name: Option<String>) -> ActorRef where T: Actor;
+    fn lookup_root(&self) -> ActorRef;
+    fn actor_of<T>(&self, actor: T, arg: T::A, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> where T: Actor;
     fn actor_selection(&self, path: String) {}
     fn actor_selection_of_path(&self, path: ActorPath) {}
     fn stop(&self, actor: &ActorRef);

@@ -4,6 +4,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use enum_dispatch::enum_dispatch;
+use rand::{random, Rng};
 
 use crate::actor_ref::SerializedActorRef;
 use crate::address::Address;
@@ -46,11 +47,16 @@ pub enum ActorPath {
 }
 
 impl ActorPath {
-    fn undefined_uid() -> i32 {
+    pub(crate) fn undefined_uid() -> i32 {
         0
     }
 
-    fn split_name_and_uid(name: String) -> (String, i32) {
+    pub(crate) fn new_uid() -> i32 {
+        let uid = random::<i32>();
+        if uid == ActorPath::undefined_uid() { ActorPath::new_uid() } else { uid }
+    }
+
+    pub(crate) fn split_name_and_uid(name: String) -> (String, i32) {
         match name.find('#') {
             None => {
                 (name, ActorPath::undefined_uid())
@@ -268,8 +274,7 @@ mod actor_path_test {
         Address {
             protocol: "akka".to_string(),
             system: "game_server".to_string(),
-            host: Some("127.0.0.1".to_string()),
-            port: Some(12121),
+            addr: "127.0.0.1:12121".parse().unwrap(),
         }
     }
 

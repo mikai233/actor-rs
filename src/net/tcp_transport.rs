@@ -130,13 +130,13 @@ impl TcpTransport {
 }
 
 #[cfg(test)]
-mod materializer_test {
+mod transport_test {
     use std::net::SocketAddr;
     use std::time::Duration;
 
     use tracing::{info, Level};
-    use crate::ext::init_logger;
 
+    use crate::ext::init_logger;
     use crate::net::connection::Connection;
     use crate::net::listener::ConnectionListener;
     use crate::net::tcp_transport::TcpTransport;

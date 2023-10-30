@@ -21,7 +21,8 @@ stubborn-io = "0.3"
 crossbeam = "0.8"
 num_cpus = "1.16"
 url = "2.4"
+rand = "0.8"
+tracing-subscriber = { version = "0.3", features = ["local-time"] }
 
 [dev-dependencies]
 ctor = "0.2"
-tracing-subscriber = { version = "0.3", features = ["local-time"] }
