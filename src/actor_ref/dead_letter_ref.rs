@@ -1,3 +1,6 @@
+use std::collections::BTreeMap;
+use std::sync::RwLock;
+
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::message::ActorMessage;
@@ -16,6 +19,22 @@ impl TActorRef for DeadLetterActorRef {
     }
 
     fn tell(&self, message: ActorMessage, sender: Option<ActorRef>) {
+        todo!()
+    }
+
+    fn start(&self) {
+        todo!()
+    }
+
+    fn stop(&self) {
+        todo!()
+    }
+
+    fn parent(&self) -> Option<&ActorRef> {
+        todo!()
+    }
+
+    fn children(&self) -> &RwLock<BTreeMap<String, ActorRef>> {
         todo!()
     }
 }

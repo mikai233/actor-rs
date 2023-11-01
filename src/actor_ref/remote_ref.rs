@@ -1,5 +1,6 @@
+use std::collections::BTreeMap;
 use std::fmt::Display;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
@@ -24,6 +25,22 @@ impl TActorRef for RemoteActorRef {
     }
 
     fn tell(&self, message: ActorMessage, sender: Option<ActorRef>) {
+        todo!()
+    }
+
+    fn start(&self) {
+        todo!()
+    }
+
+    fn stop(&self) {
+        todo!()
+    }
+
+    fn parent(&self) -> Option<&ActorRef> {
+        todo!()
+    }
+
+    fn children(&self) -> &RwLock<BTreeMap<String, ActorRef>> {
         todo!()
     }
 }

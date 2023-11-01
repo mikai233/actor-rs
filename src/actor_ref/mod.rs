@@ -1,7 +1,8 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::fmt::{Debug, Display, Formatter};
 use std::net::SocketAddrV4;
 use std::str::FromStr;
+use std::sync::RwLock;
 
 use anyhow::{anyhow, Context};
 use enum_dispatch::enum_dispatch;
@@ -42,13 +43,21 @@ pub trait TActorRef: Debug + Send + Sync + 'static {
     fn system(&self) -> ActorSystem;
     fn path(&self) -> &ActorPath;
     fn tell(&self, message: ActorMessage, sender: Option<ActorRef>);
+    fn start(&self);
+    fn stop(&self);
+    fn parent(&self) -> Option<&ActorRef>;
+    fn children(&self) -> &RwLock<BTreeMap<String, ActorRef>>;
 }
 
 impl Display for ActorRef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let path = self.path();
         let uid = path.uid();
-        write!(f, "Actor[{}#{}]", path, uid)
+        if uid == ActorPath::undefined_uid() {
+            write!(f, "Actor[{}]", path)
+        } else {
+            write!(f, "Actor[{}#{}]", path, uid)
+        }
     }
 }
 

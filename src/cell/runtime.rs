@@ -1,12 +1,15 @@
 use std::collections::VecDeque;
+use std::future::Future;
+use std::pin::Pin;
 
+use futures::FutureExt;
+use futures::stream::FuturesUnordered;
 use tokio::task::yield_now;
 use tracing::error;
 
 use crate::actor::{Actor, Message};
-use crate::actor::context::{ActorContext, Context};
+use crate::actor::context::{ActorContext, ActorThreadPoolMessage, Context};
 use crate::actor_ref::ActorRef;
-use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
 use crate::message::{ActorMessage, ActorSignalMessage};
 use crate::net::mailbox::Mailbox;
@@ -16,11 +19,10 @@ use crate::state::ActorState;
 use crate::system::ActorSystem;
 
 pub struct ActorRuntime<T> where T: Actor {
-    pub(crate) actor_ref: ActorRef,
+    pub(crate) myself: ActorRef,
     pub(crate) handler: T,
     pub(crate) props: Props,
     pub(crate) system: ActorSystem,
-    pub(crate) parent: Option<ActorCell>,
     pub(crate) mailbox: Mailbox,
     pub(crate) arg: T::A,
 }
@@ -28,19 +30,17 @@ pub struct ActorRuntime<T> where T: Actor {
 impl<T> ActorRuntime<T> where T: Actor {
     pub(crate) async fn run(self) {
         let Self {
-            actor_ref,
+            myself,
             handler,
             props,
             system,
-            parent,
             mut mailbox,
             arg
         } = self;
         let actor = std::any::type_name::<T>();
-        let cell = ActorCell::new(parent, actor_ref);
         let mut context = ActorContext {
             state: ActorState::Init,
-            cell,
+            myself,
             sender: None,
             stash: VecDeque::new(),
             tasks: Vec::new(),
@@ -167,5 +167,14 @@ impl<T> ActorRuntime<T> where T: Actor {
         }
         context.sender.take();
         return false;
+    }
+}
+
+impl<T> Into<ActorThreadPoolMessage> for ActorRuntime<T> where T: Actor {
+    fn into(self) -> ActorThreadPoolMessage {
+        let spawn_fn = move |futures: &mut FuturesUnordered<Pin<Box<dyn Future<Output=()>>>>| {
+            futures.push(self.run().boxed_local());
+        };
+        ActorThreadPoolMessage::SpawnActor(Box::new(spawn_fn))
     }
 }

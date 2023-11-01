@@ -77,7 +77,14 @@ impl Display for ActorPath {
                 write!(f, "{}{}", r.address, r.name)
             }
             ActorPath::ChildActorPath(c) => {
-                write!(f, "{}/{}", c.parent, c.name)
+                match &c.parent {
+                    ActorPath::RootActorPath(_) => {
+                        write!(f, "{}{}", c.parent, c.name)
+                    }
+                    ActorPath::ChildActorPath(_) => {
+                        write!(f, "{}/{}", c.parent, c.name)
+                    }
+                }
             }
         }
     }

@@ -1,27 +1,29 @@
 use std::future::Future;
 use std::net::SocketAddrV4;
-use std::pin::Pin;
 use std::sync::{Arc, RwLock};
 
 use anyhow::anyhow;
 use futures::FutureExt;
-use futures::stream::FuturesUnordered;
 
 use crate::actor::Actor;
 use crate::actor::context::{ActorThreadPool, ActorThreadPoolMessage};
-use crate::actor_path::{ActorPath, RootActorPath, TActorPath};
-use crate::actor_ref::ActorRef;
+use crate::actor_path::{ActorPath, TActorPath};
+use crate::actor_ref::{ActorRef, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::address::Address;
+use crate::cell::ActorCell;
 use crate::cell::runtime::ActorRuntime;
 use crate::ext::random_actor_name;
 use crate::net::mailbox::{Mailbox, MailboxSender};
 use crate::props::Props;
-use crate::provider::{ActorRefFactory, ActorRefProvider};
+use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
+use crate::provider::local_provider::LocalActorRefProvider;
+use crate::provider::remote_provider::RemoteActorRefProvider;
 
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
     inner: Arc<Inner>,
+    provider: Option<ActorRefProvider>,
 }
 
 #[derive(Debug)]
@@ -29,11 +31,10 @@ struct Inner {
     address: Address,
     spawner: crossbeam::channel::Sender<ActorThreadPoolMessage>,
     pool: RwLock<ActorThreadPool>,
-    provider: Option<ActorRefProvider>,
 }
 
 impl ActorSystem {
-    fn new(name: String, addr: SocketAddrV4) -> Self {
+    pub fn new(name: String, addr: SocketAddrV4) -> anyhow::Result<Self> {
         let pool = ActorThreadPool::new();
         let address = Address {
             protocol: "tcp".to_string(),
@@ -44,15 +45,23 @@ impl ActorSystem {
             address,
             spawner: pool.sender.clone(),
             pool: pool.into(),
+        };
+        let mut system = Self {
+            inner: inner.into(),
             provider: None,
         };
-        let system = Self {
-            inner: inner.into(),
+        let provider = RemoteActorRefProvider {
+            local: LocalActorRefProvider::new(&system)?
         };
-        system
+        system.provider = Some(provider.into());
+        Ok(system)
     }
-    fn name(&self) -> &String {
+    pub fn name(&self) -> &String {
         &self.inner.address.system
+    }
+
+    pub fn address(&self) -> &Address {
+        &&self.inner.address
     }
 
     fn child(&self, child: String) -> ActorPath {
@@ -70,6 +79,14 @@ impl ActorSystem {
     fn terminate(&self) {
         todo!()
     }
+
+    pub(crate) fn exec_actor_rt<T>(&self, rt: ActorRuntime<T>) -> anyhow::Result<()> where T: Actor {
+        if self.inner.spawner.send(rt.into()).is_err() {
+            let name = std::any::type_name::<T>();
+            return Err(anyhow!("spawn actor {} error, actor thread pool shutdown",name));
+        }
+        Ok(())
+    }
 }
 
 impl ActorRefFactory for ActorSystem {
@@ -78,11 +95,11 @@ impl ActorRefFactory for ActorSystem {
     }
 
     fn provider(&self) -> &ActorRefProvider {
-        self.inner.provider.as_ref().unwrap()
+        self.provider.as_ref().unwrap()
     }
 
-    fn guardian(&self) -> &ActorRef {
-        todo!()
+    fn guardian(&self) -> &LocalActorRef {
+        self.provider().guardian()
     }
 
     fn lookup_root(&self) -> ActorRef {
@@ -90,16 +107,12 @@ impl ActorRefFactory for ActorSystem {
     }
 
     fn actor_of<T>(&self, actor: T, arg: T::A, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> where T: Actor {
-        let path = RootActorPath::new(self.inner.address.clone(), "/user".to_string());
-        let actor_rt = make_actor_runtime::<T>(self, actor, arg, props, name, path.into())?;
-        let actor_ref = actor_rt.actor_ref.clone();
-        let spawn_fn = move |futures: &mut FuturesUnordered<Pin<Box<dyn Future<Output=()>>>>| {
-            futures.push(actor_rt.run().boxed_local());
-        };
-        if self.inner.spawner.send(ActorThreadPoolMessage::SpawnActor(Box::new(spawn_fn))).is_err() {
-            let name = std::any::type_name::<T>();
-            return Err(anyhow!("spawn actor {} error, actor thread pool shutdown",name));
-        }
+        let name = name.unwrap_or_else(random_actor_name);
+        //TODO validate custom actor name
+        let path = self.guardian().path.child(name);
+        let rt = make_actor_runtime(self, actor, arg, props, path, Some(self.guardian().clone().into()))?;
+        let actor_ref = rt.myself.clone();
+        self.exec_actor_rt(rt)?;
         Ok(actor_ref)
     }
 
@@ -108,26 +121,36 @@ impl ActorRefFactory for ActorSystem {
     }
 }
 
-fn make_actor_runtime<T>(system: &ActorSystem, actor: T, arg: T::A, props: Props, name: Option<String>, parent: ActorPath) -> anyhow::Result<ActorRuntime<T>> where T: Actor {
-    let name = match name {
-        None => { random_actor_name() }
-        Some(name) => { name }
-    };
+#[derive(Debug)]
+pub(crate) enum ActorParent {
+    Other(ActorRef),
+    Myself,
+}
+
+pub(crate) fn make_actor_runtime<T>(system: &ActorSystem, actor: T, arg: T::A, props: Props, path: ActorPath, parent: Option<ActorRef>) -> anyhow::Result<ActorRuntime<T>> where T: Actor {
+    let name = path.name().clone();
     let (m_tx, m_rx) = tokio::sync::mpsc::channel(props.mailbox);
     let (s_tx, s_rx) = tokio::sync::mpsc::channel(1000);
     let sender = MailboxSender { message: m_tx, signal: s_tx };
     let mailbox = Mailbox { message: m_rx, signal: s_rx };
-    let actor_ref = LocalActorRef {
+    let myself = LocalActorRef {
         system: system.clone(),
-        path: parent.child(name),
+        path,
         sender,
+        cell: ActorCell::new(parent),
     };
+    if let Some(parent) = myself.parent() {
+        let mut children = parent.children().write().unwrap();
+        if children.contains_key(&name) {
+            return Err(anyhow!("duplicate actor name {}",name));
+        }
+        children.insert(name, myself.clone().into());
+    }
     let rt = ActorRuntime {
-        actor_ref: actor_ref.into(),
+        myself: myself.into(),
         handler: actor,
         props,
         system: system.clone(),
-        parent: None,
         mailbox,
         arg,
     };
@@ -137,12 +160,13 @@ fn make_actor_runtime<T>(system: &ActorSystem, actor: T, arg: T::A, props: Props
 #[cfg(test)]
 mod system_test {
     use std::net::SocketAddrV4;
+    use std::time::Duration;
 
     use tracing::info;
 
     use crate::actor::Actor;
     use crate::actor::context::{ActorContext, Context};
-    use crate::actor_ref::ActorRefExt;
+    use crate::actor_ref::{ActorRefExt, TActorRef};
     use crate::props::Props;
     use crate::provider::ActorRefFactory;
     use crate::system::ActorSystem;
@@ -165,15 +189,23 @@ mod system_test {
         }
     }
 
-    #[test]
-    fn test_spawn_actor() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn test_spawn_actor() -> anyhow::Result<()> {
         let name = "game".to_string();
         let addr: SocketAddrV4 = "127.0.0.1:12121".parse()?;
-        let system = ActorSystem::new(name, addr);
-        let actor = system.actor_of(TestActor, (), Props::default(), None)?;
-        info!("{}", actor);
-        actor.tell_local((), None);
-        std::thread::park();
+        let system = ActorSystem::new(name, addr)?;
+        for i in 0..10 {
+            let name = format!("testActor{}", i);
+            let actor = system.actor_of(TestActor, (), Props::default(), Some(name))?;
+            tokio::spawn(async move {
+                info!("{}", actor);
+                loop {
+                    actor.tell_local((), None);
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                }
+            });
+        }
+        tokio::time::sleep(Duration::from_secs(10)).await;
         Ok(())
     }
 }

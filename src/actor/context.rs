@@ -9,11 +9,13 @@ use tokio::task::JoinHandle;
 use tracing::error;
 
 use crate::actor::Actor;
+use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::cell::ActorCell;
+use crate::actor_ref::local_ref::LocalActorRef;
+use crate::ext::random_actor_name;
 use crate::message::ActorMessage;
 use crate::props::Props;
-use crate::provider::{ActorRefFactory, ActorRefProvider};
+use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::state::ActorState;
 use crate::system::ActorSystem;
 
@@ -40,7 +42,7 @@ pub trait ContextExt: Context {
 #[derive(Debug)]
 pub struct ActorContext<T> where T: Actor {
     pub(crate) state: ActorState,
-    pub(crate) cell: ActorCell,
+    pub(crate) myself: ActorRef,
     pub(crate) sender: Option<ActorRef>,
     pub(crate) stash: VecDeque<(T::M, Option<ActorRef>)>,
     pub(crate) tasks: Vec<JoinHandle<()>>,
@@ -56,8 +58,8 @@ impl<A> ActorRefFactory for ActorContext<A> where A: Actor {
         self.system.provider()
     }
 
-    fn guardian(&self) -> &ActorRef {
-        todo!()
+    fn guardian(&self) -> &LocalActorRef {
+        self.system.guardian()
     }
 
     fn lookup_root(&self) -> ActorRef {
@@ -65,8 +67,11 @@ impl<A> ActorRefFactory for ActorContext<A> where A: Actor {
     }
 
     fn actor_of<T>(&self, actor: T, arg: T::A, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> where T: Actor {
-        let supervisor = self.cell.myself();
-        todo!()
+        let supervisor = &self.myself;
+        let name = name.unwrap_or_else(random_actor_name);
+        //TODO validate actor name
+        let path = supervisor.path().child(name);
+        self.provider().actor_of(actor, arg, props, supervisor, path)
     }
 
     fn stop(&self, actor: &ActorRef) {
@@ -76,7 +81,7 @@ impl<A> ActorRefFactory for ActorContext<A> where A: Actor {
 
 impl<A> Context for ActorContext<A> where A: Actor {
     fn myself(&self) -> &ActorRef {
-        self.cell.myself()
+        &self.myself
     }
 
     fn sender(&self) -> Option<&ActorRef> {
@@ -84,19 +89,23 @@ impl<A> Context for ActorContext<A> where A: Actor {
     }
 
     fn children(&self) -> RwLockReadGuard<BTreeMap<String, ActorRef>> {
-        self.cell.children().read().unwrap()
+        // self.cell.children().read().unwrap()
+        todo!()
     }
 
     fn children_mut(&self) -> RwLockWriteGuard<BTreeMap<String, ActorRef>> {
-        self.cell.children().write().unwrap()
+        // self.cell.children().write().unwrap()
+        todo!()
     }
 
     fn child(&self, name: &String) -> Option<ActorRef> {
-        self.cell.children().read().unwrap().get(name).cloned()
+        // self.cell.children().read().unwrap().get(name).cloned()
+        todo!()
     }
 
     fn parent(&self) -> Option<&ActorRef> {
-        self.cell.parent().map(|p| p.myself())
+        // self.cell.parent().map(|p| p.myself())
+        todo!()
     }
 
     fn watch(&self, subject: &ActorRef) {

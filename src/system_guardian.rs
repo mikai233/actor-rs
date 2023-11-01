@@ -1,15 +1,17 @@
+use tracing::debug;
 use crate::actor::Actor;
-use crate::actor::context::ActorContext;
+use crate::actor::context::{ActorContext, Context};
 
 #[derive(Debug)]
-struct Guardian;
+pub(crate) struct SystemGuardian;
 
-impl Actor for Guardian {
+impl Actor for SystemGuardian {
     type M = ();
     type S = ();
     type A = ();
 
     fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
+        debug!("SystemGuardian {} pre start",ctx.myself());
         Ok(())
     }
 

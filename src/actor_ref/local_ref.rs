@@ -1,4 +1,6 @@
+use std::collections::BTreeMap;
 use std::fmt::Display;
+use std::sync::RwLock;
 use std::time::Duration;
 
 use tokio::sync::mpsc::error::TrySendError;
@@ -8,6 +10,7 @@ use crate::actor::Message;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
+use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
 use crate::message::ActorMessage;
 use crate::net::mailbox::MailboxSender;
@@ -15,9 +18,10 @@ use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
 pub struct LocalActorRef {
-    pub system: ActorSystem,
-    pub path: ActorPath,
-    pub sender: MailboxSender,
+    pub(crate) system: ActorSystem,
+    pub(crate) path: ActorPath,
+    pub(crate) sender: MailboxSender,
+    pub(crate) cell: ActorCell,
 }
 
 impl TActorRef for LocalActorRef {
@@ -46,6 +50,22 @@ impl TActorRef for LocalActorRef {
                 }
             }
         }
+    }
+
+    fn start(&self) {
+        todo!()
+    }
+
+    fn stop(&self) {
+        todo!()
+    }
+
+    fn parent(&self) -> Option<&ActorRef> {
+        self.cell.parent()
+    }
+
+    fn children(&self) -> &RwLock<BTreeMap<String, ActorRef>> {
+        self.cell.children()
     }
 }
 
