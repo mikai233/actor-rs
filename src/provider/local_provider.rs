@@ -2,17 +2,17 @@ use std::sync::Arc;
 
 use crate::actor::Actor;
 use crate::actor_path::{ActorPath, RootActorPath, TActorPath};
-use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor_ref::local_ref::LocalActorRef;
 use crate::props::Props;
 use crate::provider::{ActorRefFactory, TActorRefProvider};
 use crate::root_guardian::RootGuardian;
-use crate::system::{make_actor_runtime, ActorSystem};
+use crate::system::{ActorSystem, make_actor_runtime};
 use crate::system_guardian::SystemGuardian;
 use crate::user_guardian::UserGuardian;
 
 #[derive(Debug, Clone)]
-pub(crate) struct LocalActorRefProvider {
+pub struct LocalActorRefProvider {
     inner: Arc<Inner>,
 }
 
@@ -128,8 +128,8 @@ impl TActorRefProvider for LocalActorRefProvider {
         supervisor: &ActorRef,
         path: ActorPath,
     ) -> anyhow::Result<ActorRef>
-    where
-        T: Actor,
+        where
+            T: Actor,
     {
         todo!()
     }

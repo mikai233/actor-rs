@@ -21,7 +21,7 @@ pub enum ActorRefProvider {
 }
 
 #[enum_dispatch(ActorRefProvider)]
-pub(crate) trait TActorRefProvider: Send {
+pub trait TActorRefProvider: Send {
     fn root_guardian(&self) -> &LocalActorRef;
     fn guardian(&self) -> &LocalActorRef;
     fn system_guardian(&self) -> &LocalActorRef;

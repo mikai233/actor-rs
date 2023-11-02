@@ -10,7 +10,6 @@ use enum_dispatch::enum_dispatch;
 use rand::random;
 use url::Url;
 
-use crate::actor_ref::SerializedActorRef;
 use crate::address::Address;
 
 #[enum_dispatch(ActorPath)]
@@ -28,11 +27,11 @@ pub trait TActorPath {
                 uid,
             }),
         }
-        .into()
+            .into()
     }
     fn descendant<I>(&self, names: I) -> ActorPath
-    where
-        I: IntoIterator<Item = String>,
+        where
+            I: IntoIterator<Item=String>,
     {
         let names = names.into_iter();
         let init: ActorPath = self.myself();

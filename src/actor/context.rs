@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::future::Future;
+use std::ops::Not;
 use std::pin::Pin;
 use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 
@@ -10,8 +11,8 @@ use tracing::error;
 
 use crate::actor::Actor;
 use crate::actor_path::TActorPath;
+use crate::actor_ref::{ActorRef, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::ext::random_actor_name;
 use crate::message::{ActorMessage, ActorRemoteSystemMessage};
 use crate::props::Props;
@@ -41,8 +42,8 @@ pub trait ContextExt: Context {
 
 #[derive(Debug)]
 pub struct ActorContext<T>
-where
-    T: Actor,
+    where
+        T: Actor,
 {
     pub(crate) state: ActorState,
     pub(crate) myself: ActorRef,
@@ -53,8 +54,8 @@ where
 }
 
 impl<A> ActorRefFactory for ActorContext<A>
-where
-    A: Actor,
+    where
+        A: Actor,
 {
     fn system(&self) -> &ActorSystem {
         &self.system
@@ -79,15 +80,14 @@ where
         props: Props,
         name: Option<String>,
     ) -> anyhow::Result<ActorRef>
-    where
-        T: Actor,
+        where
+            T: Actor,
     {
         let supervisor = &self.myself;
         let name = name.unwrap_or_else(random_actor_name);
         //TODO validate actor name
         let path = supervisor.path().child(name);
-        self.provider()
-            .actor_of(actor, arg, props, supervisor, path)
+        self.provider().actor_of(actor, arg, props, supervisor, path)
     }
 
     fn stop(&self, actor: &ActorRef) {
@@ -99,8 +99,8 @@ where
 }
 
 impl<A> Context for ActorContext<A>
-where
-    A: Actor,
+    where
+        A: Actor,
 {
     fn myself(&self) -> &ActorRef {
         &self.myself
@@ -111,23 +111,31 @@ where
     }
 
     fn children(&self) -> RwLockReadGuard<BTreeMap<String, ActorRef>> {
-        // self.cell.children().read().unwrap()
-        todo!()
+        if let ActorRef::LocalActorRef(myself) = self.myself() {
+            myself.cell.children().read().unwrap()
+        } else {
+            panic!("unreachable")
+        }
     }
 
     fn children_mut(&self) -> RwLockWriteGuard<BTreeMap<String, ActorRef>> {
-        // self.cell.children().write().unwrap()
-        todo!()
+        if let ActorRef::LocalActorRef(myself) = self.myself() {
+            myself.cell.children().write().unwrap()
+        } else {
+            panic!("unreachable")
+        }
     }
 
     fn child(&self, name: &String) -> Option<ActorRef> {
-        // self.cell.children().read().unwrap().get(name).cloned()
-        todo!()
+        self.children().get(name).cloned()
     }
 
     fn parent(&self) -> Option<&ActorRef> {
-        // self.cell.parent().map(|p| p.myself())
-        todo!()
+        if let ActorRef::LocalActorRef(myself) = self.myself() {
+            myself.cell.parent()
+        } else {
+            panic!("unreachable")
+        }
     }
 
     fn watch(&self, subject: &ActorRef) {
@@ -144,8 +152,8 @@ where
 }
 
 impl<A> ActorContext<A>
-where
-    A: Actor,
+    where
+        A: Actor,
 {
     pub fn stash(&mut self, message: A::M) {
         let sender = self.sender.clone();
@@ -169,11 +177,25 @@ where
         }
         return true;
     }
+
+    pub(crate) fn handle_terminate(&mut self) {
+        self.state = ActorState::Terminating;
+        let children: Vec<ActorRef> = self.children().values().cloned().collect();
+        if children.is_empty().not() {
+            for child in &children {
+                self.stop(child);
+            }
+        } else {
+            self.finish_terminated();
+        }
+    }
+
+    pub(crate) fn finish_terminated(&mut self) {}
 }
 
 pub(crate) enum ActorThreadPoolMessage {
     SpawnActor(
-        Box<dyn FnOnce(&mut FuturesUnordered<Pin<Box<dyn Future<Output = ()>>>>) + Send + 'static>,
+        Box<dyn FnOnce(&mut FuturesUnordered<Pin<Box<dyn Future<Output=()>>>>) + Send + 'static>,
     ),
 }
 

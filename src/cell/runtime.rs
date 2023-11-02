@@ -2,13 +2,13 @@ use std::collections::VecDeque;
 use std::future::Future;
 use std::pin::Pin;
 
-use futures::stream::FuturesUnordered;
 use futures::FutureExt;
+use futures::stream::FuturesUnordered;
 use tokio::task::yield_now;
 use tracing::error;
 
-use crate::actor::context::{ActorContext, ActorThreadPoolMessage, Context};
 use crate::actor::{Actor, Message};
+use crate::actor::context::{ActorContext, ActorThreadPoolMessage, Context};
 use crate::actor_ref::ActorRef;
 use crate::cell::envelope::Envelope;
 use crate::message::{
@@ -23,8 +23,8 @@ use crate::system::ActorSystem;
 use super::envelope::UserEnvelope;
 
 pub struct ActorRuntime<T>
-where
-    T: Actor,
+    where
+        T: Actor,
 {
     pub(crate) myself: ActorRef,
     pub(crate) handler: T,
@@ -35,8 +35,8 @@ where
 }
 
 impl<T> ActorRuntime<T>
-where
-    T: Actor,
+    where
+        T: Actor,
 {
     pub(crate) async fn run(self) {
         let Self {
@@ -101,15 +101,15 @@ where
             task.abort();
         }
         mailbox.close();
-        context.state = ActorState::Stopped;
+        context.state = ActorState::Terminated;
     }
 
     async fn handle_system(context: &mut ActorContext<T>, envelope: Envelope) -> bool {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
         async fn signal_parent<T>(context: &mut ActorContext<T>, message: ActorRemoteSystemMessage)
-        where
-            T: Actor,
+            where
+                T: Actor,
         {
             if let Some(parent) = context.parent().clone() {
                 // parent.signal(signal).await;
@@ -123,7 +123,9 @@ where
             ActorMessage::Remote(r) => match r {
                 ActorRemoteMessage::User { .. } => panic!("unreachable user branch"),
                 ActorRemoteMessage::System { message } => match message {
-                    ActorRemoteSystemMessage::Terminate => todo!(),
+                    ActorRemoteSystemMessage::Terminate => {
+                        context.handle_terminate();
+                    }
                     ActorRemoteSystemMessage::Terminated(_) => todo!(),
                     ActorRemoteSystemMessage::Watch { watchee, watcher } => todo!(),
                     ActorRemoteSystemMessage::UnWatch { watchee } => todo!(),
@@ -171,11 +173,11 @@ where
 }
 
 impl<T> Into<ActorThreadPoolMessage> for ActorRuntime<T>
-where
-    T: Actor,
+    where
+        T: Actor,
 {
     fn into(self) -> ActorThreadPoolMessage {
-        let spawn_fn = move |futures: &mut FuturesUnordered<Pin<Box<dyn Future<Output = ()>>>>| {
+        let spawn_fn = move |futures: &mut FuturesUnordered<Pin<Box<dyn Future<Output=()>>>>| {
             futures.push(self.run().boxed_local());
         };
         ActorThreadPoolMessage::SpawnActor(Box::new(spawn_fn))

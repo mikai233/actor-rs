@@ -1,8 +1,8 @@
 use std::any::Any;
 use std::fmt::{Debug, Formatter};
 
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
 
 use crate::actor::Message;
 use crate::actor_ref::SerializedActorRef;
@@ -16,8 +16,8 @@ pub enum ActorMessage {
 
 impl ActorMessage {
     pub fn local<M>(message: M) -> ActorMessage
-    where
-        M: Message,
+        where
+            M: Message,
     {
         let name = std::any::type_name::<M>();
         let boxed = Box::new(message);
@@ -31,8 +31,8 @@ impl ActorMessage {
     }
 
     pub fn remote<M>(message: &M) -> anyhow::Result<ActorMessage>
-    where
-        M: Message + Serialize + DeserializeOwned,
+        where
+            M: Message + Serialize + DeserializeOwned,
     {
         let name = std::any::type_name::<M>();
         let body = encode_bytes(message)?;
@@ -57,7 +57,7 @@ impl ActorMessage {
     }
 }
 
-pub(crate) enum ActorLocalMessage {
+pub enum ActorLocalMessage {
     User {
         name: &'static str,
         inner: Box<dyn Any + Send + 'static>,
@@ -93,7 +93,7 @@ impl Debug for ActorLocalMessage {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) enum ActorRemoteMessage {
+pub enum ActorRemoteMessage {
     User {
         name: &'static str,
         message: Vec<u8>,
@@ -113,7 +113,7 @@ impl ActorRemoteMessage {
 }
 
 #[derive(Debug)]
-pub(crate) enum ActorSystemMessage {}
+pub enum ActorSystemMessage {}
 
 impl ActorSystemMessage {
     pub(crate) fn name(&self) -> &str {
@@ -122,17 +122,17 @@ impl ActorSystemMessage {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) enum ActorRemoteSystemMessage {
+pub enum ActorRemoteSystemMessage {
     Terminate,
     Terminated(SerializedActorRef),
     Watch {
         watchee: SerializedActorRef,
         watcher: SerializedActorRef,
     },
-    UnWatch{
-        watchee:SerializedActorRef,
-        
-    }
+    UnWatch {
+        watchee: SerializedActorRef,
+
+    },
 }
 
 impl ActorRemoteSystemMessage {

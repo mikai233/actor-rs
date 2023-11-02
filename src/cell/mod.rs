@@ -30,7 +30,7 @@ impl ActorCell {
 }
 
 #[derive(Debug)]
-struct Inner {
+pub(crate) struct Inner {
     parent: Option<ActorRef>,
     children: RwLock<BTreeMap<String, ActorRef>>,
 }
