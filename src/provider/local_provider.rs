@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use crate::actor::Actor;
 use crate::actor_path::{ActorPath, RootActorPath, TActorPath};
-use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
+use crate::actor_ref::{ActorRef, TActorRef};
 use crate::props::Props;
 use crate::provider::{ActorRefFactory, TActorRefProvider};
 use crate::root_guardian::RootGuardian;
-use crate::system::{ActorSystem, make_actor_runtime};
+use crate::system::{make_actor_runtime, ActorSystem};
 use crate::system_guardian::SystemGuardian;
 use crate::user_guardian::UserGuardian;
 
@@ -29,13 +29,34 @@ impl LocalActorRefProvider {
         let root_path = RootActorPath::new(system.address().clone(), "/".to_string());
         let system_path = root_path.child("system".to_string());
         let user_path = root_path.child("user".to_string());
-        let rt = make_actor_runtime(system, RootGuardian, (), Props::default(), root_path.clone().into(), None)?;
+        let rt = make_actor_runtime(
+            system,
+            RootGuardian,
+            (),
+            Props::default(),
+            root_path.clone().into(),
+            None,
+        )?;
         let root_guardian = rt.myself.clone();
         system.exec_actor_rt(rt)?;
-        let rt = make_actor_runtime(system, SystemGuardian, (), Props::default(), system_path, Some(root_guardian.clone()))?;
+        let rt = make_actor_runtime(
+            system,
+            SystemGuardian,
+            (),
+            Props::default(),
+            system_path,
+            Some(root_guardian.clone()),
+        )?;
         let system_guardian = rt.myself.clone();
         system.exec_actor_rt(rt)?;
-        let rt = make_actor_runtime(system, UserGuardian, (), Props::default(), user_path, Some(root_guardian.clone()))?;
+        let rt = make_actor_runtime(
+            system,
+            UserGuardian,
+            (),
+            Props::default(),
+            user_path,
+            Some(root_guardian.clone()),
+        )?;
         let user_guardian = rt.myself.clone();
         let root_guardian = if let ActorRef::LocalActorRef(l) = root_guardian {
             l
@@ -99,7 +120,17 @@ impl TActorRefProvider for LocalActorRefProvider {
         todo!()
     }
 
-    fn actor_of<T>(&self, actor: T, arg: T::A, props: Props, supervisor: &ActorRef, path: ActorPath) -> anyhow::Result<ActorRef> where T: Actor {
+    fn actor_of<T>(
+        &self,
+        actor: T,
+        arg: T::A,
+        props: Props,
+        supervisor: &ActorRef,
+        path: ActorPath,
+    ) -> anyhow::Result<ActorRef>
+    where
+        T: Actor,
+    {
         todo!()
     }
 

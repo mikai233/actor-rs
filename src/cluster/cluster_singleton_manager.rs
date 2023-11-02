@@ -1,7 +1,7 @@
-use std::fmt::{Debug, Formatter};
-use crate::actor::Actor;
 use crate::actor::context::ActorContext;
-
+use crate::actor::Actor;
+use crate::cell::envelope::UserEnvelope;
+use std::fmt::{Debug, Formatter};
 
 #[derive(Debug)]
 pub struct ClusterSingletonManager {}
@@ -15,9 +15,7 @@ pub struct State {
 
 impl Debug for State {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("State")
-            .field("client", &"..")
-            .finish()
+        f.debug_struct("State").field("client", &"..").finish()
     }
 }
 
@@ -30,7 +28,12 @@ impl Actor for ClusterSingletonManager {
         todo!()
     }
 
-    fn on_recv(&self, ctx: &mut ActorContext<Self>, state: &mut Self::S, message: Self::M) -> anyhow::Result<()> {
+    fn on_recv(
+        &self,
+        ctx: &mut ActorContext<Self>,
+        state: &mut Self::S,
+        message: UserEnvelope<Self::M>,
+    ) -> anyhow::Result<()> {
         todo!()
     }
 }

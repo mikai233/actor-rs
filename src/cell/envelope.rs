@@ -1,3 +1,6 @@
+use std::any::Any;
+
+use crate::actor::Message;
 use crate::actor_ref::ActorRef;
 use crate::message::ActorMessage;
 
@@ -11,4 +14,17 @@ impl Envelope {
     pub fn name(&self) -> &str {
         self.message.name()
     }
+}
+
+#[derive(Debug)]
+pub enum UserEnvelope<M>
+where
+    M: Message,
+{
+    Local(M),
+    Remote {
+        name: &'static str,
+        message: Vec<u8>,
+    },
+    Unkonwn(Box<dyn Any + Send + 'static>),
 }

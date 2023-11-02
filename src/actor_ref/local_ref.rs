@@ -10,9 +10,11 @@ use crate::actor::Message;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
+use crate::cell::ActorCell;
+use crate::message::ActorLocalMessage;
 use crate::message::ActorMessage;
+use crate::message::ActorRemoteMessage;
 use crate::net::mailbox::MailboxSender;
 use crate::system::ActorSystem;
 
@@ -34,21 +36,32 @@ impl TActorRef for LocalActorRef {
     }
 
     fn tell(&self, message: ActorMessage, sender: Option<ActorRef>) {
-        let envelop = Envelope {
-            message,
-            sender,
-        };
+        let envelop = Envelope { message, sender };
         match &envelop.message {
-            ActorMessage::Local(_) | ActorMessage::Remote(_) => {
-                if let Some(error) = self.sender.message.try_send(envelop).err() {
-                    self.report_send_error(error);
+            ActorMessage::Local(l) => match l {
+                ActorLocalMessage::User { .. } => {
+                    if let Some(error) = self.sender.message.try_send(envelop).err() {
+                        self.report_send_error(error);
+                    }
                 }
-            }
-            ActorMessage::Signal(_) => {
-                if let Some(error) = self.sender.signal.try_send(envelop).err() {
-                    self.report_send_error(error);
+                ActorLocalMessage::System { .. } => {
+                    if let Some(error) = self.sender.signal.try_send(envelop).err() {
+                        self.report_send_error(error);
+                    }
                 }
-            }
+            },
+            ActorMessage::Remote(r) => match r {
+                ActorRemoteMessage::User { .. } => {
+                    if let Some(error) = self.sender.message.try_send(envelop).err() {
+                        self.report_send_error(error);
+                    }
+                }
+                ActorRemoteMessage::System { .. } => {
+                    if let Some(error) = self.sender.signal.try_send(envelop).err() {
+                        self.report_send_error(error);
+                    }
+                }
+            },
         }
     }
 
@@ -77,10 +90,16 @@ impl LocalActorRef {
                 let name = envelop.name();
                 match &envelop.sender {
                     None => {
-                        warn!("message {} to {} was not delivered because mailbox is full",name,actor);
+                        warn!(
+                            "message {} to {} was not delivered because mailbox is full",
+                            name, actor
+                        );
                     }
                     Some(sender) => {
-                        warn!("message {} from {} to {} was not delivered because mailbox is full",name,sender,actor);
+                        warn!(
+                            "message {} from {} to {} was not delivered because mailbox is full",
+                            name, sender, actor
+                        );
                     }
                 }
             }
@@ -88,10 +107,16 @@ impl LocalActorRef {
                 let name = envelop.name();
                 match &envelop.sender {
                     None => {
-                        warn!("message {} to {} was not delivered because actor stopped",name,actor);
+                        warn!(
+                            "message {} to {} was not delivered because actor stopped",
+                            name, actor
+                        );
                     }
                     Some(sender) => {
-                        warn!("message {} from {} to {} was not delivered because actor stopped",name,sender,actor);
+                        warn!(
+                            "message {} from {} to {} was not delivered because actor stopped",
+                            name, sender, actor
+                        );
                     }
                 }
             }
@@ -99,7 +124,11 @@ impl LocalActorRef {
     }
 }
 
-pub async fn ask<M, R>(actor: &LocalActorRef, message: M, timeout: Duration) -> anyhow::Result<R> where M: Message, R: Message {
+pub async fn ask<M, R>(actor: &LocalActorRef, message: M, timeout: Duration) -> anyhow::Result<R>
+where
+    M: Message,
+    R: Message,
+{
     todo!()
     // let actor_info = format!("{:?}", actor);
     // let message_info = format!("{:?}", message);

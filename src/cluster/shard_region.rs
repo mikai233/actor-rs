@@ -1,5 +1,6 @@
-use crate::actor::Actor;
 use crate::actor::context::ActorContext;
+use crate::actor::Actor;
+use crate::cell::envelope::UserEnvelope;
 
 #[derive(Debug)]
 pub struct ShardRegion {}
@@ -13,7 +14,12 @@ impl Actor for ShardRegion {
         todo!()
     }
 
-    fn on_recv(&self, ctx: &mut ActorContext<Self>, state: &mut Self::S, message: Self::M) -> anyhow::Result<()> {
+    fn on_recv(
+        &self,
+        ctx: &mut ActorContext<Self>,
+        state: &mut Self::S,
+        message: UserEnvelope<Self::M>,
+    ) -> anyhow::Result<()> {
         todo!()
     }
 }

@@ -1,10 +1,14 @@
 use std::collections::VecDeque;
 use std::fmt::{Debug, Display, Formatter};
+use std::net::SocketAddrV4;
 use std::ops::Deref;
+use std::str::FromStr;
 use std::sync::Arc;
 
+use anyhow::{anyhow, Context};
 use enum_dispatch::enum_dispatch;
-use rand::{random, Rng};
+use rand::random;
+use url::Url;
 
 use crate::actor_ref::SerializedActorRef;
 use crate::address::Address;
@@ -23,18 +27,25 @@ pub trait TActorPath {
                 name: child_name,
                 uid,
             }),
-        }.into()
+        }
+        .into()
     }
-    fn descendant<I>(&self, names: I) -> ActorPath where I: IntoIterator<Item=String> {
+    fn descendant<I>(&self, names: I) -> ActorPath
+    where
+        I: IntoIterator<Item = String>,
+    {
         let names = names.into_iter();
         let init: ActorPath = self.myself();
         names.fold(init, |path, elem| {
-            if elem.is_empty() { path } else { path.child(elem) }
+            if elem.is_empty() {
+                path
+            } else {
+                path.child(elem)
+            }
         })
     }
     fn elements(&self) -> Vec<String>;
     fn root(&self) -> RootActorPath;
-    fn to_serialization(&self) -> SerializedActorRef;
     fn uid(&self) -> i32;
     fn with_uid(&self, uid: i32) -> ActorPath;
 }
@@ -46,6 +57,12 @@ pub enum ActorPath {
     ChildActorPath,
 }
 
+impl PartialEq for ActorPath {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_string().eq(&other.to_string())
+    }
+}
+
 impl ActorPath {
     pub(crate) fn undefined_uid() -> i32 {
         0
@@ -53,19 +70,30 @@ impl ActorPath {
 
     pub(crate) fn new_uid() -> i32 {
         let uid = random::<i32>();
-        if uid == ActorPath::undefined_uid() { ActorPath::new_uid() } else { uid }
+        if uid == ActorPath::undefined_uid() {
+            ActorPath::new_uid()
+        } else {
+            uid
+        }
     }
 
     pub(crate) fn split_name_and_uid(name: String) -> (String, i32) {
         match name.find('#') {
-            None => {
-                (name, ActorPath::undefined_uid())
-            }
+            None => (name, ActorPath::undefined_uid()),
             Some(index) => {
                 let (name, id) = (name[0..index].to_string(), &name[(index + 1)..]);
                 let id: i32 = id.parse().expect(&format!("expect i32, got {}", id));
                 (name, id)
             }
+        }
+    }
+
+    pub fn to_serialization(&self) -> String {
+        let uid = self.uid();
+        if uid == ActorPath::undefined_uid() {
+            self.to_string()
+        } else {
+            format!("{}#{}", self, uid)
         }
     }
 }
@@ -76,17 +104,46 @@ impl Display for ActorPath {
             ActorPath::RootActorPath(r) => {
                 write!(f, "{}{}", r.address, r.name)
             }
-            ActorPath::ChildActorPath(c) => {
-                match &c.parent {
-                    ActorPath::RootActorPath(_) => {
-                        write!(f, "{}{}", c.parent, c.name)
-                    }
-                    ActorPath::ChildActorPath(_) => {
-                        write!(f, "{}/{}", c.parent, c.name)
-                    }
+            ActorPath::ChildActorPath(c) => match &c.parent {
+                ActorPath::RootActorPath(_) => {
+                    write!(f, "{}{}", c.parent, c.name)
                 }
-            }
+                ActorPath::ChildActorPath(_) => {
+                    write!(f, "{}/{}", c.parent, c.name)
+                }
+            },
         }
+    }
+}
+
+impl FromStr for ActorPath {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let url = Url::parse(s).context(format!("invalid url {}", s))?;
+        let scheme = url.scheme().to_string();
+        let username = url.username().to_string();
+        let host = url.domain().ok_or(anyhow!("no host found in url {}", s))?;
+        let port = url.port().ok_or(anyhow!("no port found in url {}", s))?;
+        let addr: SocketAddrV4 = format!("{}:{}", host, port).parse()?;
+        let mut path_str = url
+            .path()
+            .split("/")
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>();
+        path_str.remove(0);
+        let uid: i32 = url.fragment().unwrap_or("0").parse()?;
+        let address = Address {
+            protocol: scheme,
+            system: username,
+            addr,
+        };
+        let mut path: ActorPath = RootActorPath::new(address, "/".to_string()).into();
+        for p in path_str {
+            path = path.child(p);
+        }
+        path = path.with_uid(uid);
+        Ok(path)
     }
 }
 
@@ -134,20 +191,18 @@ impl TActorPath for RootActorPath {
         self.clone()
     }
 
-    fn to_serialization(&self) -> SerializedActorRef {
-        SerializedActorRef {
-            address: self.address(),
-            path: vec![self.name.clone()],
-            uid: ActorPath::undefined_uid(),
-        }
-    }
-
     fn uid(&self) -> i32 {
         ActorPath::undefined_uid()
     }
 
     fn with_uid(&self, uid: i32) -> ActorPath {
-        assert_eq!(uid, ActorPath::undefined_uid(), "RootActorPath must have undefinedUid {} != {}", uid, ActorPath::undefined_uid());
+        assert_eq!(
+            uid,
+            ActorPath::undefined_uid(),
+            "RootActorPath must have undefinedUid {} != {}",
+            uid,
+            ActorPath::undefined_uid()
+        );
         ActorPath::RootActorPath(self.clone()).into()
     }
 }
@@ -156,14 +211,13 @@ impl RootActorPath {
     pub(crate) fn new(address: Address, name: String) -> Self {
         assert!(name.len() == 1 || name.rfind('/').unwrap_or_default() == 0,
                 "/ may only exist at the beginning of the root actors name, it is a path separator and is not legal in ActorPath names: {}", name);
-        assert!(name.find('#').is_none(), "# is a fragment separator and is not legal in ActorPath names: {}", name);
+        assert!(
+            name.find('#').is_none(),
+            "# is a fragment separator and is not legal in ActorPath names: {}",
+            name
+        );
         Self {
-            inner: Arc::new(
-                RootInner {
-                    address,
-                    name,
-                }
-            )
+            inner: Arc::new(RootInner { address, name }),
         }
     }
 }
@@ -208,22 +262,22 @@ impl TActorPath for ChildActorPath {
     fn elements(&self) -> Vec<String> {
         fn rec(p: ActorPath, mut acc: VecDeque<String>) -> VecDeque<String> {
             match &p {
-                ActorPath::RootActorPath(_) => {
-                    acc
-                }
+                ActorPath::RootActorPath(_) => acc,
                 ActorPath::ChildActorPath(c) => {
                     acc.push_front(c.name.clone());
                     rec(p.parent(), acc)
                 }
             }
         }
-        rec(self.clone().into(), VecDeque::new()).into_iter().collect()
+        rec(self.clone().into(), VecDeque::new())
+            .into_iter()
+            .collect()
     }
 
     fn root(&self) -> RootActorPath {
         fn rec(p: ActorPath) -> RootActorPath {
             match &p {
-                ActorPath::RootActorPath(r) => { r.clone() }
+                ActorPath::RootActorPath(r) => r.clone(),
                 ActorPath::ChildActorPath(c) => {
                     let a: ActorPath = c.clone().into();
                     rec(a.parent())
@@ -231,16 +285,6 @@ impl TActorPath for ChildActorPath {
             }
         }
         rec(self.clone().into())
-    }
-
-    fn to_serialization(&self) -> SerializedActorRef {
-        let mut path = vec![self.root().name.clone()];
-        path.extend(self.elements());
-        SerializedActorRef {
-            address: self.address(),
-            path,
-            uid: self.uid,
-        }
     }
 
     fn uid(&self) -> i32 {
@@ -258,28 +302,32 @@ impl TActorPath for ChildActorPath {
 
 impl ChildActorPath {
     pub(crate) fn new(parent: ActorPath, name: String, uid: i32) -> Self {
-        assert!(name.find('/').is_none(), "/ is a path separator and is not legal in ActorPath names: {}", name);
-        assert!(name.find('#').is_none(), "# is a fragment separator and is not legal in ActorPath names: {}", name);
+        assert!(
+            name.find('/').is_none(),
+            "/ is a path separator and is not legal in ActorPath names: {}",
+            name
+        );
+        assert!(
+            name.find('#').is_none(),
+            "# is a fragment separator and is not legal in ActorPath names: {}",
+            name
+        );
         Self {
-            inner: Arc::new(
-                ChildInner {
-                    parent,
-                    name,
-                    uid,
-                }
-            )
+            inner: Arc::new(ChildInner { parent, name, uid }),
         }
     }
 }
 
 #[cfg(test)]
 mod actor_path_test {
+    use anyhow::Ok;
+
     use crate::actor_path::{ActorPath, ChildActorPath, RootActorPath, TActorPath};
     use crate::address::Address;
 
     fn get_address() -> Address {
         Address {
-            protocol: "akka".to_string(),
+            protocol: "tcp".to_string(),
             system: "game_server".to_string(),
             addr: "127.0.0.1:12121".parse().unwrap(),
         }
@@ -333,5 +381,21 @@ mod actor_path_test {
         assert_eq!(c1.to_string(), format!("{}/a/b121/child1", get_address()));
         let c2 = child.child("child2#3249238".to_string());
         assert_eq!(c2.to_string(), format!("{}/a/b121/child2", get_address()));
+    }
+
+    #[test]
+    fn test_actor_path_serde() -> anyhow::Result<()> {
+        let addr = get_address();
+        let root: ActorPath = RootActorPath::new(addr, "/".to_string()).into();
+        let actor_path = root.descendant(vec![
+            "user".to_string(),
+            "$a".to_string(),
+            "$a".to_string(),
+            format!("$aa#{}", ActorPath::new_uid()),
+        ]);
+        let url = actor_path.to_serialization();
+        let parse_path: ActorPath = url.parse()?;
+        assert_eq!(actor_path, parse_path);
+        Ok(())
     }
 }

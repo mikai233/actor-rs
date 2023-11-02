@@ -10,10 +10,10 @@ use tracing::error;
 
 use crate::actor::Actor;
 use crate::actor_path::TActorPath;
-use crate::actor_ref::{ActorRef, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
+use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::ext::random_actor_name;
-use crate::message::ActorMessage;
+use crate::message::{ActorMessage, ActorRemoteSystemMessage};
 use crate::props::Props;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::state::ActorState;
@@ -40,7 +40,10 @@ pub trait ContextExt: Context {
 }
 
 #[derive(Debug)]
-pub struct ActorContext<T> where T: Actor {
+pub struct ActorContext<T>
+where
+    T: Actor,
+{
     pub(crate) state: ActorState,
     pub(crate) myself: ActorRef,
     pub(crate) sender: Option<ActorRef>,
@@ -49,7 +52,10 @@ pub struct ActorContext<T> where T: Actor {
     pub(crate) system: ActorSystem,
 }
 
-impl<A> ActorRefFactory for ActorContext<A> where A: Actor {
+impl<A> ActorRefFactory for ActorContext<A>
+where
+    A: Actor,
+{
     fn system(&self) -> &ActorSystem {
         &self.system
     }
@@ -66,20 +72,36 @@ impl<A> ActorRefFactory for ActorContext<A> where A: Actor {
         todo!()
     }
 
-    fn actor_of<T>(&self, actor: T, arg: T::A, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> where T: Actor {
+    fn actor_of<T>(
+        &self,
+        actor: T,
+        arg: T::A,
+        props: Props,
+        name: Option<String>,
+    ) -> anyhow::Result<ActorRef>
+    where
+        T: Actor,
+    {
         let supervisor = &self.myself;
         let name = name.unwrap_or_else(random_actor_name);
         //TODO validate actor name
         let path = supervisor.path().child(name);
-        self.provider().actor_of(actor, arg, props, supervisor, path)
+        self.provider()
+            .actor_of(actor, arg, props, supervisor, path)
     }
 
     fn stop(&self, actor: &ActorRef) {
-        todo!()
+        let sender = self.myself().clone();
+        let terminate = ActorRemoteSystemMessage::Terminate;
+        let message = ActorMessage::remote_system(terminate);
+        actor.tell(message, Some(sender));
     }
 }
 
-impl<A> Context for ActorContext<A> where A: Actor {
+impl<A> Context for ActorContext<A>
+where
+    A: Actor,
+{
     fn myself(&self) -> &ActorRef {
         &self.myself
     }
@@ -121,7 +143,10 @@ impl<A> Context for ActorContext<A> where A: Actor {
     }
 }
 
-impl<A> ActorContext<A> where A: Actor {
+impl<A> ActorContext<A>
+where
+    A: Actor,
+{
     pub fn stash(&mut self, message: A::M) {
         let sender = self.sender.clone();
         self.stash.push_back((message, sender));
@@ -147,7 +172,9 @@ impl<A> ActorContext<A> where A: Actor {
 }
 
 pub(crate) enum ActorThreadPoolMessage {
-    SpawnActor(Box<dyn FnOnce(&mut FuturesUnordered<Pin<Box<dyn Future<Output=()>>>>) + Send + 'static>)
+    SpawnActor(
+        Box<dyn FnOnce(&mut FuturesUnordered<Pin<Box<dyn Future<Output = ()>>>>) + Send + 'static>,
+    ),
 }
 
 #[derive(Debug)]
@@ -165,9 +192,7 @@ impl ActorThreadPool {
             let rx = rx.clone();
             let handle = std::thread::spawn(move || {
                 let rt = tokio::runtime::Builder::new_current_thread()
-                    .thread_name_fn(move || {
-                        format!("actor_dispatcher_{}", cpu)
-                    })
+                    .thread_name_fn(move || format!("actor_dispatcher_{}", cpu))
                     .enable_all()
                     .build()
                     .expect(&format!("failed to build local set runtime {}", cpu));
