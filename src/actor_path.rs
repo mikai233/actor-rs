@@ -19,7 +19,7 @@ pub trait TActorPath {
     fn name(&self) -> &String;
     fn parent(&self) -> ActorPath;
     fn child(&self, child: String) -> ActorPath {
-        let (child_name, uid) = ActorPath::split_name_and_uid(child);
+        let (child_name, uid) = ActorPath::split_name_and_uid(&child);
         ChildActorPath {
             inner: Arc::new(ChildInner {
                 parent: self.myself(),
@@ -33,9 +33,8 @@ pub trait TActorPath {
         where
             I: IntoIterator<Item=String>,
     {
-        let names = names.into_iter();
         let init: ActorPath = self.myself();
-        names.fold(init, |path, elem| {
+        names.into_iter().fold(init, |path, elem| {
             if elem.is_empty() {
                 path
             } else {
@@ -76,9 +75,9 @@ impl ActorPath {
         }
     }
 
-    pub(crate) fn split_name_and_uid(name: String) -> (String, i32) {
+    pub(crate) fn split_name_and_uid(name: &String) -> (String, i32) {
         match name.find('#') {
-            None => (name, ActorPath::undefined_uid()),
+            None => (name.clone(), ActorPath::undefined_uid()),
             Some(index) => {
                 let (name, id) = (name[0..index].to_string(), &name[(index + 1)..]);
                 let id: i32 = id.parse().expect(&format!("expect i32, got {}", id));

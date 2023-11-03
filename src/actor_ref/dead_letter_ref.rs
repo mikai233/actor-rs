@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
+use tracing::info;
 
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
@@ -7,34 +8,39 @@ use crate::message::ActorMessage;
 use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
-pub struct DeadLetterActorRef {}
+pub struct DeadLetterActorRef {
+    pub(crate) system: ActorSystem,
+    pub(crate) path: ActorPath,
+}
 
 impl TActorRef for DeadLetterActorRef {
     fn system(&self) -> ActorSystem {
-        todo!()
+        self.system.clone()
     }
 
     fn path(&self) -> &ActorPath {
-        todo!()
+        &self.path
     }
 
     fn tell(&self, message: ActorMessage, sender: Option<ActorRef>) {
-        todo!()
+        let name = message.name();
+        match sender {
+            None => {
+                info!("dead letter recv message {}", name);
+            }
+            Some(sender) => {
+                info!("dead letter recv message {} from {}", name, sender);
+            }
+        }
     }
 
-    fn start(&self) {
-        todo!()
-    }
-
-    fn stop(&self) {
-        todo!()
-    }
+    fn stop(&self) {}
 
     fn parent(&self) -> Option<&ActorRef> {
-        todo!()
+        None
     }
 
-    fn children(&self) -> &RwLock<BTreeMap<String, ActorRef>> {
-        todo!()
+    fn get_child<I>(&self, _names: I) -> Option<ActorRef> where I: IntoIterator<Item=String> {
+        None
     }
 }

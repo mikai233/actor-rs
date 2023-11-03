@@ -1,4 +1,5 @@
 use std::net::SocketAddrV4;
+use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -8,7 +9,7 @@ use crate::actor::context::{ActorThreadPool, ActorThreadPoolMessage};
 use crate::actor::Actor;
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor_ref::{ActorRef, Cell, TActorRef};
 use crate::address::Address;
 use crate::cell::runtime::ActorRuntime;
 use crate::cell::ActorCell;
@@ -18,11 +19,12 @@ use crate::props::Props;
 use crate::provider::local_provider::LocalActorRefProvider;
 use crate::provider::remote_provider::RemoteActorRefProvider;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
+use crate::provider::empty_provider::EmptyActorRefProvider;
 
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
     inner: Arc<Inner>,
-    provider: Option<ActorRefProvider>,
+    provider: Arc<RwLock<ActorRefProvider>>,
 }
 
 #[derive(Debug)]
@@ -49,12 +51,12 @@ impl ActorSystem {
         };
         let mut system = Self {
             inner: inner.into(),
-            provider: None,
+            provider: Arc::new(RwLock::new(EmptyActorRefProvider.into())),
         };
         let provider = RemoteActorRefProvider {
             local: LocalActorRefProvider::new(&system)?,
         };
-        system.provider = Some(provider.into());
+        *system.provider.write().unwrap() = provider.into();
         Ok(system)
     }
     pub fn name(&self) -> &String {
@@ -82,8 +84,8 @@ impl ActorSystem {
     }
 
     pub(crate) fn exec_actor_rt<T>(&self, rt: ActorRuntime<T>) -> anyhow::Result<()>
-    where
-        T: Actor,
+        where
+            T: Actor,
     {
         if self.inner.spawner.send(rt.into()).is_err() {
             let name = std::any::type_name::<T>();
@@ -101,12 +103,12 @@ impl ActorRefFactory for ActorSystem {
         &self
     }
 
-    fn provider(&self) -> &ActorRefProvider {
-        self.provider.as_ref().unwrap()
+    fn provider(&self) -> ActorRefProvider {
+        self.provider.read().unwrap().clone()
     }
 
-    fn guardian(&self) -> &LocalActorRef {
-        self.provider().guardian()
+    fn guardian(&self) -> LocalActorRef {
+        self.provider().guardian().clone()
     }
 
     fn lookup_root(&self) -> ActorRef {
@@ -120,8 +122,8 @@ impl ActorRefFactory for ActorSystem {
         props: Props,
         name: Option<String>,
     ) -> anyhow::Result<ActorRef>
-    where
-        T: Actor,
+        where
+            T: Actor,
     {
         let name = name.unwrap_or_else(random_actor_name);
         //TODO validate custom actor name
@@ -152,8 +154,8 @@ pub(crate) fn make_actor_runtime<T>(
     path: ActorPath,
     parent: Option<ActorRef>,
 ) -> anyhow::Result<ActorRuntime<T>>
-where
-    T: Actor,
+    where
+        T: Actor,
 {
     let name = path.name().clone();
     let (m_tx, m_rx) = tokio::sync::mpsc::channel(props.mailbox);
@@ -172,7 +174,7 @@ where
         sender,
         cell: ActorCell::new(parent),
     };
-    if let Some(parent) = myself.parent() {
+    if let Some(parent) = myself.parent().map(|a| a.local_or_panic()) {
         let mut children = parent.children().write().unwrap();
         if children.contains_key(&name) {
             return Err(anyhow!("duplicate actor name {}", name));

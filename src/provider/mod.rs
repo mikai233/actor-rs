@@ -5,16 +5,19 @@ use crate::actor_path::ActorPath;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::ActorRef;
 use crate::props::Props;
+use crate::provider::empty_provider::EmptyActorRefProvider;
 use crate::provider::local_provider::LocalActorRefProvider;
 use crate::provider::remote_provider::RemoteActorRefProvider;
 use crate::system::ActorSystem;
 
 pub(crate) mod local_provider;
 pub(crate) mod remote_provider;
+pub(crate) mod empty_provider;
 
 #[enum_dispatch]
 #[derive(Debug, Clone)]
 pub enum ActorRefProvider {
+    EmptyActorRefProvider,
     LocalActorRefProvider,
     RemoteActorRefProvider,
 }
@@ -37,16 +40,17 @@ pub trait TActorRefProvider: Send {
         supervisor: &ActorRef,
         path: ActorPath,
     ) -> anyhow::Result<ActorRef>
-    where
-        T: Actor;
+        where
+            T: Actor;
     fn resolve_actor_ref(&self, path: String) -> ActorRef;
     fn resolve_actor_ref_of_path(&self, path: ActorPath) -> ActorRef;
+    fn dead_letters(&self) -> &ActorRef;
 }
 
 pub trait ActorRefFactory {
     fn system(&self) -> &ActorSystem;
-    fn provider(&self) -> &ActorRefProvider;
-    fn guardian(&self) -> &LocalActorRef;
+    fn provider(&self) -> ActorRefProvider;
+    fn guardian(&self) -> LocalActorRef;
     fn lookup_root(&self) -> ActorRef;
     fn actor_of<T>(
         &self,
@@ -55,8 +59,8 @@ pub trait ActorRefFactory {
         props: Props,
         name: Option<String>,
     ) -> anyhow::Result<ActorRef>
-    where
-        T: Actor;
+        where
+            T: Actor;
     fn actor_selection(&self, path: String) {}
     fn actor_selection_of_path(&self, path: ActorPath) {}
     fn stop(&self, actor: &ActorRef);

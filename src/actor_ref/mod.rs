@@ -17,6 +17,7 @@ use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::remote_ref::RemoteActorRef;
 use crate::address::Address;
+use crate::cell::ActorCell;
 use crate::message::ActorMessage;
 use crate::system::ActorSystem;
 
@@ -25,16 +26,44 @@ pub mod local_ref;
 pub mod remote_ref;
 
 #[enum_dispatch]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum ActorRef {
     LocalActorRef,
     RemoteActorRef,
     DeadLetterActorRef,
 }
 
+impl Debug for ActorRef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ActorRef::LocalActorRef(l) => {
+                f.debug_struct("ActorRef::LocalActorRef")
+                    .field("path", l.path())
+                    .finish_non_exhaustive()
+            }
+            ActorRef::RemoteActorRef(r) => {
+                f.debug_struct("ActorRef::RemoteActorRef")
+                    .field("path", r.path())
+                    .finish_non_exhaustive()
+            }
+            ActorRef::DeadLetterActorRef(d) => {
+                f.debug_struct("ActorRef::DeadLetterActorRef")
+                    .field("path", d.path())
+                    .finish_non_exhaustive()
+            }
+        }
+    }
+}
+
 impl ActorRef {
     fn no_sender() -> Option<ActorRef> {
         None
+    }
+    pub(crate) fn local_or_panic(&self) -> &LocalActorRef {
+        match self {
+            ActorRef::LocalActorRef(l) => l,
+            _ => panic!("expect LocalActorRef")
+        }
     }
 }
 
@@ -43,10 +72,11 @@ pub trait TActorRef: Debug + Send + Sync + 'static {
     fn system(&self) -> ActorSystem;
     fn path(&self) -> &ActorPath;
     fn tell(&self, message: ActorMessage, sender: Option<ActorRef>);
-    fn start(&self);
     fn stop(&self);
     fn parent(&self) -> Option<&ActorRef>;
-    fn children(&self) -> &RwLock<BTreeMap<String, ActorRef>>;
+    fn get_child<I>(&self, names: I) -> Option<ActorRef>
+        where
+            I: IntoIterator<Item=String>;
 }
 
 impl Display for ActorRef {
@@ -65,15 +95,15 @@ impl<T: ?Sized> ActorRefExt for T where T: TActorRef {}
 
 pub trait ActorRefExt: TActorRef {
     fn tell_local<M>(&self, message: M, sender: Option<ActorRef>)
-    where
-        M: Message,
+        where
+            M: Message,
     {
         let local = ActorMessage::local(message);
         self.tell(local, sender);
     }
     fn tell_remote<M>(&self, message: &M, sender: Option<ActorRef>) -> anyhow::Result<()>
-    where
-        M: Message + Serialize + DeserializeOwned,
+        where
+            M: Message + Serialize + DeserializeOwned,
     {
         let remote = ActorMessage::remote(message)?;
         self.tell(remote, sender);
@@ -131,6 +161,12 @@ impl Into<SerializedActorRef> for ActorRef {
             path: self.path().to_serialization(),
         }
     }
+}
+
+pub(crate) trait Cell {
+    fn underlying(&self) -> ActorCell;
+    fn children(&self) -> &RwLock<BTreeMap<String, ActorRef>>;
+    fn get_single_child(&self, name: &String) -> Option<ActorRef>;
 }
 
 #[cfg(test)]

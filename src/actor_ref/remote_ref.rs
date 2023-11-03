@@ -28,10 +28,6 @@ impl TActorRef for RemoteActorRef {
         todo!()
     }
 
-    fn start(&self) {
-        todo!()
-    }
-
     fn stop(&self) {
         todo!()
     }
@@ -40,7 +36,7 @@ impl TActorRef for RemoteActorRef {
         todo!()
     }
 
-    fn children(&self) -> &RwLock<BTreeMap<String, ActorRef>> {
+    fn get_child<I>(&self, names: I) -> Option<ActorRef> where I: IntoIterator<Item=String> {
         todo!()
     }
 }

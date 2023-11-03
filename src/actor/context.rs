@@ -11,7 +11,7 @@ use tokio::task::JoinHandle;
 use tracing::error;
 
 use crate::actor::Actor;
-use crate::actor_path::TActorPath;
+use crate::actor_path::{ActorPath, ChildActorPath, TActorPath};
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::cell::envelope::UserEnvelope;
@@ -66,11 +66,11 @@ where
         &self.system
     }
 
-    fn provider(&self) -> &ActorRefProvider {
+    fn provider(&self) -> ActorRefProvider {
         self.system.provider()
     }
 
-    fn guardian(&self) -> &LocalActorRef {
+    fn guardian(&self) -> LocalActorRef {
         self.system.guardian()
     }
 
@@ -91,7 +91,8 @@ where
         let supervisor = &self.myself;
         let name = name.unwrap_or_else(random_actor_name);
         //TODO validate actor name
-        let path = supervisor.path().child(name);
+        let path =
+            ChildActorPath::new(supervisor.path().clone(), name, ActorPath::new_uid()).into();
         self.provider()
             .actor_of(actor, arg, props, supervisor, path)
     }
@@ -168,7 +169,7 @@ where
             UserEnvelope::Remote { name, message } => {
                 ActorMessage::Remote(ActorRemoteMessage::User { name, message })
             }
-            UserEnvelope::Unkonwn { name, message } => {
+            UserEnvelope::Unknown { name, message } => {
                 ActorMessage::Local(ActorLocalMessage::User {
                     name,
                     inner: message,

@@ -1,10 +1,13 @@
 use std::collections::BTreeMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, TryLockResult};
+use tracing::{debug, info};
+use tracing::field::debug;
 
-use crate::actor_ref::ActorRef;
+use crate::actor_path::{ActorPath, TActorPath};
+use crate::actor_ref::{ActorRef, TActorRef};
 
-pub(crate) mod runtime;
 pub(crate) mod envelope;
+pub(crate) mod runtime;
 
 #[derive(Debug, Clone)]
 pub(crate) struct ActorCell {
@@ -26,6 +29,27 @@ impl ActorCell {
     }
     pub(crate) fn children(&self) -> &RwLock<BTreeMap<String, ActorRef>> {
         &self.inner.children
+    }
+    pub(crate) fn get_child_by_name(&self, name: &String) -> Option<ActorRef> {
+        self.children().read().unwrap().get(name).cloned()
+    }
+    pub(crate) fn get_single_child(&self, name: &String) -> Option<ActorRef> {
+        match name.find('#') {
+            Some(_) => {
+                let (child_name, uid) = ActorPath::split_name_and_uid(name);
+                match self.get_child_by_name(&child_name) {
+                    Some(a) => {
+                        if a.path().uid() == uid {
+                            Some(a)
+                        } else {
+                            None
+                        }
+                    }
+                    None => None,
+                }
+            }
+            None => self.get_child_by_name(name),
+        }
     }
 }
 

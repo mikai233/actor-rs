@@ -4,19 +4,22 @@ use std::sync::RwLock;
 use std::time::Duration;
 
 use tokio::sync::mpsc::error::TrySendError;
-use tracing::warn;
+use tracing::{debug, info, warn};
 
 use crate::actor::Message;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::cell::envelope::Envelope;
 use crate::cell::ActorCell;
+use crate::cell::envelope::Envelope;
 use crate::message::ActorLocalMessage;
 use crate::message::ActorMessage;
 use crate::message::ActorRemoteMessage;
+use crate::message::ActorRemoteSystemMessage;
 use crate::net::mailbox::MailboxSender;
 use crate::system::ActorSystem;
+
+use super::Cell;
 
 #[derive(Debug, Clone)]
 pub struct LocalActorRef {
@@ -65,20 +68,57 @@ impl TActorRef for LocalActorRef {
         }
     }
 
-    fn start(&self) {
-        todo!()
-    }
-
     fn stop(&self) {
-        todo!()
+        let terminate = ActorRemoteSystemMessage::Terminate;
+        let terminate = ActorMessage::remote_system(terminate);
+        let sender = Some(self.clone().into());
+        self.tell(terminate, sender);
     }
 
     fn parent(&self) -> Option<&ActorRef> {
         self.cell.parent()
     }
 
+    fn get_child<I>(&self, names: I) -> Option<ActorRef> where I: IntoIterator<Item=String> {
+        fn rec(actor: ActorRef, mut names: impl Iterator<Item=String>) -> Option<ActorRef> {
+            match &actor {
+                ActorRef::LocalActorRef(l) => {
+                    let name = names.next();
+                    let next = match name {
+                        None => {
+                            return Some(actor);
+                        }
+                        Some(name) => {
+                            match name.as_str() {
+                                ".." => l.parent().cloned(),
+                                "" => Some(actor),
+                                _ => { l.get_single_child(&name) }
+                            }
+                        }
+                    };
+                    match next {
+                        None => None,
+                        Some(next) => { rec(next, names) }
+                    }
+                }
+                _ => actor.get_child(names)
+            }
+        }
+        rec(self.clone().into(), names.into_iter())
+    }
+}
+
+impl Cell for LocalActorRef {
+    fn underlying(&self) -> ActorCell {
+        self.cell.clone()
+    }
+
     fn children(&self) -> &RwLock<BTreeMap<String, ActorRef>> {
         self.cell.children()
+    }
+
+    fn get_single_child(&self, name: &String) -> Option<ActorRef> {
+        self.cell.get_single_child(name)
     }
 }
 
@@ -125,9 +165,9 @@ impl LocalActorRef {
 }
 
 pub async fn ask<M, R>(actor: &LocalActorRef, message: M, timeout: Duration) -> anyhow::Result<R>
-where
-    M: Message,
-    R: Message,
+    where
+        M: Message,
+        R: Message,
 {
     todo!()
     // let actor_info = format!("{:?}", actor);

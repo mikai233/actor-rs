@@ -1,6 +1,5 @@
 pub mod actor_ref;
 pub(crate) mod message;
-pub mod config;
 pub mod system;
 pub(crate) mod state;
 mod props;

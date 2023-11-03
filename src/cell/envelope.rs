@@ -26,7 +26,7 @@ where
         name: &'static str,
         message: Vec<u8>,
     },
-    Unkonwn {
+    Unknown {
         name: &'static str,
         message: Box<dyn Any + Send + 'static>,
     },

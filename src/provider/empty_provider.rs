@@ -1,70 +1,59 @@
 use crate::actor::Actor;
 use crate::actor_path::ActorPath;
-use crate::actor_path::TActorPath;
 use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::props::Props;
-use crate::provider::local_provider::LocalActorRefProvider;
 use crate::provider::TActorRefProvider;
 
 #[derive(Debug, Clone)]
-pub struct RemoteActorRefProvider {
-    pub(crate) local: LocalActorRefProvider,
-}
+pub struct EmptyActorRefProvider;
 
-impl TActorRefProvider for RemoteActorRefProvider {
+impl TActorRefProvider for EmptyActorRefProvider {
     fn root_guardian(&self) -> &LocalActorRef {
-        self.local.root_guardian()
+        panic!("unreachable");
     }
 
     fn guardian(&self) -> &LocalActorRef {
-        self.local.guardian()
+        panic!("unreachable");
     }
 
     fn system_guardian(&self) -> &LocalActorRef {
-        self.local.system_guardian()
+        panic!("unreachable");
     }
 
     fn root_path(&self) -> &ActorPath {
-        self.local.root_path()
+        panic!("unreachable");
     }
 
     fn temp_path(&self) -> &ActorPath {
-        todo!()
+        panic!("unreachable");
     }
 
     fn temp_path_of(&self) -> &ActorPath {
-        todo!()
+        panic!("unreachable");
     }
 
     fn register_temp_actor(&self, actor: ActorRef, path: ActorPath) {
-        todo!()
+        panic!("unreachable");
     }
 
     fn unregister_temp_actor(&self, path: ActorPath) {
-        todo!()
+        panic!("unreachable");
     }
 
     fn actor_of<T>(&self, actor: T, arg: T::A, props: Props, supervisor: &ActorRef, path: ActorPath) -> anyhow::Result<ActorRef> where T: Actor {
-        //TODO remote spawn
-        self.local.actor_of(actor, arg, props, supervisor, path)
+        panic!("unreachable");
     }
 
     fn resolve_actor_ref(&self, path: String) -> ActorRef {
-        match path.parse::<ActorPath>() {
-            Ok(actor_path) => self.resolve_actor_ref_of_path(actor_path),
-            Err(_) => self.dead_letters().clone(),
-        }
+        panic!("unreachable");
     }
+
     fn resolve_actor_ref_of_path(&self, path: ActorPath) -> ActorRef {
-        if path.address() == self.root_path().address() {
-            self.local.resolve_actor_ref_of_path(path)
-        } else {
-            todo!()
-        }
+        panic!("unreachable");
     }
 
     fn dead_letters(&self) -> &ActorRef {
-        &self.local.dead_letters()
+        panic!("unreachable");
     }
 }

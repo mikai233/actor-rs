@@ -150,7 +150,7 @@ where
             ActorMessage::Local(l) => match l {
                 ActorLocalMessage::User { name, inner } => match T::M::downcast(inner) {
                     Ok(message) => UserEnvelope::Local(message),
-                    Err(message) => UserEnvelope::Unkonwn { name, message },
+                    Err(message) => UserEnvelope::Unknown { name, message },
                 },
                 ActorLocalMessage::System { .. } => panic!("unreachable system message branch"),
             },
