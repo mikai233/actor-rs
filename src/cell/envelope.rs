@@ -26,5 +26,8 @@ where
         name: &'static str,
         message: Vec<u8>,
     },
-    Unkonwn(Box<dyn Any + Send + 'static>),
+    Unkonwn {
+        name: &'static str,
+        message: Box<dyn Any + Send + 'static>,
+    },
 }

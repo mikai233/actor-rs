@@ -1,14 +1,15 @@
 use std::collections::VecDeque;
 use std::future::Future;
+use std::marker::PhantomData;
 use std::pin::Pin;
 
-use futures::FutureExt;
 use futures::stream::FuturesUnordered;
+use futures::FutureExt;
 use tokio::task::yield_now;
 use tracing::error;
 
-use crate::actor::{Actor, Message};
 use crate::actor::context::{ActorContext, ActorThreadPoolMessage, Context};
+use crate::actor::{Actor, Message};
 use crate::actor_ref::ActorRef;
 use crate::cell::envelope::Envelope;
 use crate::message::{
@@ -23,8 +24,8 @@ use crate::system::ActorSystem;
 use super::envelope::UserEnvelope;
 
 pub struct ActorRuntime<T>
-    where
-        T: Actor,
+where
+    T: Actor,
 {
     pub(crate) myself: ActorRef,
     pub(crate) handler: T,
@@ -35,8 +36,8 @@ pub struct ActorRuntime<T>
 }
 
 impl<T> ActorRuntime<T>
-    where
-        T: Actor,
+where
+    T: Actor,
 {
     pub(crate) async fn run(self) {
         let Self {
@@ -49,6 +50,7 @@ impl<T> ActorRuntime<T>
         } = self;
         let actor = std::any::type_name::<T>();
         let mut context = ActorContext {
+            _phantom: PhantomData::default(),
             state: ActorState::Init,
             myself,
             sender: None,
@@ -108,8 +110,8 @@ impl<T> ActorRuntime<T>
         let Envelope { message, sender } = envelope;
         context.sender = sender;
         async fn signal_parent<T>(context: &mut ActorContext<T>, message: ActorRemoteSystemMessage)
-            where
-                T: Actor,
+        where
+            T: Actor,
         {
             if let Some(parent) = context.parent().clone() {
                 // parent.signal(signal).await;
@@ -148,7 +150,7 @@ impl<T> ActorRuntime<T>
             ActorMessage::Local(l) => match l {
                 ActorLocalMessage::User { name, inner } => match T::M::downcast(inner) {
                     Ok(message) => UserEnvelope::Local(message),
-                    Err(unknown_message) => UserEnvelope::Unkonwn(unknown_message),
+                    Err(message) => UserEnvelope::Unkonwn { name, message },
                 },
                 ActorLocalMessage::System { .. } => panic!("unreachable system message branch"),
             },
@@ -173,11 +175,11 @@ impl<T> ActorRuntime<T>
 }
 
 impl<T> Into<ActorThreadPoolMessage> for ActorRuntime<T>
-    where
-        T: Actor,
+where
+    T: Actor,
 {
     fn into(self) -> ActorThreadPoolMessage {
-        let spawn_fn = move |futures: &mut FuturesUnordered<Pin<Box<dyn Future<Output=()>>>>| {
+        let spawn_fn = move |futures: &mut FuturesUnordered<Pin<Box<dyn Future<Output = ()>>>>| {
             futures.push(self.run().boxed_local());
         };
         ActorThreadPoolMessage::SpawnActor(Box::new(spawn_fn))

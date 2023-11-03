@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::future::Future;
+use std::marker::PhantomData;
 use std::ops::Not;
 use std::pin::Pin;
 use std::sync::{RwLockReadGuard, RwLockWriteGuard};
@@ -11,10 +12,13 @@ use tracing::error;
 
 use crate::actor::Actor;
 use crate::actor_path::TActorPath;
-use crate::actor_ref::{ActorRef, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
+use crate::actor_ref::{ActorRef, TActorRef};
+use crate::cell::envelope::UserEnvelope;
 use crate::ext::random_actor_name;
-use crate::message::{ActorMessage, ActorRemoteSystemMessage};
+use crate::message::{
+    ActorLocalMessage, ActorMessage, ActorRemoteMessage, ActorRemoteSystemMessage,
+};
 use crate::props::Props;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::state::ActorState;
@@ -42,20 +46,21 @@ pub trait ContextExt: Context {
 
 #[derive(Debug)]
 pub struct ActorContext<T>
-    where
-        T: Actor,
+where
+    T: Actor,
 {
+    pub(crate) _phantom: PhantomData<T>,
     pub(crate) state: ActorState,
     pub(crate) myself: ActorRef,
     pub(crate) sender: Option<ActorRef>,
-    pub(crate) stash: VecDeque<(T::M, Option<ActorRef>)>,
+    pub(crate) stash: VecDeque<(ActorMessage, Option<ActorRef>)>,
     pub(crate) tasks: Vec<JoinHandle<()>>,
     pub(crate) system: ActorSystem,
 }
 
 impl<A> ActorRefFactory for ActorContext<A>
-    where
-        A: Actor,
+where
+    A: Actor,
 {
     fn system(&self) -> &ActorSystem {
         &self.system
@@ -70,7 +75,7 @@ impl<A> ActorRefFactory for ActorContext<A>
     }
 
     fn lookup_root(&self) -> ActorRef {
-        todo!()
+        self.myself().clone()
     }
 
     fn actor_of<T>(
@@ -80,14 +85,15 @@ impl<A> ActorRefFactory for ActorContext<A>
         props: Props,
         name: Option<String>,
     ) -> anyhow::Result<ActorRef>
-        where
-            T: Actor,
+    where
+        T: Actor,
     {
         let supervisor = &self.myself;
         let name = name.unwrap_or_else(random_actor_name);
         //TODO validate actor name
         let path = supervisor.path().child(name);
-        self.provider().actor_of(actor, arg, props, supervisor, path)
+        self.provider()
+            .actor_of(actor, arg, props, supervisor, path)
     }
 
     fn stop(&self, actor: &ActorRef) {
@@ -99,8 +105,8 @@ impl<A> ActorRefFactory for ActorContext<A>
 }
 
 impl<A> Context for ActorContext<A>
-    where
-        A: Actor,
+where
+    A: Actor,
 {
     fn myself(&self) -> &ActorRef {
         &self.myself
@@ -152,17 +158,29 @@ impl<A> Context for ActorContext<A>
 }
 
 impl<A> ActorContext<A>
-    where
-        A: Actor,
+where
+    A: Actor,
 {
-    pub fn stash(&mut self, message: A::M) {
+    pub fn stash(&mut self, message: UserEnvelope<A::M>) {
         let sender = self.sender.clone();
+        let message = match message {
+            UserEnvelope::Local(l) => ActorMessage::local(l),
+            UserEnvelope::Remote { name, message } => {
+                ActorMessage::Remote(ActorRemoteMessage::User { name, message })
+            }
+            UserEnvelope::Unkonwn { name, message } => {
+                ActorMessage::Local(ActorLocalMessage::User {
+                    name,
+                    inner: message,
+                })
+            }
+        };
         self.stash.push_back((message, sender));
     }
 
     pub fn unstash(&mut self) -> bool {
         if let Some((message, sender)) = self.stash.pop_front() {
-            // self.myself.tell(message, sender);
+            self.myself.tell(message, sender);
             return true;
         }
         return false;
@@ -173,7 +191,7 @@ impl<A> ActorContext<A>
             return false;
         }
         for (message, sender) in self.stash.drain(0..) {
-            // self.myself.tell(message, sender);
+            self.myself.tell(message, sender);
         }
         return true;
     }
@@ -195,7 +213,7 @@ impl<A> ActorContext<A>
 
 pub(crate) enum ActorThreadPoolMessage {
     SpawnActor(
-        Box<dyn FnOnce(&mut FuturesUnordered<Pin<Box<dyn Future<Output=()>>>>) + Send + 'static>,
+        Box<dyn FnOnce(&mut FuturesUnordered<Pin<Box<dyn Future<Output = ()>>>>) + Send + 'static>,
     ),
 }
 
