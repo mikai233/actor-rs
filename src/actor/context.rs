@@ -1,23 +1,27 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::future::Future;
 use std::marker::PhantomData;
+use std::mem::transmute;
+use std::num::ParseIntError;
 use std::ops::Not;
 use std::pin::Pin;
 use std::sync::{RwLockReadGuard, RwLockWriteGuard};
+use anyhow::anyhow;
 
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use tokio::task::JoinHandle;
-use tracing::error;
+use tracing::{debug, error};
 
 use crate::actor::Actor;
 use crate::actor_path::{ActorPath, ChildActorPath, TActorPath};
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::cell::envelope::UserEnvelope;
 use crate::ext::random_actor_name;
 use crate::message::{
     ActorLocalMessage, ActorMessage, ActorRemoteMessage, ActorRemoteSystemMessage,
+    ActorSystemMessage,
 };
 use crate::props::Props;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
@@ -46,8 +50,8 @@ pub trait ContextExt: Context {
 
 #[derive(Debug)]
 pub struct ActorContext<T>
-where
-    T: Actor,
+    where
+        T: Actor,
 {
     pub(crate) _phantom: PhantomData<T>,
     pub(crate) state: ActorState,
@@ -59,8 +63,8 @@ where
 }
 
 impl<A> ActorRefFactory for ActorContext<A>
-where
-    A: Actor,
+    where
+        A: Actor,
 {
     fn system(&self) -> &ActorSystem {
         &self.system
@@ -85,9 +89,12 @@ where
         props: Props,
         name: Option<String>,
     ) -> anyhow::Result<ActorRef>
-    where
-        T: Actor,
+        where
+            T: Actor,
     {
+        if !matches!(self.state, ActorState::Init | ActorState::Started) {
+            return Err(anyhow!("cannot spawn child actor while parent actor {} is terminating",self.myself));
+        }
         let supervisor = &self.myself;
         let name = name.unwrap_or_else(random_actor_name);
         //TODO validate actor name
@@ -106,8 +113,8 @@ where
 }
 
 impl<A> Context for ActorContext<A>
-where
-    A: Actor,
+    where
+        A: Actor,
 {
     fn myself(&self) -> &ActorRef {
         &self.myself
@@ -138,11 +145,7 @@ where
     }
 
     fn parent(&self) -> Option<&ActorRef> {
-        if let ActorRef::LocalActorRef(myself) = self.myself() {
-            myself.cell.parent()
-        } else {
-            panic!("unreachable")
-        }
+        self.myself().local_or_panic().cell.parent()
     }
 
     fn watch(&self, subject: &ActorRef) {
@@ -159,8 +162,8 @@ where
 }
 
 impl<A> ActorContext<A>
-where
-    A: Actor,
+    where
+        A: Actor,
 {
     pub fn stash(&mut self, message: UserEnvelope<A::M>) {
         let sender = self.sender.clone();
@@ -209,12 +212,35 @@ where
         }
     }
 
-    pub(crate) fn finish_terminated(&mut self) {}
+    pub(crate) fn finish_terminated(&mut self) {
+        if let Some(parent) = self.parent() {
+            let notify = ActorMessage::local_system(ActorSystemMessage::DeathWatchNotification {
+                actor: self.myself.clone(),
+            });
+            parent.tell(notify, Some(self.myself.clone()));
+        }
+        self.state = ActorState::CanTerminate;
+    }
+
+    pub(crate) fn watched_actor_terminated(&mut self, actor: ActorRef) {
+        if self.children().get(actor.path().name()).is_some() {
+            self.handle_child_terminated(actor);
+        }
+    }
+
+    pub(crate) fn handle_child_terminated(&mut self, actor: ActorRef) {
+        let mut children = self.children_mut();
+        children.remove(actor.path().name());
+        if matches!(self.state, ActorState::Terminating) && children.is_empty() {
+            drop(children);
+            self.finish_terminated();
+        }
+    }
 }
 
 pub(crate) enum ActorThreadPoolMessage {
     SpawnActor(
-        Box<dyn FnOnce(&mut FuturesUnordered<Pin<Box<dyn Future<Output = ()>>>>) + Send + 'static>,
+        Box<dyn FnOnce(&mut FuturesUnordered<Pin<Box<dyn Future<Output=()>>>>) + Send + 'static>,
     ),
 }
 

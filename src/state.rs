@@ -3,6 +3,6 @@ pub(crate) enum ActorState {
     Init,
     Started,
     Terminating,
-    WaitingChildrenStop,
+    CanTerminate,
     Terminated,
 }

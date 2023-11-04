@@ -2,12 +2,21 @@ use crate::actor::context::{ActorContext, Context};
 use crate::actor::Actor;
 use crate::cell::envelope::UserEnvelope;
 use tracing::debug;
+use crate::actor_ref::ActorRef;
+use crate::provider::ActorRefFactory;
 
 #[derive(Debug)]
 pub(crate) struct SystemGuardian;
 
+#[derive(Debug)]
+pub(crate) enum SystemGuardianMessage {
+    StopChild {
+        child: ActorRef,
+    }
+}
+
 impl Actor for SystemGuardian {
-    type M = ();
+    type M = SystemGuardianMessage;
     type S = ();
     type A = ();
 
@@ -22,6 +31,17 @@ impl Actor for SystemGuardian {
         state: &mut Self::S,
         message: UserEnvelope<Self::M>,
     ) -> anyhow::Result<()> {
+        match message {
+            UserEnvelope::Local(l) => {
+                match l {
+                    SystemGuardianMessage::StopChild { child } => {
+                        ctx.stop(&child);
+                    }
+                }
+            }
+            UserEnvelope::Remote { .. } => { todo!() }
+            UserEnvelope::Unknown { .. } => { todo!() }
+        }
         Ok(())
     }
 }

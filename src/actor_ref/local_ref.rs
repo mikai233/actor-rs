@@ -40,6 +40,7 @@ impl TActorRef for LocalActorRef {
 
     fn tell(&self, message: ActorMessage, sender: Option<ActorRef>) {
         let envelop = Envelope { message, sender };
+        let name = envelop.message.name();
         match &envelop.message {
             ActorMessage::Local(l) => match l {
                 ActorLocalMessage::User { .. } => {

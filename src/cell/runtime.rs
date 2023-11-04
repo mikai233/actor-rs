@@ -6,7 +6,7 @@ use std::pin::Pin;
 use futures::stream::FuturesUnordered;
 use futures::FutureExt;
 use tokio::task::yield_now;
-use tracing::error;
+use tracing::{error, info};
 
 use crate::actor::context::{ActorContext, ActorThreadPoolMessage, Context};
 use crate::actor::{Actor, Message};
@@ -14,6 +14,7 @@ use crate::actor_ref::ActorRef;
 use crate::cell::envelope::Envelope;
 use crate::message::{
     ActorLocalMessage, ActorMessage, ActorRemoteMessage, ActorRemoteSystemMessage,
+    ActorSystemMessage,
 };
 use crate::net::mailbox::Mailbox;
 use crate::props::Props;
@@ -24,8 +25,8 @@ use crate::system::ActorSystem;
 use super::envelope::UserEnvelope;
 
 pub struct ActorRuntime<T>
-where
-    T: Actor,
+    where
+        T: Actor,
 {
     pub(crate) myself: ActorRef,
     pub(crate) handler: T,
@@ -36,8 +37,8 @@ where
 }
 
 impl<T> ActorRuntime<T>
-where
-    T: Actor,
+    where
+        T: Actor,
 {
     pub(crate) async fn run(self) {
         let Self {
@@ -64,7 +65,8 @@ where
                 error!("actor {:?} pre start error {:?}", actor, err);
                 context.stop(&context.myself());
                 while let Some(message) = mailbox.signal.recv().await {
-                    if Self::handle_system(&mut context, message).await {
+                    Self::handle_system(&mut context, message).await;
+                    if matches!(context.state, ActorState::CanTerminate) {
                         break;
                     }
                 }
@@ -77,7 +79,8 @@ where
             tokio::select! {
                 biased;
                 Some(message) = mailbox.signal.recv() => {
-                    if Self::handle_system(&mut context, message).await {
+                    Self::handle_system(&mut context, message).await;
+                    if matches!(context.state, ActorState::CanTerminate) {
                         break;
                     }
                 }
@@ -106,21 +109,17 @@ where
         context.state = ActorState::Terminated;
     }
 
-    async fn handle_system(context: &mut ActorContext<T>, envelope: Envelope) -> bool {
+    async fn handle_system(context: &mut ActorContext<T>, envelope: Envelope) {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
-        async fn signal_parent<T>(context: &mut ActorContext<T>, message: ActorRemoteSystemMessage)
-        where
-            T: Actor,
-        {
-            if let Some(parent) = context.parent().clone() {
-                // parent.signal(signal).await;
-            }
-        }
         match message {
             ActorMessage::Local(l) => match l {
                 ActorLocalMessage::User { .. } => panic!("unreachable user branch"),
-                ActorLocalMessage::System { message } => {}
+                ActorLocalMessage::System { message } => match message {
+                    ActorSystemMessage::DeathWatchNotification { actor } => {
+                        context.watched_actor_terminated(actor);
+                    }
+                },
             },
             ActorMessage::Remote(r) => match r {
                 ActorRemoteMessage::User { .. } => panic!("unreachable user branch"),
@@ -135,7 +134,6 @@ where
             },
         }
         context.sender.take();
-        return false;
     }
 
     fn handle_message(
@@ -175,11 +173,11 @@ where
 }
 
 impl<T> Into<ActorThreadPoolMessage> for ActorRuntime<T>
-where
-    T: Actor,
+    where
+        T: Actor,
 {
     fn into(self) -> ActorThreadPoolMessage {
-        let spawn_fn = move |futures: &mut FuturesUnordered<Pin<Box<dyn Future<Output = ()>>>>| {
+        let spawn_fn = move |futures: &mut FuturesUnordered<Pin<Box<dyn Future<Output=()>>>>| {
             futures.push(self.run().boxed_local());
         };
         ActorThreadPoolMessage::SpawnActor(Box::new(spawn_fn))

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
 
 use crate::actor::Message;
-use crate::actor_ref::SerializedActorRef;
+use crate::actor_ref::{ActorRef, SerializedActorRef};
 use crate::ext::encode_bytes;
 
 #[derive(Debug)]
@@ -113,11 +113,15 @@ impl ActorRemoteMessage {
 }
 
 #[derive(Debug)]
-pub enum ActorSystemMessage {}
+pub enum ActorSystemMessage {
+    DeathWatchNotification {
+        actor: ActorRef,
+    }
+}
 
 impl ActorSystemMessage {
     pub(crate) fn name(&self) -> &str {
-        todo!()
+        match self { ActorSystemMessage::DeathWatchNotification { .. } => { "DeathWatchNotification" } }
     }
 }
 
@@ -131,7 +135,6 @@ pub enum ActorRemoteSystemMessage {
     },
     UnWatch {
         watchee: SerializedActorRef,
-
     },
 }
 

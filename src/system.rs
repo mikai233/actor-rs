@@ -9,17 +9,19 @@ use crate::actor::context::{ActorThreadPool, ActorThreadPoolMessage};
 use crate::actor::Actor;
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::actor_ref::{ActorRef, Cell, TActorRef};
+use crate::actor_ref::{ActorRef, Cell, TActorRef, ActorRefExt};
 use crate::address::Address;
 use crate::cell::runtime::ActorRuntime;
 use crate::cell::ActorCell;
 use crate::ext::random_actor_name;
 use crate::net::mailbox::{Mailbox, MailboxSender};
 use crate::props::Props;
+use crate::provider::empty_provider::EmptyActorRefProvider;
 use crate::provider::local_provider::LocalActorRefProvider;
 use crate::provider::remote_provider::RemoteActorRefProvider;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
-use crate::provider::empty_provider::EmptyActorRefProvider;
+use crate::system_guardian::SystemGuardianMessage;
+use crate::user_guardian::UserGuardianMessage;
 
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
@@ -96,6 +98,10 @@ impl ActorSystem {
         }
         Ok(())
     }
+
+    pub(crate) fn system_guardian(&self) -> LocalActorRef {
+        self.provider().system_guardian().clone()
+    }
 }
 
 impl ActorRefFactory for ActorSystem {
@@ -142,7 +148,20 @@ impl ActorRefFactory for ActorSystem {
     }
 
     fn stop(&self, actor: &ActorRef) {
-        todo!()
+        let path = actor.path();
+        let guard = self.guardian().path();
+        let sys = self.system_guardian().path();
+        match path.parent() {
+            guard => {
+                self.guardian().tell_local(UserGuardianMessage::StopChild { child: actor.clone() }, None);
+            }
+            sys => {
+                self.system_guardian().tell_local(SystemGuardianMessage::StopChild { child: actor.clone() }, None);
+            }
+            _ => {
+                actor.stop();
+            }
+        }
     }
 }
 
