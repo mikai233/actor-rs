@@ -1,42 +1,65 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::net::SocketAddr;
+use futures::SinkExt;
+use stubborn_io::tokio::StubbornIo;
+use tokio::net::TcpStream;
+use tokio_util::codec::Framed;
+use tracing::{debug, warn};
+use crate::actor_ref::{ActorRef, ActorRefExt};
+use crate::ext::encode_bytes;
+use crate::net::codec::{Packet, PacketCodec};
+use crate::net::message::{RemoteEnvelope, RemotePacket};
+use crate::net::tcp_transport::TransportMessage;
 
-use tokio::sync::mpsc::error::SendError;
+pub(crate) type ConnectionTx = tokio::sync::mpsc::Sender<RemoteEnvelope>;
+pub(crate) type ConnectionRx = tokio::sync::mpsc::Receiver<RemoteEnvelope>;
 
-type ConnectionSender = tokio::sync::mpsc::UnboundedSender<ConnectionMessage>;
-
-#[derive(Debug)]
-pub enum ConnectionMessage {
-    Frame(Vec<u8>),
-    Close,
-}
-
-#[derive(Clone)]
-pub struct Connection {
-    pub addr: SocketAddr,
-    pub sender: ConnectionSender,
-}
-
-impl Debug for Connection {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Connection")
-            .field("addr", &self.addr)
-            .field("sender", &"..")
-            .finish()
-    }
-}
-
-impl PartialEq for Connection {
-    fn eq(&self, other: &Self) -> bool {
-        self.addr == other.addr
-    }
+pub(crate) struct Connection {
+    pub(crate) addr: SocketAddr,
+    pub(crate) framed: Framed<StubbornIo<TcpStream, SocketAddr>, PacketCodec>,
+    pub(crate) rx: tokio::sync::mpsc::Receiver<RemoteEnvelope>,
+    pub(crate) transport: ActorRef,
 }
 
 impl Connection {
-    pub fn send(&self, frame: Vec<u8>) -> Result<(), SendError<ConnectionMessage>> {
-        self.sender.send(ConnectionMessage::Frame(frame))
+    pub(crate) fn new(addr: SocketAddr, framed: Framed<StubbornIo<TcpStream, SocketAddr, >, PacketCodec>, transport: ActorRef) -> (Self, ConnectionTx) {
+        let (tx, rx) = tokio::sync::mpsc::channel(10000);
+        let myself = Self {
+            addr,
+            framed,
+            rx,
+            transport,
+        };
+        (myself, tx)
     }
-    pub fn close(&self) -> Result<(), SendError<ConnectionMessage>> {
-        self.sender.send(ConnectionMessage::Close)
+    pub(crate) fn start(self) {
+        let mut connection = self;
+        tokio::spawn(async move {
+            loop {
+                match connection.rx.recv().await {
+                    None => {
+                        connection.disconnect();
+                        break;
+                    }
+                    Some(envelope) => {
+                        if let Some(err) = connection.send(envelope).await.err() {
+                            connection.disconnect();
+                            let addr = &connection.addr;
+                            warn!("send message to {} error {:?}, drop current connection", addr, err);
+                        }
+                    }
+                }
+            }
+        });
+    }
+    fn disconnect(&self) {
+        self.transport.tell_local(TransportMessage::Disconnect(self.addr), None);
+    }
+
+    async fn send(&mut self, remote_envelope: RemoteEnvelope) -> anyhow::Result<()> {
+        let packet: RemotePacket = remote_envelope.into();
+        let bytes = encode_bytes(&packet)?;
+        self.framed.send(Packet::new(bytes)).await?;
+        Ok(())
     }
 }

@@ -36,21 +36,18 @@ pub enum ActorRef {
 impl Debug for ActorRef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ActorRef::LocalActorRef(l) => {
-                f.debug_struct("ActorRef::LocalActorRef")
-                    .field("path", l.path())
-                    .finish_non_exhaustive()
-            }
-            ActorRef::RemoteActorRef(r) => {
-                f.debug_struct("ActorRef::RemoteActorRef")
-                    .field("path", r.path())
-                    .finish_non_exhaustive()
-            }
-            ActorRef::DeadLetterActorRef(d) => {
-                f.debug_struct("ActorRef::DeadLetterActorRef")
-                    .field("path", d.path())
-                    .finish_non_exhaustive()
-            }
+            ActorRef::LocalActorRef(l) => f
+                .debug_struct("ActorRef::LocalActorRef")
+                .field("path", l.path())
+                .finish_non_exhaustive(),
+            ActorRef::RemoteActorRef(r) => f
+                .debug_struct("ActorRef::RemoteActorRef")
+                .field("path", r.path())
+                .finish_non_exhaustive(),
+            ActorRef::DeadLetterActorRef(d) => f
+                .debug_struct("ActorRef::DeadLetterActorRef")
+                .field("path", d.path())
+                .finish_non_exhaustive(),
         }
     }
 }
@@ -62,7 +59,7 @@ impl ActorRef {
     pub(crate) fn local_or_panic(&self) -> &LocalActorRef {
         match self {
             ActorRef::LocalActorRef(l) => l,
-            _ => panic!("expect LocalActorRef")
+            _ => panic!("expect LocalActorRef"),
         }
     }
 }
@@ -75,8 +72,8 @@ pub trait TActorRef: Debug + Send + Sync + 'static {
     fn stop(&self);
     fn parent(&self) -> Option<&ActorRef>;
     fn get_child<I>(&self, names: I) -> Option<ActorRef>
-        where
-            I: IntoIterator<Item=String>;
+    where
+        I: IntoIterator<Item = String>;
 }
 
 impl Display for ActorRef {
@@ -95,15 +92,15 @@ impl<T: ?Sized> ActorRefExt for T where T: TActorRef {}
 
 pub trait ActorRefExt: TActorRef {
     fn tell_local<M>(&self, message: M, sender: Option<ActorRef>)
-        where
-            M: Message,
+    where
+        M: Message,
     {
         let local = ActorMessage::local(message);
         self.tell(local, sender);
     }
     fn tell_remote<M>(&self, message: &M, sender: Option<ActorRef>) -> anyhow::Result<()>
-        where
-            M: Message + Serialize + DeserializeOwned,
+    where
+        M: Message + Serialize + DeserializeOwned,
     {
         let remote = ActorMessage::remote(message)?;
         self.tell(remote, sender);
@@ -111,7 +108,7 @@ pub trait ActorRefExt: TActorRef {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SerializedActorRef {
     pub path: String,
 }

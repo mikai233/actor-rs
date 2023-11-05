@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::borrow::Cow;
 
 use crate::actor::Message;
 use crate::actor_ref::ActorRef;
@@ -18,12 +19,12 @@ impl Envelope {
 
 #[derive(Debug)]
 pub enum UserEnvelope<M>
-where
-    M: Message,
+    where
+        M: Message,
 {
     Local(M),
     Remote {
-        name: &'static str,
+        name: Cow<'static, str>,
         message: Vec<u8>,
     },
     Unknown {

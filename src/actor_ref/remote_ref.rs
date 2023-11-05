@@ -1,18 +1,21 @@
 use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::sync::{Arc, RwLock};
+use tracing::warn;
 
 use crate::actor_path::ActorPath;
-use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::message::ActorMessage;
-use crate::net::tcp_transport::TcpTransport;
+use crate::net::message::RemoteEnvelope;
+use crate::net::tcp_transport::{TcpTransport, TransportMessage};
+use crate::provider::ActorRefFactory;
 use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
 pub struct RemoteActorRef {
-    system: ActorSystem,
-    transport: Arc<TcpTransport>,
-    path: ActorPath,
+    pub(crate) system: ActorSystem,
+    pub(crate) path: ActorPath,
+    pub(crate) transport: Arc<ActorRef>,
 }
 
 impl TActorRef for RemoteActorRef {
@@ -21,11 +24,23 @@ impl TActorRef for RemoteActorRef {
     }
 
     fn path(&self) -> &ActorPath {
-        todo!()
+        &self.path
     }
 
     fn tell(&self, message: ActorMessage, sender: Option<ActorRef>) {
-        todo!()
+        match message {
+            ActorMessage::Local(_) => {
+                warn!("local message to remote actor ref");
+            }
+            ActorMessage::Remote(r) => {
+                let envelope = RemoteEnvelope {
+                    message: r,
+                    sender,
+                    target: self.clone().into(),
+                };
+                self.transport.tell_local(TransportMessage::OutboundMessage(envelope), None);
+            }
+        }
     }
 
     fn stop(&self) {
@@ -33,7 +48,7 @@ impl TActorRef for RemoteActorRef {
     }
 
     fn parent(&self) -> Option<&ActorRef> {
-        todo!()
+        None
     }
 
     fn get_child<I>(&self, names: I) -> Option<ActorRef> where I: IntoIterator<Item=String> {

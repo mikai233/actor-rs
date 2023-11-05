@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
@@ -37,7 +38,7 @@ impl ActorMessage {
         let name = std::any::type_name::<M>();
         let body = encode_bytes(message)?;
         let remote = ActorRemoteMessage::User {
-            name,
+            name: Cow::Borrowed(name),
             message: body,
         };
         let remote = ActorMessage::Remote(remote);
@@ -95,7 +96,7 @@ impl Debug for ActorLocalMessage {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ActorRemoteMessage {
     User {
-        name: &'static str,
+        name: Cow<'static, str>,
         message: Vec<u8>,
     },
     System {

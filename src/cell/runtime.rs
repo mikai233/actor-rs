@@ -83,11 +83,13 @@ impl<T> ActorRuntime<T>
                     if matches!(context.state, ActorState::CanTerminate) {
                         break;
                     }
+                    context.remove_finished_task();
                 }
                 Some(message) = mailbox.message.recv(), if matches!(context.state, ActorState::Started) => {
                     if Self::handle_message(&mut context, &mut state, &handler, message) {
                         break;
                     }
+                    context.remove_finished_task();
                     throughput += 1;
                     if throughput >= props.throughput {
                         throughput = 0;

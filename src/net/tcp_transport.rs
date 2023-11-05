@@ -1,211 +1,322 @@
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::future::Future;
 use std::iter::repeat_with;
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
+use std::num::NonZeroUsize;
+use std::pin::Pin;
 use std::time::Duration;
 
 use futures::{SinkExt, StreamExt};
-use futures::future::join_all;
+use lru::LruCache;
 use stubborn_io::{ReconnectOptions, StubbornTcpStream};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpListener;
+use tokio::sync::mpsc::error::TrySendError;
 use tokio::task::JoinHandle;
 use tokio_util::codec::Framed;
-use tracing::{error, warn};
+use tracing::{debug, error, info, warn};
 
-use crate::net::codec::{Packet, PacketCodec};
-use crate::net::connection::{Connection, ConnectionMessage};
-use crate::net::listener::ConnectionListener;
+use crate::actor::Actor;
+use crate::actor::context::{ActorContext, Context};
+use crate::actor_path::TActorPath;
+use crate::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef, TActorRef};
+use crate::cell::envelope::UserEnvelope;
+use crate::ext::decode_bytes;
+use crate::message::ActorMessage;
+use crate::net::codec::PacketCodec;
+use crate::net::connection::{Connection, ConnectionTx};
+use crate::net::message::{RemoteEnvelope, RemotePacket};
+use crate::provider::{ActorRefFactory, TActorRefProvider};
 
-#[derive(Debug, Clone)]
-pub struct TcpTransport {
-    addr: SocketAddr,
-    server_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
-    client_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
+#[derive(Debug)]
+pub(crate) struct TransportActor;
+
+pub(crate) enum TransportMessage {
+    Connect(SocketAddr, ReconnectOptions),
+    Connected(SocketAddr, ConnectionTx),
+    Disconnect(SocketAddr),
+    SpawnInbound(Pin<Box<dyn Future<Output=()> + Send + 'static>>),
+    InboundMessage(RemotePacket),
+    OutboundMessage(RemoteEnvelope),
 }
 
-impl TcpTransport {
-    pub fn new(addr: SocketAddr) -> Self {
-        Self {
-            addr,
-            server_handle: Arc::new(Mutex::new(None)),
-            client_handles: Arc::new(Mutex::new(vec![])),
-        }
-    }
-    pub async fn listen<L>(&mut self, listener: L) -> anyhow::Result<()> where L: ConnectionListener {
-        let tcp_listener = TcpListener::bind(&self.addr).await?;
-        let addr = self.addr.clone();
-        let handle = tokio::spawn(async move {
+#[derive(Debug)]
+enum ConnectionSender {
+    NotConnected,
+    Connecting,
+    Connected(ConnectionTx),
+}
+
+impl Actor for TransportActor {
+    type M = TransportMessage;
+    type S = TcpTransport;
+    type A = ();
+
+    fn pre_start(&self, ctx: &mut ActorContext<Self>, _arg: Self::A) -> anyhow::Result<Self::S> {
+        let myself = ctx.myself.clone();
+        let transport = TcpTransport::new();
+        let address = ctx.system.address().clone();
+        let addr = address.addr;
+        ctx.spawn(async move {
+            let tcp_listener = TcpListener::bind(addr).await.unwrap();
+            info!("{} start listening", address);
             loop {
                 match tcp_listener.accept().await {
                     Ok((stream, peer_addr)) => {
-                        TcpTransport::accept_connection(stream, peer_addr, listener.clone());
+                        let actor = myself.clone();
+                        let connection_fut = async move {
+                            TcpTransport::accept_inbound_connection(stream, peer_addr, actor).await;
+                        };
+                        myself.tell_local(
+                            TransportMessage::SpawnInbound(Box::pin(connection_fut)),
+                            None,
+                        );
                     }
                     Err(err) => {
-                        warn!("{} accept connection error {:?}",addr,err);
+                        warn!("{} accept connection error {:?}", addr, err);
                     }
                 }
             }
         });
-        let mut server_handle = self.server_handle.lock().unwrap();
-        *server_handle = Some(handle);
-        Ok(())
+        Ok(transport)
     }
 
-    pub async fn connect<L>(&mut self, addr: SocketAddr, listener: L) -> anyhow::Result<()> where L: ConnectionListener {
-        let opts = ReconnectOptions::new()
-            .with_exit_if_first_connect_fails(false)
-            .with_retries_generator(|| repeat_with(|| { Duration::from_secs(3) }));
-        let stream = StubbornTcpStream::connect_with_options(addr, opts).await?;
-        stream.set_nodelay(true)?;
-        let handle = TcpTransport::accept_connection(stream, addr, listener);
-        self.client_handles.lock().unwrap().push(handle);
-        Ok(())
-    }
-
-    fn accept_connection<L, S>(stream: S, addr: SocketAddr, listener: L) -> JoinHandle<()> where L: ConnectionListener, S: Send + AsyncRead + AsyncWrite + Unpin + 'static {
-        let mut framed = Framed::new(stream, PacketCodec);
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-        let connection = Connection { addr, sender: tx };
-        listener.on_connected(&connection);
-        let handle = tokio::spawn(async move {
-            loop {
-                tokio::select! {
-                    inbound = framed.next() => {
-                        match inbound {
-                            Some(Ok(inbound)) => {
-                                listener.on_recv(&connection, inbound.body);
+    fn on_recv(
+        &self,
+        ctx: &mut ActorContext<Self>,
+        state: &mut Self::S,
+        envelope: UserEnvelope<Self::M>,
+    ) -> anyhow::Result<()> {
+        match envelope {
+            UserEnvelope::Local(l) => match l {
+                TransportMessage::Connect(addr, opts) => {
+                    let myself = ctx.myself.clone();
+                    ctx.spawn(async move {
+                        match StubbornTcpStream::connect_with_options(addr, opts).await {
+                            Ok(stream) => {
+                                if let Some(e) = stream.set_nodelay(true).err() {
+                                    warn!("connect {} set tcp nodelay error {:?}, drop current connection", addr, e);
+                                    return;
+                                }
+                                let framed = Framed::new(stream, PacketCodec);
+                                let (connection, tx) = Connection::new(addr, framed, myself.clone());
+                                connection.start();
+                                myself.tell_local(TransportMessage::Connected(addr, tx), None);
                             }
-                            Some(Err(err)) => {
-                                error!("{} codec error {:?}",connection.addr,err);
-                                break;
+                            Err(e) => {
+                                error!("connect to {} error {:?}, drop current connection", addr, e);
                             }
-                            None => {
-                                break;
-                            }
+                        };
+                    });
+                }
+                TransportMessage::Disconnect(addr) => {
+                    state.connections.remove(&addr);
+                    let myself = ctx.myself();
+                    info!("{} disconnect to {}", myself, addr);
+                }
+                TransportMessage::SpawnInbound(i) => {
+                    ctx.spawn(i);
+                }
+                TransportMessage::InboundMessage(m) => {
+                    let RemotePacket {
+                        message,
+                        sender,
+                        target,
+                    } = m;
+                    let sender = sender.map(|s| state.resolve_actor_ref(ctx, s).clone());
+                    let target = state.resolve_actor_ref(ctx, target);
+                    target.tell(ActorMessage::Remote(message), sender);
+                }
+                TransportMessage::Connected(addr, connection) => {
+                    state.connections.insert(addr, ConnectionSender::Connected(connection));
+                    info!("{} connect to {}", ctx.myself, addr);
+                    ctx.unstash_all();
+                }
+                TransportMessage::OutboundMessage(envelope) => {
+                    let addr: SocketAddr = envelope.target.path().address().addr.into();
+                    let sender = state.connections.entry(addr).or_insert(ConnectionSender::NotConnected);
+                    match sender {
+                        ConnectionSender::NotConnected => {
+                            let opts = ReconnectOptions::new()
+                                .with_exit_if_first_connect_fails(false)
+                                .with_retries_generator(|| repeat_with(|| Duration::from_secs(3)));
+                            ctx.myself
+                                .tell_local(TransportMessage::Connect(addr, opts), None);
+                            ctx.stash(UserEnvelope::Local(TransportMessage::OutboundMessage(envelope)));
+                            debug!("message {} to {} not connected, stash current message and start connect", ctx.myself, addr);
+                            *sender = ConnectionSender::Connecting;
                         }
-                    }
-                    outbound = rx.recv() => {
-                        match outbound {
-                            Some(message) => {
-                                match message {
-                                    ConnectionMessage::Frame(body) => {
-                                        let packet = Packet::new(body);
-                                        if let Some(err) = framed.send(packet).await.err() {
-                                            error!("{} codec error {:?}",connection.addr,err);
-                                            break;
-                                        }
+                        ConnectionSender::Connecting => {
+                            ctx.stash(UserEnvelope::Local(TransportMessage::OutboundMessage(envelope)));
+                            debug!("message {} to {} is connecting, stash current message and wait", ctx.myself, addr);
+                        }
+                        ConnectionSender::Connected(tx) => {
+                            if let Some(err) = tx.try_send(envelope).err() {
+                                match err {
+                                    TrySendError::Full(_) => {
+                                        warn!("message {} to {} connection buffer full, current message dropped", ctx.myself, addr);
                                     }
-                                    ConnectionMessage::Close => {
-                                        break;
+                                    TrySendError::Closed(_) => {
+                                        ctx.myself.tell_local(TransportMessage::Disconnect(addr), None);
+                                        warn!( "message {} to {} connection closed", ctx.myself, addr );
                                     }
                                 }
                             }
-                            None => {
-                                break;
-                            }
                         }
                     }
                 }
-            }
-            listener.on_disconnected(&connection);
-        });
-        handle
-    }
-
-    pub fn close(&self) {
-        if let Some(handle) = self.server_handle.lock().unwrap().as_ref() {
-            handle.abort();
+            },
+            UserEnvelope::Remote { name, message } => todo!(),
+            UserEnvelope::Unknown { name, message } => todo!(),
         }
-    }
-
-    pub async fn wait(&mut self) -> anyhow::Result<()> {
-        if let Some(handle) = self.server_handle.lock().unwrap().take() {
-            handle.await?;
-        }
-        let mut client_handles = self.client_handles.lock().unwrap();
-        let client_handles = client_handles.drain(0..);
-        join_all(client_handles).await;
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct TcpTransport {
+    connections: HashMap<SocketAddr, ConnectionSender>,
+    actor_cache: LruCache<SerializedActorRef, ActorRef>,
+    listener: Option<JoinHandle<()>>,
+}
+
+impl TcpTransport {
+    pub fn new() -> Self {
+        Self {
+            connections: HashMap::new(),
+            actor_cache: LruCache::new(NonZeroUsize::new(1000).unwrap()),
+            listener: None,
+        }
+    }
+
+    async fn accept_inbound_connection<S>(stream: S, addr: SocketAddr, actor: ActorRef)
+        where
+            S: Send + AsyncRead + AsyncWrite + Unpin + 'static,
+    {
+        let mut framed = Framed::new(stream, PacketCodec);
+        loop {
+            match framed.next().await {
+                Some(Ok(packet)) => {
+                    match decode_bytes::<RemotePacket>(packet.body.as_slice()) {
+                        Ok(envelope) => {
+                            actor.tell_local(TransportMessage::InboundMessage(envelope), None);
+                        }
+                        Err(error) => {
+                            warn!("{} deserialize error {:?}", addr, error);
+                            break;
+                        }
+                    }
+                }
+                Some(Err(error)) => {
+                    warn!("{} codec error {:?}", addr, error);
+                    break;
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+    }
+
+    pub fn resolve_actor_ref(
+        &mut self,
+        ctx: &mut ActorContext<TransportActor>,
+        serialized_ref: SerializedActorRef,
+    ) -> &ActorRef {
+        self.actor_cache.get_or_insert(serialized_ref.clone(), || {
+            ctx.system()
+                .provider()
+                .resolve_actor_ref(&serialized_ref.path)
+        })
     }
 }
 
 #[cfg(test)]
 mod transport_test {
-    use std::net::SocketAddr;
+    use std::net::ToSocketAddrs;
     use std::time::Duration;
+    use serde::{Deserialize, Serialize};
+    use tracing::info;
 
-    use tracing::{info, Level};
+    use crate::actor::Actor;
+    use crate::actor::context::{ActorContext, Context};
+    use crate::actor_ref::ActorRefExt;
+    use crate::cell::envelope::UserEnvelope;
+    use crate::ext::decode_bytes;
+    use crate::props::Props;
+    use crate::provider::ActorRefFactory;
+    use crate::provider::TActorRefProvider;
+    use crate::system::ActorSystem;
 
-    use crate::ext::init_logger;
-    use crate::net::connection::Connection;
-    use crate::net::listener::ConnectionListener;
-    use crate::net::tcp_transport::TcpTransport;
+    struct TestActor;
 
-    #[ctor::ctor]
-    fn init() {
-        init_logger(Level::DEBUG)
+    #[derive(Debug, Serialize, Deserialize)]
+    enum TestMessage {
+        Ping,
+        Pong,
+        PingTo(String),
     }
 
-    #[derive(Clone)]
-    struct ServerListener;
+    impl Actor for TestActor {
+        type M = TestMessage;
+        type S = ();
+        type A = ();
 
-    impl ConnectionListener for ServerListener {
-        fn on_connected(&self, connection: &Connection) {
-            info!("server {:?} connected",connection);
+        fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
+            info!("{} pre start", ctx.myself);
+            Ok(())
         }
 
-        fn on_recv(&self, connection: &Connection, frame: Vec<u8>) {
-            info!("server {:?} recv ping from client",connection);
-            connection.send(vec![]).unwrap();
-        }
-
-        fn on_disconnected(&self, connection: &Connection) {
-            info!("server {:?} disconnected",connection);
-        }
-    }
-
-    #[derive(Clone)]
-    struct ClientListener;
-
-    impl ConnectionListener for ClientListener {
-        fn on_connected(&self, connection: &Connection) {
-            info!("client {:?} connected",connection);
-            let connection = connection.clone();
-            tokio::spawn(async move {
-                for i in 0..10 {
-                    connection.send(vec![]).unwrap();
-                    tokio::time::sleep(Duration::from_secs(1)).await;
+        fn on_recv(
+            &self,
+            ctx: &mut ActorContext<Self>,
+            state: &mut Self::S,
+            envelope: UserEnvelope<Self::M>,
+        ) -> anyhow::Result<()> {
+            match envelope {
+                UserEnvelope::Local(l) => {
+                    match l {
+                        TestMessage::PingTo(to) => {
+                            let to = ctx.system.provider().resolve_actor_ref(&to);
+                            to.tell_remote(&TestMessage::Ping, Some(ctx.myself.clone()))?;
+                        }
+                        _ => {}
+                    }
                 }
-                // connection.close().unwrap();
-            });
-        }
-
-        fn on_recv(&self, connection: &Connection, frame: Vec<u8>) {
-            info!("client {:?} recv pong from server",connection);
-        }
-
-        fn on_disconnected(&self, connection: &Connection) {
-            info!("client {:?} disconnected",connection);
+                UserEnvelope::Remote { name, message } => {
+                    let message = decode_bytes::<TestMessage>(message.as_slice())?;
+                    info!("{} recv {:?}", ctx.myself, message);
+                    match message {
+                        TestMessage::Ping => {
+                            let myself = ctx.myself.clone();
+                            let sender = ctx.sender().unwrap().clone();
+                            ctx.spawn(async move {
+                                sender.tell_remote(&TestMessage::Pong, Some(myself)).unwrap();
+                                tokio::time::sleep(Duration::from_secs(3)).await;
+                            });
+                        }
+                        TestMessage::Pong => {}
+                        TestMessage::PingTo(_) => {}
+                    }
+                    if matches!(message, TestMessage::Ping) {}
+                }
+                UserEnvelope::Unknown { name, message } => todo!(),
+            }
+            Ok(())
         }
     }
 
-    #[ignore]
     #[tokio::test]
-    async fn test_server() -> anyhow::Result<()> {
-        let addr: SocketAddr = "127.0.0.1:8080".parse()?;
-        let mut materializer = TcpTransport::new(addr);
-        materializer.listen(ServerListener).await?;
-        materializer.wait().await?;
-        Ok(())
-    }
-
-    #[ignore]
-    #[tokio::test]
-    async fn test_client() -> anyhow::Result<()> {
-        let addr: SocketAddr = "127.0.0.1:8080".parse()?;
-        let mut materializer = TcpTransport::new(addr);
-        materializer.connect(addr, ClientListener).await?;
-        materializer.wait().await?;
+    async fn test() -> anyhow::Result<()> {
+        let system_a = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse()?)?;
+        let actor_a = system_a.actor_of(TestActor, (), Props::default(), Some("actor_a".to_string()))?;
+        let system_a = ActorSystem::new("game".to_string(), "127.0.0.1:12122".parse()?)?;
+        let actor_b = system_a.actor_of(TestActor, (), Props::default(), Some("actor_b".to_string()))?;
+        loop {
+            actor_a.tell_local(TestMessage::PingTo("tcp://game@127.0.0.1:12122/user/actor_b".to_string()), None);
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
         Ok(())
     }
 }

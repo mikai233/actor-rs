@@ -7,6 +7,7 @@ use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::ext::random_actor_name;
+use crate::net::tcp_transport::TransportActor;
 use crate::props::Props;
 use crate::provider::{ActorRefFactory, TActorRefProvider};
 use crate::root_guardian::RootGuardian;
@@ -81,6 +82,21 @@ impl LocalActorRefProvider {
         };
         Ok(provider)
     }
+
+    pub(crate) fn spawn_tcp_transport(&self, system: &ActorSystem) -> anyhow::Result<ActorRef> {
+        let path = self.system_guardian().path.child("tcp_transport".to_string());
+        let rt = make_actor_runtime(
+            system,
+            TransportActor,
+            (),
+            Props::default(),
+            path,
+            Some(self.system_guardian().clone().into()),
+        )?;
+        let actor_ref = rt.myself.clone();
+        system.exec_actor_rt(rt)?;
+        Ok(actor_ref)
+    }
 }
 
 impl TActorRefProvider for LocalActorRefProvider {
@@ -124,8 +140,8 @@ impl TActorRefProvider for LocalActorRefProvider {
         supervisor: &ActorRef,
         path: ActorPath,
     ) -> anyhow::Result<ActorRef>
-    where
-        T: Actor,
+        where
+            T: Actor,
     {
         let rt = make_actor_runtime(
             &self.guardian().system,
@@ -140,14 +156,14 @@ impl TActorRefProvider for LocalActorRefProvider {
         Ok(actor_ref)
     }
 
-    fn resolve_actor_ref(&self, path: String) -> ActorRef {
+    fn resolve_actor_ref(&self, path: &String) -> ActorRef {
         match path.parse::<ActorPath>() {
-            Ok(actor_path) => self.resolve_actor_ref_of_path(actor_path),
+            Ok(actor_path) => self.resolve_actor_ref_of_path(&actor_path),
             Err(_) => self.dead_letters().clone(),
         }
     }
 
-    fn resolve_actor_ref_of_path(&self, path: ActorPath) -> ActorRef {
+    fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {
         if path.address() == self.root_path().address() {
             self.root_guardian()
                 .get_child(path.elements())
@@ -253,7 +269,7 @@ mod local_provider_test {
         let actor_a = system.actor_of(ActorA, (), Props::default(), None)?;
         let actor_c = system
             .provider()
-            .resolve_actor_ref("tcp://game@127.0.0.1:12121/user/$a/$b/$c".to_string());
+            .resolve_actor_ref(&"tcp://game@127.0.0.1:12121/user/$a/$b/$c".to_string());
         actor_c.tell_local((), None);
         std::thread::park();
         Ok(())

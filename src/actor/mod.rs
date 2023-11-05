@@ -25,7 +25,7 @@ pub trait Actor: Send + Sync + Sized + 'static {
     }
 }
 
-pub trait Message: Any + Send + Sized + Debug + 'static {
+pub trait Message: Any + Send + Sized + 'static {
     fn downcast(
         message: Box<dyn Any + Send + 'static>,
     ) -> Result<Self, Box<dyn Any + Send + 'static>> {
@@ -36,7 +36,7 @@ pub trait Message: Any + Send + Sized + Debug + 'static {
     }
 }
 
-impl<T> Message for T where T: Any + Send + Sized + Debug + 'static {}
+impl<T> Message for T where T: Any + Send + Sized + 'static {}
 
 pub trait State: Any + 'static {}
 

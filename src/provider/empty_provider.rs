@@ -45,11 +45,11 @@ impl TActorRefProvider for EmptyActorRefProvider {
         panic!("unreachable");
     }
 
-    fn resolve_actor_ref(&self, path: String) -> ActorRef {
+    fn resolve_actor_ref(&self, path: &String) -> ActorRef {
         panic!("unreachable");
     }
 
-    fn resolve_actor_ref_of_path(&self, path: ActorPath) -> ActorRef {
+    fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {
         panic!("unreachable");
     }
 

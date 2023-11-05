@@ -15,8 +15,16 @@ mod root_guardian;
 pub(crate) mod system_guardian;
 pub(crate) mod user_guardian;
 
-#[test]
-fn test() {}
+#[cfg(test)]
+mod actor_test {
+    use tracing::Level;
+    use crate::ext::init_logger;
+
+    #[ctor::ctor]
+    fn init() {
+        init_logger(Level::DEBUG)
+    }
+}
 
 
 // #[cfg(test)]

@@ -1,15 +1,33 @@
+use std::sync::Arc;
 use crate::actor::Actor;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
-use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
+use crate::actor_ref::ActorRef;
+use crate::actor_ref::remote_ref::RemoteActorRef;
+use crate::net::tcp_transport::TransportActor;
 use crate::props::Props;
 use crate::provider::local_provider::LocalActorRefProvider;
-use crate::provider::TActorRefProvider;
+use crate::provider::{ActorRefFactory, TActorRefProvider};
+use crate::system::{ActorSystem, make_actor_runtime};
 
 #[derive(Debug, Clone)]
 pub struct RemoteActorRefProvider {
     pub(crate) local: LocalActorRefProvider,
+    pub(crate) transport: ActorRef,
+}
+
+impl RemoteActorRefProvider {
+    pub(crate) fn init(system: &ActorSystem) -> anyhow::Result<()> {
+        let local = LocalActorRefProvider::new(&system)?;
+        let transport = local.spawn_tcp_transport(system)?;
+        let provider = Self {
+            local,
+            transport,
+        };
+        *system.provider.write().unwrap() = provider.into();
+        Ok(())
+    }
 }
 
 impl TActorRefProvider for RemoteActorRefProvider {
@@ -45,22 +63,40 @@ impl TActorRefProvider for RemoteActorRefProvider {
         todo!()
     }
 
-    fn actor_of<T>(&self, actor: T, arg: T::A, props: Props, supervisor: &ActorRef, path: ActorPath) -> anyhow::Result<ActorRef> where T: Actor {
+    fn actor_of<T>(
+        &self,
+        actor: T,
+        arg: T::A,
+        props: Props,
+        supervisor: &ActorRef,
+        path: ActorPath,
+    ) -> anyhow::Result<ActorRef>
+        where
+            T: Actor,
+    {
         //TODO remote spawn
         self.local.actor_of(actor, arg, props, supervisor, path)
     }
 
-    fn resolve_actor_ref(&self, path: String) -> ActorRef {
+    fn resolve_actor_ref(&self, path: &String) -> ActorRef {
         match path.parse::<ActorPath>() {
-            Ok(actor_path) => self.resolve_actor_ref_of_path(actor_path),
+            Ok(actor_path) => self.resolve_actor_ref_of_path(&actor_path),
             Err(_) => self.dead_letters().clone(),
         }
     }
-    fn resolve_actor_ref_of_path(&self, path: ActorPath) -> ActorRef {
+    fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {
         if path.address() == self.root_path().address() {
             self.local.resolve_actor_ref_of_path(path)
         } else {
-            todo!()
+            let system = self.system_guardian().system.clone();
+            let provider = system.provider();
+            let remote = provider.remote_or_panic();
+            let remote = RemoteActorRef {
+                system: self.system_guardian().system.clone(),
+                path: path.clone(),
+                transport: Arc::new(remote.transport.clone()),
+            };
+            remote.into()
         }
     }
 

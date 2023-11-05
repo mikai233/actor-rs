@@ -10,9 +10,9 @@ use crate::provider::local_provider::LocalActorRefProvider;
 use crate::provider::remote_provider::RemoteActorRefProvider;
 use crate::system::ActorSystem;
 
+pub(crate) mod empty_provider;
 pub(crate) mod local_provider;
 pub(crate) mod remote_provider;
-pub(crate) mod empty_provider;
 
 #[enum_dispatch]
 #[derive(Debug, Clone)]
@@ -20,6 +20,15 @@ pub enum ActorRefProvider {
     EmptyActorRefProvider,
     LocalActorRefProvider,
     RemoteActorRefProvider,
+}
+
+impl ActorRefProvider {
+    fn remote_or_panic(&self) -> &RemoteActorRefProvider {
+        match self {
+            ActorRefProvider::RemoteActorRefProvider(r) => r,
+            _ => panic!("expect RemoteActorRefProvider"),
+        }
+    }
 }
 
 #[enum_dispatch(ActorRefProvider)]
@@ -42,8 +51,8 @@ pub trait TActorRefProvider: Send {
     ) -> anyhow::Result<ActorRef>
         where
             T: Actor;
-    fn resolve_actor_ref(&self, path: String) -> ActorRef;
-    fn resolve_actor_ref_of_path(&self, path: ActorPath) -> ActorRef;
+    fn resolve_actor_ref(&self, path: &String) -> ActorRef;
+    fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef;
     fn dead_letters(&self) -> &ActorRef;
 }
 

@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio_util::bytes::{BufMut, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
-use crate::ext::read_u16;
+use tracing::debug;
+use crate::ext::{read_u16, read_u32};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Packet {
@@ -66,13 +67,13 @@ impl Decoder for PacketCodec {
         if buf_len < 4 {
             return Ok(None);
         }
-        let body_len = read_u16(src, 0)?;
-        return if body_len > (buf_len - 4) as u16 {
+        let body_len = read_u32(src, 0)?;
+        return if body_len > (buf_len - 4) as u32 {
             src.reserve(body_len as usize);
             Ok(None)
         } else {
             let src = src.split_to(4 + body_len as usize);
-            Ok(Some(Packet::new(src.to_vec())))
+            Ok(Some(Packet::new(src[4..].to_vec())))
         };
     }
 }

@@ -236,6 +236,19 @@ impl<A> ActorContext<A>
             self.finish_terminated();
         }
     }
+
+    pub fn execute<F>(&self, f: F) where F: FnOnce(&mut A::S) {}
+
+    pub fn spawn<F>(&mut self, future: F) where F: Future<Output=()> + Send + 'static {
+        let handle = tokio::spawn(future);
+        self.tasks.push(handle);
+    }
+
+    pub(crate) fn remove_finished_task(&mut self) {
+        if !self.tasks.is_empty() {
+            self.tasks.retain(|t| !t.is_finished());
+        }
+    }
 }
 
 pub(crate) enum ActorThreadPoolMessage {

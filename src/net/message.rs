@@ -8,6 +8,7 @@ pub(crate) struct RemoteEnvelope {
     pub(crate) target: ActorRef,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct RemotePacket {
     pub(crate) message: ActorRemoteMessage,
     pub(crate) sender: Option<SerializedActorRef>,

@@ -15,6 +15,7 @@ use crate::cell::runtime::ActorRuntime;
 use crate::cell::ActorCell;
 use crate::ext::random_actor_name;
 use crate::net::mailbox::{Mailbox, MailboxSender};
+use crate::net::tcp_transport::TransportActor;
 use crate::props::Props;
 use crate::provider::empty_provider::EmptyActorRefProvider;
 use crate::provider::local_provider::LocalActorRefProvider;
@@ -26,7 +27,7 @@ use crate::user_guardian::UserGuardianMessage;
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
     inner: Arc<Inner>,
-    provider: Arc<RwLock<ActorRefProvider>>,
+    pub(crate) provider: Arc<RwLock<ActorRefProvider>>,
 }
 
 #[derive(Debug)]
@@ -51,14 +52,11 @@ impl ActorSystem {
             spawner: pool.sender.clone(),
             pool: pool.into(),
         };
-        let mut system = Self {
+        let system = Self {
             inner: inner.into(),
             provider: Arc::new(RwLock::new(EmptyActorRefProvider.into())),
         };
-        let provider = RemoteActorRefProvider {
-            local: LocalActorRefProvider::new(&system)?,
-        };
-        *system.provider.write().unwrap() = provider.into();
+        RemoteActorRefProvider::init(&system)?;
         Ok(system)
     }
     pub fn name(&self) -> &String {
