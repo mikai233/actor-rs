@@ -57,6 +57,7 @@ pub enum ActorPath {
 
 impl PartialEq for ActorPath {
     fn eq(&self, other: &Self) -> bool {
+        //TODO opt
         self.to_string().eq(&other.to_string())
     }
 }

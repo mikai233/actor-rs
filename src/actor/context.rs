@@ -5,18 +5,18 @@ use std::ops::Not;
 use std::pin::Pin;
 use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Ok};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use tokio::task::JoinHandle;
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::actor::Actor;
 use crate::actor_path::{ActorPath, ChildActorPath, TActorPath};
-use crate::actor_ref::{ActorRef, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
+use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::cell::envelope::UserEnvelope;
-use crate::ext::random_actor_name;
+use crate::ext::{check_name, random_actor_name};
 use crate::message::{
     ActorLocalMessage, ActorMessage, ActorRemoteMessage, ActorRemoteSystemMessage,
     ActorSystemMessage,
@@ -33,8 +33,8 @@ pub trait Context: ActorRefFactory {
     fn children_mut(&self) -> RwLockWriteGuard<BTreeMap<String, ActorRef>>;
     fn child(&self, name: &String) -> Option<ActorRef>;
     fn parent(&self) -> Option<&ActorRef>;
-    fn watch(&self, subject: &ActorRef);
-    fn watch_with(&self, subject: &ActorRef, message: ActorMessage);
+    fn watch(&self, subject: &ActorRef) -> anyhow::Result<()>;
+    fn watch_with(&self, subject: &ActorRef, message: ActorRemoteMessage);
     fn unwatch(&self, subject: &ActorRef);
 }
 
@@ -48,8 +48,8 @@ pub trait ContextExt: Context {
 
 #[derive(Debug)]
 pub struct ActorContext<T>
-    where
-        T: Actor,
+where
+    T: Actor,
 {
     pub(crate) _phantom: PhantomData<T>,
     pub(crate) state: ActorState,
@@ -61,8 +61,8 @@ pub struct ActorContext<T>
 }
 
 impl<A> ActorRefFactory for ActorContext<A>
-    where
-        A: Actor,
+where
+    A: Actor,
 {
     fn system(&self) -> &ActorSystem {
         &self.system
@@ -87,15 +87,20 @@ impl<A> ActorRefFactory for ActorContext<A>
         props: Props,
         name: Option<String>,
     ) -> anyhow::Result<ActorRef>
-        where
-            T: Actor,
+    where
+        T: Actor,
     {
         if !matches!(self.state, ActorState::Init | ActorState::Started) {
-            return Err(anyhow!("cannot spawn child actor while parent actor {} is terminating",self.myself));
+            return Err(anyhow!(
+                "cannot spawn child actor while parent actor {} is terminating",
+                self.myself
+            ));
         }
         let supervisor = &self.myself;
+        if let Some(name) = &name {
+            check_name(name)?;
+        }
         let name = name.unwrap_or_else(random_actor_name);
-        //TODO validate actor name
         let path =
             ChildActorPath::new(supervisor.path().clone(), name, ActorPath::new_uid()).into();
         self.provider()
@@ -111,8 +116,8 @@ impl<A> ActorRefFactory for ActorContext<A>
 }
 
 impl<A> Context for ActorContext<A>
-    where
-        A: Actor,
+where
+    A: Actor,
 {
     fn myself(&self) -> &ActorRef {
         &self.myself
@@ -123,19 +128,13 @@ impl<A> Context for ActorContext<A>
     }
 
     fn children(&self) -> RwLockReadGuard<BTreeMap<String, ActorRef>> {
-        if let ActorRef::LocalActorRef(myself) = self.myself() {
-            myself.cell.children().read().unwrap()
-        } else {
-            panic!("unreachable")
-        }
+        let myself = self.myself().local_or_panic();
+        myself.cell.children().read().unwrap()
     }
 
     fn children_mut(&self) -> RwLockWriteGuard<BTreeMap<String, ActorRef>> {
-        if let ActorRef::LocalActorRef(myself) = self.myself() {
-            myself.cell.children().write().unwrap()
-        } else {
-            panic!("unreachable")
-        }
+        let myself = self.myself().local_or_panic();
+        myself.cell.children().write().unwrap()
     }
 
     fn child(&self, name: &String) -> Option<ActorRef> {
@@ -146,22 +145,40 @@ impl<A> Context for ActorContext<A>
         self.myself().local_or_panic().cell.parent()
     }
 
-    fn watch(&self, subject: &ActorRef) {
-        todo!()
+    fn watch(&self, subject: &ActorRef) -> anyhow::Result<()> {
+        if self.myself() != subject {
+            // if self.myself().local_or_panic().cell.children(){
+            //
+            // }
+            let watch = ActorRemoteSystemMessage::Watch {
+                watchee: subject.clone().into(),
+                watcher: self.myself().clone().into(),
+            };
+            let watch = ActorMessage::remote_system(watch);
+            subject.tell(watch, None);
+        } else {
+            warn!("{} watch self is ignored", self.myself());
+        }
+        Ok(())
     }
 
-    fn watch_with(&self, subject: &ActorRef, message: ActorMessage) {
+    fn watch_with(&self, subject: &ActorRef, message: ActorRemoteMessage) {
         todo!()
     }
 
     fn unwatch(&self, subject: &ActorRef) {
-        todo!()
+        let unwatch = ActorRemoteSystemMessage::UnWatch {
+            watchee: subject.clone().into(),
+            watcher: self.myself().clone().into(),
+        };
+        let unwatch = ActorMessage::remote_system(unwatch);
+        subject.tell(unwatch, None);
     }
 }
 
 impl<A> ActorContext<A>
-    where
-        A: Actor,
+where
+    A: Actor,
 {
     pub fn stash(&mut self, message: UserEnvelope<A::M>) {
         let sender = self.sender.clone();
@@ -235,9 +252,16 @@ impl<A> ActorContext<A>
         }
     }
 
-    pub fn execute<F>(&self, f: F) where F: FnOnce(&mut A::S) {}
+    pub fn execute<F>(&self, f: F)
+    where
+        F: FnOnce(&mut A::S),
+    {
+    }
 
-    pub fn spawn<F>(&mut self, future: F) where F: Future<Output=()> + Send + 'static {
+    pub fn spawn<F>(&mut self, future: F)
+    where
+        F: Future<Output = ()> + Send + 'static,
+    {
         let handle = tokio::spawn(future);
         self.tasks.push(handle);
     }
@@ -251,7 +275,7 @@ impl<A> ActorContext<A>
 
 pub(crate) enum ActorThreadPoolMessage {
     SpawnActor(
-        Box<dyn FnOnce(&mut FuturesUnordered<Pin<Box<dyn Future<Output=()>>>>) + Send + 'static>,
+        Box<dyn FnOnce(&mut FuturesUnordered<Pin<Box<dyn Future<Output = ()>>>>) + Send + 'static>,
     ),
 }
 

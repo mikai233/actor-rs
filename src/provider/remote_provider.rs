@@ -75,12 +75,6 @@ impl TActorRefProvider for RemoteActorRefProvider {
         self.local.actor_of(actor, arg, props, supervisor, path)
     }
 
-    fn resolve_actor_ref(&self, path: &String) -> ActorRef {
-        match path.parse::<ActorPath>() {
-            Ok(actor_path) => self.resolve_actor_ref_of_path(&actor_path),
-            Err(_) => self.dead_letters().clone(),
-        }
-    }
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {
         if path.address() == self.root_path().address() {
             self.local.resolve_actor_ref_of_path(path)

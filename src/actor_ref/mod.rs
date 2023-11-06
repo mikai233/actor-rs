@@ -3,8 +3,8 @@ use std::fmt::{Debug, Display, Formatter};
 use std::sync::RwLock;
 
 use enum_dispatch::enum_dispatch;
-use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 
 use crate::actor::Message;
 use crate::actor_path::ActorPath;
@@ -67,8 +67,8 @@ pub trait TActorRef: Debug + Send + Sync + 'static {
     fn stop(&self);
     fn parent(&self) -> Option<&ActorRef>;
     fn get_child<I>(&self, names: I) -> Option<ActorRef>
-        where
-            I: IntoIterator<Item=String>;
+    where
+        I: IntoIterator<Item = String>;
 }
 
 impl Display for ActorRef {
@@ -83,19 +83,25 @@ impl Display for ActorRef {
     }
 }
 
+impl PartialEq for ActorRef {
+    fn eq(&self, other: &Self) -> bool {
+        self.path() == other.path()
+    }
+}
+
 impl<T: ?Sized> ActorRefExt for T where T: TActorRef {}
 
 pub trait ActorRefExt: TActorRef {
     fn tell_local<M>(&self, message: M, sender: Option<ActorRef>)
-        where
-            M: Message,
+    where
+        M: Message,
     {
         let local = ActorMessage::local(message);
         self.tell(local, sender);
     }
     fn tell_remote<M>(&self, message: &M, sender: Option<ActorRef>) -> anyhow::Result<()>
-        where
-            M: Message + Serialize + DeserializeOwned,
+    where
+        M: Message + Serialize + DeserializeOwned,
     {
         let remote = ActorMessage::remote(message)?;
         self.tell(remote, sender);

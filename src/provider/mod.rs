@@ -2,8 +2,8 @@ use enum_dispatch::enum_dispatch;
 
 use crate::actor::Actor;
 use crate::actor_path::ActorPath;
-use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::ActorRef;
+use crate::actor_ref::local_ref::LocalActorRef;
 use crate::props::Props;
 use crate::provider::empty_provider::EmptyActorRefProvider;
 use crate::provider::local_provider::LocalActorRefProvider;
@@ -51,7 +51,12 @@ pub trait TActorRefProvider: Send {
     ) -> anyhow::Result<ActorRef>
         where
             T: Actor;
-    fn resolve_actor_ref(&self, path: &String) -> ActorRef;
+    fn resolve_actor_ref(&self, path: &String) -> ActorRef {
+        match path.parse::<ActorPath>() {
+            Ok(actor_path) => self.resolve_actor_ref_of_path(&actor_path),
+            Err(_) => self.dead_letters().clone(),
+        }
+    }
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef;
     fn dead_letters(&self) -> &ActorRef;
 }

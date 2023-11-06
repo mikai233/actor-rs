@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicI64, Ordering};
 
+use anyhow::{anyhow, Ok};
 use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
 use tracing_subscriber::fmt::time::LocalTime;
@@ -21,12 +22,18 @@ pub fn read_u32(src: &BytesMut, offset: usize) -> anyhow::Result<u32> {
     Ok(num_u32)
 }
 
-pub fn encode_bytes<T>(value: &T) -> anyhow::Result<Vec<u8>> where T: Serialize {
+pub fn encode_bytes<T>(value: &T) -> anyhow::Result<Vec<u8>>
+where
+    T: Serialize,
+{
     let bytes = bincode::serialize(value)?;
     Ok(bytes)
 }
 
-pub fn decode_bytes<'a, T>(bytes: &'a [u8]) -> anyhow::Result<T> where T: Deserialize<'a> {
+pub fn decode_bytes<'a, T>(bytes: &'a [u8]) -> anyhow::Result<T>
+where
+    T: Deserialize<'a>,
+{
     let value = bincode::deserialize(bytes)?;
     Ok(value)
 }
@@ -44,15 +51,35 @@ pub fn init_logger(level: tracing::Level) {
 
 fn base64(l: i64, mut s: String) -> String {
     let index = l & 63;
-    let (_, c) = BASE64_CHARS.char_indices().find(|x| { x.0 == index as usize }).unwrap();
+    let (_, c) = BASE64_CHARS
+        .char_indices()
+        .find(|x| x.0 == index as usize)
+        .unwrap();
     s.push(c);
     let next = (l >> 6).abs();
-    if next == 0 { s } else { base64(next, s) }
+    if next == 0 {
+        s
+    } else {
+        base64(next, s)
+    }
 }
 
 pub fn random_actor_name() -> String {
     let num = ACTOR_NAME_OFFSET.fetch_add(1, Ordering::Relaxed);
     base64(num, "$".to_string())
+}
+
+pub fn check_name(name: &String) -> anyhow::Result<()> {
+    let valid = name.chars().all(|c| BASE64_CHARS.contains(c));
+    if valid {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "name {} is invalid, allowed chars {}",
+            name,
+            BASE64_CHARS
+        ))
+    }
 }
 
 #[cfg(test)]

@@ -2,8 +2,8 @@ use std::any::Any;
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 
-use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 
 use crate::actor::Message;
 use crate::actor_ref::{ActorRef, SerializedActorRef};
@@ -17,8 +17,8 @@ pub enum ActorMessage {
 
 impl ActorMessage {
     pub fn local<M>(message: M) -> ActorMessage
-        where
-            M: Message,
+    where
+        M: Message,
     {
         let name = std::any::type_name::<M>();
         let boxed = Box::new(message);
@@ -32,8 +32,8 @@ impl ActorMessage {
     }
 
     pub fn remote<M>(message: &M) -> anyhow::Result<ActorMessage>
-        where
-            M: Message + Serialize + DeserializeOwned,
+    where
+        M: Message + Serialize + DeserializeOwned,
     {
         let name = std::any::type_name::<M>();
         let body = encode_bytes(message)?;
@@ -115,14 +115,14 @@ impl ActorRemoteMessage {
 
 #[derive(Debug)]
 pub enum ActorSystemMessage {
-    DeathWatchNotification {
-        actor: ActorRef,
-    }
+    DeathWatchNotification { actor: ActorRef },
 }
 
 impl ActorSystemMessage {
     pub(crate) fn name(&self) -> &str {
-        match self { ActorSystemMessage::DeathWatchNotification { .. } => { "DeathWatchNotification" } }
+        match self {
+            ActorSystemMessage::DeathWatchNotification { .. } => "DeathWatchNotification",
+        }
     }
 }
 
@@ -136,6 +136,7 @@ pub enum ActorRemoteSystemMessage {
     },
     UnWatch {
         watchee: SerializedActorRef,
+        watcher: SerializedActorRef,
     },
 }
 
@@ -144,8 +145,8 @@ impl ActorRemoteSystemMessage {
         match self {
             ActorRemoteSystemMessage::Terminate => "Terminate",
             ActorRemoteSystemMessage::Terminated(_) => "Terminated",
-            ActorRemoteSystemMessage::Watch { watchee, watcher } => todo!(),
-            ActorRemoteSystemMessage::UnWatch { watchee } => todo!(),
+            ActorRemoteSystemMessage::Watch { watchee, watcher } => "Watch",
+            ActorRemoteSystemMessage::UnWatch { watchee, watcher } => "Unwatch",
         }
     }
 }

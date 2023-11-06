@@ -131,7 +131,7 @@ impl<T> ActorRuntime<T>
                     }
                     ActorRemoteSystemMessage::Terminated(_) => todo!(),
                     ActorRemoteSystemMessage::Watch { watchee, watcher } => todo!(),
-                    ActorRemoteSystemMessage::UnWatch { watchee } => todo!(),
+                    ActorRemoteSystemMessage::UnWatch { watchee, watcher } => todo!(),
                 },
             },
         }

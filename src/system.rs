@@ -12,7 +12,7 @@ use crate::actor_ref::{ActorRef, ActorRefExt, Cell, TActorRef};
 use crate::address::Address;
 use crate::cell::runtime::ActorRuntime;
 use crate::cell::ActorCell;
-use crate::ext::random_actor_name;
+use crate::ext::{check_name, random_actor_name};
 use crate::net::mailbox::{Mailbox, MailboxSender};
 use crate::props::Props;
 use crate::provider::empty_provider::EmptyActorRefProvider;
@@ -77,7 +77,7 @@ impl ActorSystem {
     }
 
     fn terminate(&self) {
-        todo!()
+        self.guardian().stop();
     }
 
     pub(crate) fn exec_actor_rt<T>(&self, rt: ActorRuntime<T>) -> anyhow::Result<()>
@@ -130,8 +130,10 @@ impl ActorRefFactory for ActorSystem {
     where
         T: Actor,
     {
+        if let Some(name) = &name {
+            check_name(name)?;
+        }
         let name = name.unwrap_or_else(random_actor_name);
-        //TODO validate custom actor name
         let path = self.guardian().path.child(name);
         let rt = make_actor_runtime(
             self,
@@ -148,28 +150,25 @@ impl ActorRefFactory for ActorSystem {
 
     fn stop(&self, actor: &ActorRef) {
         let path = actor.path();
-        let guard = self.guardian().path();
-        let sys = self.system_guardian().path();
-        match path.parent() {
-            guard => {
-                self.guardian().tell_local(
-                    UserGuardianMessage::StopChild {
-                        child: actor.clone(),
-                    },
-                    None,
-                );
-            }
-            sys => {
-                self.system_guardian().tell_local(
-                    SystemGuardianMessage::StopChild {
-                        child: actor.clone(),
-                    },
-                    None,
-                );
-            }
-            _ => {
-                actor.stop();
-            }
+        let parent = path.parent();
+        let guard = self.guardian();
+        let sys = self.system_guardian();
+        if parent == guard.path {
+            guard.tell_local(
+                UserGuardianMessage::StopChild {
+                    child: actor.clone(),
+                },
+                None,
+            );
+        } else if parent == sys.path {
+            sys.tell_local(
+                SystemGuardianMessage::StopChild {
+                    child: actor.clone(),
+                },
+                None,
+            );
+        } else {
+            actor.stop();
         }
     }
 }
@@ -244,15 +243,19 @@ mod system_test {
         type S = ();
         type A = ();
 
-        fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
+        fn pre_start(
+            &self,
+            _ctx: &mut ActorContext<Self>,
+            _arg: Self::A,
+        ) -> anyhow::Result<Self::S> {
             Ok(())
         }
 
         fn on_recv(
             &self,
             ctx: &mut ActorContext<Self>,
-            state: &mut Self::S,
-            message: UserEnvelope<Self::M>,
+            _state: &mut Self::S,
+            _message: UserEnvelope<Self::M>,
         ) -> anyhow::Result<()> {
             info!("{} recv message", ctx.myself());
             Ok(())
