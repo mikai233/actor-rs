@@ -3,13 +3,13 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
 
-use futures::stream::FuturesUnordered;
 use futures::FutureExt;
+use futures::stream::FuturesUnordered;
 use tokio::task::yield_now;
-use tracing::{error, info};
+use tracing::error;
 
-use crate::actor::context::{ActorContext, ActorThreadPoolMessage, Context};
 use crate::actor::{Actor, Message};
+use crate::actor::context::{ActorContext, ActorThreadPoolMessage, Context};
 use crate::actor_ref::ActorRef;
 use crate::cell::envelope::Envelope;
 use crate::message::{

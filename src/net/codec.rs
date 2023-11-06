@@ -1,11 +1,12 @@
 use std::ops::{Deref, DerefMut};
+
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio_util::bytes::{BufMut, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
-use tracing::debug;
-use crate::ext::{read_u16, read_u32};
+
+use crate::ext::read_u32;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Packet {

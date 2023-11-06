@@ -1,15 +1,15 @@
 use std::sync::Arc;
+
 use crate::actor::Actor;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
-use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::ActorRef;
+use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::remote_ref::RemoteActorRef;
-use crate::net::tcp_transport::TransportActor;
 use crate::props::Props;
-use crate::provider::local_provider::LocalActorRefProvider;
 use crate::provider::{ActorRefFactory, TActorRefProvider};
-use crate::system::{ActorSystem, make_actor_runtime};
+use crate::provider::local_provider::LocalActorRefProvider;
+use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
 pub struct RemoteActorRefProvider {
@@ -21,11 +21,8 @@ impl RemoteActorRefProvider {
     pub(crate) fn init(system: &ActorSystem) -> anyhow::Result<()> {
         let local = LocalActorRefProvider::new(&system)?;
         let transport = local.spawn_tcp_transport(system)?;
-        let provider = Self {
-            local,
-            transport,
-        };
-        *system.provider.write().unwrap() = provider.into();
+        let provider = Self { local, transport };
+        *system.provider_rw().write().unwrap() = provider.into();
         Ok(())
     }
 }
@@ -71,8 +68,8 @@ impl TActorRefProvider for RemoteActorRefProvider {
         supervisor: &ActorRef,
         path: ActorPath,
     ) -> anyhow::Result<ActorRef>
-        where
-            T: Actor,
+    where
+        T: Actor,
     {
         //TODO remote spawn
         self.local.actor_of(actor, arg, props, supervisor, path)

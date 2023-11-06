@@ -1,10 +1,11 @@
-use std::fmt::Debug;
 use std::net::SocketAddr;
+
 use futures::SinkExt;
 use stubborn_io::tokio::StubbornIo;
 use tokio::net::TcpStream;
 use tokio_util::codec::Framed;
-use tracing::{debug, warn};
+use tracing::warn;
+
 use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::ext::encode_bytes;
 use crate::net::codec::{Packet, PacketCodec};

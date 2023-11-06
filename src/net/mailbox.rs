@@ -1,7 +1,6 @@
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::cell::envelope::Envelope;
-use crate::message::ActorRemoteSystemMessage;
 
 pub(crate) struct Mailbox {
     pub(crate) message: Receiver<Envelope>,

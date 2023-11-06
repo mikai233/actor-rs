@@ -1,22 +1,20 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::future::Future;
 use std::marker::PhantomData;
-use std::mem::transmute;
-use std::num::ParseIntError;
 use std::ops::Not;
 use std::pin::Pin;
 use std::sync::{RwLockReadGuard, RwLockWriteGuard};
-use anyhow::anyhow;
 
+use anyhow::anyhow;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use tokio::task::JoinHandle;
-use tracing::{debug, error};
+use tracing::error;
 
 use crate::actor::Actor;
 use crate::actor_path::{ActorPath, ChildActorPath, TActorPath};
+use crate::actor_ref::{ActorRef, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::cell::envelope::UserEnvelope;
 use crate::ext::random_actor_name;
 use crate::message::{

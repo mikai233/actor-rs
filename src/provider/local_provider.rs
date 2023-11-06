@@ -1,17 +1,15 @@
-use anyhow::Error;
 use std::sync::Arc;
 
 use crate::actor::Actor;
 use crate::actor_path::{ActorPath, RootActorPath, TActorPath};
+use crate::actor_ref::{ActorRef, TActorRef};
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::actor_ref::{ActorRef, TActorRef};
-use crate::ext::random_actor_name;
 use crate::net::tcp_transport::TransportActor;
 use crate::props::Props;
-use crate::provider::{ActorRefFactory, TActorRefProvider};
+use crate::provider::TActorRefProvider;
 use crate::root_guardian::RootGuardian;
-use crate::system::{make_actor_runtime, ActorSystem};
+use crate::system::{ActorSystem, make_actor_runtime};
 use crate::system_guardian::SystemGuardian;
 use crate::user_guardian::UserGuardian;
 
@@ -180,16 +178,15 @@ impl TActorRefProvider for LocalActorRefProvider {
 
 #[cfg(test)]
 mod local_provider_test {
-    use crate::actor::context::ActorContext;
+    use tracing::info;
+
     use crate::actor::Actor;
-    use crate::actor_ref::{ActorRef, ActorRefExt};
+    use crate::actor::context::ActorContext;
+    use crate::actor_ref::ActorRefExt;
     use crate::cell::envelope::UserEnvelope;
     use crate::props::Props;
-    use crate::provider::local_provider::LocalActorRefProvider;
     use crate::provider::{ActorRefFactory, TActorRefProvider};
     use crate::system::ActorSystem;
-    use std::time::Duration;
-    use tracing::info;
 
     #[derive(Debug)]
     struct ActorA;

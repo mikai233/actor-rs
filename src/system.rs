@@ -1,5 +1,4 @@
 use std::net::SocketAddrV4;
-use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -9,16 +8,14 @@ use crate::actor::context::{ActorThreadPool, ActorThreadPoolMessage};
 use crate::actor::Actor;
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::actor_ref::{ActorRef, Cell, TActorRef, ActorRefExt};
+use crate::actor_ref::{ActorRef, ActorRefExt, Cell, TActorRef};
 use crate::address::Address;
 use crate::cell::runtime::ActorRuntime;
 use crate::cell::ActorCell;
 use crate::ext::random_actor_name;
 use crate::net::mailbox::{Mailbox, MailboxSender};
-use crate::net::tcp_transport::TransportActor;
 use crate::props::Props;
 use crate::provider::empty_provider::EmptyActorRefProvider;
-use crate::provider::local_provider::LocalActorRefProvider;
 use crate::provider::remote_provider::RemoteActorRefProvider;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::system_guardian::SystemGuardianMessage;
@@ -27,7 +24,6 @@ use crate::user_guardian::UserGuardianMessage;
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
     inner: Arc<Inner>,
-    pub(crate) provider: Arc<RwLock<ActorRefProvider>>,
 }
 
 #[derive(Debug)]
@@ -36,6 +32,7 @@ struct Inner {
     spawner: crossbeam::channel::Sender<ActorThreadPoolMessage>,
     pool: RwLock<ActorThreadPool>,
     start_time: u128,
+    provider: RwLock<ActorRefProvider>,
 }
 
 impl ActorSystem {
@@ -51,10 +48,10 @@ impl ActorSystem {
             address,
             spawner: pool.sender.clone(),
             pool: pool.into(),
+            provider: RwLock::new(EmptyActorRefProvider.into()),
         };
         let system = Self {
             inner: inner.into(),
-            provider: Arc::new(RwLock::new(EmptyActorRefProvider.into())),
         };
         RemoteActorRefProvider::init(&system)?;
         Ok(system)
@@ -84,8 +81,8 @@ impl ActorSystem {
     }
 
     pub(crate) fn exec_actor_rt<T>(&self, rt: ActorRuntime<T>) -> anyhow::Result<()>
-        where
-            T: Actor,
+    where
+        T: Actor,
     {
         if self.inner.spawner.send(rt.into()).is_err() {
             let name = std::any::type_name::<T>();
@@ -100,6 +97,10 @@ impl ActorSystem {
     pub(crate) fn system_guardian(&self) -> LocalActorRef {
         self.provider().system_guardian().clone()
     }
+
+    pub(crate) fn provider_rw(&self) -> &RwLock<ActorRefProvider> {
+        &self.inner.provider
+    }
 }
 
 impl ActorRefFactory for ActorSystem {
@@ -108,7 +109,7 @@ impl ActorRefFactory for ActorSystem {
     }
 
     fn provider(&self) -> ActorRefProvider {
-        self.provider.read().unwrap().clone()
+        self.inner.provider.read().unwrap().clone()
     }
 
     fn guardian(&self) -> LocalActorRef {
@@ -126,8 +127,8 @@ impl ActorRefFactory for ActorSystem {
         props: Props,
         name: Option<String>,
     ) -> anyhow::Result<ActorRef>
-        where
-            T: Actor,
+    where
+        T: Actor,
     {
         let name = name.unwrap_or_else(random_actor_name);
         //TODO validate custom actor name
@@ -151,10 +152,20 @@ impl ActorRefFactory for ActorSystem {
         let sys = self.system_guardian().path();
         match path.parent() {
             guard => {
-                self.guardian().tell_local(UserGuardianMessage::StopChild { child: actor.clone() }, None);
+                self.guardian().tell_local(
+                    UserGuardianMessage::StopChild {
+                        child: actor.clone(),
+                    },
+                    None,
+                );
             }
             sys => {
-                self.system_guardian().tell_local(SystemGuardianMessage::StopChild { child: actor.clone() }, None);
+                self.system_guardian().tell_local(
+                    SystemGuardianMessage::StopChild {
+                        child: actor.clone(),
+                    },
+                    None,
+                );
             }
             _ => {
                 actor.stop();
@@ -171,8 +182,8 @@ pub(crate) fn make_actor_runtime<T>(
     path: ActorPath,
     parent: Option<ActorRef>,
 ) -> anyhow::Result<ActorRuntime<T>>
-    where
-        T: Actor,
+where
+    T: Actor,
 {
     let name = path.name().clone();
     let (m_tx, m_rx) = tokio::sync::mpsc::channel(props.mailbox);

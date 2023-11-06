@@ -1,14 +1,12 @@
 use std::collections::BTreeMap;
-use std::fmt::Display;
 use std::sync::RwLock;
 use std::time::Duration;
 
 use tokio::sync::mpsc::error::TrySendError;
-use tracing::{debug, info, warn};
+use tracing::warn;
 
 use crate::actor::Message;
 use crate::actor_path::ActorPath;
-use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
@@ -40,7 +38,6 @@ impl TActorRef for LocalActorRef {
 
     fn tell(&self, message: ActorMessage, sender: Option<ActorRef>) {
         let envelop = Envelope { message, sender };
-        let name = envelop.message.name();
         match &envelop.message {
             ActorMessage::Local(l) => match l {
                 ActorLocalMessage::User { .. } => {

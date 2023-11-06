@@ -7,7 +7,7 @@ use std::num::NonZeroUsize;
 use std::pin::Pin;
 use std::time::Duration;
 
-use futures::{SinkExt, StreamExt};
+use futures::StreamExt;
 use lru::LruCache;
 use stubborn_io::{ReconnectOptions, StubbornTcpStream};
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -234,8 +234,8 @@ impl TcpTransport {
 
 #[cfg(test)]
 mod transport_test {
-    use std::net::ToSocketAddrs;
     use std::time::Duration;
+
     use serde::{Deserialize, Serialize};
     use tracing::info;
 
@@ -317,6 +317,5 @@ mod transport_test {
             actor_a.tell_local(TestMessage::PingTo("tcp://game@127.0.0.1:12122/user/actor_b".to_string()), None);
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
-        Ok(())
     }
 }

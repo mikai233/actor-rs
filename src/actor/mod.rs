@@ -1,5 +1,4 @@
 use std::any::Any;
-use std::fmt::Debug;
 
 use crate::actor::context::ActorContext;
 use crate::cell::envelope::UserEnvelope;
@@ -49,13 +48,15 @@ impl<T> Arg for T where T: Any + Send + 'static {}
 #[cfg(test)]
 mod actor_test {
     use std::time::Duration;
-    use crate::actor::context::ActorContext;
+
+    use anyhow::Ok;
+    use tracing::info;
+
     use crate::actor::Actor;
+    use crate::actor::context::ActorContext;
     use crate::cell::envelope::UserEnvelope;
     use crate::props::Props;
     use crate::provider::ActorRefFactory;
-    use anyhow::Ok;
-    use tracing::info;
     use crate::system::ActorSystem;
 
     #[tokio::test]

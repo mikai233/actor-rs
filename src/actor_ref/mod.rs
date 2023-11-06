@@ -1,14 +1,10 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 use std::fmt::{Debug, Display, Formatter};
-use std::net::SocketAddrV4;
-use std::str::FromStr;
 use std::sync::RwLock;
 
-use anyhow::{anyhow, Context};
 use enum_dispatch::enum_dispatch;
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use url::Url;
+use serde::de::DeserializeOwned;
 
 use crate::actor::Message;
 use crate::actor_path::ActorPath;
@@ -16,7 +12,6 @@ use crate::actor_path::TActorPath;
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::remote_ref::RemoteActorRef;
-use crate::address::Address;
 use crate::cell::ActorCell;
 use crate::message::ActorMessage;
 use crate::system::ActorSystem;
@@ -72,8 +67,8 @@ pub trait TActorRef: Debug + Send + Sync + 'static {
     fn stop(&self);
     fn parent(&self) -> Option<&ActorRef>;
     fn get_child<I>(&self, names: I) -> Option<ActorRef>
-    where
-        I: IntoIterator<Item = String>;
+        where
+            I: IntoIterator<Item=String>;
 }
 
 impl Display for ActorRef {
@@ -92,15 +87,15 @@ impl<T: ?Sized> ActorRefExt for T where T: TActorRef {}
 
 pub trait ActorRefExt: TActorRef {
     fn tell_local<M>(&self, message: M, sender: Option<ActorRef>)
-    where
-        M: Message,
+        where
+            M: Message,
     {
         let local = ActorMessage::local(message);
         self.tell(local, sender);
     }
     fn tell_remote<M>(&self, message: &M, sender: Option<ActorRef>) -> anyhow::Result<()>
-    where
-        M: Message + Serialize + DeserializeOwned,
+        where
+            M: Message + Serialize + DeserializeOwned,
     {
         let remote = ActorMessage::remote(message)?;
         self.tell(remote, sender);
@@ -168,9 +163,6 @@ pub(crate) trait Cell {
 
 #[cfg(test)]
 mod ref_test {
-    use crate::actor_ref::SerializedActorRef;
-    use crate::address::Address;
-
     #[test]
     fn test_serde() {
         // let actor_ref = SerializedActorRef {
