@@ -1,5 +1,9 @@
 use std::any::Any;
 
+use async_trait::async_trait;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+
 use crate::actor::context::ActorContext;
 use crate::cell::envelope::UserEnvelope;
 
@@ -36,6 +40,53 @@ pub trait Message: Any + Send + Sized + 'static {
 }
 
 impl<T> Message for T where T: Any + Send + Sized + 'static {}
+
+#[async_trait(? Send)]
+pub trait NonSerializableMessage: Any + Send + 'static {
+    type T: Actor;
+    async fn handle(&self, context: &mut ActorContext<Self::T>, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()>;
+}
+
+pub trait SerializableMessage: NonSerializableMessage + Serialize + DeserializeOwned {
+    fn decoder() -> Box<dyn MessageDecoder>;
+}
+
+struct DynamicMessage {
+    inner: Box<dyn Any + Send + 'static>,
+}
+
+impl DynamicMessage {
+    fn new<M>(message: M) -> Self where M: NonSerializableMessage {
+        Self {
+            inner: Box::new(message)
+        }
+    }
+}
+
+trait MessageDecoder {
+    fn decode(&self, bytes: &[u8]) -> anyhow::Result<DynamicMessage>;
+}
+
+struct MessageDelegate<T> where T: Actor {
+    message: Box<dyn NonSerializableMessage<T=T>>,
+}
+
+impl<T> MessageDelegate<T> where T: Actor {
+    pub fn new<M>(message: M) -> Self where M: NonSerializableMessage<T=T> {
+        Self {
+            message: Box::new(message)
+        }
+    }
+}
+
+#[async_trait(? Send)]
+impl<T> NonSerializableMessage for MessageDelegate<T> where T: Actor + Send + 'static {
+    type T = T;
+
+    async fn handle(&self, context: &mut ActorContext<Self::T>, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        self.message.handle(context, state).await
+    }
+}
 
 pub trait State: Any + 'static {}
 
