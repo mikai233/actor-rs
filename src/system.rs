@@ -4,20 +4,20 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::anyhow;
 
-use crate::actor::context::{ActorThreadPool, ActorThreadPoolMessage};
 use crate::actor::Actor;
+use crate::actor::context::{ActorThreadPool, ActorThreadPoolMessage};
 use crate::actor_path::{ActorPath, TActorPath};
-use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::{ActorRef, ActorRefExt, Cell, TActorRef};
+use crate::actor_ref::local_ref::LocalActorRef;
 use crate::address::Address;
-use crate::cell::runtime::ActorRuntime;
 use crate::cell::ActorCell;
+use crate::cell::runtime::ActorRuntime;
 use crate::ext::{check_name, random_actor_name};
 use crate::net::mailbox::{Mailbox, MailboxSender};
 use crate::props::Props;
+use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::provider::empty_provider::EmptyActorRefProvider;
 use crate::provider::remote_provider::RemoteActorRefProvider;
-use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::system_guardian::SystemGuardianMessage;
 use crate::user_guardian::UserGuardianMessage;
 
@@ -81,8 +81,8 @@ impl ActorSystem {
     }
 
     pub(crate) fn exec_actor_rt<T>(&self, rt: ActorRuntime<T>) -> anyhow::Result<()>
-    where
-        T: Actor,
+        where
+            T: Actor,
     {
         if self.inner.spawner.send(rt.into()).is_err() {
             let name = std::any::type_name::<T>();
@@ -127,8 +127,8 @@ impl ActorRefFactory for ActorSystem {
         props: Props,
         name: Option<String>,
     ) -> anyhow::Result<ActorRef>
-    where
-        T: Actor,
+        where
+            T: Actor,
     {
         if let Some(name) = &name {
             check_name(name)?;
@@ -181,8 +181,8 @@ pub(crate) fn make_actor_runtime<T>(
     path: ActorPath,
     parent: Option<ActorRef>,
 ) -> anyhow::Result<ActorRuntime<T>>
-where
-    T: Actor,
+    where
+        T: Actor,
 {
     let name = path.name().clone();
     let (m_tx, m_rx) = tokio::sync::mpsc::channel(props.mailbox);
@@ -226,11 +226,10 @@ mod system_test {
 
     use tracing::info;
 
-    use crate::actor::context::{ActorContext, Context};
     use crate::actor::Actor;
+    use crate::actor::context::ActorContext;
     use crate::actor_path::TActorPath;
     use crate::actor_ref::{ActorRefExt, TActorRef};
-    use crate::cell::envelope::UserEnvelope;
     use crate::props::Props;
     use crate::provider::ActorRefFactory;
     use crate::system::ActorSystem;
@@ -239,7 +238,6 @@ mod system_test {
     struct TestActor;
 
     impl Actor for TestActor {
-        type M = ();
         type S = ();
         type A = ();
 
@@ -248,16 +246,6 @@ mod system_test {
             _ctx: &mut ActorContext<Self>,
             _arg: Self::A,
         ) -> anyhow::Result<Self::S> {
-            Ok(())
-        }
-
-        fn on_recv(
-            &self,
-            ctx: &mut ActorContext<Self>,
-            _state: &mut Self::S,
-            _message: UserEnvelope<Self::M>,
-        ) -> anyhow::Result<()> {
-            info!("{} recv message", ctx.myself());
             Ok(())
         }
     }

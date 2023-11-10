@@ -16,7 +16,6 @@ pub(crate) enum SystemGuardianMessage {
 }
 
 impl Actor for SystemGuardian {
-    type M = SystemGuardianMessage;
     type S = ();
     type A = ();
 

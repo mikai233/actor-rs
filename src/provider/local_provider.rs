@@ -176,7 +176,6 @@ mod local_provider_test {
     use crate::actor::Actor;
     use crate::actor::context::ActorContext;
     use crate::actor_ref::ActorRefExt;
-    use crate::cell::envelope::UserEnvelope;
     use crate::props::Props;
     use crate::provider::{ActorRefFactory, TActorRefProvider};
     use crate::system::ActorSystem;
@@ -185,7 +184,6 @@ mod local_provider_test {
     struct ActorA;
 
     impl Actor for ActorA {
-        type M = ();
         type S = ();
         type A = ();
 
@@ -194,22 +192,12 @@ mod local_provider_test {
             ctx.actor_of(ActorB, (), Props::default(), None)?;
             Ok(())
         }
-
-        fn on_recv(
-            &self,
-            ctx: &mut ActorContext<Self>,
-            state: &mut Self::S,
-            envelope: UserEnvelope<Self::M>,
-        ) -> anyhow::Result<()> {
-            Ok(())
-        }
     }
 
     #[derive(Debug)]
     struct ActorB;
 
     impl Actor for ActorB {
-        type M = ();
         type S = ();
         type A = ();
 
@@ -218,37 +206,17 @@ mod local_provider_test {
             ctx.actor_of(ActorC, (), Props::default(), None)?;
             Ok(())
         }
-
-        fn on_recv(
-            &self,
-            ctx: &mut ActorContext<Self>,
-            state: &mut Self::S,
-            envelope: UserEnvelope<Self::M>,
-        ) -> anyhow::Result<()> {
-            Ok(())
-        }
     }
 
     #[derive(Debug)]
     struct ActorC;
 
     impl Actor for ActorC {
-        type M = ();
         type S = ();
         type A = ();
 
         fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
             info!("actor c {} pre start", ctx.myself);
-            Ok(())
-        }
-
-        fn on_recv(
-            &self,
-            ctx: &mut ActorContext<Self>,
-            state: &mut Self::S,
-            envelope: UserEnvelope<Self::M>,
-        ) -> anyhow::Result<()> {
-            info!("actor c {} recv message", ctx.myself);
             Ok(())
         }
     }

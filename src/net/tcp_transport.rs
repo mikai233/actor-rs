@@ -49,7 +49,6 @@ enum ConnectionSender {
 }
 
 impl Actor for TransportActor {
-    type M = TransportMessage;
     type S = TcpTransport;
     type A = ();
 

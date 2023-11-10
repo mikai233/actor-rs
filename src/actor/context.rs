@@ -6,6 +6,7 @@ use std::pin::Pin;
 use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 
 use anyhow::{anyhow, Ok};
+use futures::future::LocalBoxFuture;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use tokio::task::JoinHandle;
@@ -13,8 +14,8 @@ use tracing::{error, warn};
 
 use crate::actor::Actor;
 use crate::actor_path::{ActorPath, ChildActorPath, TActorPath};
+use crate::actor_ref::{ActorRef, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::cell::envelope::UserEnvelope;
 use crate::ext::{check_name, random_actor_name};
 use crate::message::{
@@ -47,22 +48,23 @@ pub trait ContextExt: Context {
 }
 
 #[derive(Debug)]
-pub struct ActorContext<T>
-where
-    T: Actor,
+pub struct ActorContext<'a, T>
+    where
+        T: Actor,
 {
     pub(crate) _phantom: PhantomData<T>,
     pub(crate) state: ActorState,
     pub(crate) myself: ActorRef,
     pub(crate) sender: Option<ActorRef>,
+    pub(crate) futures: FuturesUnordered<LocalBoxFuture<'a, ()>>,
     pub(crate) stash: VecDeque<(ActorMessage, Option<ActorRef>)>,
     pub(crate) tasks: Vec<JoinHandle<()>>,
     pub(crate) system: ActorSystem,
 }
 
-impl<A> ActorRefFactory for ActorContext<A>
-where
-    A: Actor,
+impl<A> ActorRefFactory for ActorContext<'_, A>
+    where
+        A: Actor,
 {
     fn system(&self) -> &ActorSystem {
         &self.system
@@ -87,8 +89,8 @@ where
         props: Props,
         name: Option<String>,
     ) -> anyhow::Result<ActorRef>
-    where
-        T: Actor,
+        where
+            T: Actor,
     {
         if !matches!(self.state, ActorState::Init | ActorState::Started) {
             return Err(anyhow!(
@@ -115,9 +117,9 @@ where
     }
 }
 
-impl<A> Context for ActorContext<A>
-where
-    A: Actor,
+impl<A> Context for ActorContext<'_, A>
+    where
+        A: Actor,
 {
     fn myself(&self) -> &ActorRef {
         &self.myself
@@ -176,9 +178,9 @@ where
     }
 }
 
-impl<A> ActorContext<A>
-where
-    A: Actor,
+impl<A> ActorContext<'_, A>
+    where
+        A: Actor,
 {
     pub fn stash(&mut self, message: UserEnvelope<A::M>) {
         let sender = self.sender.clone();
@@ -253,14 +255,13 @@ where
     }
 
     pub fn execute<F>(&self, f: F)
-    where
-        F: FnOnce(&mut A::S),
-    {
-    }
+        where
+            F: FnOnce(&mut A::S),
+    {}
 
     pub fn spawn<F>(&mut self, future: F)
-    where
-        F: Future<Output = ()> + Send + 'static,
+        where
+            F: Future<Output=()> + Send + 'static,
     {
         let handle = tokio::spawn(future);
         self.tasks.push(handle);
@@ -275,7 +276,7 @@ where
 
 pub(crate) enum ActorThreadPoolMessage {
     SpawnActor(
-        Box<dyn FnOnce(&mut FuturesUnordered<Pin<Box<dyn Future<Output = ()>>>>) + Send + 'static>,
+        Box<dyn FnOnce(&mut FuturesUnordered<Pin<Box<dyn Future<Output=()>>>>) + Send + 'static>,
     ),
 }
 

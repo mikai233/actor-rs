@@ -17,7 +17,6 @@ pub(crate) enum UserGuardianMessage {
 }
 
 impl Actor for UserGuardian {
-    type M = UserGuardianMessage;
     type S = ();
     type A = ();
 

@@ -23,16 +23,16 @@ pub fn read_u32(src: &BytesMut, offset: usize) -> anyhow::Result<u32> {
 }
 
 pub fn encode_bytes<T>(value: &T) -> anyhow::Result<Vec<u8>>
-where
-    T: Serialize,
+    where
+        T: Serialize,
 {
     let bytes = bincode::serialize(value)?;
     Ok(bytes)
 }
 
 pub fn decode_bytes<'a, T>(bytes: &'a [u8]) -> anyhow::Result<T>
-where
-    T: Deserialize<'a>,
+    where
+        T: Deserialize<'a>,
 {
     let value = bincode::deserialize(bytes)?;
     Ok(value)
@@ -70,15 +70,14 @@ pub fn random_actor_name() -> String {
 }
 
 pub fn check_name(name: &String) -> anyhow::Result<()> {
-    let valid = name.chars().all(|c| BASE64_CHARS.contains(c));
+    let valid = name.chars().all(|c| match c {
+        'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => true,
+        _ => false
+    });
     if valid {
         Ok(())
     } else {
-        Err(anyhow!(
-            "name {} is invalid, allowed chars {}",
-            name,
-            BASE64_CHARS
-        ))
+        Err(anyhow!( "name {} is invalid, allowed chars a..=z, A..=Z, 0..=9, _", name, ))
     }
 }
 

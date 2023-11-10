@@ -1,3 +1,5 @@
+#![feature(exclusive_range_pattern)]
+
 pub mod actor_ref;
 pub(crate) mod message;
 pub mod system;
