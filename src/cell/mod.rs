@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::message::ActorRemoteMessage;
+use crate::message::{ActorMessage, ActorRemoteMessage};
 
 pub(crate) mod envelope;
 pub(crate) mod runtime;
@@ -52,7 +52,9 @@ impl ActorCell {
             None => self.get_child_by_name(name),
         }
     }
-    pub(crate) fn watching(&self) {}
+    pub(crate) fn watching(&self) -> &RwLock<HashMap<ActorRef, Option<ActorRemoteMessage>>> {
+        &self.inner.watching
+    }
 }
 
 #[derive(Debug)]

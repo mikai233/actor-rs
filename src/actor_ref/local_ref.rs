@@ -5,7 +5,7 @@ use std::time::Duration;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
-use crate::actor::Message;
+use crate::actor::{DynamicMessage, Message, MessageDelegate};
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::cell::ActorCell;
@@ -36,41 +36,24 @@ impl TActorRef for LocalActorRef {
         &self.path
     }
 
-    fn tell(&self, message: ActorMessage, sender: Option<ActorRef>) {
+    fn tell<M>(&self, message: M, sender: Option<ActorRef>) where M: Message {
+        let delegate = MessageDelegate::new(message);
+        let message = DynamicMessage {
+            name: std::any::type_name::<M>(),
+            inner: Box::new(delegate),
+        };
         let envelop = Envelope { message, sender };
-        match &envelop.message {
-            ActorMessage::Local(l) => match l {
-                ActorLocalMessage::User { .. } => {
-                    if let Some(error) = self.sender.message.try_send(envelop).err() {
-                        self.report_send_error(error);
-                    }
-                }
-                ActorLocalMessage::System { .. } => {
-                    if let Some(error) = self.sender.signal.try_send(envelop).err() {
-                        self.report_send_error(error);
-                    }
-                }
-            },
-            ActorMessage::Remote(r) => match r {
-                ActorRemoteMessage::User { .. } => {
-                    if let Some(error) = self.sender.message.try_send(envelop).err() {
-                        self.report_send_error(error);
-                    }
-                }
-                ActorRemoteMessage::System { .. } => {
-                    if let Some(error) = self.sender.signal.try_send(envelop).err() {
-                        self.report_send_error(error);
-                    }
-                }
-            },
+        if let Some(error) = self.sender.message.try_send(envelop).err() {
+            self.report_send_error(error);
         }
     }
 
     fn stop(&self) {
-        let terminate = ActorRemoteSystemMessage::Terminate;
-        let terminate = ActorMessage::remote_system(terminate);
-        let sender = Some(self.clone().into());
-        self.tell(terminate, sender);
+        //TODO
+        // let terminate = ActorRemoteSystemMessage::Terminate;
+        // let terminate = ActorMessage::remote_system(terminate);
+        // let sender = Some(self.clone().into());
+        // self.tell(terminate, sender);
     }
 
     fn parent(&self) -> Option<&ActorRef> {

@@ -51,10 +51,10 @@ impl<T> ActorRuntime<T>
         } = self;
         let actor = std::any::type_name::<T>();
         let mut context = ActorContext {
-            _phantom: PhantomData::default(),
             state: ActorState::Init,
             myself,
             sender: None,
+            futures: FuturesUnordered::new(),
             stash: VecDeque::new(),
             tasks: Vec::new(),
             system,
@@ -64,12 +64,13 @@ impl<T> ActorRuntime<T>
             Err(err) => {
                 error!("actor {:?} pre start error {:?}", actor, err);
                 context.stop(&context.myself());
-                while let Some(message) = mailbox.signal.recv().await {
-                    Self::handle_system(&mut context, message).await;
-                    if matches!(context.state, ActorState::CanTerminate) {
-                        break;
-                    }
-                }
+                //TODO
+                // while let Some(message) = mailbox.signal.recv().await {
+                //     Self::handle_system(&mut context, state,message).await;
+                //     if matches!(context.state, ActorState::CanTerminate) {
+                //         break;
+                //     }
+                // }
                 return;
             }
         };
@@ -79,14 +80,14 @@ impl<T> ActorRuntime<T>
             tokio::select! {
                 biased;
                 Some(message) = mailbox.signal.recv() => {
-                    Self::handle_system(&mut context, message).await;
+                    Self::handle_system(&mut context, &mut state, message).await;
                     if matches!(context.state, ActorState::CanTerminate) {
                         break;
                     }
                     context.remove_finished_task();
                 }
                 Some(message) = mailbox.message.recv(), if matches!(context.state, ActorState::Started) => {
-                    if Self::handle_message(&mut context, &mut state, &handler, message) {
+                    if Self::handle_message(&mut context, &mut state, &handler, message).await {
                         break;
                     }
                     context.remove_finished_task();
@@ -111,63 +112,42 @@ impl<T> ActorRuntime<T>
         context.state = ActorState::Terminated;
     }
 
-    async fn handle_system(context: &mut ActorContext<T>, envelope: Envelope) {
+    async fn handle_system(context: &mut ActorContext<'_, T>, state: &mut T::S, envelope: Envelope) {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
-        match message {
-            ActorMessage::Local(l) => match l {
-                ActorLocalMessage::User { .. } => panic!("unreachable user branch"),
-                ActorLocalMessage::System { message } => match message {
-                    ActorSystemMessage::DeathWatchNotification { actor } => {
-                        context.watched_actor_terminated(actor);
-                    }
-                },
-            },
-            ActorMessage::Remote(r) => match r {
-                ActorRemoteMessage::User { .. } => panic!("unreachable user branch"),
-                ActorRemoteMessage::System { message } => match message {
-                    ActorRemoteSystemMessage::Terminate => {
-                        context.handle_terminate();
-                    }
-                    ActorRemoteSystemMessage::Terminated(_) => todo!(),
-                    ActorRemoteSystemMessage::Watch { watchee, watcher } => todo!(),
-                    ActorRemoteSystemMessage::UnWatch { watchee, watcher } => todo!(),
-                },
-            },
+        match message.downcast::<T>() {
+            Ok(delegate) => {
+                if let Some(e) = delegate.handle(context, state).await.err() {
+                    let actor_name = std::any::type_name::<T>();
+                    error!("{} {:?}", actor_name, e);
+                }
+            }
+            Err(e) => {
+                error!("{:?}", e);
+            }
         }
         context.sender.take();
     }
 
-    fn handle_message(
-        context: &mut ActorContext<T>,
+    async fn handle_message(
+        context: &mut ActorContext<'_, T>,
         state: &mut T::S,
         handler: &T,
         envelope: Envelope,
     ) -> bool {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
-        let user_envelope = match message {
-            ActorMessage::Local(l) => match l {
-                ActorLocalMessage::User { name, inner } => match T::M::downcast(inner) {
-                    Ok(message) => UserEnvelope::Local(message),
-                    Err(message) => UserEnvelope::Unknown { name, message },
-                },
-                ActorLocalMessage::System { .. } => panic!("unreachable system message branch"),
-            },
-            ActorMessage::Remote(r) => match r {
-                ActorRemoteMessage::User { name, message } => {
-                    UserEnvelope::Remote { name, message }
+        match message.downcast::<T>() {
+            Ok(delegate) => {
+                if let Some(e) = delegate.handle(context, state).await.err() {
+                    let actor_name = std::any::type_name::<T>();
+                    error!("{} {:?}", actor_name, e);
+                    return true;
                 }
-                ActorRemoteMessage::System { message } => {
-                    panic!("unreachable system message branch")
-                }
-            },
-        };
-
-        if let Some(error) = handler.on_recv(context, state, user_envelope).err() {
-            let actor = std::any::type_name::<T>();
-            error!("actor {} handle message error: {:?}", actor, error);
-            return true;
+            }
+            Err(e) => {
+                error!("{:?}", e);
+            }
         }
         context.sender.take();
         return false;

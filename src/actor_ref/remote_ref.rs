@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use tracing::warn;
+use crate::actor::Message;
 
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::message::ActorMessage;
-use crate::net::message::RemoteEnvelope;
-use crate::net::tcp_transport::TransportMessage;
+use crate::net::message::{OutboundMessage, RemoteEnvelope};
 use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
@@ -25,20 +25,20 @@ impl TActorRef for RemoteActorRef {
         &self.path
     }
 
-    fn tell(&self, message: ActorMessage, sender: Option<ActorRef>) {
-        match message {
-            ActorMessage::Local(_) => {
-                warn!("local message to remote actor ref");
-            }
-            ActorMessage::Remote(r) => {
-                let envelope = RemoteEnvelope {
-                    message: r,
-                    sender,
-                    target: self.clone().into(),
-                };
-                self.transport.tell_local(TransportMessage::OutboundMessage(envelope), None);
-            }
-        }
+    fn tell<M>(&self, message: M, sender: Option<ActorRef>) where M: Message {
+        // match message {
+        //     ActorMessage::Local(_) => {
+        //         warn!("local message to remote actor ref");
+        //     }
+        //     ActorMessage::Remote(r) => {
+        //         let envelope = RemoteEnvelope {
+        //             message: r,
+        //             sender,
+        //             target: self.clone().into(),
+        //         };
+        //         self.transport.tell_local(OutboundMessage { envelope }, None);
+        //     }
+        // }
     }
 
     fn stop(&self) {

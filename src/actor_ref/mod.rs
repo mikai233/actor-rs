@@ -6,7 +6,7 @@ use enum_dispatch::enum_dispatch;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use crate::actor::Message;
+use crate::actor::{Message, SerializableMessage};
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
@@ -63,12 +63,12 @@ impl ActorRef {
 pub trait TActorRef: Debug + Send + Sync + 'static {
     fn system(&self) -> ActorSystem;
     fn path(&self) -> &ActorPath;
-    fn tell(&self, message: ActorMessage, sender: Option<ActorRef>);
+    fn tell<M>(&self, message: M, sender: Option<ActorRef>) where M: Message;
     fn stop(&self);
     fn parent(&self) -> Option<&ActorRef>;
     fn get_child<I>(&self, names: I) -> Option<ActorRef>
-    where
-        I: IntoIterator<Item = String>;
+        where
+            I: IntoIterator<Item=String>;
 }
 
 impl Display for ActorRef {
@@ -93,18 +93,18 @@ impl<T: ?Sized> ActorRefExt for T where T: TActorRef {}
 
 pub trait ActorRefExt: TActorRef {
     fn tell_local<M>(&self, message: M, sender: Option<ActorRef>)
-    where
-        M: Message,
+        where
+            M: Message,
     {
-        let local = ActorMessage::local(message);
-        self.tell(local, sender);
+        // let local = ActorMessage::local(message);
+        // self.tell(local, sender);
     }
     fn tell_remote<M>(&self, message: &M, sender: Option<ActorRef>) -> anyhow::Result<()>
-    where
-        M: Message + Serialize + DeserializeOwned,
+        where
+            M: SerializableMessage,
     {
-        let remote = ActorMessage::remote(message)?;
-        self.tell(remote, sender);
+        // let remote = ActorMessage::remote(message)?;
+        // self.tell(remote, sender);
         Ok(())
     }
 }

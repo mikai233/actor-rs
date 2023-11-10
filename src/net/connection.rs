@@ -9,8 +9,7 @@ use tracing::warn;
 use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::ext::encode_bytes;
 use crate::net::codec::{Packet, PacketCodec};
-use crate::net::message::{RemoteEnvelope, RemotePacket};
-use crate::net::tcp_transport::TransportMessage;
+use crate::net::message::{Disconnect, RemoteEnvelope, RemotePacket};
 
 pub(crate) type ConnectionTx = tokio::sync::mpsc::Sender<RemoteEnvelope>;
 pub(crate) type ConnectionRx = tokio::sync::mpsc::Receiver<RemoteEnvelope>;
@@ -54,7 +53,7 @@ impl Connection {
         });
     }
     fn disconnect(&self) {
-        self.transport.tell_local(TransportMessage::Disconnect(self.addr), None);
+        self.transport.tell_local(Disconnect { addr: self.addr }, None);
     }
 
     async fn send(&mut self, remote_envelope: RemoteEnvelope) -> anyhow::Result<()> {

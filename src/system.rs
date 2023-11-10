@@ -18,7 +18,7 @@ use crate::props::Props;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::provider::empty_provider::EmptyActorRefProvider;
 use crate::provider::remote_provider::RemoteActorRefProvider;
-use crate::system_guardian::SystemGuardianMessage;
+use crate::{system_guardian, user_guardian};
 use crate::user_guardian::UserGuardianMessage;
 
 #[derive(Debug, Clone)]
@@ -155,14 +155,14 @@ impl ActorRefFactory for ActorSystem {
         let sys = self.system_guardian();
         if parent == guard.path {
             guard.tell_local(
-                UserGuardianMessage::StopChild {
+                user_guardian::StopChild {
                     child: actor.clone(),
                 },
                 None,
             );
         } else if parent == sys.path {
             sys.tell_local(
-                SystemGuardianMessage::StopChild {
+                system_guardian::StopChild {
                     child: actor.clone(),
                 },
                 None,
@@ -223,10 +223,11 @@ pub(crate) fn make_actor_runtime<T>(
 mod system_test {
     use std::net::SocketAddrV4;
     use std::time::Duration;
+    use async_trait::async_trait;
 
     use tracing::info;
 
-    use crate::actor::Actor;
+    use crate::actor::{Actor, Message};
     use crate::actor::context::ActorContext;
     use crate::actor_path::TActorPath;
     use crate::actor_ref::{ActorRefExt, TActorRef};
@@ -235,7 +236,7 @@ mod system_test {
     use crate::system::ActorSystem;
 
     #[derive(Debug)]
-    struct TestActor;
+    pub struct TestActor;
 
     impl Actor for TestActor {
         type S = ();
@@ -246,6 +247,15 @@ mod system_test {
             _ctx: &mut ActorContext<Self>,
             _arg: Self::A,
         ) -> anyhow::Result<Self::S> {
+            Ok(())
+        }
+    }
+
+    #[async_trait(? Send)]
+    impl Message for () {
+        type T = TestActor;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext<'_, Self::T>, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
             Ok(())
         }
     }

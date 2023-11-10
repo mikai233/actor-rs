@@ -12,7 +12,7 @@ use futures::StreamExt;
 use tokio::task::JoinHandle;
 use tracing::{error, warn};
 
-use crate::actor::Actor;
+use crate::actor::{Actor, DynamicMessage, Message, MessageDelegate};
 use crate::actor_path::{ActorPath, ChildActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
@@ -43,7 +43,7 @@ impl<T: ?Sized> ContextExt for T where T: Context {}
 
 pub trait ContextExt: Context {
     fn forward(&self, to: &ActorRef, message: ActorMessage) {
-        to.tell(message, self.sender().cloned())
+        // to.tell(message, self.sender().cloned())
     }
 }
 
@@ -52,12 +52,11 @@ pub struct ActorContext<'a, T>
     where
         T: Actor,
 {
-    pub(crate) _phantom: PhantomData<T>,
     pub(crate) state: ActorState,
     pub(crate) myself: ActorRef,
     pub(crate) sender: Option<ActorRef>,
     pub(crate) futures: FuturesUnordered<LocalBoxFuture<'a, ()>>,
-    pub(crate) stash: VecDeque<(ActorMessage, Option<ActorRef>)>,
+    pub(crate) stash: VecDeque<(MessageDelegate<T>, Option<ActorRef>)>,
     pub(crate) tasks: Vec<JoinHandle<()>>,
     pub(crate) system: ActorSystem,
 }
@@ -113,7 +112,7 @@ impl<A> ActorRefFactory for ActorContext<'_, A>
         let sender = self.myself().clone();
         let terminate = ActorRemoteSystemMessage::Terminate;
         let message = ActorMessage::remote_system(terminate);
-        actor.tell(message, Some(sender));
+        // actor.tell(message, Some(sender));
     }
 }
 
@@ -157,7 +156,7 @@ impl<A> Context for ActorContext<'_, A>
                 watcher: self.myself().clone().into(),
             };
             let watch = ActorMessage::remote_system(watch);
-            subject.tell(watch, None);
+            // subject.tell(watch, None);
         } else {
             warn!("{} watch self is ignored", self.myself());
         }
@@ -174,34 +173,23 @@ impl<A> Context for ActorContext<'_, A>
             watcher: self.myself().clone().into(),
         };
         let unwatch = ActorMessage::remote_system(unwatch);
-        subject.tell(unwatch, None);
+        // subject.tell(unwatch, None);
     }
 }
 
-impl<A> ActorContext<'_, A>
+impl<T> ActorContext<'_, T>
     where
-        A: Actor,
+        T: Actor,
 {
-    pub fn stash(&mut self, message: UserEnvelope<A::M>) {
+    pub fn stash<M>(&mut self, message: M) where M: Message<T=T> {
         let sender = self.sender.clone();
-        let message = match message {
-            UserEnvelope::Local(l) => ActorMessage::local(l),
-            UserEnvelope::Remote { name, message } => {
-                ActorMessage::Remote(ActorRemoteMessage::User { name, message })
-            }
-            UserEnvelope::Unknown { name, message } => {
-                ActorMessage::Local(ActorLocalMessage::User {
-                    name,
-                    inner: message,
-                })
-            }
-        };
+        let message = MessageDelegate::new(message);
         self.stash.push_back((message, sender));
     }
 
     pub fn unstash(&mut self) -> bool {
         if let Some((message, sender)) = self.stash.pop_front() {
-            self.myself.tell(message, sender);
+            // self.myself.tell(message, sender);
             return true;
         }
         return false;
@@ -212,7 +200,7 @@ impl<A> ActorContext<'_, A>
             return false;
         }
         for (message, sender) in self.stash.drain(0..) {
-            self.myself.tell(message, sender);
+            // self.myself.tell(message, sender);
         }
         return true;
     }
@@ -234,7 +222,7 @@ impl<A> ActorContext<'_, A>
             let notify = ActorMessage::local_system(ActorSystemMessage::DeathWatchNotification {
                 actor: self.myself.clone(),
             });
-            parent.tell(notify, Some(self.myself.clone()));
+            // parent.tell(notify, Some(self.myself.clone()));
         }
         self.state = ActorState::CanTerminate;
     }
@@ -256,7 +244,7 @@ impl<A> ActorContext<'_, A>
 
     pub fn execute<F>(&self, f: F)
         where
-            F: FnOnce(&mut A::S),
+            F: FnOnce(&mut T::S),
     {}
 
     pub fn spawn<F>(&mut self, future: F)

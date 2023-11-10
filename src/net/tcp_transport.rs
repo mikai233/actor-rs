@@ -1,48 +1,32 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::future::Future;
-use std::iter::repeat_with;
 use std::net::SocketAddr;
 use std::num::NonZeroUsize;
-use std::pin::Pin;
-use std::time::Duration;
 
 use futures::StreamExt;
 use lru::LruCache;
-use stubborn_io::{ReconnectOptions, StubbornTcpStream};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpListener;
-use tokio::sync::mpsc::error::TrySendError;
 use tokio::task::JoinHandle;
 use tokio_util::codec::Framed;
-use tracing::{debug, error, info, warn};
+use tracing::{info, warn};
 
 use crate::actor::Actor;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef, TActorRef};
-use crate::cell::envelope::UserEnvelope;
 use crate::ext::decode_bytes;
-use crate::message::ActorMessage;
 use crate::net::codec::PacketCodec;
-use crate::net::connection::{Connection, ConnectionTx};
-use crate::net::message::{RemoteEnvelope, RemotePacket};
+use crate::net::connection::ConnectionTx;
+use crate::net::message::{InboundMessage, RemotePacket, SpawnInbound};
 use crate::provider::{ActorRefFactory, TActorRefProvider};
 
 #[derive(Debug)]
 pub(crate) struct TransportActor;
 
-pub(crate) enum TransportMessage {
-    Connect(SocketAddr, ReconnectOptions),
-    Connected(SocketAddr, ConnectionTx),
-    Disconnect(SocketAddr),
-    SpawnInbound(Pin<Box<dyn Future<Output=()> + Send + 'static>>),
-    InboundMessage(RemotePacket),
-    OutboundMessage(RemoteEnvelope),
-}
-
 #[derive(Debug)]
-enum ConnectionSender {
+pub(crate) enum ConnectionSender {
     NotConnected,
     Connecting,
     Connected(ConnectionTx),
@@ -68,7 +52,7 @@ impl Actor for TransportActor {
                             TcpTransport::accept_inbound_connection(stream, peer_addr, actor).await;
                         };
                         myself.tell_local(
-                            TransportMessage::SpawnInbound(Box::pin(connection_fut)),
+                            SpawnInbound { fut: Box::pin(connection_fut) },
                             None,
                         );
                     }
@@ -80,104 +64,13 @@ impl Actor for TransportActor {
         });
         Ok(transport)
     }
-
-    fn on_recv(
-        &self,
-        ctx: &mut ActorContext<Self>,
-        state: &mut Self::S,
-        envelope: UserEnvelope<Self::M>,
-    ) -> anyhow::Result<()> {
-        match envelope {
-            UserEnvelope::Local(l) => match l {
-                TransportMessage::Connect(addr, opts) => {
-                    let myself = ctx.myself.clone();
-                    ctx.spawn(async move {
-                        match StubbornTcpStream::connect_with_options(addr, opts).await {
-                            Ok(stream) => {
-                                if let Some(e) = stream.set_nodelay(true).err() {
-                                    warn!("connect {} set tcp nodelay error {:?}, drop current connection", addr, e);
-                                    return;
-                                }
-                                let framed = Framed::new(stream, PacketCodec);
-                                let (connection, tx) = Connection::new(addr, framed, myself.clone());
-                                connection.start();
-                                myself.tell_local(TransportMessage::Connected(addr, tx), None);
-                            }
-                            Err(e) => {
-                                error!("connect to {} error {:?}, drop current connection", addr, e);
-                            }
-                        };
-                    });
-                }
-                TransportMessage::Disconnect(addr) => {
-                    state.connections.remove(&addr);
-                    let myself = ctx.myself();
-                    info!("{} disconnect to {}", myself, addr);
-                }
-                TransportMessage::SpawnInbound(i) => {
-                    ctx.spawn(i);
-                }
-                TransportMessage::InboundMessage(m) => {
-                    let RemotePacket {
-                        message,
-                        sender,
-                        target,
-                    } = m;
-                    let sender = sender.map(|s| state.resolve_actor_ref(ctx, s).clone());
-                    let target = state.resolve_actor_ref(ctx, target);
-                    target.tell(ActorMessage::Remote(message), sender);
-                }
-                TransportMessage::Connected(addr, connection) => {
-                    state.connections.insert(addr, ConnectionSender::Connected(connection));
-                    info!("{} connect to {}", ctx.myself, addr);
-                    ctx.unstash_all();
-                }
-                TransportMessage::OutboundMessage(envelope) => {
-                    let addr: SocketAddr = envelope.target.path().address().addr.into();
-                    let sender = state.connections.entry(addr).or_insert(ConnectionSender::NotConnected);
-                    match sender {
-                        ConnectionSender::NotConnected => {
-                            let opts = ReconnectOptions::new()
-                                .with_exit_if_first_connect_fails(false)
-                                .with_retries_generator(|| repeat_with(|| Duration::from_secs(3)));
-                            ctx.myself
-                                .tell_local(TransportMessage::Connect(addr, opts), None);
-                            ctx.stash(UserEnvelope::Local(TransportMessage::OutboundMessage(envelope)));
-                            debug!("message {} to {} not connected, stash current message and start connect", ctx.myself, addr);
-                            *sender = ConnectionSender::Connecting;
-                        }
-                        ConnectionSender::Connecting => {
-                            ctx.stash(UserEnvelope::Local(TransportMessage::OutboundMessage(envelope)));
-                            debug!("message {} to {} is connecting, stash current message and wait", ctx.myself, addr);
-                        }
-                        ConnectionSender::Connected(tx) => {
-                            if let Some(err) = tx.try_send(envelope).err() {
-                                match err {
-                                    TrySendError::Full(_) => {
-                                        warn!("message {} to {} connection buffer full, current message dropped", ctx.myself, addr);
-                                    }
-                                    TrySendError::Closed(_) => {
-                                        ctx.myself.tell_local(TransportMessage::Disconnect(addr), None);
-                                        warn!( "message {} to {} connection closed", ctx.myself, addr );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            UserEnvelope::Remote { name, message } => todo!(),
-            UserEnvelope::Unknown { name, message } => todo!(),
-        }
-        Ok(())
-    }
 }
 
 #[derive(Debug)]
 pub(crate) struct TcpTransport {
-    connections: HashMap<SocketAddr, ConnectionSender>,
-    actor_cache: LruCache<SerializedActorRef, ActorRef>,
-    listener: Option<JoinHandle<()>>,
+    pub(crate) connections: HashMap<SocketAddr, ConnectionSender>,
+    pub(crate) actor_cache: LruCache<SerializedActorRef, ActorRef>,
+    pub(crate) listener: Option<JoinHandle<()>>,
 }
 
 impl TcpTransport {
@@ -199,7 +92,7 @@ impl TcpTransport {
                 Some(Ok(packet)) => {
                     match decode_bytes::<RemotePacket>(packet.body.as_slice()) {
                         Ok(envelope) => {
-                            actor.tell_local(TransportMessage::InboundMessage(envelope), None);
+                            actor.tell_local(InboundMessage { packet: envelope }, None);
                         }
                         Err(error) => {
                             warn!("{} deserialize error {:?}", addr, error);
@@ -235,13 +128,13 @@ impl TcpTransport {
 mod transport_test {
     use std::time::Duration;
 
+    use async_trait::async_trait;
     use serde::{Deserialize, Serialize};
     use tracing::info;
 
-    use crate::actor::Actor;
+    use crate::actor::{Actor, DynamicMessage, Message, MessageDecoder, MessageDelegate, SerializableMessage};
     use crate::actor::context::{ActorContext, Context};
     use crate::actor_ref::ActorRefExt;
-    use crate::cell::envelope::UserEnvelope;
     use crate::ext::decode_bytes;
     use crate::props::Props;
     use crate::provider::ActorRefFactory;
@@ -250,58 +143,85 @@ mod transport_test {
 
     struct TestActor;
 
-    #[derive(Debug, Serialize, Deserialize)]
-    enum TestMessage {
-        Ping,
-        Pong,
-        PingTo(String),
+    #[derive(Serialize, Deserialize)]
+    struct Ping;
+
+    #[async_trait(? Send)]
+    impl Message for Ping {
+        type T = TestActor;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext<'_, Self::T>, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+            let myself = context.myself.clone();
+            let sender = context.sender().unwrap().clone();
+            context.spawn(async move {
+                sender.tell_remote(&Pong, Some(myself)).unwrap();
+                tokio::time::sleep(Duration::from_secs(3)).await;
+            });
+            Ok(())
+        }
+    }
+
+    impl SerializableMessage for Ping {
+        fn decoder() -> Box<dyn MessageDecoder> {
+            struct D;
+            impl MessageDecoder for D {
+                fn decode(&self, bytes: &[u8]) -> anyhow::Result<DynamicMessage> {
+                    let message: Ping = decode_bytes(bytes)?;
+                    let message = MessageDelegate::<TestActor>::new(message);
+                    Ok(DynamicMessage::new(message))
+                }
+            }
+            Box::new(D)
+        }
+    }
+
+    #[derive(Serialize, Deserialize)]
+    struct Pong;
+
+    #[async_trait(? Send)]
+    impl Message for Pong {
+        type T = TestActor;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext<'_, Self::T>, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl SerializableMessage for Pong {
+        fn decoder() -> Box<dyn MessageDecoder> {
+            struct D;
+            impl MessageDecoder for D {
+                fn decode(&self, bytes: &[u8]) -> anyhow::Result<DynamicMessage> {
+                    let message: Pong = decode_bytes(bytes)?;
+                    let message = MessageDelegate::<TestActor>::new(message);
+                    Ok(DynamicMessage::new(message))
+                }
+            }
+            Box::new(D)
+        }
+    }
+
+    struct PingTo {
+        to: String,
+    }
+
+    #[async_trait(? Send)]
+    impl Message for PingTo {
+        type T = TestActor;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext<'_, Self::T>, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+            let to = context.system.provider().resolve_actor_ref(&self.to);
+            to.tell_remote(&Ping, Some(context.myself.clone()))?;
+            Ok(())
+        }
     }
 
     impl Actor for TestActor {
-        type M = TestMessage;
         type S = ();
         type A = ();
 
         fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
             info!("{} pre start", ctx.myself);
-            Ok(())
-        }
-
-        fn on_recv(
-            &self,
-            ctx: &mut ActorContext<Self>,
-            state: &mut Self::S,
-            envelope: UserEnvelope<Self::M>,
-        ) -> anyhow::Result<()> {
-            match envelope {
-                UserEnvelope::Local(l) => {
-                    match l {
-                        TestMessage::PingTo(to) => {
-                            let to = ctx.system.provider().resolve_actor_ref(&to);
-                            to.tell_remote(&TestMessage::Ping, Some(ctx.myself.clone()))?;
-                        }
-                        _ => {}
-                    }
-                }
-                UserEnvelope::Remote { name, message } => {
-                    let message = decode_bytes::<TestMessage>(message.as_slice())?;
-                    info!("{} recv {:?}", ctx.myself, message);
-                    match message {
-                        TestMessage::Ping => {
-                            let myself = ctx.myself.clone();
-                            let sender = ctx.sender().unwrap().clone();
-                            ctx.spawn(async move {
-                                sender.tell_remote(&TestMessage::Pong, Some(myself)).unwrap();
-                                tokio::time::sleep(Duration::from_secs(3)).await;
-                            });
-                        }
-                        TestMessage::Pong => {}
-                        TestMessage::PingTo(_) => {}
-                    }
-                    if matches!(message, TestMessage::Ping) {}
-                }
-                UserEnvelope::Unknown { name, message } => todo!(),
-            }
             Ok(())
         }
     }
@@ -313,7 +233,7 @@ mod transport_test {
         let system_a = ActorSystem::new("game".to_string(), "127.0.0.1:12122".parse()?)?;
         let actor_b = system_a.actor_of(TestActor, (), Props::default(), Some("actor_b".to_string()))?;
         loop {
-            actor_a.tell_local(TestMessage::PingTo("tcp://game@127.0.0.1:12122/user/actor_b".to_string()), None);
+            actor_a.tell_local(PingTo { to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string() }, None);
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
     }

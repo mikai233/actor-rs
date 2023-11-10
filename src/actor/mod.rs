@@ -1,8 +1,11 @@
 use std::any::Any;
+use std::fmt::{Debug, Formatter};
+use anyhow::anyhow;
 
 use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use url::quirks::search;
 
 use crate::actor::context::ActorContext;
 
@@ -22,31 +25,58 @@ pub trait Actor: Send + Sync + Sized + 'static {
 #[async_trait(? Send)]
 pub trait Message: Any + Send + 'static {
     type T: Actor;
-    async fn handle(&self, context: &mut ActorContext<Self::T>, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()>;
+    async fn handle(self: Box<Self>, context: &mut ActorContext<'_, Self::T>, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()>;
 }
 
 pub trait SerializableMessage: Message + Serialize + DeserializeOwned {
     fn decoder() -> Box<dyn MessageDecoder>;
 }
 
-struct DynamicMessage {
-    inner: Box<dyn Any + Send + 'static>,
+#[derive(Debug)]
+pub struct DynamicMessage {
+    pub(crate) name: &'static str,
+    pub(crate) inner: Box<dyn Any + Send + 'static>,
 }
 
 impl DynamicMessage {
-    fn new<M>(message: M) -> Self where M: Message {
+    pub(crate) fn new<M>(message: M) -> Self where M: Message {
+        let name = std::any::type_name::<M>();
         Self {
-            inner: Box::new(message)
+            name,
+            inner: Box::new(message),
+        }
+    }
+
+    pub(crate) fn name(&self) -> &'static str {
+        self.name
+    }
+    pub(crate) fn downcast<T>(self) -> anyhow::Result<Box<MessageDelegate<T>>> where T: Actor {
+        match self.inner.downcast::<MessageDelegate<T>>() {
+            Ok(m) => {
+                Ok(m)
+            }
+            Err(_) => {
+                let actor_name = std::any::type_name::<T>();
+                Err(anyhow!("unexpected message {} to actor {}", self.name, actor_name))
+            }
         }
     }
 }
 
-trait MessageDecoder {
+pub trait MessageDecoder {
     fn decode(&self, bytes: &[u8]) -> anyhow::Result<DynamicMessage>;
 }
 
-struct MessageDelegate<T> where T: Actor {
-    message: Box<dyn Message<T=T>>,
+pub struct MessageDelegate<T> where T: Actor {
+    pub(crate) message: Box<dyn Message<T=T>>,
+}
+
+impl<T> Debug for MessageDelegate<T> where T: Actor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MessageDelegate")
+            .field("message", &"..")
+            .finish()
+    }
 }
 
 impl<T> MessageDelegate<T> where T: Actor {
@@ -61,7 +91,7 @@ impl<T> MessageDelegate<T> where T: Actor {
 impl<T> Message for MessageDelegate<T> where T: Actor + Send + 'static {
     type T = T;
 
-    async fn handle(&self, context: &mut ActorContext<Self::T>, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self <>>, context: &mut ActorContext<'_, Self::T>, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         self.message.handle(context, state).await
     }
 }

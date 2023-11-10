@@ -1,13 +1,13 @@
 use std::any::Any;
 use std::borrow::Cow;
 
-use crate::actor::Message;
+use crate::actor::{DynamicMessage, Message};
 use crate::actor_ref::ActorRef;
 use crate::message::ActorMessage;
 
 #[derive(Debug)]
 pub(crate) struct Envelope {
-    pub(crate) message: ActorMessage,
+    pub(crate) message: DynamicMessage,
     pub(crate) sender: Option<ActorRef>,
 }
 
