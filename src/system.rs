@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::anyhow;
 
+use crate::{system_guardian, user_guardian};
 use crate::actor::Actor;
 use crate::actor::context::{ActorThreadPool, ActorThreadPoolMessage};
 use crate::actor_path::{ActorPath, TActorPath};
@@ -18,8 +19,6 @@ use crate::props::Props;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::provider::empty_provider::EmptyActorRefProvider;
 use crate::provider::remote_provider::RemoteActorRefProvider;
-use crate::{system_guardian, user_guardian};
-use crate::user_guardian::UserGuardianMessage;
 
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
@@ -189,11 +188,11 @@ pub(crate) fn make_actor_runtime<T>(
     let (s_tx, s_rx) = tokio::sync::mpsc::channel(1000);
     let sender = MailboxSender {
         message: m_tx,
-        signal: s_tx,
+        system: s_tx,
     };
     let mailbox = Mailbox {
         message: m_rx,
-        signal: s_rx,
+        system: s_rx,
     };
     let myself = LocalActorRef {
         system: system.clone(),
@@ -223,12 +222,13 @@ pub(crate) fn make_actor_runtime<T>(
 mod system_test {
     use std::net::SocketAddrV4;
     use std::time::Duration;
-    use async_trait::async_trait;
 
+    use async_trait::async_trait;
     use tracing::info;
 
     use crate::actor::{Actor, Message};
     use crate::actor::context::ActorContext;
+    use crate::actor::context::Context;
     use crate::actor_path::TActorPath;
     use crate::actor_ref::{ActorRefExt, TActorRef};
     use crate::props::Props;
@@ -242,11 +242,13 @@ mod system_test {
         type S = ();
         type A = ();
 
-        fn pre_start(
-            &self,
-            _ctx: &mut ActorContext<Self>,
-            _arg: Self::A,
-        ) -> anyhow::Result<Self::S> {
+        fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+            info!("{} pre start", context.myself());
+            Ok(())
+        }
+
+        fn post_stop(&self, context: &mut ActorContext, state: &mut Self::S) -> anyhow::Result<()> {
+            info!("{} post stop", context.myself());
             Ok(())
         }
     }
@@ -255,10 +257,12 @@ mod system_test {
     impl Message for () {
         type T = TestActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext<'_, Self::T>, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+            info!("handle message");
             Ok(())
         }
     }
+
 
     #[tokio::test]
     async fn test_spawn_actor() -> anyhow::Result<()> {

@@ -1,12 +1,10 @@
 use std::sync::Arc;
 
 use tracing::warn;
-use crate::actor::Message;
 
+use crate::actor::DynamicMessage;
 use crate::actor_path::ActorPath;
-use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
-use crate::message::ActorMessage;
-use crate::net::message::{OutboundMessage, RemoteEnvelope};
+use crate::actor_ref::{ActorRef, TActorRef};
 use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
@@ -25,7 +23,14 @@ impl TActorRef for RemoteActorRef {
         &self.path
     }
 
-    fn tell<M>(&self, message: M, sender: Option<ActorRef>) where M: Message {
+    fn tell(&self, message: DynamicMessage, sender: Option<ActorRef>) {
+        match message {
+            DynamicMessage::UserLocal(m) => {
+                warn!("{} cannot be serialized", m.name())
+            }
+            DynamicMessage::UserRemote(m) => {}
+            DynamicMessage::System(m) => {}
+        }
         // match message {
         //     ActorMessage::Local(_) => {
         //         warn!("local message to remote actor ref");

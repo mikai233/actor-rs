@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::sync::{Arc, RwLock, RwLockReadGuard};
+use std::sync::{Arc, RwLock};
 
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::message::{ActorMessage, ActorRemoteMessage};
+use crate::message::ActorRemoteMessage;
 
 pub(crate) mod envelope;
 pub(crate) mod runtime;

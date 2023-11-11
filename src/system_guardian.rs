@@ -1,4 +1,6 @@
 use async_trait::async_trait;
+use futures::future::LocalBoxFuture;
+use futures::stream::FuturesUnordered;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::{Actor, Message};
 use crate::cell::envelope::UserEnvelope;
@@ -17,7 +19,7 @@ pub(crate) struct StopChild {
 impl Message for StopChild {
     type T = SystemGuardian;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext<'_, Self::T>, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         context.stop(&self.child);
         Ok(())
     }
@@ -27,8 +29,8 @@ impl Actor for SystemGuardian {
     type S = ();
     type A = ();
 
-    fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
-        debug!("SystemGuardian {} pre start", ctx.myself());
+    fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+        debug!("SystemGuardian {} pre start", context.myself());
         Ok(())
     }
 }

@@ -3,7 +3,6 @@ use std::borrow::Cow;
 
 use crate::actor::{DynamicMessage, Message};
 use crate::actor_ref::ActorRef;
-use crate::message::ActorMessage;
 
 #[derive(Debug)]
 pub(crate) struct Envelope {

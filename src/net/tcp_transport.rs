@@ -36,12 +36,12 @@ impl Actor for TransportActor {
     type S = TcpTransport;
     type A = ();
 
-    fn pre_start(&self, ctx: &mut ActorContext<Self>, _arg: Self::A) -> anyhow::Result<Self::S> {
-        let myself = ctx.myself.clone();
+    fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+        let myself = context.myself.clone();
         let transport = TcpTransport::new();
-        let address = ctx.system.address().clone();
+        let address = context.system.address().clone();
         let addr = address.addr;
-        ctx.spawn(async move {
+        context.spawn(async move {
             let tcp_listener = TcpListener::bind(addr).await.unwrap();
             info!("{} start listening", address);
             loop {
@@ -91,8 +91,8 @@ impl TcpTransport {
             match framed.next().await {
                 Some(Ok(packet)) => {
                     match decode_bytes::<RemotePacket>(packet.body.as_slice()) {
-                        Ok(envelope) => {
-                            actor.tell_local(InboundMessage { packet: envelope }, None);
+                        Ok(packet) => {
+                            actor.tell_local(InboundMessage { packet }, None);
                         }
                         Err(error) => {
                             warn!("{} deserialize error {:?}", addr, error);
@@ -111,11 +111,7 @@ impl TcpTransport {
         }
     }
 
-    pub fn resolve_actor_ref(
-        &mut self,
-        ctx: &mut ActorContext<TransportActor>,
-        serialized_ref: SerializedActorRef,
-    ) -> &ActorRef {
+    pub fn resolve_actor_ref(&mut self, ctx: &mut ActorContext, serialized_ref: SerializedActorRef) -> &ActorRef {
         self.actor_cache.get_or_insert(serialized_ref.clone(), || {
             ctx.system()
                 .provider()
@@ -129,17 +125,20 @@ mod transport_test {
     use std::time::Duration;
 
     use async_trait::async_trait;
+    use futures::future::LocalBoxFuture;
+    use futures::stream::FuturesUnordered;
     use serde::{Deserialize, Serialize};
     use tracing::info;
 
-    use crate::actor::{Actor, DynamicMessage, Message, MessageDecoder, MessageDelegate, SerializableMessage};
+    use crate::actor::{Actor, DynamicMessage, Message, MessageDecoder, UserDelegate, RemoteMessage};
     use crate::actor::context::{ActorContext, Context};
     use crate::actor_ref::ActorRefExt;
-    use crate::ext::decode_bytes;
+    use crate::ext::{decode_bytes, encode_bytes};
     use crate::props::Props;
     use crate::provider::ActorRefFactory;
     use crate::provider::TActorRefProvider;
     use crate::system::ActorSystem;
+    use crate::user_message_decoder;
 
     struct TestActor;
 
@@ -150,28 +149,32 @@ mod transport_test {
     impl Message for Ping {
         type T = TestActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext<'_, Self::T>, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
             let myself = context.myself.clone();
             let sender = context.sender().unwrap().clone();
             context.spawn(async move {
-                sender.tell_remote(&Pong, Some(myself)).unwrap();
+                sender.tell_remote(Pong, Some(myself));
                 tokio::time::sleep(Duration::from_secs(3)).await;
             });
             Ok(())
         }
     }
 
-    impl SerializableMessage for Ping {
+    impl RemoteMessage for Ping {
         fn decoder() -> Box<dyn MessageDecoder> {
             struct D;
             impl MessageDecoder for D {
                 fn decode(&self, bytes: &[u8]) -> anyhow::Result<DynamicMessage> {
                     let message: Ping = decode_bytes(bytes)?;
-                    let message = MessageDelegate::<TestActor>::new(message);
-                    Ok(DynamicMessage::new(message))
+                    let message = UserDelegate::<TestActor>::new(message);
+                    Ok(message.into())
                 }
             }
             Box::new(D)
+        }
+
+        fn encode(&self) -> anyhow::Result<Vec<u8>> {
+            encode_bytes(self)
         }
     }
 
@@ -182,22 +185,19 @@ mod transport_test {
     impl Message for Pong {
         type T = TestActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext<'_, Self::T>, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-            Ok(())
+        async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+            todo!()
         }
     }
 
-    impl SerializableMessage for Pong {
+    #[async_trait(? Send)]
+    impl RemoteMessage for Pong {
         fn decoder() -> Box<dyn MessageDecoder> {
-            struct D;
-            impl MessageDecoder for D {
-                fn decode(&self, bytes: &[u8]) -> anyhow::Result<DynamicMessage> {
-                    let message: Pong = decode_bytes(bytes)?;
-                    let message = MessageDelegate::<TestActor>::new(message);
-                    Ok(DynamicMessage::new(message))
-                }
-            }
-            Box::new(D)
+            user_message_decoder!(Pong, TestActor)
+        }
+
+        fn encode(&self) -> anyhow::Result<Vec<u8>> {
+            encode_bytes(self)
         }
     }
 
@@ -209,9 +209,9 @@ mod transport_test {
     impl Message for PingTo {
         type T = TestActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext<'_, Self::T>, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
             let to = context.system.provider().resolve_actor_ref(&self.to);
-            to.tell_remote(&Ping, Some(context.myself.clone()))?;
+            to.tell_remote(Ping, Some(context.myself.clone()));
             Ok(())
         }
     }
@@ -220,7 +220,7 @@ mod transport_test {
         type S = ();
         type A = ();
 
-        fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
+        fn pre_start(&self, ctx: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
             info!("{} pre start", ctx.myself);
             Ok(())
         }

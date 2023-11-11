@@ -23,7 +23,7 @@ impl Actor for ClusterSingletonManager {
     type S = State;
     type A = ();
 
-    fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
+    fn pre_start(&self, ctx: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
         todo!()
     }
 }

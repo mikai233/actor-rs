@@ -187,9 +187,9 @@ mod local_provider_test {
         type S = ();
         type A = ();
 
-        fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
-            info!("actor a {} pre start", ctx.myself);
-            ctx.actor_of(ActorB, (), Props::default(), None)?;
+        fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+            info!("actor a {} pre start", context.myself);
+            context.actor_of(ActorB, (), Props::default(), None)?;
             Ok(())
         }
     }
@@ -201,7 +201,7 @@ mod local_provider_test {
         type S = ();
         type A = ();
 
-        fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
+        fn pre_start(&self, ctx: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
             info!("actor b {} pre start", ctx.myself);
             ctx.actor_of(ActorC, (), Props::default(), None)?;
             Ok(())
@@ -215,7 +215,7 @@ mod local_provider_test {
         type S = ();
         type A = ();
 
-        fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
+        fn pre_start(&self, ctx: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
             info!("actor c {} pre start", ctx.myself);
             Ok(())
         }

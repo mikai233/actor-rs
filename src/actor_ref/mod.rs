@@ -6,14 +6,13 @@ use enum_dispatch::enum_dispatch;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use crate::actor::{Message, SerializableMessage};
+use crate::actor::{DynamicMessage, LocalMessage, Message, RemoteMessage, SystemMessage};
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::remote_ref::RemoteActorRef;
 use crate::cell::ActorCell;
-use crate::message::ActorMessage;
 use crate::system::ActorSystem;
 
 pub mod dead_letter_ref;
@@ -63,7 +62,7 @@ impl ActorRef {
 pub trait TActorRef: Debug + Send + Sync + 'static {
     fn system(&self) -> ActorSystem;
     fn path(&self) -> &ActorPath;
-    fn tell<M>(&self, message: M, sender: Option<ActorRef>) where M: Message;
+    fn tell(&self, message: DynamicMessage, sender: Option<ActorRef>);
     fn stop(&self);
     fn parent(&self) -> Option<&ActorRef>;
     fn get_child<I>(&self, names: I) -> Option<ActorRef>
@@ -94,18 +93,22 @@ impl<T: ?Sized> ActorRefExt for T where T: TActorRef {}
 pub trait ActorRefExt: TActorRef {
     fn tell_local<M>(&self, message: M, sender: Option<ActorRef>)
         where
-            M: Message,
+            M: LocalMessage,
     {
-        // let local = ActorMessage::local(message);
-        // self.tell(local, sender);
+        self.tell(DynamicMessage::local(message), sender);
     }
-    fn tell_remote<M>(&self, message: &M, sender: Option<ActorRef>) -> anyhow::Result<()>
+    fn tell_remote<M>(&self, message: M, sender: Option<ActorRef>) -> anyhow::Result<()>
         where
-            M: SerializableMessage,
+            M: RemoteMessage,
     {
-        // let remote = ActorMessage::remote(message)?;
-        // self.tell(remote, sender);
+        self.tell(DynamicMessage::remote(message), sender);
         Ok(())
+    }
+    fn tell_system<M>(&self, message: M, sender: Option<ActorRef>)
+        where
+            M: SystemMessage,
+    {
+        self.tell(DynamicMessage::system(message), sender);
     }
 }
 

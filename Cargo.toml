@@ -25,6 +25,7 @@ rand = "0.8"
 tracing-subscriber = { version = "0.3", features = ["local-time"] }
 lru = "0.12.0"
 async-trait = "0.1.74"
+mlua = { version = "0.9.1", features = ["lua54", "async", "vendored"] }
 
 [dev-dependencies]
 ctor = "0.2"

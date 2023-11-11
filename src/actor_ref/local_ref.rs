@@ -5,15 +5,11 @@ use std::time::Duration;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
-use crate::actor::{DynamicMessage, Message, MessageDelegate};
+use crate::actor::{DynamicMessage, Message};
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
-use crate::message::ActorLocalMessage;
-use crate::message::ActorMessage;
-use crate::message::ActorRemoteMessage;
-use crate::message::ActorRemoteSystemMessage;
 use crate::net::mailbox::MailboxSender;
 use crate::system::ActorSystem;
 
@@ -36,15 +32,16 @@ impl TActorRef for LocalActorRef {
         &self.path
     }
 
-    fn tell<M>(&self, message: M, sender: Option<ActorRef>) where M: Message {
-        let delegate = MessageDelegate::new(message);
-        let message = DynamicMessage {
-            name: std::any::type_name::<M>(),
-            inner: Box::new(delegate),
-        };
+    fn tell(&self, message: DynamicMessage, sender: Option<ActorRef>) {
         let envelop = Envelope { message, sender };
-        if let Some(error) = self.sender.message.try_send(envelop).err() {
-            self.report_send_error(error);
+        if matches!(envelop.message, DynamicMessage::System(_)) {
+            if let Some(error) = self.sender.system.try_send(envelop).err() {
+                self.report_send_error(error);
+            }
+        } else {
+            if let Some(error) = self.sender.message.try_send(envelop).err() {
+                self.report_send_error(error);
+            }
         }
     }
 
@@ -151,63 +148,4 @@ pub async fn ask<M, R>(actor: &LocalActorRef, message: M, timeout: Duration) -> 
         R: Message,
 {
     todo!()
-    // let actor_info = format!("{:?}", actor);
-    // let message_info = format!("{:?}", message);
-    // let (tx, rx) = tokio::sync::oneshot::channel();
-    // #[derive(Debug)]
-    // struct Waiter;
-    //
-    // #[derive(Debug)]
-    // enum WaiterMessage {
-    //     Response(Box<dyn Any + Send + 'static>),
-    //     Timeout,
-    // }
-    //
-    // type Sender = tokio::sync::oneshot::Sender<Box<dyn Any + Send + 'static>>;
-    //
-    // impl Actor for Waiter {
-    //     type M = WaiterMessage;
-    //     type S = Option<Sender>;
-    //     type A = (Sender, Duration);
-    //
-    //     fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
-    //         let (sender, timeout) = arg;
-    //         let myself = ctx.myself.clone();
-    //         ctx.spawn_task(async move {
-    //             tokio::time::sleep(timeout).await;
-    //             myself.tell(WaiterMessage::Timeout, None);
-    //         });
-    //         Ok(Some(sender))
-    //     }
-    //
-    //     fn on_recv(&self, ctx: &mut ActorContext<Self>, state: &mut Self::S, message: Self::M) -> anyhow::Result<()> {
-    //         match message {
-    //             WaiterMessage::Response(message) => {
-    //                 let _ = state.take().unwrap().send(message);
-    //             }
-    //             WaiterMessage::Timeout => {
-    //                 ctx.stop();
-    //             }
-    //         }
-    //         Ok(())
-    //     }
-    //
-    //     fn transform(&self, message: Box<dyn Any + Send + 'static>) -> Option<Self::M> {
-    //         Some(WaiterMessage::Response(message))
-    //     }
-    // }
-    // let config = ActorConfig {
-    //     mailbox: 1
-    // };
-    // let waiter = actor_of(config, Waiter, (tx, timeout))?;
-    // let future = async {
-    //     actor.tell(message, Some(waiter.untyped()));
-    //     let resp = rx.await?;
-    //     Ok::<Box<dyn Any + Send + 'static>, anyhow::Error>(resp)
-    // };
-    // let response = tokio::time::timeout(timeout, future).await
-    //     .map_err(|_| { anyhow!("ask message {} to actor {} timeout after {:?}",message_info,actor_info,timeout) })??;
-    // let response = R::downcast(response)
-    //     .map_err(|_| { anyhow!("ask message {} to actor {} got wrong response type",message_info,actor_info) })?;
-    // Ok(response)
 }

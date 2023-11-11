@@ -1,9 +1,8 @@
 use tracing::info;
-use crate::actor::Message;
+use crate::actor::{DynamicMessage, Message};
 
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::message::ActorMessage;
 use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
@@ -21,8 +20,8 @@ impl TActorRef for DeadLetterActorRef {
         &self.path
     }
 
-    fn tell<M>(&self, message: M, sender: Option<ActorRef>) where M: Message {
-        let name = std::any::type_name::<M>();
+    fn tell(&self, message: DynamicMessage, sender: Option<ActorRef>) {
+        let name = message.name();
         match sender {
             None => {
                 info!("dead letter recv message {}", name);
