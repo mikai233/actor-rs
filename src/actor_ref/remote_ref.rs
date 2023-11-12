@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
-use tracing::warn;
+use tracing::{error, warn};
 
-use crate::actor::DynamicMessage;
+use crate::actor::{BoxedMessage, DynamicMessage};
 use crate::actor_path::ActorPath;
-use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
+use crate::net::message::{OutboundMessage, RemoteEnvelope};
 use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
@@ -24,26 +25,34 @@ impl TActorRef for RemoteActorRef {
     }
 
     fn tell(&self, message: DynamicMessage, sender: Option<ActorRef>) {
-        match message {
-            DynamicMessage::UserLocal(m) => {
-                warn!("{} cannot be serialized", m.name())
+        let reg = self.system.registration();
+        let name = message.name();
+        let boxed_message = match message {
+            DynamicMessage::User(message) => message,
+            DynamicMessage::System(message) => message,
+        };
+        match reg.encode(boxed_message) {
+            Ok(packet) => {
+                let envelope = RemoteEnvelope {
+                    packet,
+                    sender,
+                    target: self.clone().into(),
+                };
+                self.transport.cast(OutboundMessage { envelope }, None);
             }
-            DynamicMessage::UserRemote(m) => {}
-            DynamicMessage::System(m) => {}
+            Err(err) => {
+                match sender {
+                    None => {
+                        let target: ActorRef = self.clone().into();
+                        error!("send message {} to {} error {:?}", name, target, err);
+                    }
+                    Some(sender) => {
+                        let target: ActorRef = self.clone().into();
+                        error!("send message {} from {} to {} error {:?}", name, sender, target, err);
+                    }
+                }
+            }
         }
-        // match message {
-        //     ActorMessage::Local(_) => {
-        //         warn!("local message to remote actor ref");
-        //     }
-        //     ActorMessage::Remote(r) => {
-        //         let envelope = RemoteEnvelope {
-        //             message: r,
-        //             sender,
-        //             target: self.clone().into(),
-        //         };
-        //         self.transport.tell_local(OutboundMessage { envelope }, None);
-        //     }
-        // }
     }
 
     fn stop(&self) {

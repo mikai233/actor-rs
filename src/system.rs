@@ -14,6 +14,7 @@ use crate::address::Address;
 use crate::cell::ActorCell;
 use crate::cell::runtime::ActorRuntime;
 use crate::ext::{check_name, random_actor_name};
+use crate::message::MessageRegistration;
 use crate::net::mailbox::{Mailbox, MailboxSender};
 use crate::props::Props;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
@@ -32,10 +33,11 @@ struct Inner {
     pool: RwLock<ActorThreadPool>,
     start_time: u128,
     provider: RwLock<ActorRefProvider>,
+    reg: MessageRegistration,
 }
 
 impl ActorSystem {
-    pub fn new(name: String, addr: SocketAddrV4) -> anyhow::Result<Self> {
+    pub fn new(name: String, addr: SocketAddrV4, reg: MessageRegistration) -> anyhow::Result<Self> {
         let pool = ActorThreadPool::new();
         let address = Address {
             protocol: "tcp".to_string(),
@@ -48,6 +50,7 @@ impl ActorSystem {
             spawner: pool.sender.clone(),
             pool: pool.into(),
             provider: RwLock::new(EmptyActorRefProvider.into()),
+            reg,
         };
         let system = Self {
             inner: inner.into(),
@@ -99,6 +102,10 @@ impl ActorSystem {
 
     pub(crate) fn provider_rw(&self) -> &RwLock<ActorRefProvider> {
         &self.inner.provider
+    }
+
+    pub(crate) fn registration(&self) -> &MessageRegistration {
+        &self.inner.reg
     }
 }
 
@@ -153,14 +160,14 @@ impl ActorRefFactory for ActorSystem {
         let guard = self.guardian();
         let sys = self.system_guardian();
         if parent == guard.path {
-            guard.tell_local(
+            guard.cast(
                 user_guardian::StopChild {
                     child: actor.clone(),
                 },
                 None,
             );
         } else if parent == sys.path {
-            sys.tell_local(
+            sys.cast(
                 system_guardian::StopChild {
                     child: actor.clone(),
                 },
@@ -220,20 +227,25 @@ pub(crate) fn make_actor_runtime<T>(
 
 #[cfg(test)]
 mod system_test {
+    use std::any::Any;
     use std::net::SocketAddrV4;
     use std::time::Duration;
 
     use async_trait::async_trait;
     use tracing::info;
 
-    use crate::actor::{Actor, Message};
+    use crate::actor::{Actor, CodecMessage, Message};
     use crate::actor::context::ActorContext;
     use crate::actor::context::Context;
     use crate::actor_path::TActorPath;
     use crate::actor_ref::{ActorRefExt, TActorRef};
+    use crate::decoder::MessageDecoder;
+    use crate::ext::encode_bytes;
+    use crate::message::MessageRegistration;
     use crate::props::Props;
     use crate::provider::ActorRefFactory;
     use crate::system::ActorSystem;
+    use crate::user_message_decoder;
 
     #[derive(Debug)]
     pub struct TestActor;
@@ -253,6 +265,20 @@ mod system_test {
         }
     }
 
+    impl CodecMessage for () {
+        fn into_any(self: Box<Self>) -> Box<dyn Any> {
+            self
+        }
+
+        fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+            Some(user_message_decoder!((), TestActor))
+        }
+
+        fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+            Some(encode_bytes(self))
+        }
+    }
+
     #[async_trait(? Send)]
     impl Message for () {
         type T = TestActor;
@@ -268,7 +294,8 @@ mod system_test {
     async fn test_spawn_actor() -> anyhow::Result<()> {
         let name = "game".to_string();
         let addr: SocketAddrV4 = "127.0.0.1:12121".parse()?;
-        let system = ActorSystem::new(name, addr)?;
+        let reg = MessageRegistration::new();
+        let system = ActorSystem::new(name, addr, reg)?;
         for i in 0..10 {
             let name = format!("testActor{}", i);
             let actor = system.actor_of(TestActor, (), Props::default(), Some(name))?;
@@ -277,7 +304,7 @@ mod system_test {
             tokio::spawn(async move {
                 info!("{}", actor);
                 loop {
-                    actor.tell_local((), None);
+                    actor.cast((), None);
                     tokio::time::sleep(Duration::from_secs(1)).await;
                 }
             });

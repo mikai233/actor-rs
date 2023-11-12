@@ -19,7 +19,7 @@ use crate::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef, TActorRef};
 use crate::ext::decode_bytes;
 use crate::net::codec::PacketCodec;
 use crate::net::connection::ConnectionTx;
-use crate::net::message::{InboundMessage, RemotePacket, SpawnInbound};
+use crate::net::message::{InboundMessage, RemoteEnvelope, RemotePacket, SpawnInbound};
 use crate::provider::{ActorRefFactory, TActorRefProvider};
 
 #[derive(Debug)]
@@ -51,7 +51,7 @@ impl Actor for TransportActor {
                         let connection_fut = async move {
                             TcpTransport::accept_inbound_connection(stream, peer_addr, actor).await;
                         };
-                        myself.tell_local(
+                        myself.cast(
                             SpawnInbound { fut: Box::pin(connection_fut) },
                             None,
                         );
@@ -92,7 +92,7 @@ impl TcpTransport {
                 Some(Ok(packet)) => {
                     match decode_bytes::<RemotePacket>(packet.body.as_slice()) {
                         Ok(packet) => {
-                            actor.tell_local(InboundMessage { packet }, None);
+                            actor.cast(InboundMessage { packet }, None);
                         }
                         Err(error) => {
                             warn!("{} deserialize error {:?}", addr, error);
@@ -122,18 +122,19 @@ impl TcpTransport {
 
 #[cfg(test)]
 mod transport_test {
+    use std::any::Any;
     use std::time::Duration;
 
     use async_trait::async_trait;
-    use futures::future::LocalBoxFuture;
-    use futures::stream::FuturesUnordered;
     use serde::{Deserialize, Serialize};
     use tracing::info;
 
-    use crate::actor::{Actor, DynamicMessage, Message, MessageDecoder, UserDelegate, RemoteMessage};
+    use crate::actor::{Actor, CodecMessage, Message};
     use crate::actor::context::{ActorContext, Context};
     use crate::actor_ref::ActorRefExt;
-    use crate::ext::{decode_bytes, encode_bytes};
+    use crate::decoder::MessageDecoder;
+    use crate::ext::encode_bytes;
+    use crate::message::MessageRegistration;
     use crate::props::Props;
     use crate::provider::ActorRefFactory;
     use crate::provider::TActorRefProvider;
@@ -145,6 +146,20 @@ mod transport_test {
     #[derive(Serialize, Deserialize)]
     struct Ping;
 
+    impl CodecMessage for Ping {
+        fn into_any(self: Box<Self>) -> Box<dyn Any> {
+            self
+        }
+
+        fn decoder() -> Option<Box<dyn MessageDecoder>> {
+            Some(user_message_decoder!(Ping, TestActor))
+        }
+
+        fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+            Some(encode_bytes(self))
+        }
+    }
+
     #[async_trait(? Send)]
     impl Message for Ping {
         type T = TestActor;
@@ -153,56 +168,56 @@ mod transport_test {
             let myself = context.myself.clone();
             let sender = context.sender().unwrap().clone();
             context.spawn(async move {
-                sender.tell_remote(Pong, Some(myself));
+                sender.cast(Pong, Some(myself));
                 tokio::time::sleep(Duration::from_secs(3)).await;
             });
             Ok(())
         }
     }
 
-    impl RemoteMessage for Ping {
-        fn decoder() -> Box<dyn MessageDecoder> {
-            struct D;
-            impl MessageDecoder for D {
-                fn decode(&self, bytes: &[u8]) -> anyhow::Result<DynamicMessage> {
-                    let message: Ping = decode_bytes(bytes)?;
-                    let message = UserDelegate::<TestActor>::new(message);
-                    Ok(message.into())
-                }
-            }
-            Box::new(D)
-        }
-
-        fn encode(&self) -> anyhow::Result<Vec<u8>> {
-            encode_bytes(self)
-        }
-    }
-
     #[derive(Serialize, Deserialize)]
     struct Pong;
+
+    impl CodecMessage for Pong {
+        fn into_any(self: Box<Self>) -> Box<dyn Any> {
+            self
+        }
+
+        fn decoder() -> Option<Box<dyn MessageDecoder>> {
+            Some(user_message_decoder!(Pong, TestActor))
+        }
+
+        fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+            Some(encode_bytes(self))
+        }
+    }
 
     #[async_trait(? Send)]
     impl Message for Pong {
         type T = TestActor;
 
         async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-            todo!()
-        }
-    }
-
-    #[async_trait(? Send)]
-    impl RemoteMessage for Pong {
-        fn decoder() -> Box<dyn MessageDecoder> {
-            user_message_decoder!(Pong, TestActor)
-        }
-
-        fn encode(&self) -> anyhow::Result<Vec<u8>> {
-            encode_bytes(self)
+            info!("{} pong", context.myself());
+            Ok(())
         }
     }
 
     struct PingTo {
         to: String,
+    }
+
+    impl CodecMessage for PingTo {
+        fn into_any(self: Box<Self>) -> Box<dyn Any> {
+            self
+        }
+
+        fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+            None
+        }
+
+        fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+            None
+        }
     }
 
     #[async_trait(? Send)]
@@ -211,7 +226,7 @@ mod transport_test {
 
         async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
             let to = context.system.provider().resolve_actor_ref(&self.to);
-            to.tell_remote(Ping, Some(context.myself.clone()));
+            to.cast(Ping, Some(context.myself.clone()));
             Ok(())
         }
     }
@@ -226,14 +241,21 @@ mod transport_test {
         }
     }
 
+    fn new_message_reg() -> MessageRegistration {
+        let mut reg = MessageRegistration::new();
+        reg.register::<Ping>();
+        reg.register::<Pong>();
+        reg
+    }
+
     #[tokio::test]
     async fn test() -> anyhow::Result<()> {
-        let system_a = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse()?)?;
+        let system_a = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse()?, new_message_reg())?;
         let actor_a = system_a.actor_of(TestActor, (), Props::default(), Some("actor_a".to_string()))?;
-        let system_a = ActorSystem::new("game".to_string(), "127.0.0.1:12122".parse()?)?;
+        let system_a = ActorSystem::new("game".to_string(), "127.0.0.1:12122".parse()?, new_message_reg())?;
         let actor_b = system_a.actor_of(TestActor, (), Props::default(), Some("actor_b".to_string()))?;
         loop {
-            actor_a.tell_local(PingTo { to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string() }, None);
+            actor_a.cast(PingTo { to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string() }, None);
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
     }

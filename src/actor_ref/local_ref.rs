@@ -34,13 +34,16 @@ impl TActorRef for LocalActorRef {
 
     fn tell(&self, message: DynamicMessage, sender: Option<ActorRef>) {
         let envelop = Envelope { message, sender };
-        if matches!(envelop.message, DynamicMessage::System(_)) {
-            if let Some(error) = self.sender.system.try_send(envelop).err() {
-                self.report_send_error(error);
+        match &envelop.message {
+            DynamicMessage::User(_) => {
+                if let Some(error) = self.sender.message.try_send(envelop).err() {
+                    self.log_send_error(error);
+                }
             }
-        } else {
-            if let Some(error) = self.sender.message.try_send(envelop).err() {
-                self.report_send_error(error);
+            DynamicMessage::System(_) => {
+                if let Some(error) = self.sender.system.try_send(envelop).err() {
+                    self.log_send_error(error);
+                }
             }
         }
     }
@@ -101,7 +104,7 @@ impl Cell for LocalActorRef {
 }
 
 impl LocalActorRef {
-    fn report_send_error(&self, error: TrySendError<Envelope>) {
+    fn log_send_error(&self, error: TrySendError<Envelope>) {
         let actor: ActorRef = self.clone().into();
         match error {
             TrySendError::Full(envelop) => {

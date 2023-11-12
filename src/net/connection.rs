@@ -53,11 +53,11 @@ impl Connection {
         });
     }
     fn disconnect(&self) {
-        self.transport.tell_local(Disconnect { addr: self.addr }, None);
+        self.transport.cast(Disconnect { addr: self.addr }, None);
     }
 
-    async fn send(&mut self, remote_envelope: RemoteEnvelope) -> anyhow::Result<()> {
-        let packet: RemotePacket = remote_envelope.into();
+    async fn send(&mut self, envelope: RemoteEnvelope) -> anyhow::Result<()> {
+        let packet: RemotePacket = envelope.into();
         let bytes = encode_bytes(&packet)?;
         self.framed.send(Packet::new(bytes)).await?;
         Ok(())

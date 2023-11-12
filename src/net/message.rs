@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::future::Future;
 use std::iter::repeat_with;
 use std::net::SocketAddr;
@@ -11,25 +12,27 @@ use tokio::sync::mpsc::error::TrySendError;
 use tokio_util::codec::Framed;
 use tracing::{debug, error, info, warn};
 
-use crate::actor::{Actor, Message};
+use crate::actor::{Actor, CodecMessage, Message};
 use crate::actor::context::{ActorContext, Context};
 use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef};
 use crate::actor_ref::TActorRef;
-use crate::message::ActorRemoteMessage;
+use crate::decoder::MessageDecoder;
+use crate::message::IDPacket;
 use crate::net::codec::PacketCodec;
 use crate::net::connection::{Connection, ConnectionTx};
 use crate::net::tcp_transport::{ConnectionSender, TransportActor};
+use crate::system::ActorSystem;
 
 pub(crate) struct RemoteEnvelope {
-    pub(crate) message: ActorRemoteMessage,
+    pub(crate) packet: IDPacket,
     pub(crate) sender: Option<ActorRef>,
     pub(crate) target: ActorRef,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct RemotePacket {
-    pub(crate) message: ActorRemoteMessage,
+    pub(crate) packet: IDPacket,
     pub(crate) sender: Option<SerializedActorRef>,
     pub(crate) target: SerializedActorRef,
 }
@@ -37,7 +40,7 @@ pub(crate) struct RemotePacket {
 impl Into<RemotePacket> for RemoteEnvelope {
     fn into(self) -> RemotePacket {
         RemotePacket {
-            message: self.message,
+            packet: self.packet,
             sender: self.sender.map(|s| s.into()),
             target: self.target.into(),
         }
@@ -49,6 +52,20 @@ pub(crate) struct Connect {
     pub(crate) opts: ReconnectOptions,
 }
 
+
+impl CodecMessage for Connect {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+        None
+    }
+
+    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+        None
+    }
+}
 
 #[async_trait(? Send)]
 impl Message for Connect {
@@ -66,7 +83,7 @@ impl Message for Connect {
                     let framed = Framed::new(stream, PacketCodec);
                     let (connection, tx) = Connection::new(self.addr, framed, myself.clone());
                     connection.start();
-                    myself.tell_local(Connected { addr: self.addr, tx }, None);
+                    myself.cast(Connected { addr: self.addr, tx }, None);
                 }
                 Err(e) => {
                     error!("connect to {} error {:?}, drop current connection", self.addr, e);
@@ -80,6 +97,20 @@ impl Message for Connect {
 pub(crate) struct Connected {
     pub(crate) addr: SocketAddr,
     pub(crate) tx: ConnectionTx,
+}
+
+impl CodecMessage for Connected {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+        None
+    }
+
+    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+        None
+    }
 }
 
 #[async_trait(? Send)]
@@ -98,6 +129,20 @@ pub(crate) struct Disconnect {
     pub(crate) addr: SocketAddr,
 }
 
+impl CodecMessage for Disconnect {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+        None
+    }
+
+    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+        None
+    }
+}
+
 #[async_trait(? Send)]
 impl Message for Disconnect {
     type T = TransportActor;
@@ -114,6 +159,20 @@ pub(crate) struct SpawnInbound {
     pub(crate) fut: Pin<Box<dyn Future<Output=()> + Send + 'static>>,
 }
 
+impl CodecMessage for SpawnInbound {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+        None
+    }
+
+    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+        None
+    }
+}
+
 #[async_trait(? Send)]
 impl Message for SpawnInbound {
     type T = TransportActor;
@@ -128,25 +187,56 @@ pub(crate) struct InboundMessage {
     pub(crate) packet: RemotePacket,
 }
 
+impl CodecMessage for InboundMessage {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+        None
+    }
+
+    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+        None
+    }
+}
+
 #[async_trait(? Send)]
 impl Message for InboundMessage {
     type T = TransportActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         let RemotePacket {
-            message,
+            packet,
             sender,
             target,
         } = self.packet;
         let sender = sender.map(|s| state.resolve_actor_ref(context, s).clone());
         let target = state.resolve_actor_ref(context, target);
-        // target.tell(ActorMessage::Remote(message), sender);
+        let system: ActorSystem = target.system();
+        let reg = system.registration();
+        let message = reg.decode(packet)?;
+        target.tell(message, sender);
         Ok(())
     }
 }
 
 pub(crate) struct OutboundMessage {
     pub(crate) envelope: RemoteEnvelope,
+}
+
+impl CodecMessage for OutboundMessage {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+        None
+    }
+
+    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+        None
+    }
 }
 
 #[async_trait(? Send)]
@@ -162,7 +252,7 @@ impl Message for OutboundMessage {
                     .with_exit_if_first_connect_fails(false)
                     .with_retries_generator(|| repeat_with(|| Duration::from_secs(3)));
                 context.myself
-                    .tell_local(Connect { addr, opts }, None);
+                    .cast(Connect { addr, opts }, None);
                 context.stash(OutboundMessage { envelope: self.envelope });
                 debug!("message {} to {} not connected, stash current message and start connect", context.myself, addr);
                 *sender = ConnectionSender::Connecting;
@@ -178,7 +268,7 @@ impl Message for OutboundMessage {
                             warn!("message {} to {} connection buffer full, current message dropped", context.myself, addr);
                         }
                         TrySendError::Closed(_) => {
-                            context.myself.tell_local(Disconnect { addr }, None);
+                            context.myself.cast(Disconnect { addr }, None);
                             warn!( "message {} to {} connection closed", context.myself, addr );
                         }
                     }

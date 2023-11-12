@@ -1,12 +1,14 @@
+use std::any::Any;
 use async_trait::async_trait;
 use futures::future::LocalBoxFuture;
 use futures::stream::FuturesUnordered;
 use tracing::debug;
 
 use crate::actor::context::{ActorContext, Context};
-use crate::actor::{Actor, Message};
+use crate::actor::{Actor, CodecMessage, Message};
 use crate::actor_ref::ActorRef;
 use crate::cell::envelope::UserEnvelope;
+use crate::decoder::MessageDecoder;
 use crate::provider::ActorRefFactory;
 
 #[derive(Debug)]
@@ -21,6 +23,20 @@ pub(crate) enum UserGuardianMessage {
 
 pub(crate) struct StopChild {
     pub(crate) child: ActorRef,
+}
+
+impl CodecMessage for StopChild {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+        None
+    }
+
+    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+        None
+    }
 }
 
 #[async_trait(? Send)]

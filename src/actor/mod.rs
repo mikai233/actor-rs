@@ -1,17 +1,15 @@
 use std::any::Any;
 use std::fmt::{Debug, Formatter};
-use anyhow::anyhow;
 
+use anyhow::anyhow;
 use async_trait::async_trait;
-use futures::future::LocalBoxFuture;
-use futures::stream::FuturesUnordered;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use tracing_subscriber::fmt::writer::BoxMakeWriter;
-use url::quirks::search;
-use crate::actor;
 
 use crate::actor::context::ActorContext;
+use crate::decoder::MessageDecoder;
+use crate::delegate::MessageDelegate;
+use crate::delegate::system::SystemDelegate;
+use crate::delegate::user::UserDelegate;
 
 pub mod context;
 
@@ -26,39 +24,33 @@ pub trait Actor: Send + Sized + 'static {
     }
 }
 
+pub trait CodecMessage: Any + Send + 'static {
+    fn into_any(self: Box<Self>) -> Box<dyn Any>;
+    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized;
+    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>>;
+}
+
 #[async_trait(? Send)]
-pub trait Message: Any + Send + 'static {
+pub trait Message: CodecMessage {
     type T: Actor;
+
     async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()>;
 }
 
 #[async_trait(? Send)]
-pub trait LocalMessage: Message {}
-
-impl<T> LocalMessage for T where T: Message {}
-
-pub trait RemoteMessage: Message {
-    fn decoder() -> Box<dyn MessageDecoder>;
-    fn encode(&self) -> anyhow::Result<Vec<u8>>;
-}
-
-#[async_trait(? Send)]
-pub trait SystemMessage: Any + Send + 'static {
-    fn decoder() -> Box<dyn MessageDecoder> where Self: Sized;
-    fn encode(&self) -> anyhow::Result<Vec<u8>>;
+pub trait SystemMessage: CodecMessage {
     async fn handle(self: Box<Self>, context: &mut ActorContext) -> anyhow::Result<()>;
 }
 
 #[derive(Debug)]
 pub enum DynamicMessage {
-    UserLocal(BoxedMessage),
-    UserRemote(BoxedMessage),
+    User(BoxedMessage),
     System(BoxedMessage),
 }
 
 pub(crate) struct BoxedMessage {
-    name: &'static str,
-    inner: Box<dyn Any + Send + 'static>,
+    pub(crate) name: &'static str,
+    pub(crate) inner: Box<dyn CodecMessage>,
 }
 
 impl Debug for BoxedMessage {
@@ -74,8 +66,7 @@ impl BoxedMessage {
         self.name
     }
 
-    pub fn new<M>(message: M) -> Self where M: Any + Send + 'static {
-        let name = std::any::type_name::<M>();
+    pub fn new<M>(name: &'static str, message: M) -> Self where M: CodecMessage {
         BoxedMessage {
             name,
             inner: Box::new(message),
@@ -84,22 +75,19 @@ impl BoxedMessage {
 }
 
 impl DynamicMessage {
-    pub fn local<M>(message: M) -> Self where M: LocalMessage {
-        DynamicMessage::UserLocal(BoxedMessage::new(UserDelegate::new(message)))
-    }
-
-    pub fn remote<M>(message: M) -> Self where M: RemoteMessage {
-        DynamicMessage::UserRemote(BoxedMessage::new(UserDelegate::new(message)))
+    pub fn user<M>(message: M) -> Self where M: Message {
+        let delegate = UserDelegate::new(message);
+        DynamicMessage::User(BoxedMessage::new(delegate.name, delegate))
     }
 
     pub fn system<M>(message: M) -> Self where M: SystemMessage {
-        DynamicMessage::System(BoxedMessage::new(SystemDelegate::new(message)))
+        let delegate = SystemDelegate::new(message);
+        DynamicMessage::System(BoxedMessage::new(delegate.name, delegate))
     }
 
     pub(crate) fn name(&self) -> &'static str {
         match self {
-            DynamicMessage::UserLocal(m) => { m.name() }
-            DynamicMessage::UserRemote(m) => { m.name() }
+            DynamicMessage::User(m) => { m.name() }
             DynamicMessage::System(m) => { m.name() }
         }
     }
@@ -107,14 +95,11 @@ impl DynamicMessage {
     pub(crate) fn downcast<T>(self) -> anyhow::Result<MessageDelegate<T>> where T: Actor {
         let name = self.name();
         let delegate = match self {
-            DynamicMessage::UserLocal(m) => {
-                m.inner.downcast::<UserDelegate<T>>().map(|m| MessageDelegate::User(m))
-            }
-            DynamicMessage::UserRemote(m) => {
-                m.inner.downcast::<UserDelegate<T>>().map(|m| MessageDelegate::User(m))
+            DynamicMessage::User(m) => {
+                m.inner.into_any().downcast::<UserDelegate<T>>().map(|m| MessageDelegate::User(m))
             }
             DynamicMessage::System(m) => {
-                m.inner.downcast::<SystemDelegate>().map(|m| MessageDelegate::System(m))
+                m.inner.into_any().downcast::<SystemDelegate>().map(|m| MessageDelegate::System(m))
             }
         };
         match delegate {
@@ -128,120 +113,6 @@ impl DynamicMessage {
     }
 }
 
-pub trait MessageDecoder {
-    fn decode(&self, bytes: &[u8]) -> anyhow::Result<DynamicMessage>;
-}
-
-#[macro_export]
-macro_rules! user_message_decoder {
-    ($message:ident, $actor:ident) => {
-        {
-            struct D;
-            impl MessageDecoder for D {
-                fn decode(&self, bytes: &[u8]) -> anyhow::Result<crate::actor::DynamicMessage> {
-                    let message: $message = crate::ext::decode_bytes(bytes)?;
-                    let message = crate::actor::UserDelegate::<$actor>::new(message);
-                    Ok(message.into())
-                }
-            }
-            Box::new(D)
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! system_message_decoder {
-    ($message:ident) => {
-        {
-            struct D;
-            impl MessageDecoder for D {
-                fn decode(&self, bytes: &[u8]) -> anyhow::Result<crate::actor::DynamicMessage> {
-                    let message: $message = crate::ext::decode_bytes(bytes)?;
-                    let message = crate::actor::SystemDelegate::new(message);
-                    Ok(message.into())
-                }
-            }
-            Box::new(D)
-        }
-    };
-}
-
-pub(crate) struct UserDelegate<T> where T: Actor {
-    pub(crate) name: &'static str,
-    pub(crate) message: Box<dyn Message<T=T>>,
-}
-
-impl<T> Debug for UserDelegate<T> where T: Actor {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MessageDelegate")
-            .field("message", &"..")
-            .finish()
-    }
-}
-
-impl<T> UserDelegate<T> where T: Actor {
-    pub fn new<M>(message: M) -> Self where M: Message<T=T> {
-        Self {
-            name: std::any::type_name::<M>(),
-            message: Box::new(message),
-        }
-    }
-}
-
-#[async_trait(? Send)]
-impl<T> Message for UserDelegate<T> where T: Actor + Send + 'static {
-    type T = T;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-        self.message.handle(context, state).await
-    }
-}
-
-impl<T> Into<DynamicMessage> for UserDelegate<T> where T: Actor {
-    fn into(self) -> DynamicMessage {
-        DynamicMessage::UserLocal(BoxedMessage {
-            name: self.name,
-            inner: Box::new(self),
-        })
-    }
-}
-
-pub(crate) struct SystemDelegate {
-    pub(crate) name: &'static str,
-    pub(crate) message: Box<dyn SystemMessage>,
-}
-
-impl SystemDelegate where {
-    pub fn new<M>(message: M) -> Self where M: SystemMessage {
-        Self {
-            name: std::any::type_name::<M>(),
-            message: Box::new(message),
-        }
-    }
-}
-
-impl Into<DynamicMessage> for SystemDelegate {
-    fn into(self) -> DynamicMessage {
-        DynamicMessage::System(BoxedMessage {
-            name: self.name,
-            inner: Box::new(self),
-        })
-    }
-}
-
-pub(crate) enum MessageDelegate<T> where T: Actor {
-    User(Box<UserDelegate<T>>),
-    System(Box<SystemDelegate>),
-}
-
-impl<T> MessageDelegate<T> where T: Actor {
-    pub(crate) fn name(&self) -> &'static str {
-        match self {
-            MessageDelegate::User(m) => { m.name }
-            MessageDelegate::System(m) => { m.name }
-        }
-    }
-}
 
 pub trait State: Any + 'static {}
 
@@ -253,20 +124,20 @@ impl<T> Arg for T where T: Any + Send + 'static {}
 
 #[cfg(test)]
 mod actor_test {
+    use std::any::Any;
     use std::time::Duration;
-    use anyhow::__private::kind::TraitKind;
 
     use anyhow::Ok;
     use async_trait::async_trait;
-    use futures::{FutureExt, TryFutureExt};
-    use futures::future::LocalBoxFuture;
-    use futures::stream::FuturesUnordered;
+    use futures::TryFutureExt;
     use mlua::Lua;
     use mlua::prelude::LuaFunction;
     use tracing::info;
 
-    use crate::actor::{Actor, LocalMessage, Message};
+    use crate::actor::{Actor, CodecMessage, Message};
     use crate::actor::context::ActorContext;
+    use crate::decoder::MessageDecoder;
+    use crate::message::MessageRegistration;
     use crate::props::Props;
     use crate::provider::ActorRefFactory;
     use crate::system::ActorSystem;
@@ -297,7 +168,7 @@ mod actor_test {
             }
         }
 
-        let system = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse()?)?;
+        let system = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse()?, MessageRegistration::new())?;
         let actor = system.actor_of(TestActor, 3, Props::default(), None)?;
         tokio::time::sleep(Duration::from_secs(1)).await;
         system.stop(&actor);
@@ -315,6 +186,19 @@ mod actor_test {
 
         struct LuaMessage;
 
+        impl CodecMessage for LuaMessage {
+            fn into_any(self: Box<Self>) -> Box<dyn Any> {
+                self
+            }
+
+            fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+                None
+            }
+
+            fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+                None
+            }
+        }
         #[async_trait(? Send)]
         impl Message for LuaMessage {
             type T = LuaActor;

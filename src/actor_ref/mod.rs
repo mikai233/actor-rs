@@ -3,10 +3,10 @@ use std::fmt::{Debug, Display, Formatter};
 use std::sync::RwLock;
 
 use enum_dispatch::enum_dispatch;
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
 
-use crate::actor::{DynamicMessage, LocalMessage, Message, RemoteMessage, SystemMessage};
+use crate::actor::{DynamicMessage, Message, SystemMessage};
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
@@ -59,7 +59,7 @@ impl ActorRef {
 }
 
 #[enum_dispatch(ActorRef)]
-pub trait TActorRef: Debug + Send + Sync + 'static {
+pub trait TActorRef: Debug + Send + 'static {
     fn system(&self) -> ActorSystem;
     fn path(&self) -> &ActorPath;
     fn tell(&self, message: DynamicMessage, sender: Option<ActorRef>);
@@ -91,20 +91,13 @@ impl PartialEq for ActorRef {
 impl<T: ?Sized> ActorRefExt for T where T: TActorRef {}
 
 pub trait ActorRefExt: TActorRef {
-    fn tell_local<M>(&self, message: M, sender: Option<ActorRef>)
+    fn cast<M>(&self, message: M, sender: Option<ActorRef>)
         where
-            M: LocalMessage,
+            M: Message,
     {
-        self.tell(DynamicMessage::local(message), sender);
+        self.tell(DynamicMessage::user(message), sender);
     }
-    fn tell_remote<M>(&self, message: M, sender: Option<ActorRef>) -> anyhow::Result<()>
-        where
-            M: RemoteMessage,
-    {
-        self.tell(DynamicMessage::remote(message), sender);
-        Ok(())
-    }
-    fn tell_system<M>(&self, message: M, sender: Option<ActorRef>)
+    fn cast_system<M>(&self, message: M, sender: Option<ActorRef>)
         where
             M: SystemMessage,
     {
@@ -122,33 +115,6 @@ impl SerializedActorRef {
         self.path.parse()
     }
 }
-
-// impl FromStr for SerializedActorRef {
-//     type Err = anyhow::Error;
-
-//     fn from_str(s: &str) -> Result<Self, Self::Err> {
-//         let url = Url::parse(s).context(format!("invalid url {}", s))?;
-//         let scheme = url.scheme().to_string();
-//         let username = url.username().to_string();
-//         let host = url.domain().ok_or(anyhow!("no host found in url {}", s))?;
-//         let port = url.port().ok_or(anyhow!("no port found in url {}", s))?;
-//         let addr: SocketAddrV4 = format!("{}:{}", host, port).parse()?;
-//         let mut path = url
-//             .path()
-//             .split("/")
-//             .map(|s| s.to_string())
-//             .collect::<Vec<_>>();
-//         path.remove(0);
-//         let uid: i32 = url.fragment().unwrap_or("0").parse()?;
-//         let address = Address {
-//             protocol: scheme,
-//             system: username,
-//             addr,
-//         };
-//         let actor_ref = SerializedActorRef { address, path, uid };
-//         Ok(actor_ref)
-//     }
-// }
 
 impl Display for SerializedActorRef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

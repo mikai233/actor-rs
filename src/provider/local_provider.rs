@@ -176,6 +176,7 @@ mod local_provider_test {
     use crate::actor::Actor;
     use crate::actor::context::ActorContext;
     use crate::actor_ref::ActorRefExt;
+    use crate::message::MessageRegistration;
     use crate::props::Props;
     use crate::provider::{ActorRefFactory, TActorRefProvider};
     use crate::system::ActorSystem;
@@ -223,12 +224,12 @@ mod local_provider_test {
 
     #[test]
     fn test() -> anyhow::Result<()> {
-        let system = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse()?)?;
+        let system = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse()?, MessageRegistration::new())?;
         let actor_a = system.actor_of(ActorA, (), Props::default(), None)?;
         let actor_c = system
             .provider()
             .resolve_actor_ref(&"tcp://game@127.0.0.1:12121/user/$a/$b/$c".to_string());
-        actor_c.tell_local((), None);
+        actor_c.cast((), None);
         std::thread::park();
         Ok(())
     }

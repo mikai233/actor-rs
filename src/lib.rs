@@ -1,7 +1,7 @@
 #![feature(exclusive_range_pattern)]
 
 pub mod actor_ref;
-pub(crate) mod message;
+pub(crate) mod message2;
 pub mod system;
 pub(crate) mod state;
 mod props;
@@ -16,6 +16,9 @@ mod actor;
 mod root_guardian;
 pub(crate) mod system_guardian;
 pub(crate) mod user_guardian;
+mod decoder;
+mod delegate;
+mod message;
 
 #[cfg(test)]
 mod actor_test {

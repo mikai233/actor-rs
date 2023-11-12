@@ -7,10 +7,11 @@ use futures::stream::FuturesUnordered;
 use tokio::task::yield_now;
 use tracing::error;
 
-use crate::actor::{Actor, Message, MessageDelegate};
+use crate::actor::{Actor, Message, };
 use crate::actor::context::{ActorContext, ActorThreadPoolMessage, Context};
 use crate::actor_ref::ActorRef;
 use crate::cell::envelope::Envelope;
+use crate::delegate::MessageDelegate;
 use crate::net::mailbox::Mailbox;
 use crate::props::Props;
 use crate::provider::ActorRefFactory;

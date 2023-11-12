@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::message::ActorRemoteMessage;
+use crate::message2::ActorRemoteMessage;
 
 pub(crate) mod envelope;
 pub(crate) mod runtime;

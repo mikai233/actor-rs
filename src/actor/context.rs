@@ -8,14 +8,15 @@ use anyhow::{anyhow, Ok};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use tokio::task::JoinHandle;
-use tracing::{error, warn};
+use tracing::error;
 
 use crate::actor::{Actor, DynamicMessage, Message, UserDelegate};
 use crate::actor_path::{ActorPath, ChildActorPath, TActorPath};
-use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::ext::{check_name, random_actor_name};
-use crate::message::{DeathWatchNotification, Terminate};
+use crate::message::death_watch_notification::DeathWatchNotification;
+use crate::message::terminate::Terminate;
 use crate::props::Props;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::state::ActorState;
@@ -97,7 +98,7 @@ impl ActorRefFactory for ActorContext {
 
     fn stop(&self, actor: &ActorRef) {
         let sender = self.myself().clone();
-        actor.tell(DynamicMessage::system(Terminate), Some(sender));
+        actor.cast_system(Terminate, Some(sender));
     }
 }
 
@@ -178,8 +179,7 @@ impl ActorContext {
 
     pub(crate) fn finish_terminated(&mut self) {
         if let Some(parent) = self.parent() {
-            let notify = DynamicMessage::system(DeathWatchNotification(self.myself.clone().into()));
-            parent.tell(notify, Some(self.myself.clone()));
+            parent.cast_system(DeathWatchNotification(self.myself.clone().into()), Some(self.myself.clone()));
         }
         self.state = ActorState::CanTerminate;
     }
