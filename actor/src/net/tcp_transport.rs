@@ -169,7 +169,7 @@ mod transport_test {
             let sender = context.sender().unwrap().clone();
             context.spawn(async move {
                 sender.cast(Pong, Some(myself));
-                tokio::time::sleep(Duration::from_secs(3)).await;
+                tokio::time::sleep(Duration::from_secs(1)).await;
             });
             Ok(())
         }

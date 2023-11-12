@@ -133,6 +133,7 @@ mod actor_test {
     use mlua::Lua;
     use mlua::prelude::LuaFunction;
     use tracing::info;
+    use actor_derive::Codec;
 
     use crate::actor::{Actor, CodecMessage, Message};
     use crate::actor::context::ActorContext;
@@ -229,5 +230,30 @@ mod actor_test {
             }
         }
         Ok(())
+    }
+
+    #[test]
+    fn derive_test() {
+        struct TestActor;
+
+        impl Actor for TestActor {
+            type S = ();
+            type A = ();
+
+            fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+                Ok(())
+            }
+        }
+        #[derive(Codec)]
+        struct LocalMessage;
+
+        #[async_trait(? Send)]
+        impl Message for LocalMessage {
+            type T = TestActor;
+
+            async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+                Ok(())
+            }
+        }
     }
 }
