@@ -2,13 +2,11 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::future::Future;
 use std::pin::Pin;
 
-use futures::FutureExt;
-use futures::stream::FuturesUnordered;
 use tokio::task::yield_now;
 use tracing::error;
 
 use crate::actor::{Actor, Message};
-use crate::actor::context::{ActorContext, ActorThreadPoolMessage, Context};
+use crate::actor::context::{ActorContext, Context};
 use crate::actor_ref::ActorRef;
 use crate::cell::envelope::Envelope;
 use crate::delegate::MessageDelegate;
@@ -49,7 +47,7 @@ impl<T> ActorRuntime<T>
             myself,
             sender: None,
             stash: VecDeque::new(),
-            tasks: Vec::new(),
+            async_tasks: Vec::new(),
             system,
             watching: HashMap::new(),
             watched_by: HashSet::new(),
@@ -78,13 +76,13 @@ impl<T> ActorRuntime<T>
                     if matches!(context.state, ActorState::CanTerminate) {
                         break;
                     }
-                    context.remove_finished_task();
+                    context.remove_finished_tasks();
                 }
                 Some(message) = mailbox.message.recv(), if matches!(context.state, ActorState::Started) => {
                     if Self::handle_message(&mut context, &mut state, message).await {
                         break;
                     }
-                    context.remove_finished_task();
+                    context.remove_finished_tasks();
                     throughput += 1;
                     if throughput >= props.throughput {
                         throughput = 0;
@@ -99,7 +97,7 @@ impl<T> ActorRuntime<T>
         if let Some(err) = handler.post_stop(&mut context, &mut state).err() {
             error!("actor {:?} post stop error {:?}", actor, err);
         }
-        for task in context.tasks {
+        for task in context.async_tasks {
             task.abort();
         }
         mailbox.close();
@@ -153,17 +151,5 @@ impl<T> ActorRuntime<T>
         }
         context.sender.take();
         return false;
-    }
-}
-
-impl<T> Into<ActorThreadPoolMessage> for ActorRuntime<T>
-    where
-        T: Actor,
-{
-    fn into(self) -> ActorThreadPoolMessage {
-        let spawn_fn = move |futures: &mut FuturesUnordered<Pin<Box<dyn Future<Output=()>>>>| {
-            futures.push(self.run().boxed_local());
-        };
-        ActorThreadPoolMessage::SpawnActor(Box::new(spawn_fn))
     }
 }

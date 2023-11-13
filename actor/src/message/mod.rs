@@ -9,6 +9,8 @@ use crate::decoder::MessageDecoder;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::terminate::Terminate;
 use crate::message::terminated::WatchTerminated;
+use crate::message::unwatch::Unwatch;
+use crate::message::watch::Watch;
 
 pub(crate) mod death_watch_notification;
 pub(crate) mod terminated;
@@ -91,5 +93,7 @@ impl MessageRegistration {
     fn register_all_system_message(&mut self) {
         self.register_system::<DeathWatchNotification>();
         self.register_system::<Terminate>();
+        self.register_system::<Watch>();
+        self.register_system::<Unwatch>();
     }
 }

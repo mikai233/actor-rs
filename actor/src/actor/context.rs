@@ -1,14 +1,12 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::future::Future;
 use std::ops::Not;
-use std::pin::Pin;
 use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 
 use anyhow::anyhow;
-use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use tokio::task::JoinHandle;
-use tracing::error;
+use tracing::warn;
 
 use crate::actor::{Actor, DynamicMessage, Message, UserDelegate};
 use crate::actor_path::{ActorPath, ChildActorPath, TActorPath};
@@ -16,7 +14,6 @@ use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::ext::{check_name, random_actor_name};
 use crate::message::death_watch_notification::DeathWatchNotification;
-use crate::message::IDPacket;
 use crate::message::terminate::Terminate;
 use crate::message::terminated::WatchTerminated;
 use crate::message::watch::Watch;
@@ -32,7 +29,7 @@ pub trait Context: ActorRefFactory {
     fn children_mut(&self) -> RwLockWriteGuard<BTreeMap<String, ActorRef>>;
     fn child(&self, name: &String) -> Option<ActorRef>;
     fn parent(&self) -> Option<&ActorRef>;
-    fn watch<T>(&mut self, terminate: T) -> anyhow::Result<()> where T: WatchTerminated;
+    fn watch<T>(&mut self, terminate: T) where T: WatchTerminated;
     fn unwatch(&self, subject: &ActorRef);
 }
 
@@ -50,9 +47,9 @@ pub struct ActorContext {
     pub(crate) myself: ActorRef,
     pub(crate) sender: Option<ActorRef>,
     pub(crate) stash: VecDeque<(DynamicMessage, Option<ActorRef>)>,
-    pub(crate) tasks: Vec<JoinHandle<()>>,
+    pub(crate) async_tasks: Vec<JoinHandle<()>>,
     pub(crate) system: ActorSystem,
-    pub(crate) watching: HashMap<ActorRef, IDPacket>,
+    pub(crate) watching: HashMap<ActorRef, DynamicMessage>,
     pub(crate) watched_by: HashSet<ActorRef>,
 }
 
@@ -133,11 +130,10 @@ impl Context for ActorContext {
         self.myself().local_or_panic().cell.parent()
     }
 
-    fn watch<T>(&mut self, terminate: T) -> anyhow::Result<()> where T: WatchTerminated {
+    fn watch<T>(&mut self, terminate: T) where T: WatchTerminated {
         let system = self.system();
         let actor = terminate.actor(system);
-        let name = std::any::type_name::<T>();
-        let packet = system.registration().encode(name, &terminate)?;
+        let message = DynamicMessage::user(terminate);
         if actor != self.myself {
             match self.watching.get(&actor) {
                 None => {
@@ -146,16 +142,14 @@ impl Context for ActorContext {
                         watcher: self.myself.clone().into(),
                     };
                     actor.cast_system(watch, Some(self.myself.clone()));
-                    self.watching.insert(actor, packet);
+                    self.watching.insert(actor, message);
                 }
                 Some(previous) => {
-                    if *previous != packet {
-                        return Err(anyhow!("Watch({},{}) termination message not same, if this was intended, unwatch first before using watch", self.myself, actor));
-                    }
+                    warn!("drop previous watch message {} and insert new watch message {}", previous.name(), message.name());
+                    self.watching.insert(actor, message);
                 }
             }
         }
-        Ok(())
     }
 
     fn unwatch(&self, subject: &ActorRef) {}
@@ -206,9 +200,9 @@ impl ActorContext {
     }
 
     pub(crate) fn watched_actor_terminated(&mut self, actor: ActorRef) {
-        if let Some(optional_message) = self.watching.remove(&actor) {
+        if let Some(watch_terminated) = self.watching.remove(&actor) {
             if !matches!(self.state, ActorState::Terminating) {
-                // self.myself.tell()
+                self.myself.tell(watch_terminated, None);
             }
         }
         if self.children().get(actor.path().name()).is_some() {
@@ -230,72 +224,12 @@ impl ActorContext {
             F: Future<Output=()> + Send + 'static,
     {
         let handle = tokio::spawn(future);
-        self.tasks.push(handle);
+        self.async_tasks.push(handle);
     }
 
-    pub(crate) fn remove_finished_task(&mut self) {
-        if !self.tasks.is_empty() {
-            self.tasks.retain(|t| !t.is_finished());
-        }
-    }
-}
-
-pub(crate) enum ActorThreadPoolMessage {
-    SpawnActor(
-        Box<dyn FnOnce(&mut FuturesUnordered<Pin<Box<dyn Future<Output=()>>>>) + Send + 'static>,
-    ),
-}
-
-#[derive(Debug)]
-pub(crate) struct ActorThreadPool {
-    pub(crate) sender: crossbeam::channel::Sender<ActorThreadPoolMessage>,
-    pub(crate) handles: Vec<std::thread::JoinHandle<()>>,
-}
-
-impl ActorThreadPool {
-    pub fn new() -> Self {
-        let (tx, rx) = crossbeam::channel::bounded::<ActorThreadPoolMessage>(100);
-        let mut handles = vec![];
-        let cpus = num_cpus::get();
-        for cpu in 1..=cpus {
-            let rx = rx.clone();
-            let handle = std::thread::spawn(move || {
-                let rt = tokio::runtime::Builder::new_current_thread()
-                    .thread_name_fn(move || format!("actor_dispatcher_{}", cpu))
-                    .enable_all()
-                    .build()
-                    .expect(&format!("failed to build local set runtime {}", cpu));
-                rt.block_on(async {
-                    let mut futures = FuturesUnordered::new();
-                    let (m_tx, mut m_rx) = tokio::sync::mpsc::unbounded_channel();
-                    tokio::task::spawn_blocking(move || {
-                        for message in rx {
-                            match message {
-                                ActorThreadPoolMessage::SpawnActor(spawn_fn) => {
-                                    if let Err(_) = m_tx.send(spawn_fn) {
-                                        error!("send spawn actor message error, receiver closed");
-                                    }
-                                }
-                            }
-                        }
-                    });
-                    loop {
-                        tokio::select! {
-                            Some(spawn_fn) = m_rx.recv() => {
-                                spawn_fn(&mut futures);
-                            }
-                            _ = futures.next(), if !futures.is_empty() => {
-
-                            }
-                        }
-                    }
-                });
-            });
-            handles.push(handle);
-        }
-        Self {
-            sender: tx,
-            handles,
+    pub(crate) fn remove_finished_tasks(&mut self) {
+        if !self.async_tasks.is_empty() {
+            self.async_tasks.retain(|t| !t.is_finished());
         }
     }
 }
