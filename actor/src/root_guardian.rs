@@ -10,8 +10,8 @@ impl Actor for RootGuardian {
     type S = ();
     type A = ();
 
-    fn pre_start(&self, ctx: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
-        debug!("RootGuardian {} pre start", ctx.myself());
+    fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+        debug!("RootGuardian {} pre start", context.myself());
         Ok(())
     }
 }

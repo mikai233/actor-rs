@@ -6,7 +6,6 @@ use anyhow::anyhow;
 
 use crate::{system_guardian, user_guardian};
 use crate::actor::Actor;
-use crate::actor::context::{ActorThreadPool, ActorThreadPoolMessage};
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, ActorRefExt, Cell, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
@@ -29,8 +28,6 @@ pub struct ActorSystem {
 #[derive(Debug)]
 struct Inner {
     address: Address,
-    spawner: crossbeam::channel::Sender<ActorThreadPoolMessage>,
-    pool: RwLock<ActorThreadPool>,
     start_time: u128,
     provider: RwLock<ActorRefProvider>,
     reg: MessageRegistration,
@@ -38,7 +35,6 @@ struct Inner {
 
 impl ActorSystem {
     pub fn new(name: String, addr: SocketAddrV4, reg: MessageRegistration) -> anyhow::Result<Self> {
-        let pool = ActorThreadPool::new();
         let address = Address {
             protocol: "tcp".to_string(),
             system: name,
@@ -47,8 +43,6 @@ impl ActorSystem {
         let inner = Inner {
             start_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
             address,
-            spawner: pool.sender.clone(),
-            pool: pool.into(),
             provider: RwLock::new(EmptyActorRefProvider.into()),
             reg,
         };
@@ -82,18 +76,8 @@ impl ActorSystem {
         self.guardian().stop();
     }
 
-    pub(crate) fn exec_actor_rt<T>(&self, rt: ActorRuntime<T>) -> anyhow::Result<()>
-        where
-            T: Actor,
-    {
-        if self.inner.spawner.send(rt.into()).is_err() {
-            let name = std::any::type_name::<T>();
-            return Err(anyhow!(
-                "spawn actor {} error, actor thread pool shutdown",
-                name
-            ));
-        }
-        Ok(())
+    pub(crate) fn exec_actor_rt<T>(&self, rt: ActorRuntime<T>) where T: Actor {
+        tokio::spawn(rt.run());
     }
 
     pub(crate) fn system_guardian(&self) -> LocalActorRef {
@@ -150,7 +134,7 @@ impl ActorRefFactory for ActorSystem {
             Some(self.guardian().clone().into()),
         )?;
         let actor_ref = rt.myself.clone();
-        self.exec_actor_rt(rt)?;
+        self.exec_actor_rt(rt);
         Ok(actor_ref)
     }
 
@@ -279,7 +263,7 @@ mod system_test {
         }
     }
 
-    #[async_trait(? Send)]
+    #[async_trait]
     impl Message for () {
         type T = TestActor;
 

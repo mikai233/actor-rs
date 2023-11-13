@@ -67,7 +67,7 @@ impl CodecMessage for Connect {
     }
 }
 
-#[async_trait(? Send)]
+#[async_trait]
 impl Message for Connect {
     type T = TransportActor;
 
@@ -113,7 +113,7 @@ impl CodecMessage for Connected {
     }
 }
 
-#[async_trait(? Send)]
+#[async_trait]
 impl Message for Connected {
     type T = TransportActor;
 
@@ -143,7 +143,7 @@ impl CodecMessage for Disconnect {
     }
 }
 
-#[async_trait(? Send)]
+#[async_trait]
 impl Message for Disconnect {
     type T = TransportActor;
 
@@ -173,7 +173,7 @@ impl CodecMessage for SpawnInbound {
     }
 }
 
-#[async_trait(? Send)]
+#[async_trait]
 impl Message for SpawnInbound {
     type T = TransportActor;
 
@@ -201,7 +201,7 @@ impl CodecMessage for InboundMessage {
     }
 }
 
-#[async_trait(? Send)]
+#[async_trait]
 impl Message for InboundMessage {
     type T = TransportActor;
 
@@ -239,7 +239,7 @@ impl CodecMessage for OutboundMessage {
     }
 }
 
-#[async_trait(? Send)]
+#[async_trait]
 impl Message for OutboundMessage {
     type T = TransportActor;
 

@@ -111,9 +111,9 @@ impl TcpTransport {
         }
     }
 
-    pub fn resolve_actor_ref(&mut self, ctx: &mut ActorContext, serialized_ref: SerializedActorRef) -> &ActorRef {
+    pub fn resolve_actor_ref(&mut self, context: &mut ActorContext, serialized_ref: SerializedActorRef) -> &ActorRef {
         self.actor_cache.get_or_insert(serialized_ref.clone(), || {
-            ctx.system()
+            context.system()
                 .provider()
                 .resolve_actor_ref(&serialized_ref.path)
         })
@@ -160,7 +160,7 @@ mod transport_test {
         }
     }
 
-    #[async_trait(? Send)]
+    #[async_trait]
     impl Message for Ping {
         type T = TestActor;
 
@@ -192,7 +192,7 @@ mod transport_test {
         }
     }
 
-    #[async_trait(? Send)]
+    #[async_trait]
     impl Message for Pong {
         type T = TestActor;
 
@@ -220,7 +220,7 @@ mod transport_test {
         }
     }
 
-    #[async_trait(? Send)]
+    #[async_trait]
     impl Message for PingTo {
         type T = TestActor;
 
@@ -235,8 +235,8 @@ mod transport_test {
         type S = ();
         type A = ();
 
-        fn pre_start(&self, ctx: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
-            info!("{} pre start", ctx.myself);
+        fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+            info!("{} pre start", context.myself);
             Ok(())
         }
     }

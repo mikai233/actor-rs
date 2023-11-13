@@ -44,7 +44,7 @@ impl<T> CodecMessage for UserDelegate<T> where T: 'static + Actor + Send {
     }
 }
 
-#[async_trait(? Send)]
+#[async_trait]
 impl<T> Message for UserDelegate<T> where T: Actor + Send + 'static {
     type T = T;
 

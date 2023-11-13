@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::fmt::{Debug, Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::net::SocketAddrV4;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -59,6 +60,14 @@ impl PartialEq for ActorPath {
     fn eq(&self, other: &Self) -> bool {
         //TODO opt
         self.to_string().eq(&other.to_string())
+    }
+}
+
+impl Eq for ActorPath {}
+
+impl Hash for ActorPath {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.to_string().hash(state)
     }
 }
 

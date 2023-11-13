@@ -1,10 +1,10 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::future::Future;
 use std::ops::Not;
 use std::pin::Pin;
 use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 
-use anyhow::{anyhow, Ok};
+use anyhow::anyhow;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use tokio::task::JoinHandle;
@@ -16,7 +16,10 @@ use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::ext::{check_name, random_actor_name};
 use crate::message::death_watch_notification::DeathWatchNotification;
+use crate::message::IDPacket;
 use crate::message::terminate::Terminate;
+use crate::message::terminated::WatchTerminated;
+use crate::message::watch::Watch;
 use crate::props::Props;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::state::ActorState;
@@ -29,8 +32,7 @@ pub trait Context: ActorRefFactory {
     fn children_mut(&self) -> RwLockWriteGuard<BTreeMap<String, ActorRef>>;
     fn child(&self, name: &String) -> Option<ActorRef>;
     fn parent(&self) -> Option<&ActorRef>;
-    fn watch(&self, subject: &ActorRef) -> anyhow::Result<()>;
-    fn watch_with(&self, subject: &ActorRef, message: DynamicMessage);
+    fn watch<T>(&mut self, terminate: T) -> anyhow::Result<()> where T: WatchTerminated;
     fn unwatch(&self, subject: &ActorRef);
 }
 
@@ -50,6 +52,8 @@ pub struct ActorContext {
     pub(crate) stash: VecDeque<(DynamicMessage, Option<ActorRef>)>,
     pub(crate) tasks: Vec<JoinHandle<()>>,
     pub(crate) system: ActorSystem,
+    pub(crate) watching: HashMap<ActorRef, IDPacket>,
+    pub(crate) watched_by: HashSet<ActorRef>,
 }
 
 impl ActorRefFactory for ActorContext {
@@ -129,12 +133,29 @@ impl Context for ActorContext {
         self.myself().local_or_panic().cell.parent()
     }
 
-    fn watch(&self, subject: &ActorRef) -> anyhow::Result<()> {
+    fn watch<T>(&mut self, terminate: T) -> anyhow::Result<()> where T: WatchTerminated {
+        let system = self.system();
+        let actor = terminate.actor(system);
+        let name = std::any::type_name::<T>();
+        let packet = system.registration().encode(name, &terminate)?;
+        if actor != self.myself {
+            match self.watching.get(&actor) {
+                None => {
+                    let watch = Watch {
+                        watchee: actor.clone().into(),
+                        watcher: self.myself.clone().into(),
+                    };
+                    actor.cast_system(watch, Some(self.myself.clone()));
+                    self.watching.insert(actor, packet);
+                }
+                Some(previous) => {
+                    if *previous != packet {
+                        return Err(anyhow!("Watch({},{}) termination message not same, if this was intended, unwatch first before using watch", self.myself, actor));
+                    }
+                }
+            }
+        }
         Ok(())
-    }
-
-    fn watch_with(&self, subject: &ActorRef, message: DynamicMessage) {
-        todo!()
     }
 
     fn unwatch(&self, subject: &ActorRef) {}
@@ -165,7 +186,7 @@ impl ActorContext {
         return true;
     }
 
-    pub(crate) fn handle_terminate(&mut self) {
+    pub(crate) fn terminate(&mut self) {
         self.state = ActorState::Terminating;
         let children: Vec<ActorRef> = self.children().values().cloned().collect();
         if children.is_empty().not() {
@@ -173,11 +194,11 @@ impl ActorContext {
                 self.stop(child);
             }
         } else {
-            self.finish_terminated();
+            self.finish_terminate();
         }
     }
 
-    pub(crate) fn finish_terminated(&mut self) {
+    pub(crate) fn finish_terminate(&mut self) {
         if let Some(parent) = self.parent() {
             parent.cast_system(DeathWatchNotification(self.myself.clone().into()), Some(self.myself.clone()));
         }
@@ -185,6 +206,11 @@ impl ActorContext {
     }
 
     pub(crate) fn watched_actor_terminated(&mut self, actor: ActorRef) {
+        if let Some(optional_message) = self.watching.remove(&actor) {
+            if !matches!(self.state, ActorState::Terminating) {
+                // self.myself.tell()
+            }
+        }
         if self.children().get(actor.path().name()).is_some() {
             self.handle_child_terminated(actor);
         }
@@ -195,7 +221,7 @@ impl ActorContext {
         children.remove(actor.path().name());
         if matches!(self.state, ActorState::Terminating) && children.is_empty() {
             drop(children);
-            self.finish_terminated();
+            self.finish_terminate();
         }
     }
 

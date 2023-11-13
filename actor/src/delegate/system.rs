@@ -32,7 +32,7 @@ impl CodecMessage for SystemDelegate {
     }
 }
 
-#[async_trait(? Send)]
+#[async_trait]
 impl SystemMessage for SystemDelegate {
     async fn handle(self: Box<Self>, context: &mut ActorContext) -> anyhow::Result<()> {
         self.message.handle(context).await

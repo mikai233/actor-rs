@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::future::Future;
 use std::pin::Pin;
 
@@ -7,7 +7,7 @@ use futures::stream::FuturesUnordered;
 use tokio::task::yield_now;
 use tracing::error;
 
-use crate::actor::{Actor, Message, };
+use crate::actor::{Actor, Message};
 use crate::actor::context::{ActorContext, ActorThreadPoolMessage, Context};
 use crate::actor_ref::ActorRef;
 use crate::cell::envelope::Envelope;
@@ -51,6 +51,8 @@ impl<T> ActorRuntime<T>
             stash: VecDeque::new(),
             tasks: Vec::new(),
             system,
+            watching: HashMap::new(),
+            watched_by: HashSet::new(),
         };
         let mut state = match handler.pre_start(&mut context, arg) {
             Ok(state) => state,

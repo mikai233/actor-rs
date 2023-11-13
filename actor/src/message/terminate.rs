@@ -1,9 +1,10 @@
 use std::any::Any;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::actor::context::ActorContext;
 use crate::actor::{CodecMessage, SystemMessage};
+use crate::actor::context::ActorContext;
 use crate::decoder::MessageDecoder;
 use crate::ext::encode_bytes;
 use crate::system_message_decoder;
@@ -25,10 +26,10 @@ impl CodecMessage for Terminate {
     }
 }
 
-#[async_trait(? Send)]
+#[async_trait]
 impl SystemMessage for Terminate {
     async fn handle(self: Box<Self>, context: &mut ActorContext) -> anyhow::Result<()> {
-        context.handle_terminate();
+        context.terminate();
         Ok(())
     }
 }

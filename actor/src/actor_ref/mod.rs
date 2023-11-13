@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
 use std::fmt::{Debug, Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::sync::RwLock;
 
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
-use serde::de::DeserializeOwned;
 
 use crate::actor::{DynamicMessage, Message, SystemMessage};
 use crate::actor_path::ActorPath;
@@ -85,6 +85,14 @@ impl Display for ActorRef {
 impl PartialEq for ActorRef {
     fn eq(&self, other: &Self) -> bool {
         self.path() == other.path()
+    }
+}
+
+impl Eq for ActorRef {}
+
+impl Hash for ActorRef {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.path().hash(state)
     }
 }
 

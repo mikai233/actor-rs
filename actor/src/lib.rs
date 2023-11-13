@@ -17,11 +17,12 @@ pub(crate) mod system_guardian;
 pub(crate) mod user_guardian;
 pub mod decoder;
 mod delegate;
-mod message;
+pub mod message;
 
 #[cfg(test)]
 mod actor_test {
     use tracing::Level;
+
     use crate::ext::init_logger;
 
     #[ctor::ctor]
@@ -59,32 +60,32 @@ mod actor_test {
 //         type S = Option<tokio::sync::oneshot::Sender<()>>;
 //         type A = ();
 //
-//         fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
+//         fn pre_start(&self, context: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
 //             Ok(None)
 //         }
 //
-//         fn on_recv(&self, ctx: &mut ActorContext<Self>, state: &mut Self::S, message: Self::M) -> anyhow::Result<()> {
+//         fn on_recv(&self, context: &mut ActorContext<Self>, state: &mut Self::S, message: Self::M) -> anyhow::Result<()> {
 //             match message {
 //                 TestMessage::Ask => {
-//                     ctx.sender.as_ref().unwrap().tell((), None);
+//                     context.sender.as_ref().unwrap().tell((), None);
 //                 }
 //                 TestMessage::RecvMessage(responder) => {
 //                     responder.send(()).unwrap();
 //                 }
 //                 TestMessage::SpawnChild(responder) => {
-//                     let child = ctx.actor_of(ActorConfig::default(), ChildActor, ())?;
+//                     let child = context.actor_of(ActorConfig::default(), ChildActor, ())?;
 //                     responder.send(child).unwrap();
 //                 }
 //                 TestMessage::Stop(responder) => {
 //                     *state = Some(responder);
-//                     ctx.stop();
+//                     context.stop();
 //                 }
 //             }
 //             Ok(())
 //         }
 //
-//         fn post_stop(&self, ctx: &mut ActorContext<Self>, state: &mut Self::S) -> anyhow::Result<()> {
-//             assert!(ctx.children.is_empty());
+//         fn post_stop(&self, context: &mut ActorContext<Self>, state: &mut Self::S) -> anyhow::Result<()> {
+//             assert!(context.children.is_empty());
 //             state.take().unwrap().send(()).unwrap();
 //             Ok(())
 //         }
@@ -103,14 +104,14 @@ mod actor_test {
 //         type S = ();
 //         type A = ();
 //
-//         fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
+//         fn pre_start(&self, context: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
 //             Ok(())
 //         }
 //
-//         fn on_recv(&self, ctx: &mut ActorContext<Self>, state: &mut Self::S, message: Self::M) -> anyhow::Result<()> {
+//         fn on_recv(&self, context: &mut ActorContext<Self>, state: &mut Self::S, message: Self::M) -> anyhow::Result<()> {
 //             match message {
 //                 ChildMessage::Ping => {
-//                     ctx.sender.as_ref().unwrap().tell((), None);
+//                     context.sender.as_ref().unwrap().tell((), None);
 //                 }
 //             }
 //             Ok(())
@@ -125,14 +126,14 @@ mod actor_test {
 //         type S = ();
 //         type A = Vec<tokio::sync::oneshot::Sender<()>>;
 //
-//         fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
+//         fn pre_start(&self, context: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
 //             for tx in arg {
-//                 ctx.actor_of(ActorConfig::default(), ExceptionChildActor, tx)?;
+//                 context.actor_of(ActorConfig::default(), ExceptionChildActor, tx)?;
 //             }
 //             Err(anyhow!("test error"))
 //         }
 //
-//         fn on_recv(&self, ctx: &mut ActorContext<Self>, state: &mut Self::S, message: Self::M) -> anyhow::Result<()> {
+//         fn on_recv(&self, context: &mut ActorContext<Self>, state: &mut Self::S, message: Self::M) -> anyhow::Result<()> {
 //             Ok(())
 //         }
 //     }
@@ -145,15 +146,15 @@ mod actor_test {
 //         type S = Option<tokio::sync::oneshot::Sender<()>>;
 //         type A = tokio::sync::oneshot::Sender<()>;
 //
-//         fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
+//         fn pre_start(&self, context: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
 //             Ok(Some(arg))
 //         }
 //
-//         fn on_recv(&self, ctx: &mut ActorContext<Self>, state: &mut Self::S, message: Self::M) -> anyhow::Result<()> {
+//         fn on_recv(&self, context: &mut ActorContext<Self>, state: &mut Self::S, message: Self::M) -> anyhow::Result<()> {
 //             Ok(())
 //         }
 //
-//         fn post_stop(&self, ctx: &mut ActorContext<Self>, state: &mut Self::S) -> anyhow::Result<()> {
+//         fn post_stop(&self, context: &mut ActorContext<Self>, state: &mut Self::S) -> anyhow::Result<()> {
 //             state.take().unwrap().send(()).unwrap();
 //             Ok(())
 //         }
@@ -172,19 +173,19 @@ mod actor_test {
 //         type S = (usize, usize, Option<tokio::sync::oneshot::Sender<()>>);
 //         type A = (usize, tokio::sync::oneshot::Sender<()>);
 //
-//         fn pre_start(&self, ctx: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
+//         fn pre_start(&self, context: &mut ActorContext<Self>, arg: Self::A) -> anyhow::Result<Self::S> {
 //             let (expect, tx) = arg;
 //             Ok((0, expect, Some(tx)))
 //         }
 //
-//         fn on_recv(&self, ctx: &mut ActorContext<Self>, state: &mut Self::S, message: Self::M) -> anyhow::Result<()> {
+//         fn on_recv(&self, context: &mut ActorContext<Self>, state: &mut Self::S, message: Self::M) -> anyhow::Result<()> {
 //             state.0 += 1;
 //             if state.0 <= state.1 {
-//                 ctx.stash(message);
+//                 context.stash(message);
 //             }
 //             if state.0 == state.1 {
-//                 ctx.unstash_all();
-//                 assert!(ctx.stash.is_empty());
+//                 context.unstash_all();
+//                 assert!(context.stash.is_empty());
 //             }
 //             if state.0 == state.1 * 2 {
 //                 state.2.take().unwrap().send(()).unwrap();

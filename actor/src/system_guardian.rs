@@ -31,7 +31,7 @@ impl CodecMessage for StopChild {
     }
 }
 
-#[async_trait(? Send)]
+#[async_trait]
 impl Message for StopChild {
     type T = SystemGuardian;
 

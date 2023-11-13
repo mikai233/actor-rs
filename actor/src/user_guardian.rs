@@ -39,7 +39,7 @@ impl CodecMessage for StopChild {
     }
 }
 
-#[async_trait(? Send)]
+#[async_trait]
 impl Message for StopChild {
     type T = UserGuardian;
 
@@ -53,8 +53,8 @@ impl Actor for UserGuardian {
     type S = ();
     type A = ();
 
-    fn pre_start(&self, ctx: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
-        debug!("UserGuardian {} pre start", ctx.myself());
+    fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+        debug!("UserGuardian {} pre start", context.myself());
         Ok(())
     }
 }

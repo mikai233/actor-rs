@@ -50,7 +50,7 @@ impl LocalActorRefProvider {
             Some(root_guardian.clone()),
         )?;
         let system_guardian = rt.myself.clone();
-        system.exec_actor_rt(rt)?;
+        system.exec_actor_rt(rt);
         let rt = make_actor_runtime(
             system,
             UserGuardian,
@@ -63,7 +63,7 @@ impl LocalActorRefProvider {
         let root_guardian = root_guardian.local_or_panic().clone();
         let system_guardian = system_guardian.local_or_panic().clone();
         let user_guardian = user_guardian.local_or_panic().clone();
-        system.exec_actor_rt(rt)?;
+        system.exec_actor_rt(rt);
         let dead_letters = DeadLetterActorRef {
             system: system.clone(),
             path: root_path.child("deadLetters".to_string()),
@@ -92,7 +92,7 @@ impl LocalActorRefProvider {
             Some(self.system_guardian().clone().into()),
         )?;
         let actor_ref = rt.myself.clone();
-        system.exec_actor_rt(rt)?;
+        system.exec_actor_rt(rt);
         Ok(actor_ref)
     }
 }
@@ -150,7 +150,7 @@ impl TActorRefProvider for LocalActorRefProvider {
             Some(supervisor.clone()),
         )?;
         let actor_ref = rt.myself.clone();
-        self.guardian().system.exec_actor_rt(rt)?;
+        self.guardian().system.exec_actor_rt(rt);
         Ok(actor_ref)
     }
 
@@ -202,9 +202,9 @@ mod local_provider_test {
         type S = ();
         type A = ();
 
-        fn pre_start(&self, ctx: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
-            info!("actor b {} pre start", ctx.myself);
-            ctx.actor_of(ActorC, (), Props::default(), None)?;
+        fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+            info!("actor b {} pre start", context.myself);
+            context.actor_of(ActorC, (), Props::default(), None)?;
             Ok(())
         }
     }
@@ -216,8 +216,8 @@ mod local_provider_test {
         type S = ();
         type A = ();
 
-        fn pre_start(&self, ctx: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
-            info!("actor c {} pre start", ctx.myself);
+        fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+            info!("actor c {} pre start", context.myself);
             Ok(())
         }
     }

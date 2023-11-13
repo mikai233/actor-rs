@@ -30,14 +30,14 @@ pub trait CodecMessage: Any + Send + 'static {
     fn encode(&self) -> Option<anyhow::Result<Vec<u8>>>;
 }
 
-#[async_trait(? Send)]
+#[async_trait]
 pub trait Message: CodecMessage {
     type T: Actor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()>;
 }
 
-#[async_trait(? Send)]
+#[async_trait]
 pub trait SystemMessage: CodecMessage {
     async fn handle(self: Box<Self>, context: &mut ActorContext) -> anyhow::Result<()>;
 }
@@ -114,9 +114,9 @@ impl DynamicMessage {
 }
 
 
-pub trait State: Any + 'static {}
+pub trait State: Any + Send + 'static {}
 
-impl<T> State for T where T: Any + 'static {}
+impl<T> State for T where T: Any + Send + 'static {}
 
 pub trait Arg: Any + Send + 'static {}
 
@@ -129,15 +129,12 @@ mod actor_test {
 
     use anyhow::Ok;
     use async_trait::async_trait;
-    use futures::TryFutureExt;
-    use mlua::Lua;
-    use mlua::prelude::LuaFunction;
     use tracing::info;
-    use actor_derive::Codec;
+
+    use actor_derive::EmptyCodec;
 
     use crate::actor::{Actor, CodecMessage, Message};
     use crate::actor::context::ActorContext;
-    use crate::decoder::MessageDecoder;
     use crate::message::MessageRegistration;
     use crate::props::Props;
     use crate::provider::ActorRefFactory;
@@ -152,19 +149,19 @@ mod actor_test {
             type S = ();
             type A = usize;
 
-            fn pre_start(&self, ctx: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
-                info!("actor {} pre start", ctx.myself);
+            fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+                info!("actor {} pre start", context.myself);
                 for _ in 0..3 {
                     let n = arg - 1;
                     if n > 0 {
-                        ctx.actor_of(TestActor, arg - 1, Props::default(), None)?;
+                        context.actor_of(TestActor, arg - 1, Props::default(), None)?;
                     }
                 }
                 Ok(())
             }
 
-            fn post_stop(&self, ctx: &mut ActorContext, state: &mut Self::S) -> anyhow::Result<()> {
-                info!("actor {} post stop",ctx.myself);
+            fn post_stop(&self, context: &mut ActorContext, state: &mut Self::S) -> anyhow::Result<()> {
+                info!("actor {} post stop",context.myself);
                 Ok(())
             }
         }
@@ -174,61 +171,6 @@ mod actor_test {
         tokio::time::sleep(Duration::from_secs(1)).await;
         system.stop(&actor);
         tokio::time::sleep(Duration::from_secs(3)).await;
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_lua() -> anyhow::Result<()> {
-        struct LuaActor;
-
-        struct State {
-            lua: Lua,
-        }
-
-        struct LuaMessage;
-
-        impl CodecMessage for LuaMessage {
-            fn into_any(self: Box<Self>) -> Box<dyn Any> {
-                self
-            }
-
-            fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
-                None
-            }
-
-            fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
-                None
-            }
-        }
-        #[async_trait(? Send)]
-        impl Message for LuaMessage {
-            type T = LuaActor;
-
-            async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-                let handle: LuaFunction = state.lua.globals().get("handle")?;
-                let async_handle = handle.call_async::<_, ()>(()).map_err(anyhow::Error::from);
-                Ok(())
-            }
-        }
-
-        impl Actor for LuaActor {
-            type S = State;
-            type A = ();
-
-            fn pre_start(&self, ctx: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
-                let code = r#"
-                function handle()
-                    print("hello world")
-                end
-                "#;
-                let lua = Lua::new();
-                lua.load(&*code).exec()?;
-                let state = State {
-                    lua,
-                };
-                Ok(state)
-            }
-        }
         Ok(())
     }
 
@@ -244,10 +186,10 @@ mod actor_test {
                 Ok(())
             }
         }
-        #[derive(Codec)]
+        #[derive(EmptyCodec)]
         struct LocalMessage;
 
-        #[async_trait(? Send)]
+        #[async_trait]
         impl Message for LocalMessage {
             type T = TestActor;
 

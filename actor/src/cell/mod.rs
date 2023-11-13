@@ -1,10 +1,8 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
-use crate::actor::DynamicMessage;
 
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::message::IDPacket;
 
 pub(crate) mod envelope;
 pub(crate) mod runtime;
@@ -19,8 +17,6 @@ impl ActorCell {
         let inner = Inner {
             parent,
             children: Default::default(),
-            watching: Default::default(),
-            watched_by: Default::default(),
         };
         Self {
             inner: inner.into(),
@@ -53,15 +49,10 @@ impl ActorCell {
             None => self.get_child_by_name(name),
         }
     }
-    pub(crate) fn watching(&self) -> &RwLock<HashMap<ActorRef, Option<IDPacket>>> {
-        &self.inner.watching
-    }
 }
 
 #[derive(Debug)]
 pub(crate) struct Inner {
     parent: Option<ActorRef>,
     children: RwLock<BTreeMap<String, ActorRef>>,
-    watching: RwLock<HashMap<ActorRef, Option<IDPacket>>>,
-    watched_by: RwLock<HashSet<ActorRef>>,
 }

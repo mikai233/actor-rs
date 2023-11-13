@@ -31,7 +31,7 @@ impl TActorRef for RemoteActorRef {
             DynamicMessage::User(message) => message,
             DynamicMessage::System(message) => message,
         };
-        match reg.encode(boxed_message) {
+        match reg.encode_boxed(boxed_message) {
             Ok(packet) => {
                 let envelope = RemoteEnvelope {
                     packet,
