@@ -1,7 +1,7 @@
-use crate::actor::context::ActorContext;
-use crate::actor::Actor;
-use crate::cell::envelope::UserEnvelope;
 use std::fmt::{Debug, Formatter};
+
+use crate::actor::Actor;
+use crate::actor::context::ActorContext;
 
 #[derive(Debug)]
 pub struct ClusterSingletonManager {}

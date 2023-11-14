@@ -17,6 +17,7 @@ pub(crate) mod terminated;
 pub(crate) mod terminate;
 pub(crate) mod watch;
 pub(crate) mod unwatch;
+pub mod poison_pill;
 
 #[derive(Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub(crate) struct IDPacket {

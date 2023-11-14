@@ -7,9 +7,10 @@ use tracing::warn;
 
 use crate::actor::{DynamicMessage, Message};
 use crate::actor_path::ActorPath;
-use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
+use crate::message::poison_pill::PoisonPill;
 use crate::net::mailbox::MailboxSender;
 use crate::system::ActorSystem;
 
@@ -49,11 +50,7 @@ impl TActorRef for LocalActorRef {
     }
 
     fn stop(&self) {
-        //TODO
-        // let terminate = ActorRemoteSystemMessage::Terminate;
-        // let terminate = ActorMessage::remote_system(terminate);
-        // let sender = Some(self.clone().into());
-        // self.tell(terminate, sender);
+        self.cast_system(PoisonPill, None)
     }
 
     fn parent(&self) -> Option<&ActorRef> {

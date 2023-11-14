@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
-use tracing::{error, warn};
+use tracing::error;
 
-use crate::actor::{BoxedMessage, DynamicMessage};
+use crate::actor::DynamicMessage;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
+use crate::message::poison_pill::PoisonPill;
 use crate::net::message::{OutboundMessage, RemoteEnvelope};
 use crate::system::ActorSystem;
 
@@ -56,7 +57,7 @@ impl TActorRef for RemoteActorRef {
     }
 
     fn stop(&self) {
-        todo!()
+        self.cast_system(PoisonPill, None);
     }
 
     fn parent(&self) -> Option<&ActorRef> {

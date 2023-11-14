@@ -129,16 +129,22 @@ mod actor_test {
 
     use anyhow::Ok;
     use async_trait::async_trait;
+    use serde::{Deserialize, Serialize};
     use tracing::info;
 
     use actor_derive::EmptyCodec;
 
     use crate::actor::{Actor, CodecMessage, Message};
-    use crate::actor::context::ActorContext;
+    use crate::actor::context::{ActorContext, Context};
+    use crate::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef, TActorRef};
+    use crate::decoder::MessageDecoder;
+    use crate::ext::encode_bytes;
     use crate::message::MessageRegistration;
+    use crate::message::terminated::WatchTerminated;
     use crate::props::Props;
-    use crate::provider::ActorRefFactory;
+    use crate::provider::{ActorRefFactory, TActorRefProvider};
     use crate::system::ActorSystem;
+    use crate::user_message_decoder;
 
     #[tokio::test]
     async fn test_death_watch() -> anyhow::Result<()> {
@@ -170,6 +176,105 @@ mod actor_test {
         let actor = system.actor_of(TestActor, 3, Props::default(), None)?;
         tokio::time::sleep(Duration::from_secs(1)).await;
         system.stop(&actor);
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_watch() -> anyhow::Result<()> {
+        struct TestActor;
+
+        impl Actor for TestActor {
+            type S = ();
+            type A = ();
+
+            fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+                Ok(())
+            }
+        }
+
+        #[derive(Debug, Serialize, Deserialize)]
+        struct WatchActorTerminate {
+            watch: SerializedActorRef,
+        }
+
+        impl WatchTerminated for WatchActorTerminate {
+            fn watch_actor(&self, system: &ActorSystem) -> ActorRef {
+                system.provider().resolve_actor_ref(&self.watch.path)
+            }
+        }
+
+        impl CodecMessage for WatchActorTerminate {
+            fn into_any(self: Box<Self>) -> Box<dyn Any> {
+                self
+            }
+
+            fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+                Some(user_message_decoder!(WatchActorTerminate, TestActor))
+            }
+
+            fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+                Some(encode_bytes(self))
+            }
+        }
+
+        #[async_trait]
+        impl Message for WatchActorTerminate {
+            type T = TestActor;
+
+            async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+                info!("{} watch actor {} terminate", context.myself, self.watch);
+                Ok(())
+            }
+        }
+
+        #[derive(Debug, EmptyCodec)]
+        struct WatchFor {
+            actor: ActorRef,
+        }
+
+        #[async_trait]
+        impl Message for WatchFor {
+            type T = TestActor;
+
+            async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+                info!("{} watch {}", context.myself, self.actor);
+                let watch = WatchActorTerminate {
+                    watch: self.actor.into(),
+                };
+                context.watch(watch);
+                Ok(())
+            }
+        }
+
+        #[derive(Debug, EmptyCodec)]
+        struct UnwatchFor {
+            actor: ActorRef,
+        }
+
+        #[async_trait]
+        impl Message for UnwatchFor {
+            type T = TestActor;
+
+            async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+                info!("{} unwatch {}", context.myself, self.actor);
+                context.unwatch(&self.actor);
+                Ok(())
+            }
+        }
+
+        let system1 = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse().unwrap(), MessageRegistration::new())?;
+        let system2 = ActorSystem::new("game".to_string(), "127.0.0.1:12122".parse().unwrap(), MessageRegistration::new())?;
+        let system1_actor = system1.actor_of(TestActor, (), Props::default(), None)?;
+        let system2_actor1 = system2.actor_of(TestActor, (), Props::default(), None)?;
+        let system2_actor2 = system2.actor_of(TestActor, (), Props::default(), None)?;
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        system1_actor.cast(WatchFor { actor: system2_actor1.clone() }, None);
+        system1_actor.cast(WatchFor { actor: system2_actor2.clone() }, None);
+        system1_actor.cast(UnwatchFor { actor: system2_actor2.clone() }, None);
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        system2_actor1.stop();
+        system2_actor2.stop();
         tokio::time::sleep(Duration::from_secs(3)).await;
         Ok(())
     }

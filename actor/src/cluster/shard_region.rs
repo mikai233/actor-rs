@@ -1,6 +1,5 @@
-use crate::actor::context::ActorContext;
 use crate::actor::Actor;
-use crate::cell::envelope::UserEnvelope;
+use crate::actor::context::ActorContext;
 
 #[derive(Debug)]
 pub struct ShardRegion {}
