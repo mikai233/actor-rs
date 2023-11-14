@@ -44,12 +44,12 @@ impl TActorRefProvider for RemoteActorRefProvider {
         self.local.root_path()
     }
 
-    fn temp_path(&self) -> &ActorPath {
-        todo!()
+    fn temp_path(&self) -> ActorPath {
+        self.local.temp_path()
     }
 
-    fn temp_path_of(&self) -> &ActorPath {
-        todo!()
+    fn temp_path_of_prefix(&self, prefix: Option<String>) -> ActorPath {
+        self.local.temp_path_of_prefix(prefix)
     }
 
     fn register_temp_actor(&self, actor: ActorRef, path: ActorPath) {
@@ -68,8 +68,8 @@ impl TActorRefProvider for RemoteActorRefProvider {
         supervisor: &ActorRef,
         path: ActorPath,
     ) -> anyhow::Result<ActorRef>
-    where
-        T: Actor,
+        where
+            T: Actor,
     {
         //TODO remote spawn
         self.local.actor_of(actor, arg, props, supervisor, path)

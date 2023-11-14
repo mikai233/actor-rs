@@ -37,8 +37,8 @@ pub trait TActorRefProvider: Send {
     fn guardian(&self) -> &LocalActorRef;
     fn system_guardian(&self) -> &LocalActorRef;
     fn root_path(&self) -> &ActorPath;
-    fn temp_path(&self) -> &ActorPath;
-    fn temp_path_of(&self) -> &ActorPath;
+    fn temp_path(&self) -> ActorPath;
+    fn temp_path_of_prefix(&self, prefix: Option<String>) -> ActorPath;
     fn register_temp_actor(&self, actor: ActorRef, path: ActorPath);
     fn unregister_temp_actor(&self, path: ActorPath);
     fn actor_of<T>(

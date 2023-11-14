@@ -25,11 +25,11 @@ impl TActorRefProvider for EmptyActorRefProvider {
         panic!("unreachable");
     }
 
-    fn temp_path(&self) -> &ActorPath {
+    fn temp_path(&self) -> ActorPath {
         panic!("unreachable");
     }
 
-    fn temp_path_of(&self) -> &ActorPath {
+    fn temp_path_of_prefix(&self, _prefix: Option<String>) -> ActorPath {
         panic!("unreachable");
     }
 

@@ -5,6 +5,7 @@ use crate::actor_path::{ActorPath, RootActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
+use crate::ext::random_actor_name;
 use crate::net::tcp_transport::TransportActor;
 use crate::props::Props;
 use crate::provider::TActorRefProvider;
@@ -25,6 +26,7 @@ struct Inner {
     user_guardian: LocalActorRef,
     system_guardian: LocalActorRef,
     dead_letters: ActorRef,
+    temp_node: ActorPath,
 }
 
 impl LocalActorRefProvider {
@@ -68,12 +70,14 @@ impl LocalActorRefProvider {
             system: system.clone(),
             path: root_path.child("deadLetters".to_string()),
         };
+        let temp_node = root_path.child("temp".to_string());
         let inner = Inner {
             root_path: root_path.into(),
             root_guardian,
             user_guardian,
             system_guardian,
             dead_letters: dead_letters.into(),
+            temp_node,
         };
         let provider = Self {
             inner: inner.into(),
@@ -114,12 +118,18 @@ impl TActorRefProvider for LocalActorRefProvider {
         &self.inner.root_path
     }
 
-    fn temp_path(&self) -> &ActorPath {
-        todo!()
+    fn temp_path(&self) -> ActorPath {
+        self.temp_path_of_prefix(None)
     }
 
-    fn temp_path_of(&self) -> &ActorPath {
-        todo!()
+    fn temp_path_of_prefix(&self, prefix: Option<String>) -> ActorPath {
+        let mut builder = String::new();
+        let prefix_is_none_or_empty = prefix.as_ref().map(|p| p.is_empty()).unwrap_or(true);
+        if !prefix_is_none_or_empty {
+            builder.push_str(prefix.unwrap().as_str());
+        }
+        builder.push_str(random_actor_name().as_str());
+        self.inner.temp_node.child(builder)
     }
 
     fn register_temp_actor(&self, actor: ActorRef, path: ActorPath) {
