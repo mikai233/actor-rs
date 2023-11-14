@@ -67,11 +67,10 @@ impl CodecMessage for Connect {
     }
 }
 
-#[async_trait]
 impl Message for Connect {
     type T = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         let myself = context.myself.clone();
         context.spawn(async move {
             match StubbornTcpStream::connect_with_options(self.addr, self.opts).await {
@@ -113,11 +112,10 @@ impl CodecMessage for Connected {
     }
 }
 
-#[async_trait]
 impl Message for Connected {
     type T = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         state.connections.insert(self.addr, ConnectionSender::Connected(self.tx));
         info!("{} connect to {}", context.myself, self.addr);
         context.unstash_all();
@@ -143,11 +141,10 @@ impl CodecMessage for Disconnect {
     }
 }
 
-#[async_trait]
 impl Message for Disconnect {
     type T = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         state.connections.remove(&self.addr);
         let myself = context.myself();
         info!("{} disconnect to {}", myself, self.addr);
@@ -173,11 +170,10 @@ impl CodecMessage for SpawnInbound {
     }
 }
 
-#[async_trait]
 impl Message for SpawnInbound {
     type T = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         context.spawn(self.fut);
         Ok(())
     }
@@ -201,11 +197,10 @@ impl CodecMessage for InboundMessage {
     }
 }
 
-#[async_trait]
 impl Message for InboundMessage {
     type T = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         let RemotePacket {
             packet,
             sender,
@@ -239,11 +234,10 @@ impl CodecMessage for OutboundMessage {
     }
 }
 
-#[async_trait]
 impl Message for OutboundMessage {
     type T = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         let addr: SocketAddr = self.envelope.target.path().address().addr.into();
         let sender = state.connections.entry(addr).or_insert(ConnectionSender::NotConnected);
         match sender {

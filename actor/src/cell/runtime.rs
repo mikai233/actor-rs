@@ -5,7 +5,7 @@ use std::pin::Pin;
 use tokio::task::yield_now;
 use tracing::error;
 
-use crate::actor::{Actor, Message};
+use crate::actor::{Actor, AsyncMessage, Message};
 use crate::actor::context::{ActorContext, Context};
 use crate::actor_ref::ActorRef;
 use crate::cell::envelope::Envelope;
@@ -110,7 +110,7 @@ impl<T> ActorRuntime<T>
         match message.downcast::<T>() {
             Ok(delegate) => {
                 match delegate {
-                    MessageDelegate::User(_) => {
+                    MessageDelegate::User(_) | MessageDelegate::AsyncUser(_) => {
                         panic!("unexpected user message in system");
                     }
                     MessageDelegate::System(system) => {
@@ -135,6 +135,12 @@ impl<T> ActorRuntime<T>
             Ok(delegate) => {
                 match delegate {
                     MessageDelegate::User(user) => {
+                        if let Some(e) = user.handle(context, state).err() {
+                            let actor_name = std::any::type_name::<T>();
+                            error!("{} {:?}", actor_name, e);
+                        }
+                    }
+                    MessageDelegate::AsyncUser(user) => {
                         if let Some(e) = user.handle(context, state).await.err() {
                             let actor_name = std::any::type_name::<T>();
                             error!("{} {:?}", actor_name, e);

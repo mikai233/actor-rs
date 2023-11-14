@@ -30,6 +30,7 @@ impl TActorRef for RemoteActorRef {
         let name = message.name();
         let boxed_message = match message {
             DynamicMessage::User(message) => message,
+            DynamicMessage::AsyncUser(message) => message,
             DynamicMessage::System(message) => message,
         };
         match reg.encode_boxed(boxed_message) {

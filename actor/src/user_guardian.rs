@@ -37,11 +37,10 @@ impl CodecMessage for StopChild {
     }
 }
 
-#[async_trait]
 impl Message for StopChild {
     type T = UserGuardian;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         context.stop(&self.child);
         Ok(())
     }

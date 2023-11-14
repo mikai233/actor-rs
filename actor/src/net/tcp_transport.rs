@@ -160,11 +160,10 @@ mod transport_test {
         }
     }
 
-    #[async_trait]
     impl Message for Ping {
         type T = TestActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
             let myself = context.myself.clone();
             let sender = context.sender().unwrap().clone();
             context.spawn(async move {
@@ -192,11 +191,10 @@ mod transport_test {
         }
     }
 
-    #[async_trait]
     impl Message for Pong {
         type T = TestActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
             info!("{} pong", context.myself());
             Ok(())
         }
@@ -220,11 +218,10 @@ mod transport_test {
         }
     }
 
-    #[async_trait]
     impl Message for PingTo {
         type T = TestActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
             let to = context.system.provider().resolve_actor_ref(&self.to);
             to.cast(Ping, Some(context.myself.clone()));
             Ok(())

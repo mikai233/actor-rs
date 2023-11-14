@@ -263,11 +263,10 @@ mod system_test {
         }
     }
 
-    #[async_trait]
     impl Message for () {
         type T = TestActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
             info!("handle message");
             Ok(())
         }

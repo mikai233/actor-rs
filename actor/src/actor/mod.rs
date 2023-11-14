@@ -9,7 +9,7 @@ use crate::actor::context::ActorContext;
 use crate::decoder::MessageDecoder;
 use crate::delegate::MessageDelegate;
 use crate::delegate::system::SystemDelegate;
-use crate::delegate::user::UserDelegate;
+use crate::delegate::user::{AsyncUserDelegate, UserDelegate};
 
 pub mod context;
 
@@ -30,8 +30,14 @@ pub trait CodecMessage: Any + Send + 'static {
     fn encode(&self) -> Option<anyhow::Result<Vec<u8>>>;
 }
 
-#[async_trait]
 pub trait Message: CodecMessage {
+    type T: Actor;
+
+    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()>;
+}
+
+#[async_trait]
+pub trait AsyncMessage: CodecMessage {
     type T: Actor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()>;
@@ -45,6 +51,7 @@ pub trait SystemMessage: CodecMessage {
 #[derive(Debug)]
 pub enum DynamicMessage {
     User(BoxedMessage),
+    AsyncUser(BoxedMessage),
     System(BoxedMessage),
 }
 
@@ -80,6 +87,11 @@ impl DynamicMessage {
         DynamicMessage::User(BoxedMessage::new(delegate.name, delegate))
     }
 
+    pub fn async_user<M>(message: M) -> Self where M: AsyncMessage {
+        let delegate = AsyncUserDelegate::new(message);
+        DynamicMessage::AsyncUser(BoxedMessage::new(delegate.name, delegate))
+    }
+
     pub fn system<M>(message: M) -> Self where M: SystemMessage {
         let delegate = SystemDelegate::new(message);
         DynamicMessage::System(BoxedMessage::new(delegate.name, delegate))
@@ -88,6 +100,7 @@ impl DynamicMessage {
     pub(crate) fn name(&self) -> &'static str {
         match self {
             DynamicMessage::User(m) => { m.name() }
+            DynamicMessage::AsyncUser(m) => { m.name() }
             DynamicMessage::System(m) => { m.name() }
         }
     }
@@ -97,6 +110,9 @@ impl DynamicMessage {
         let delegate = match self {
             DynamicMessage::User(m) => {
                 m.inner.into_any().downcast::<UserDelegate<T>>().map(|m| MessageDelegate::User(m))
+            }
+            DynamicMessage::AsyncUser(m) => {
+                m.inner.into_any().downcast::<AsyncUserDelegate<T>>().map(|m| MessageDelegate::AsyncUser(m))
             }
             DynamicMessage::System(m) => {
                 m.inner.into_any().downcast::<SystemDelegate>().map(|m| MessageDelegate::System(m))
@@ -218,11 +234,10 @@ mod actor_test {
             }
         }
 
-        #[async_trait]
         impl Message for WatchActorTerminate {
             type T = TestActor;
 
-            async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+            fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
                 info!("{} watch actor {} terminate", context.myself, self.watch);
                 Ok(())
             }
@@ -233,11 +248,10 @@ mod actor_test {
             actor: ActorRef,
         }
 
-        #[async_trait]
         impl Message for WatchFor {
             type T = TestActor;
 
-            async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+            fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
                 info!("{} watch {}", context.myself, self.actor);
                 let watch = WatchActorTerminate {
                     watch: self.actor.into(),
@@ -252,11 +266,10 @@ mod actor_test {
             actor: ActorRef,
         }
 
-        #[async_trait]
         impl Message for UnwatchFor {
             type T = TestActor;
 
-            async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+            fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
                 info!("{} unwatch {}", context.myself, self.actor);
                 context.unwatch(&self.actor);
                 Ok(())
@@ -294,11 +307,10 @@ mod actor_test {
         #[derive(EmptyCodec)]
         struct LocalMessage;
 
-        #[async_trait]
         impl Message for LocalMessage {
             type T = TestActor;
 
-            async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+            fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
                 Ok(())
             }
         }

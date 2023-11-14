@@ -36,7 +36,7 @@ impl TActorRef for LocalActorRef {
     fn tell(&self, message: DynamicMessage, sender: Option<ActorRef>) {
         let envelop = Envelope { message, sender };
         match &envelop.message {
-            DynamicMessage::User(_) => {
+            DynamicMessage::User(_) | DynamicMessage::AsyncUser(_) => {
                 if let Some(error) = self.sender.message.try_send(envelop).err() {
                     self.log_send_error(error);
                 }

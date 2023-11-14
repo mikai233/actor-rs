@@ -7,7 +7,7 @@ use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use crate::actor::{DynamicMessage, Message, SystemMessage};
+use crate::actor::{AsyncMessage, DynamicMessage, Message, SystemMessage};
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
@@ -105,6 +105,12 @@ pub trait ActorRefExt: TActorRef {
             M: Message,
     {
         self.tell(DynamicMessage::user(message), sender);
+    }
+    fn cast_async<M>(&self, message: M, sender: Option<ActorRef>)
+        where
+            M: AsyncMessage,
+    {
+        self.tell(DynamicMessage::async_user(message), sender);
     }
     fn cast_system<M>(&self, message: M, sender: Option<ActorRef>)
         where
