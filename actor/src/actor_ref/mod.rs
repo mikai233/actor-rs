@@ -5,7 +5,6 @@ use std::sync::RwLock;
 
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 
 use crate::actor::{AsyncMessage, DynamicMessage, Message, SystemMessage};
 use crate::actor_path::ActorPath;
@@ -13,12 +12,14 @@ use crate::actor_path::TActorPath;
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::remote_ref::RemoteActorRef;
+use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::cell::ActorCell;
 use crate::system::ActorSystem;
 
 pub mod dead_letter_ref;
 pub mod local_ref;
 pub mod remote_ref;
+pub(crate) mod virtual_path_container;
 
 #[enum_dispatch]
 #[derive(Clone)]
@@ -26,6 +27,7 @@ pub enum ActorRef {
     LocalActorRef,
     RemoteActorRef,
     DeadLetterActorRef,
+    VirtualPathContainer,
 }
 
 impl Debug for ActorRef {
@@ -43,6 +45,9 @@ impl Debug for ActorRef {
                 .debug_struct("ActorRef::DeadLetterActorRef")
                 .field("path", d.path())
                 .finish_non_exhaustive(),
+            ActorRef::VirtualPathContainer(v) => f
+                .debug_struct("ActorRef::VirtualPathContainer")
+                .finish_non_exhaustive()
         }
     }
 }
