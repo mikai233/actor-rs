@@ -87,15 +87,7 @@ impl ActorRefFactory for ActorContext {
                 self.myself
             ));
         }
-        let supervisor = &self.myself;
-        if let Some(name) = &name {
-            check_name(name)?;
-        }
-        let name = name.unwrap_or_else(random_actor_name);
-        let path =
-            ChildActorPath::new(supervisor.path().clone(), name, ActorPath::new_uid()).into();
-        self.provider()
-            .actor_of(actor, arg, props, supervisor, path)
+        self.myself.local_or_panic().attach_child(actor,arg,name,props)
     }
 
     fn stop(&self, actor: &ActorRef) {
@@ -254,7 +246,7 @@ impl ActorContext {
         where
             F: Future<Output=()> + Send + 'static,
     {
-        let handle = tokio::spawn(future);
+        let handle = self.system.spawn(future);
         self.async_tasks.push(handle);
     }
 

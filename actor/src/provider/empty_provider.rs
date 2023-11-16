@@ -33,19 +33,19 @@ impl TActorRefProvider for EmptyActorRefProvider {
         panic!("unreachable");
     }
 
-    fn register_temp_actor(&self, actor: ActorRef, path: ActorPath) {
+    fn register_temp_actor(&self, _actor: ActorRef, _path: ActorPath) {
         panic!("unreachable");
     }
 
-    fn unregister_temp_actor(&self, path: ActorPath) {
+    fn unregister_temp_actor(&self, _path: ActorPath) {
         panic!("unreachable");
     }
 
-    fn actor_of<T>(&self, actor: T, arg: T::A, props: Props, supervisor: &ActorRef, path: ActorPath) -> anyhow::Result<ActorRef> where T: Actor {
+    fn actor_of<T>(&self, _actor: T, _arg: T::A, _props: Props, _supervisor: &ActorRef) -> anyhow::Result<ActorRef> where T: Actor {
         panic!("unreachable");
     }
 
-    fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {
+    fn resolve_actor_ref_of_path(&self, _path: &ActorPath) -> ActorRef {
         panic!("unreachable");
     }
 

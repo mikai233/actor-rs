@@ -47,7 +47,6 @@ pub trait TActorRefProvider: Send {
         arg: T::A,
         props: Props,
         supervisor: &ActorRef,
-        path: ActorPath,
     ) -> anyhow::Result<ActorRef>
         where
             T: Actor;

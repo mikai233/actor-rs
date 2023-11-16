@@ -5,7 +5,6 @@ use std::sync::RwLock;
 
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 
 use crate::actor::{AsyncMessage, DynamicMessage, Message, SystemMessage};
 use crate::actor_path::ActorPath;
@@ -51,6 +50,7 @@ impl ActorRef {
     fn no_sender() -> Option<ActorRef> {
         None
     }
+
     pub(crate) fn local_or_panic(&self) -> &LocalActorRef {
         match self {
             ActorRef::LocalActorRef(l) => l,

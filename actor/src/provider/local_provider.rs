@@ -5,12 +5,13 @@ use crate::actor_path::{ActorPath, RootActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
+use crate::cell::ActorCell;
 use crate::ext::random_actor_name;
 use crate::net::tcp_transport::TransportActor;
 use crate::props::Props;
 use crate::provider::TActorRefProvider;
 use crate::root_guardian::RootGuardian;
-use crate::system::{ActorSystem, make_actor_runtime};
+use crate::system::ActorSystem;
 use crate::system_guardian::SystemGuardian;
 use crate::user_guardian::UserGuardian;
 
@@ -32,50 +33,27 @@ struct Inner {
 impl LocalActorRefProvider {
     pub(crate) fn new(system: &ActorSystem) -> anyhow::Result<Self> {
         let root_path = RootActorPath::new(system.address().clone(), "/".to_string());
-        let system_path = root_path.child("system".to_string());
-        let user_path = root_path.child("user".to_string());
-        let rt = make_actor_runtime(
-            system,
-            RootGuardian,
-            (),
-            Props::default(),
-            root_path.clone().into(),
-            None,
-        )?;
-        let root_guardian = rt.myself.clone();
-        let rt = make_actor_runtime(
-            system,
-            SystemGuardian,
-            (),
-            Props::default(),
-            system_path,
-            Some(root_guardian.clone()),
-        )?;
-        let system_guardian = rt.myself.clone();
-        system.exec_actor_rt(rt);
-        let rt = make_actor_runtime(
-            system,
-            UserGuardian,
-            (),
-            Props::default(),
-            user_path,
-            Some(root_guardian.clone()),
-        )?;
-        let user_guardian = rt.myself.clone();
-        let root_guardian = root_guardian.local_or_panic().clone();
-        let system_guardian = system_guardian.local_or_panic().clone();
-        let user_guardian = user_guardian.local_or_panic().clone();
-        system.exec_actor_rt(rt);
+        let root_props = Props::default();
+        let (sender, mailbox) = root_props.mailbox();
+        let root_guardian = LocalActorRef {
+            system: system.clone(),
+            path: root_path.clone().into(),
+            sender,
+            cell: ActorCell::new(None),
+        };
+        root_guardian.start(RootGuardian, (), root_props, mailbox);
+        let system_guardian = root_guardian.attach_child(SystemGuardian, (), Some("system".to_string()), Props::default())?;
+        let user_guardian = root_guardian.attach_child(UserGuardian, (), Some("user".to_string()), Props::default())?;
         let dead_letters = DeadLetterActorRef {
             system: system.clone(),
-            path: root_path.child("deadLetters".to_string()),
+            path: root_path.child("deadLetters"),
         };
-        let temp_node = root_path.child("temp".to_string());
+        let temp_node = root_path.child("temp");
         let inner = Inner {
             root_path: root_path.into(),
             root_guardian,
-            user_guardian,
-            system_guardian,
+            user_guardian: user_guardian.local_or_panic().clone().into(),
+            system_guardian: system_guardian.local_or_panic().clone().into(),
             dead_letters: dead_letters.into(),
             temp_node,
         };
@@ -86,18 +64,14 @@ impl LocalActorRefProvider {
     }
 
     pub(crate) fn spawn_tcp_transport(&self, system: &ActorSystem) -> anyhow::Result<ActorRef> {
-        let path = self.system_guardian().path.child("tcp_transport".to_string());
-        let rt = make_actor_runtime(
-            system,
-            TransportActor,
-            (),
-            Props::default(),
-            path,
-            Some(self.system_guardian().clone().into()),
-        )?;
-        let actor_ref = rt.myself.clone();
-        system.exec_actor_rt(rt);
-        Ok(actor_ref)
+        let transport_ref = self
+            .system_guardian()
+            .attach_child(
+                TransportActor,
+                (),
+                Some("tcp_transport".to_string()),
+                Props::default())?;
+        Ok(transport_ref)
     }
 }
 
@@ -129,7 +103,7 @@ impl TActorRefProvider for LocalActorRefProvider {
             builder.push_str(prefix.unwrap().as_str());
         }
         builder.push_str(random_actor_name().as_str());
-        self.inner.temp_node.child(builder)
+        self.inner.temp_node.child(&builder)
     }
 
     fn register_temp_actor(&self, actor: ActorRef, path: ActorPath) {
@@ -146,22 +120,11 @@ impl TActorRefProvider for LocalActorRefProvider {
         arg: T::A,
         props: Props,
         supervisor: &ActorRef,
-        path: ActorPath,
     ) -> anyhow::Result<ActorRef>
         where
             T: Actor,
     {
-        let rt = make_actor_runtime(
-            &self.guardian().system,
-            actor,
-            arg,
-            props,
-            path,
-            Some(supervisor.clone()),
-        )?;
-        let actor_ref = rt.myself.clone();
-        self.guardian().system.exec_actor_rt(rt);
-        Ok(actor_ref)
+        supervisor.local_or_panic().attach_child(actor, arg, None, props)
     }
 
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {

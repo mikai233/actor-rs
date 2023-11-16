@@ -19,7 +19,7 @@ pub trait TActorPath {
     fn address(&self) -> Address;
     fn name(&self) -> &String;
     fn parent(&self) -> ActorPath;
-    fn child(&self, child: String) -> ActorPath {
+    fn child(&self, child: &str) -> ActorPath {
         let (child_name, uid) = ActorPath::split_name_and_uid(&child);
         ChildActorPath {
             inner: Arc::new(ChildInner {
@@ -39,7 +39,7 @@ pub trait TActorPath {
             if elem.is_empty() {
                 path
             } else {
-                path.child(elem)
+                path.child(&elem)
             }
         })
     }
@@ -85,9 +85,9 @@ impl ActorPath {
         }
     }
 
-    pub(crate) fn split_name_and_uid(name: &String) -> (String, i32) {
+    pub(crate) fn split_name_and_uid(name: &str) -> (String, i32) {
         match name.find('#') {
-            None => (name.clone(), ActorPath::undefined_uid()),
+            None => (name.to_string(), ActorPath::undefined_uid()),
             Some(index) => {
                 let (name, id) = (name[0..index].to_string(), &name[(index + 1)..]);
                 let id: i32 = id.parse().expect(&format!("expect i32, got {}", id));
@@ -148,7 +148,7 @@ impl FromStr for ActorPath {
         };
         let mut path: ActorPath = RootActorPath::new(address, "/".to_string()).into();
         for p in path_str {
-            path = path.child(p);
+            path = path.child(&p);
         }
         path = path.with_uid(uid);
         Ok(path)
@@ -383,11 +383,11 @@ mod actor_path_test {
     fn test_actor_path() {
         let addr = get_address();
         let root: ActorPath = RootActorPath::new(addr, "/a".to_string()).into();
-        let child = root.child("b121#112223289".to_string());
+        let child = root.child(&"b121#112223289".to_string());
         assert_eq!(child.to_string(), format!("{}/a/b121", get_address()));
-        let c1 = child.child("child1#-12324".to_string());
+        let c1 = child.child(&"child1#-12324".to_string());
         assert_eq!(c1.to_string(), format!("{}/a/b121/child1", get_address()));
-        let c2 = child.child("child2#3249238".to_string());
+        let c2 = child.child(&"child2#3249238".to_string());
         assert_eq!(c2.to_string(), format!("{}/a/b121/child2", get_address()));
     }
 

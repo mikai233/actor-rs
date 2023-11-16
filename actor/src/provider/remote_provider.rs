@@ -66,13 +66,12 @@ impl TActorRefProvider for RemoteActorRefProvider {
         arg: T::A,
         props: Props,
         supervisor: &ActorRef,
-        path: ActorPath,
     ) -> anyhow::Result<ActorRef>
         where
             T: Actor,
     {
         //TODO remote spawn
-        self.local.actor_of(actor, arg, props, supervisor, path)
+        self.local.actor_of(actor, arg, props, supervisor)
     }
 
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {

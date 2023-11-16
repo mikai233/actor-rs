@@ -1,8 +1,9 @@
+use std::future::Future;
 use std::net::SocketAddrV4;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::anyhow;
+use tokio::runtime::Runtime;
 
 use crate::{system_guardian, user_guardian};
 use crate::actor::Actor;
@@ -10,11 +11,7 @@ use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, ActorRefExt, Cell, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::address::Address;
-use crate::cell::ActorCell;
-use crate::cell::runtime::ActorRuntime;
-use crate::ext::{check_name, random_actor_name};
 use crate::message::MessageRegistration;
-use crate::net::mailbox::{Mailbox, MailboxSender};
 use crate::props::Props;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::provider::empty_provider::EmptyActorRefProvider;
@@ -31,6 +28,7 @@ struct Inner {
     start_time: u128,
     provider: RwLock<ActorRefProvider>,
     reg: MessageRegistration,
+    runtime: Runtime,
 }
 
 impl ActorSystem {
@@ -40,11 +38,16 @@ impl ActorSystem {
             system: name,
             addr,
         };
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("Failed building the Runtime");
         let inner = Inner {
             start_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
             address,
             provider: RwLock::new(EmptyActorRefProvider.into()),
             reg,
+            runtime,
         };
         let system = Self {
             inner: inner.into(),
@@ -60,7 +63,7 @@ impl ActorSystem {
         &&self.inner.address
     }
 
-    fn child(&self, child: String) -> ActorPath {
+    fn child(&self, child: &String) -> ActorPath {
         self.guardian().path.child(child)
     }
 
@@ -76,10 +79,6 @@ impl ActorSystem {
         self.guardian().stop();
     }
 
-    pub(crate) fn exec_actor_rt<T>(&self, rt: ActorRuntime<T>) where T: Actor {
-        tokio::spawn(rt.run());
-    }
-
     pub(crate) fn system_guardian(&self) -> LocalActorRef {
         self.provider().system_guardian().clone()
     }
@@ -90,6 +89,21 @@ impl ActorSystem {
 
     pub(crate) fn registration(&self) -> &MessageRegistration {
         &self.inner.reg
+    }
+
+    pub(crate) fn rt(&self) -> &Runtime {
+        &self.inner.runtime
+    }
+
+    pub(crate) fn spawn<F>(&self, future: F) -> tokio::task::JoinHandle<F::Output>
+        where
+            F: Future + Send + 'static,
+            F::Output: Send + 'static, {
+        self.rt().spawn(future)
+    }
+
+    pub(crate) fn system_actor_of<T>(&self, actor: T, arg: T::A, name: Option<String>, props: Props) -> anyhow::Result<ActorRef> where T: Actor {
+        self.system_guardian().attach_child(actor, arg, name, props)
     }
 }
 
@@ -120,22 +134,7 @@ impl ActorRefFactory for ActorSystem {
         where
             T: Actor,
     {
-        if let Some(name) = &name {
-            check_name(name)?;
-        }
-        let name = name.unwrap_or_else(random_actor_name);
-        let path = self.guardian().path.child(name);
-        let rt = make_actor_runtime(
-            self,
-            actor,
-            arg,
-            props,
-            path,
-            Some(self.guardian().clone().into()),
-        )?;
-        let actor_ref = rt.myself.clone();
-        self.exec_actor_rt(rt);
-        Ok(actor_ref)
+        self.guardian().attach_child(actor, arg, name, props)
     }
 
     fn stop(&self, actor: &ActorRef) {
@@ -163,59 +162,12 @@ impl ActorRefFactory for ActorSystem {
     }
 }
 
-pub(crate) fn make_actor_runtime<T>(
-    system: &ActorSystem,
-    actor: T,
-    arg: T::A,
-    props: Props,
-    path: ActorPath,
-    parent: Option<ActorRef>,
-) -> anyhow::Result<ActorRuntime<T>>
-    where
-        T: Actor,
-{
-    let name = path.name().clone();
-    let (m_tx, m_rx) = tokio::sync::mpsc::channel(props.mailbox);
-    let (s_tx, s_rx) = tokio::sync::mpsc::channel(1000);
-    let sender = MailboxSender {
-        message: m_tx,
-        system: s_tx,
-    };
-    let mailbox = Mailbox {
-        message: m_rx,
-        system: s_rx,
-    };
-    let myself = LocalActorRef {
-        system: system.clone(),
-        path,
-        sender,
-        cell: ActorCell::new(parent),
-    };
-    if let Some(parent) = myself.parent().map(|a| a.local_or_panic()) {
-        let mut children = parent.children().write().unwrap();
-        if children.contains_key(&name) {
-            return Err(anyhow!("duplicate actor name {}", name));
-        }
-        children.insert(name, myself.clone().into());
-    }
-    let rt = ActorRuntime {
-        myself: myself.into(),
-        handler: actor,
-        props,
-        system: system.clone(),
-        mailbox,
-        arg,
-    };
-    Ok(rt)
-}
-
 #[cfg(test)]
 mod system_test {
     use std::any::Any;
     use std::net::SocketAddrV4;
     use std::time::Duration;
 
-    use async_trait::async_trait;
     use tracing::info;
 
     use crate::actor::{Actor, CodecMessage, Message};
