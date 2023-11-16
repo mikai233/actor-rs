@@ -55,6 +55,7 @@ pub enum DynamicMessage {
     User(BoxedMessage),
     AsyncUser(BoxedMessage),
     System(BoxedMessage),
+    Deferred(BoxedMessage),
 }
 
 pub(crate) struct BoxedMessage {
@@ -99,11 +100,17 @@ impl DynamicMessage {
         DynamicMessage::System(BoxedMessage::new(delegate.name, delegate))
     }
 
+    pub fn deferred<M>(message: M) -> Self where M: DeferredMessage {
+        let name = std::any::type_name::<M>();
+        DynamicMessage::Deferred(BoxedMessage::new(name, message))
+    }
+
     pub(crate) fn name(&self) -> &'static str {
         match self {
             DynamicMessage::User(m) => { m.name() }
             DynamicMessage::AsyncUser(m) => { m.name() }
             DynamicMessage::System(m) => { m.name() }
+            DynamicMessage::Deferred(m) => { m.name() }
         }
     }
 
@@ -118,6 +125,9 @@ impl DynamicMessage {
             }
             DynamicMessage::System(m) => {
                 m.inner.into_any().downcast::<SystemDelegate>().map(|m| MessageDelegate::System(m))
+            }
+            DynamicMessage::Deferred(m) => {
+                panic!("unexpected Deferred message {}", m.name());
             }
         };
         match delegate {
@@ -151,9 +161,10 @@ mod actor_test {
 
     use actor_derive::EmptyCodec;
 
-    use crate::actor::{Actor, CodecMessage, Message};
+    use crate::actor::{Actor, CodecMessage, DeferredMessage, Message};
     use crate::actor::context::{ActorContext, Context};
     use crate::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef, TActorRef};
+    use crate::actor_ref::deferred_ref::ActorAsk;
     use crate::decoder::MessageDecoder;
     use crate::ext::encode_bytes;
     use crate::message::MessageRegistration;
@@ -315,5 +326,53 @@ mod actor_test {
                 Ok(())
             }
         }
+    }
+
+    #[tokio::test]
+    async fn test_ask() -> anyhow::Result<()> {
+        #[derive(Debug)]
+        struct ActorA;
+
+        impl Actor for ActorA {
+            type S = ();
+            type A = ();
+
+            fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+                Ok(())
+            }
+        }
+
+        struct MessageToAsk;
+
+        impl CodecMessage for MessageToAsk {
+            fn into_any(self: Box<Self>) -> Box<dyn Any> {
+                self
+            }
+
+            fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+                None
+            }
+
+            fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+                None
+            }
+        }
+        impl Message for MessageToAsk {
+            type T = ActorA;
+
+            fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+                context.sender().unwrap().resp(MessageToAns);
+                Ok(())
+            }
+        }
+
+        #[derive(EmptyCodec)]
+        struct MessageToAns;
+        impl DeferredMessage for MessageToAns {}
+
+        let system = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse().unwrap(), MessageRegistration::new())?;
+        let actor_a = system.actor_of(ActorA, (), Props::default(), None)?;
+        let ans: MessageToAns = ActorAsk::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;
+        Ok(())
     }
 }

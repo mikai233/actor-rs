@@ -1,4 +1,6 @@
+use std::any::Any;
 use std::time::Duration;
+use anyhow::anyhow;
 
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::error::Elapsed;
@@ -7,12 +9,13 @@ use crate::actor::{DeferredMessage, DynamicMessage, Message};
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::provider::{ActorRefFactory, TActorRefProvider};
+use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
 pub struct DeferredActorRef {
     system: ActorSystem,
+    provider: Box<ActorRefProvider>,
     path: ActorPath,
     parent: Box<ActorRef>,
     sender: Sender<DynamicMessage>,
@@ -48,33 +51,57 @@ impl DeferredActorRef {
         let provider = system.provider();
         let path = provider.temp_path_of_prefix(Some(target_name));
         let (tx, rx) = tokio::sync::mpsc::channel(1);
+        let parent = Box::new(provider.temp_container().clone());
         let deferred_ref = DeferredActorRef {
             system,
+            provider: Box::new(provider),
             path: path.clone(),
-            parent: Box::new(provider.temp_container().clone()),
+            parent,
             sender: tx,
             message_name,
         };
-        provider.register_temp_actor(deferred_ref.clone().into(), deferred_ref.path());
+        deferred_ref.provider.register_temp_actor(deferred_ref.clone().into(), deferred_ref.path());
         (deferred_ref, rx)
     }
-    pub(crate) async fn ask(&self, target: ActorRef, mut rx: Receiver<DynamicMessage>, message: DynamicMessage, timeout: Duration) -> Result<Option<DynamicMessage>, Elapsed> {
+    pub(crate) async fn ask(&self, target: &ActorRef, mut rx: Receiver<DynamicMessage>, message: DynamicMessage, timeout: Duration) -> Result<Option<DynamicMessage>, Elapsed> {
         target.tell(message, Some(self.clone().into()));
-        tokio::time::timeout(timeout, rx.recv()).await
+        let resp = tokio::time::timeout(timeout, rx.recv()).await;
+        self.provider.unregister_temp_actor(&self.path);
+        resp
     }
 }
 
 pub struct ActorAsk;
 
 impl ActorAsk {
-    pub async fn ask<Req, Resp>(actor: ActorRef, message: Req, timeout: Duration) -> anyhow::Result<Resp> where Req: Message, Resp: DeferredMessage {
-        let message_name = std::any::type_name::<Req>();
-        let (deferred, rx) = DeferredActorRef::new(actor.system(), actor.path().name().to_string(), message_name);
+    pub async fn ask<Req, Resp>(actor: &ActorRef, message: Req, timeout: Duration) -> anyhow::Result<Resp> where Req: Message, Resp: DeferredMessage {
+        let req_name = std::any::type_name::<Req>();
+        let (deferred, rx) = DeferredActorRef::new(actor.system(), actor.path().name().to_string(), req_name);
         match deferred.ask(actor, rx, DynamicMessage::user(message), timeout).await {
-            Ok(Some(resp)) => {}
-            Ok(None) => {}
-            Err(error) => {}
+            Ok(Some(resp)) => {
+                match resp {
+                    DynamicMessage::Deferred(m) => {
+                        match m.inner.into_any().downcast::<Resp>() {
+                            Ok(resp) => {
+                                Ok(*resp)
+                            }
+                            Err(error) => {
+                                let resp_name = std::any::type_name::<Resp>();
+                                Err(anyhow!("{} ask {} expect {} resp, but found other type resp", actor, req_name, resp_name))
+                            }
+                        }
+                    }
+                    _ => {
+                        Err(anyhow!("{} ask {} expect Deferred resp, but found other type message", actor, req_name))
+                    }
+                }
+            }
+            Ok(None) => {
+                Err(anyhow!("{} ask {} got empty resp, because DeferredActorRef is dropped", actor, req_name))
+            }
+            Err(elapsed) => {
+                Err(anyhow!("{} ask {} timeout after {:?}, a typical reason is that the recipient actor didn't send a reply", actor, req_name, elapsed))
+            }
         }
-        todo!()
     }
 }

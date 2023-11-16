@@ -51,6 +51,10 @@ impl TActorRef for LocalActorRef {
                     self.log_send_error(error);
                 }
             }
+            DynamicMessage::Deferred(m) => {
+                let myself: ActorRef = self.clone().into();
+                warn!("unexpected Deferred message {} to {}", m.name(), myself);
+            }
         }
     }
 
