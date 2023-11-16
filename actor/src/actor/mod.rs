@@ -48,6 +48,8 @@ pub trait SystemMessage: CodecMessage {
     async fn handle(self: Box<Self>, context: &mut ActorContext) -> anyhow::Result<()>;
 }
 
+pub trait DeferredMessage: CodecMessage {}
+
 #[derive(Debug)]
 pub enum DynamicMessage {
     User(BoxedMessage),
@@ -144,7 +146,6 @@ mod actor_test {
     use std::time::Duration;
 
     use anyhow::Ok;
-    use async_trait::async_trait;
     use serde::{Deserialize, Serialize};
     use tracing::info;
 

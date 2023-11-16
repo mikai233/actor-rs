@@ -52,12 +52,16 @@ impl TActorRefProvider for RemoteActorRefProvider {
         self.local.temp_path_of_prefix(prefix)
     }
 
-    fn register_temp_actor(&self, actor: ActorRef, path: ActorPath) {
-        todo!()
+    fn temp_container(&self) -> ActorRef {
+        self.local.temp_container()
     }
 
-    fn unregister_temp_actor(&self, path: ActorPath) {
-        todo!()
+    fn register_temp_actor(&self, actor: ActorRef, path: &ActorPath) {
+        self.local.register_temp_actor(actor, path)
+    }
+
+    fn unregister_temp_actor(&self, path: &ActorPath) {
+        self.local.unregister_temp_actor(path)
     }
 
     fn actor_of<T>(

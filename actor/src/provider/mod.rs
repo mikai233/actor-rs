@@ -39,8 +39,9 @@ pub trait TActorRefProvider: Send {
     fn root_path(&self) -> &ActorPath;
     fn temp_path(&self) -> ActorPath;
     fn temp_path_of_prefix(&self, prefix: Option<String>) -> ActorPath;
-    fn register_temp_actor(&self, actor: ActorRef, path: ActorPath);
-    fn unregister_temp_actor(&self, path: ActorPath);
+    fn temp_container(&self) -> ActorRef;
+    fn register_temp_actor(&self, actor: ActorRef, path: &ActorPath);
+    fn unregister_temp_actor(&self, path: &ActorPath);
     fn actor_of<T>(
         &self,
         actor: T,

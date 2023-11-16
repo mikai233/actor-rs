@@ -10,6 +10,7 @@ use crate::actor::{AsyncMessage, DynamicMessage, Message, SystemMessage};
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
+use crate::actor_ref::deferred_ref::DeferredActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::remote_ref::RemoteActorRef;
 use crate::actor_ref::virtual_path_container::VirtualPathContainer;
@@ -20,6 +21,7 @@ pub mod dead_letter_ref;
 pub mod local_ref;
 pub mod remote_ref;
 pub(crate) mod virtual_path_container;
+mod deferred_ref;
 
 #[enum_dispatch]
 #[derive(Clone)]
@@ -28,6 +30,7 @@ pub enum ActorRef {
     RemoteActorRef,
     DeadLetterActorRef,
     VirtualPathContainer,
+    DeferredActorRef,
 }
 
 impl Debug for ActorRef {
@@ -47,7 +50,12 @@ impl Debug for ActorRef {
                 .finish_non_exhaustive(),
             ActorRef::VirtualPathContainer(v) => f
                 .debug_struct("ActorRef::VirtualPathContainer")
-                .finish_non_exhaustive()
+                .field("path", v.path())
+                .finish_non_exhaustive(),
+            ActorRef::DeferredActorRef(d) => f.
+                debug_struct("ActorRef::DeferredActorRef")
+                .field("path", d.path())
+                .finish_non_exhaustive(),
         }
     }
 }

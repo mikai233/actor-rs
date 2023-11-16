@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::actor::Actor;
@@ -17,12 +18,12 @@ use crate::system_guardian::SystemGuardian;
 use crate::user_guardian::UserGuardian;
 
 #[derive(Debug, Clone)]
-pub struct LocalActorRefProvider {
+pub(crate) struct LocalActorRefProvider {
     inner: Arc<Inner>,
 }
 
 #[derive(Debug)]
-struct Inner {
+pub(crate) struct Inner {
     root_path: ActorPath,
     root_guardian: LocalActorRef,
     user_guardian: LocalActorRef,
@@ -30,6 +31,14 @@ struct Inner {
     dead_letters: ActorRef,
     temp_node: ActorPath,
     temp_container: VirtualPathContainer,
+}
+
+impl Deref for LocalActorRefProvider {
+    type Target = Arc<Inner>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl LocalActorRefProvider {
@@ -50,6 +59,7 @@ impl LocalActorRefProvider {
             system: system.clone(),
             path: root_path.child("deadLetters"),
         };
+        root_guardian.cell.children().write().unwrap().insert(dead_letters.path.name().clone(), dead_letters.clone().into());
         let temp_node = root_path.child("temp");
         let temp_container = VirtualPathContainer {
             system: system.clone(),
@@ -57,6 +67,7 @@ impl LocalActorRefProvider {
             parent: Box::new(root_guardian.clone().into()),
             children: Arc::new(Default::default()),
         };
+        root_guardian.cell.children().write().unwrap().insert(temp_node.name().clone(), temp_container.clone().into());
         let inner = Inner {
             root_path: root_path.into(),
             root_guardian,
@@ -86,19 +97,19 @@ impl LocalActorRefProvider {
 
 impl TActorRefProvider for LocalActorRefProvider {
     fn root_guardian(&self) -> &LocalActorRef {
-        &self.inner.root_guardian
+        &self.root_guardian
     }
 
     fn guardian(&self) -> &LocalActorRef {
-        &self.inner.user_guardian
+        &self.user_guardian
     }
 
     fn system_guardian(&self) -> &LocalActorRef {
-        &self.inner.system_guardian
+        &self.system_guardian
     }
 
     fn root_path(&self) -> &ActorPath {
-        &self.inner.root_path
+        &self.root_path
     }
 
     fn temp_path(&self) -> ActorPath {
@@ -115,12 +126,18 @@ impl TActorRefProvider for LocalActorRefProvider {
         self.inner.temp_node.child(&builder)
     }
 
-    fn register_temp_actor(&self, actor: ActorRef, path: ActorPath) {
-        todo!()
+    fn temp_container(&self) -> ActorRef {
+        self.temp_container.clone().into()
     }
 
-    fn unregister_temp_actor(&self, path: ActorPath) {
-        todo!()
+    fn register_temp_actor(&self, actor: ActorRef, path: &ActorPath) {
+        assert_eq!(path.parent(), self.inner.temp_node, "cannot register_temp_actor() with anything not obtained from temp_path()");
+        self.temp_container.add_child(path.name().to_string(), actor);
+    }
+
+    fn unregister_temp_actor(&self, path: &ActorPath) {
+        assert_eq!(path.parent(), self.inner.temp_node, "cannot unregister_temp_actor() with anything not obtained from temp_path()");
+        self.temp_container.remove_child(path.name());
     }
 
     fn actor_of<T>(

@@ -33,11 +33,15 @@ impl TActorRefProvider for EmptyActorRefProvider {
         panic!("unreachable");
     }
 
-    fn register_temp_actor(&self, _actor: ActorRef, _path: ActorPath) {
+    fn temp_container(&self) -> ActorRef {
         panic!("unreachable");
     }
 
-    fn unregister_temp_actor(&self, _path: ActorPath) {
+    fn register_temp_actor(&self, _actor: ActorRef, _path: &ActorPath) {
+        panic!("unreachable");
+    }
+
+    fn unregister_temp_actor(&self, _path: &ActorPath) {
         panic!("unreachable");
     }
 
