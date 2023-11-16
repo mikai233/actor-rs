@@ -5,6 +5,7 @@ use crate::actor_path::{ActorPath, RootActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
+use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::cell::ActorCell;
 use crate::ext::random_actor_name;
 use crate::net::tcp_transport::TransportActor;
@@ -28,6 +29,7 @@ struct Inner {
     system_guardian: LocalActorRef,
     dead_letters: ActorRef,
     temp_node: ActorPath,
+    temp_container: VirtualPathContainer,
 }
 
 impl LocalActorRefProvider {
@@ -49,6 +51,12 @@ impl LocalActorRefProvider {
             path: root_path.child("deadLetters"),
         };
         let temp_node = root_path.child("temp");
+        let temp_container = VirtualPathContainer {
+            system: system.clone(),
+            path: temp_node.clone(),
+            parent: Box::new(root_guardian.clone().into()),
+            children: Arc::new(Default::default()),
+        };
         let inner = Inner {
             root_path: root_path.into(),
             root_guardian,
@@ -56,6 +64,7 @@ impl LocalActorRefProvider {
             system_guardian: system_guardian.local_or_panic().clone().into(),
             dead_letters: dead_letters.into(),
             temp_node,
+            temp_container,
         };
         let provider = Self {
             inner: inner.into(),
