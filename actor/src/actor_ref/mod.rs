@@ -68,7 +68,7 @@ impl Debug for ActorRef {
 }
 
 impl ActorRef {
-    fn no_sender() -> Option<ActorRef> {
+    pub fn no_sender() -> Option<ActorRef> {
         None
     }
 

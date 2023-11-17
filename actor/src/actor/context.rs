@@ -33,9 +33,8 @@ pub trait Context: ActorRefFactory {
     fn parent(&self) -> Option<&ActorRef>;
     fn watch<T>(&mut self, terminate: T) where T: WatchTerminated;
     fn unwatch(&mut self, subject: &ActorRef);
-    fn message_adapter<F, M>(&mut self, f: F) -> ActorRef
+    fn message_adapter<M>(&mut self, f: impl Fn(M) -> anyhow::Result<DynamicMessage> + Send + Sync + 'static) -> ActorRef
         where
-            F: Fn(M) -> anyhow::Result<DynamicMessage> + Send + Sync + 'static,
             M: UntypedMessage;
 }
 
@@ -163,9 +162,8 @@ impl Context for ActorContext {
         }
     }
 
-    fn message_adapter<F, M>(&mut self, f: F) -> ActorRef
+    fn message_adapter<M>(&mut self, f: impl Fn(M) -> anyhow::Result<DynamicMessage> + Send + Sync + 'static) -> ActorRef
         where
-            F: Fn(M) -> anyhow::Result<DynamicMessage> + Send + Sync + 'static,
             M: UntypedMessage {
         let myself = self.myself.clone();
         self.add_function_ref(move |message, sender| {

@@ -476,11 +476,12 @@ mod actor_test {
             type A = ();
 
             fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
-                let a = context.message_adapter::<_, TestUntyped>(|m| {
+                let adapter = context.message_adapter::<TestUntyped>(|m| {
                     Ok(DynamicMessage::user(TestMessage))
                 });
+                adapter.tell(DynamicMessage::untyped(TestUntyped), ActorRef::no_sender());
                 Ok(State {
-                    adapter: a,
+                    adapter,
                 })
             }
         }
@@ -490,8 +491,9 @@ mod actor_test {
             reg.register::<TestUntyped>();
             reg
         }
-        let system1 = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse().unwrap(), reg())?;
-        let system2 = ActorSystem::new("game".to_string(), "127.0.0.1:12122".parse().unwrap(), reg())?;
+        let system = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse().unwrap(), reg())?;
+        system.actor_of(ActorA, (), Props::default(), None)?;
+        tokio::time::sleep(Duration::from_secs(3)).await;
         Ok(())
     }
 }
