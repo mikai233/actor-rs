@@ -1,7 +1,6 @@
-use std::any::Any;
 use std::time::Duration;
-use anyhow::anyhow;
 
+use anyhow::anyhow;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::error::Elapsed;
 
@@ -42,7 +41,15 @@ impl TActorRef for DeferredActorRef {
     }
 
     fn get_child<I>(&self, names: I) -> Option<ActorRef> where I: IntoIterator<Item=String> {
-        None
+        let mut names = names.into_iter();
+        match names.next() {
+            None => {
+                Some(self.clone().into())
+            }
+            Some(_) => {
+                None
+            }
+        }
     }
 }
 
@@ -71,9 +78,9 @@ impl DeferredActorRef {
     }
 }
 
-pub struct ActorAsk;
+pub struct Patterns;
 
-impl ActorAsk {
+impl Patterns {
     pub async fn ask<Req, Resp>(actor: &ActorRef, message: Req, timeout: Duration) -> anyhow::Result<Resp> where Req: Message, Resp: DeferredMessage {
         let req_name = std::any::type_name::<Req>();
         let (deferred, rx) = DeferredActorRef::new(actor.system(), actor.path().name().to_string(), req_name);
@@ -85,7 +92,7 @@ impl ActorAsk {
                             Ok(resp) => {
                                 Ok(*resp)
                             }
-                            Err(error) => {
+                            Err(_) => {
                                 let resp_name = std::any::type_name::<Resp>();
                                 Err(anyhow!("{} ask {} expect {} resp, but found other type resp", actor, req_name, resp_name))
                             }
@@ -99,8 +106,8 @@ impl ActorAsk {
             Ok(None) => {
                 Err(anyhow!("{} ask {} got empty resp, because DeferredActorRef is dropped", actor, req_name))
             }
-            Err(elapsed) => {
-                Err(anyhow!("{} ask {} timeout after {:?}, a typical reason is that the recipient actor didn't send a reply", actor, req_name, elapsed))
+            Err(_) => {
+                Err(anyhow!("{} ask {} timeout after {:?}, a typical reason is that the recipient actor didn't send a reply", actor, req_name, timeout))
             }
         }
     }

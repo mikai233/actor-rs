@@ -1,6 +1,6 @@
 use tracing::info;
-use crate::actor::{DynamicMessage, Message};
 
+use crate::actor::DynamicMessage;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::system::ActorSystem;

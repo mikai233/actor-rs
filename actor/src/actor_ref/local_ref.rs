@@ -1,12 +1,11 @@
 use std::collections::BTreeMap;
 use std::sync::RwLock;
-use std::time::Duration;
 
 use anyhow::anyhow;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
-use crate::actor::{Actor, DynamicMessage, Message};
+use crate::actor::{Actor, DynamicMessage};
 use crate::actor_path::{ChildActorPath, TActorPath};
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
@@ -52,6 +51,10 @@ impl TActorRef for LocalActorRef {
                 }
             }
             DynamicMessage::Deferred(m) => {
+                let myself: ActorRef = self.clone().into();
+                warn!("unexpected Deferred message {} to {}", m.name(), myself);
+            }
+            DynamicMessage::Untyped(m) => {
                 let myself: ActorRef = self.clone().into();
                 warn!("unexpected Deferred message {} to {}", m.name(), myself);
             }
@@ -105,7 +108,12 @@ impl Cell for LocalActorRef {
     }
 
     fn get_single_child(&self, name: &String) -> Option<ActorRef> {
-        self.cell.get_single_child(name)
+        match self.cell.get_single_child(name) {
+            None => {
+                self.cell.get_function_ref(name).map(|r| r.into())
+            }
+            Some(child) => { Some(child) }
+        }
     }
 }
 
@@ -187,12 +195,4 @@ impl LocalActorRef {
         };
         self.system.spawn(rt.run());
     }
-}
-
-pub async fn ask<M, R>(actor: &LocalActorRef, message: M, timeout: Duration) -> anyhow::Result<R>
-    where
-        M: Message,
-        R: Message,
-{
-    todo!()
 }

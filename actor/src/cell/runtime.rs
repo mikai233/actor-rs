@@ -107,11 +107,14 @@ impl<T> ActorRuntime<T>
     async fn handle_system(context: &mut ActorContext, envelope: Envelope) {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
-        match message.downcast::<T>() {
+        match message.downcast_into_delegate::<T>() {
             Ok(delegate) => {
                 match delegate {
-                    MessageDelegate::User(_) | MessageDelegate::AsyncUser(_) => {
-                        panic!("unexpected user message in system");
+                    MessageDelegate::User(m) => {
+                        panic!("unexpected user message {} in system handle", m.name);
+                    }
+                    MessageDelegate::AsyncUser(m) => {
+                        panic!("unexpected async user message {} in system handle", m.name);
                     }
                     MessageDelegate::System(system) => {
                         if let Some(e) = system.message.handle(context).await.err() {
@@ -131,7 +134,7 @@ impl<T> ActorRuntime<T>
     async fn handle_message(context: &mut ActorContext, state: &mut T::S, envelope: Envelope) -> bool {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
-        match message.downcast::<T>() {
+        match message.downcast_into_delegate::<T>() {
             Ok(delegate) => {
                 match delegate {
                     MessageDelegate::User(user) => {
@@ -146,8 +149,8 @@ impl<T> ActorRuntime<T>
                             error!("{} {:?}", actor_name, e);
                         }
                     }
-                    MessageDelegate::System(_) => {
-                        panic!("unexpected system message in user");
+                    MessageDelegate::System(m) => {
+                        panic!("unexpected system message {} in user handle", m.name);
                     }
                 }
             }

@@ -65,8 +65,12 @@ fn base64(l: i64, mut s: String) -> String {
 }
 
 pub fn random_actor_name() -> String {
+    random_name("$".to_string())
+}
+
+pub fn random_name(prefix: String) -> String {
     let num = ACTOR_NAME_OFFSET.fetch_add(1, Ordering::Relaxed);
-    base64(num, "$".to_string())
+    base64(num, prefix)
 }
 
 pub fn check_name(name: &String) -> anyhow::Result<()> {

@@ -1,18 +1,19 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::future::Future;
 use std::ops::Not;
-use std::sync::{RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
 
 use anyhow::anyhow;
 use futures::StreamExt;
 use tokio::task::JoinHandle;
-use tracing::warn;
+use tracing::{error, warn};
 
-use crate::actor::{Actor, DynamicMessage, Message, UserDelegate};
+use crate::actor::{Actor, DynamicMessage, Message, UntypedMessage, UserDelegate};
 use crate::actor_path::{ActorPath, ChildActorPath, TActorPath};
-use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
+use crate::actor_ref::{ActorRef, ActorRefExt, Cell, TActorRef};
+use crate::actor_ref::function_ref::FunctionRef;
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::ext::{check_name, random_actor_name};
+use crate::ext::random_name;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::terminate::Terminate;
 use crate::message::terminated::WatchTerminated;
@@ -32,6 +33,10 @@ pub trait Context: ActorRefFactory {
     fn parent(&self) -> Option<&ActorRef>;
     fn watch<T>(&mut self, terminate: T) where T: WatchTerminated;
     fn unwatch(&mut self, subject: &ActorRef);
+    fn message_adapter<F, M>(&mut self, f: F) -> ActorRef
+        where
+            F: Fn(M) -> anyhow::Result<DynamicMessage> + Send + Sync + 'static,
+            M: UntypedMessage;
 }
 
 impl<T: ?Sized> ContextExt for T where T: Context {}
@@ -87,7 +92,7 @@ impl ActorRefFactory for ActorContext {
                 self.myself
             ));
         }
-        self.myself.local_or_panic().attach_child(actor,arg,name,props)
+        self.myself.local_or_panic().attach_child(actor, arg, name, props)
     }
 
     fn stop(&self, actor: &ActorRef) {
@@ -156,6 +161,34 @@ impl Context for ActorContext {
                 self.provider().resolve_actor_ref_of_path(subject.path()).cast_system(Unwatch { watchee, watcher }, None);
             }
         }
+    }
+
+    fn message_adapter<F, M>(&mut self, f: F) -> ActorRef
+        where
+            F: Fn(M) -> anyhow::Result<DynamicMessage> + Send + Sync + 'static,
+            M: UntypedMessage {
+        let myself = self.myself.clone();
+        self.add_function_ref(move |message, sender| {
+            let dy_name = message.name();
+            let dc_name = std::any::type_name::<M>();
+            if let DynamicMessage::Untyped(message) = message {
+                match message.inner.into_any().downcast::<M>() {
+                    Ok(message) => {
+                        match f(*message) {
+                            Ok(t) => {
+                                myself.tell(t, sender);
+                            }
+                            Err(error) => {
+                                error!("message {} transform error {:?}", dc_name, error);
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        error!("message {} cannot downcast to {}", dy_name, dc_name);
+                    }
+                }
+            }
+        }, None).into()
     }
 }
 
@@ -254,5 +287,28 @@ impl ActorContext {
         if !self.async_tasks.is_empty() {
             self.async_tasks.retain(|t| !t.is_finished());
         }
+    }
+
+    pub(crate) fn add_function_ref<F>(&self, f: F, name: Option<String>) -> FunctionRef
+        where
+            F: Fn(DynamicMessage, Option<ActorRef>) + Send + Sync + 'static
+    {
+        let mut n = random_name("$$".to_string());
+        if let Some(name) = name {
+            n.push_str(&*format!("-{}", name));
+        }
+        let child_path = ChildActorPath::new(self.myself.path().clone(), n, ActorPath::new_uid());
+        let name = child_path.name().clone();
+        let function_ref = FunctionRef {
+            system: self.system.clone(),
+            path: child_path.into(),
+            message_handler: Arc::new(Box::new(f)),
+        };
+        self.myself.local_or_panic().underlying().add_function_ref(name, function_ref.clone());
+        function_ref
+    }
+
+    pub(crate) fn remove_function_ref(&self, name: &str) -> bool {
+        self.myself.local_or_panic().underlying().remove_function_ref(name).is_some()
     }
 }

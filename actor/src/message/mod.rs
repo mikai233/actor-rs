@@ -52,16 +52,7 @@ impl MessageRegistration {
         reg
     }
 
-    pub fn register<M>(&mut self) where M: Message {
-        let name = std::any::type_name::<M>();
-        let decoder = M::decoder().expect(&*format!("{} decoder is empty", name));
-        assert!(!self.name_id.contains_key(name), "message {} already registered", name);
-        self.name_id.insert(name, self.id);
-        self.decoder.insert(self.id, decoder);
-        self.id += 1;
-    }
-
-    pub(crate) fn register_system<M>(&mut self) where M: SystemMessage {
+    pub fn register<M>(&mut self) where M: CodecMessage {
         let name = std::any::type_name::<M>();
         let decoder = M::decoder().expect(&*format!("{} decoder is empty", name));
         assert!(!self.name_id.contains_key(name), "message {} already registered", name);
@@ -92,9 +83,9 @@ impl MessageRegistration {
     }
 
     fn register_all_system_message(&mut self) {
-        self.register_system::<DeathWatchNotification>();
-        self.register_system::<Terminate>();
-        self.register_system::<Watch>();
-        self.register_system::<Unwatch>();
+        self.register::<DeathWatchNotification>();
+        self.register::<Terminate>();
+        self.register::<Watch>();
+        self.register::<Unwatch>();
     }
 }

@@ -1,14 +1,12 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 
-use anyhow::anyhow;
+use dashmap::DashMap;
 
 use crate::actor::Actor;
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::actor_ref::local_ref::LocalActorRef;
-use crate::ext::{check_name, random_actor_name};
-use crate::props::Props;
+use crate::actor_ref::function_ref::FunctionRef;
 
 pub(crate) mod envelope;
 pub(crate) mod runtime;
@@ -23,6 +21,7 @@ impl ActorCell {
         let inner = Inner {
             parent,
             children: Default::default(),
+            function_refs: Default::default(),
         };
         Self {
             inner: inner.into(),
@@ -55,10 +54,20 @@ impl ActorCell {
             None => self.get_child_by_name(name),
         }
     }
+    pub(crate) fn add_function_ref(&self, name: String, function_ref: FunctionRef) {
+        self.inner.function_refs.insert(name, function_ref);
+    }
+    pub(crate) fn remove_function_ref(&self, name: &str) -> Option<(String, FunctionRef)> {
+        self.inner.function_refs.remove(name)
+    }
+    pub(crate) fn get_function_ref(&self, name: &str) -> Option<FunctionRef> {
+        self.inner.function_refs.get(name).map(|v| v.value().clone())
+    }
 }
 
 #[derive(Debug)]
 pub(crate) struct Inner {
     parent: Option<ActorRef>,
     children: RwLock<BTreeMap<String, ActorRef>>,
+    function_refs: DashMap<String, FunctionRef>,
 }
