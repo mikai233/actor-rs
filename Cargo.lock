@@ -392,6 +392,7 @@ dependencies = [
  "actor",
  "actor-derive",
  "anyhow",
+ "serde",
  "tokio",
 ]
 

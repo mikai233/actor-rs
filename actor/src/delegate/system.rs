@@ -1,10 +1,12 @@
 use std::any::Any;
+
 use async_trait::async_trait;
-use crate::actor::{Actor, BoxedMessage, CodecMessage, DynamicMessage, Message, SystemMessage};
+
+use crate::actor::{BoxedMessage, CodecMessage, DynamicMessage, SystemMessage};
 use crate::actor::context::ActorContext;
 use crate::decoder::MessageDecoder;
 
-pub(crate) struct SystemDelegate {
+pub struct SystemDelegate {
     pub(crate) name: &'static str,
     pub(crate) message: Box<dyn SystemMessage>,
 }

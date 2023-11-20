@@ -1,16 +1,13 @@
+use std::str::FromStr;
+
 use strum::EnumString;
+use syn::{LitStr, Token};
 use syn::parse::{Parse, ParseStream};
-use syn::Token;
 
 mod kw {
     use syn::custom_keyword;
 
     custom_keyword!(mtype);
-    custom_keyword!(none_serde);
-    custom_keyword!(serde);
-    custom_keyword!(async_serde);
-    custom_keyword!(system_serde);
-
     custom_keyword!(actor);
 }
 
@@ -26,41 +23,52 @@ pub(crate) enum MessageType {
 impl Parse for MessageType {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let lookahead = input.lookahead1();
-        if lookahead.peek(kw::none_serde) {
+        if lookahead.peek(kw::mtype) {
+            input.parse::<kw::mtype>()?;
             input.parse::<Token![=]>()?;
-            input.parse::<String>()?;
-            Ok(MessageType::NoneSerde)
-        } else if lookahead.peek(kw::serde) {
-            input.parse::<Token![=]>()?;
-            input.parse::<String>()?;
-            Ok(MessageType::Serde)
-        } else if lookahead.peek(kw::async_serde) {
-            input.parse::<Token![=]>()?;
-            input.parse::<String>()?;
-            Ok(MessageType::AsyncSerde)
-        } else if lookahead.peek(kw::system_serde) {
-            input.parse::<Token![=]>()?;
-            input.parse::<String>()?;
-            Ok(MessageType::SystemSerde)
+            let m_type = input.parse::<LitStr>()?;
+            let m_type = MessageType::from_str(m_type.value().as_str()).unwrap();
+            Ok(m_type)
         } else {
             Err(lookahead.error())
         }
     }
 }
 
-pub(crate) struct MessageMeta {
-    ty: Option<MessageType>,
-    actor: Option<String>,
+pub(crate) struct ActorType {
+    pub(crate) name: LitStr,
 }
 
-impl Parse for MessageMeta {
+impl Parse for ActorType {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let lookahead = input.lookahead1();
+        if lookahead.peek(kw::actor) {
+            input.parse::<kw::actor>()?;
+            input.parse::<Token![=]>()?;
+            let m_type = input.parse::<LitStr>()?;
+            Ok(ActorType { name: m_type })
+        } else {
+            Err(lookahead.error())
+        }
+    }
+}
+
+pub(crate) enum CodecMeta {
+    Type(MessageType),
+    Actor(ActorType),
+}
+
+impl Parse for CodecMeta {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let lookahead = input.lookahead1();
         if lookahead.peek(kw::mtype) {
-            let kw = input.parse::<kw::none_serde>()?;
-        } else if lookahead.peek(kw::actor) {} else if lookahead.peek(kw::async_serde) {} else if lookahead.peek(kw::system_serde) {} else {
+            let ty = MessageType::parse(input)?;
+            Ok(CodecMeta::Type(ty))
+        } else if lookahead.peek(kw::actor) {
+            let ty = ActorType::parse(input)?;
+            Ok(CodecMeta::Actor(ty))
+        } else {
             Err(lookahead.error())
         }
-        todo!()
     }
 }

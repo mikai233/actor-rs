@@ -7,7 +7,7 @@ pub mod props;
 pub(crate) mod actor_path;
 pub(crate) mod address;
 pub mod provider;
-mod ext;
+pub mod ext;
 mod net;
 mod cell;
 mod cluster;
@@ -16,7 +16,7 @@ mod root_guardian;
 pub(crate) mod system_guardian;
 pub(crate) mod user_guardian;
 pub mod decoder;
-mod delegate;
+pub mod delegate;
 pub mod message;
 
 #[cfg(test)]

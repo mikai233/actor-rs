@@ -3,11 +3,11 @@ use std::fmt::{Debug, Formatter};
 
 use async_trait::async_trait;
 
-use crate::actor::{Actor, BoxedMessage, DynamicMessage, Message, CodecMessage, AsyncMessage};
+use crate::actor::{Actor, AsyncMessage, BoxedMessage, CodecMessage, DynamicMessage, Message};
 use crate::actor::context::ActorContext;
 use crate::decoder::MessageDecoder;
 
-pub(crate) struct UserDelegate<T> where T: Actor {
+pub struct UserDelegate<T> where T: Actor {
     pub(crate) name: &'static str,
     pub(crate) message: Box<dyn Message<T=T>>,
 }
@@ -61,7 +61,7 @@ impl<T> Into<DynamicMessage> for UserDelegate<T> where T: Actor {
     }
 }
 
-pub(crate) struct AsyncUserDelegate<T> where T: Actor {
+pub struct AsyncUserDelegate<T> where T: Actor {
     pub(crate) name: &'static str,
     pub(crate) message: Box<dyn AsyncMessage<T=T>>,
 }
