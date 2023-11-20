@@ -1,4 +1,4 @@
 [workspace]
-members = ["actor", "actor-derive"]
+members = ["actor", "actor-derive", "example"]
 
 resolver = "2"

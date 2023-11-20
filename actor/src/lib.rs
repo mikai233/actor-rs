@@ -3,10 +3,10 @@
 pub mod actor_ref;
 pub mod system;
 pub(crate) mod state;
-mod props;
+pub mod props;
 pub(crate) mod actor_path;
 pub(crate) mod address;
-pub(crate) mod provider;
+pub mod provider;
 mod ext;
 mod net;
 mod cell;

@@ -9,10 +9,10 @@ macro_rules! user_message_decoder {
     ($message:ty, $actor:ty) => {
         {
             struct D;
-            impl MessageDecoder for D {
-                fn decode(&self, bytes: &[u8]) -> anyhow::Result<crate::actor::DynamicMessage> {
+            impl $crate::decoder::MessageDecoder for D {
+                fn decode(&self, bytes: &[u8]) -> anyhow::Result<$crate::actor::DynamicMessage> {
                     let message: $message = crate::ext::decode_bytes(bytes)?;
-                    let message = crate::delegate::user::UserDelegate::<$actor>::new(message);
+                    let message = $crate::delegate::user::UserDelegate::<$actor>::new(message);
                     Ok(message.into())
                 }
             }
@@ -26,10 +26,10 @@ macro_rules! async_user_message_decoder {
     ($message:ty, $actor:ty) => {
         {
             struct D;
-            impl MessageDecoder for D {
-                fn decode(&self, bytes: &[u8]) -> anyhow::Result<crate::actor::DynamicMessage> {
-                    let message: $message = crate::ext::decode_bytes(bytes)?;
-                    let message = crate::delegate::user::AsyncUserDelegate::<$actor>::new(message);
+            impl $crate::decoder::MessageDecoder for D {
+                fn decode(&self, bytes: &[u8]) -> anyhow::Result<$crate::actor::DynamicMessage> {
+                    let message: $message = $crate::ext::decode_bytes(bytes)?;
+                    let message = $crate::delegate::user::AsyncUserDelegate::<$actor>::new(message);
                     Ok(message.into())
                 }
             }
@@ -43,10 +43,10 @@ macro_rules! system_message_decoder {
     ($message:ty) => {
         {
             struct D;
-            impl MessageDecoder for D {
-                fn decode(&self, bytes: &[u8]) -> anyhow::Result<crate::actor::DynamicMessage> {
-                    let message: $message = crate::ext::decode_bytes(bytes)?;
-                    let message = crate::delegate::system::SystemDelegate::new(message);
+            impl $crate::decoder::MessageDecoder for D {
+                fn decode(&self, bytes: &[u8]) -> anyhow::Result<$crate::actor::DynamicMessage> {
+                    let message: $message = $crate::ext::decode_bytes(bytes)?;
+                    let message = $crate::delegate::system::SystemDelegate::new(message);
                     Ok(message.into())
                 }
             }
@@ -60,10 +60,10 @@ macro_rules! deferred_message_decoder {
     ($message:ty) => {
         {
             struct D;
-            impl MessageDecoder for D {
-                fn decode(&self, bytes: &[u8]) -> anyhow::Result<crate::actor::DynamicMessage> {
-                    let message: $message = crate::ext::decode_bytes(bytes)?;
-                    let message = crate::actor::DynamicMessage::deferred(message);
+            impl $crate::decoder::MessageDecoder for D {
+                fn decode(&self, bytes: &[u8]) -> anyhow::Result<$crate::actor::DynamicMessage> {
+                    let message: $message = $crate::ext::decode_bytes(bytes)?;
+                    let message = $crate::actor::DynamicMessage::deferred(message);
                     Ok(message)
                 }
             }
@@ -77,10 +77,10 @@ macro_rules! untyped_message_decoder {
     ($message:ty) => {
         {
             struct D;
-            impl MessageDecoder for D {
-                fn decode(&self, bytes: &[u8]) -> anyhow::Result<crate::actor::DynamicMessage> {
-                    let message: $message = crate::ext::decode_bytes(bytes)?;
-                    let message = crate::actor::DynamicMessage::untyped(message);
+            impl $crate::decoder::MessageDecoder for D {
+                fn decode(&self, bytes: &[u8]) -> anyhow::Result<$crate::actor::DynamicMessage> {
+                    let message: $message = $crate::ext::decode_bytes(bytes)?;
+                    let message = $crate::actor::DynamicMessage::untyped(message);
                     Ok(message)
                 }
             }

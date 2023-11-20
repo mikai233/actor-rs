@@ -13,3 +13,5 @@ proc-macro = true
 quote = "1"
 syn = { version = "1", features = ["full"] }
 proc-macro2 = "1"
+proc-macro-crate = "2"
+strum = { version = "0.25", features = ["derive"] }
