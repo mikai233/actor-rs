@@ -1,32 +1,15 @@
-use std::any::Any;
 use async_trait::async_trait;
-
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
+use actor_derive::SystemMessageCodec;
+
 use crate::actor::{CodecMessage, SystemMessage};
 use crate::actor::context::{ActorContext, Context};
-use crate::decoder::MessageDecoder;
-use crate::ext::encode_bytes;
 use crate::provider::ActorRefFactory;
-use crate::system_message_decoder;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize,SystemMessageCodec)]
 pub struct PoisonPill;
-
-impl CodecMessage for PoisonPill {
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
-        Some(system_message_decoder!(PoisonPill))
-    }
-
-    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
-        Some(encode_bytes(self))
-    }
-}
 
 #[async_trait]
 impl SystemMessage for PoisonPill {
