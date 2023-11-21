@@ -1,12 +1,16 @@
 use std::net::SocketAddr;
 
-use actor_derive::EmptyCodec;
+use serde::{Deserialize, Serialize};
 
-use crate::actor::{Actor, Message};
+use actor_derive::MessageCodec;
+
+use crate::actor::Actor;
 use crate::actor::context::ActorContext;
+use crate::actor::Message;
 use crate::cluster::daemon::cluster_daemon::ClusterDaemon;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Serialize, Deserialize, MessageCodec)]
+#[actor(ClusterDaemon)]
 pub(crate) struct MemberLeave {
     pub(crate) addr: SocketAddr,
 }

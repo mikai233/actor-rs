@@ -1,12 +1,15 @@
 use std::net::SocketAddr;
 
-use actor_derive::EmptyCodec;
+use serde::{Deserialize, Serialize};
+
+use actor_derive::MessageCodec;
 
 use crate::actor::{Actor, Message};
 use crate::actor::context::ActorContext;
 use crate::cluster::daemon::cluster_daemon::ClusterDaemon;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Serialize, Deserialize, MessageCodec)]
+#[actor(ClusterDaemon)]
 pub(crate) struct MemberJoin {
     pub(crate) addr: SocketAddr,
 }

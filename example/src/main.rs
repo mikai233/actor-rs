@@ -1,18 +1,42 @@
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use actor::actor::{Actor, Message};
+use actor::actor::{Actor, Message, SystemMessage};
 use actor::actor::context::ActorContext;
-use actor_derive::MessageCodec;
+use actor_derive::{MessageCodec, NoneCodec, SystemMessageCodec};
 
-#[derive(MessageCodec, Serialize, Deserialize)]
-#[message(mtype = "serde", actor = "ActorA")]
-struct MessageA;
+#[derive(NoneCodec)]
+struct LocalMessage;
 
-impl Message for MessageA {
+impl Message for LocalMessage {
     type T = ActorA;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-        println!("handle MessageA");
+    fn handle(self: Box<Self>, _context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        println!("handle LocalMessage");
+        Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize, MessageCodec)]
+#[actor(ActorA)]
+struct RemoteMessage;
+
+impl Message for RemoteMessage {
+    type T = ActorA;
+
+    fn handle(self: Box<Self>, _context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        println!("handle RemoteMessage");
+        Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize, SystemMessageCodec)]
+struct SysMessage;
+
+#[async_trait]
+impl SystemMessage for SysMessage {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext) -> anyhow::Result<()> {
+        println!("handle SysMessage");
         Ok(())
     }
 }
@@ -23,7 +47,7 @@ impl Actor for ActorA {
     type S = ();
     type A = ();
 
-    fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+    fn pre_start(&self, _context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         Ok(())
     }
 }

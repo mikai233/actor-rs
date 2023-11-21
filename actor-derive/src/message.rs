@@ -1,27 +1,124 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, TokenStream};
 use quote::quote;
+use syn::{Attribute, parse_str, Type};
 use syn::parse::Parse;
-use syn::parse_str;
 
+use crate::metadata::{CodecType, MessageImpl};
 use crate::with_crate;
 
-pub fn expand(ast: &syn::DeriveInput) -> TokenStream {
-    let name = &ast.ident;
+pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: CodecType) -> TokenStream {
+    let message_ty = ast.ident;
+    let actor_attr = ast.attrs.into_iter().filter(|attr| attr.path.is_ident("actor")).next();
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
-    let codec = with_crate(parse_str("actor::CodecMessage").unwrap());
-    let decoder = with_crate(parse_str("decoder::MessageDecoder").unwrap());
+    let codec_trait = with_crate(parse_str("actor::CodecMessage").unwrap());
+    let decoder_trait = with_crate(parse_str("decoder::MessageDecoder").unwrap());
+    let ext_path = with_crate(parse_str("ext").unwrap());
+    let decoder = expand_decoder(actor_attr.as_ref(), &message_ty, &message_impl, &codec_type, &ext_path);
+    let encode = expand_encode(&codec_type, &ext_path);
     quote! {
-        impl #impl_generics #codec for #name #ty_generics #where_clause {
+        impl #impl_generics #codec_trait for #message_ty #ty_generics #where_clause {
             fn into_any(self: Box<Self>) -> Box<dyn std::any::Any> {
                 self
             }
 
-            fn decoder() -> Option<Box<dyn #decoder>> where Self: Sized {
-                None
+            fn decoder() -> Option<Box<dyn #decoder_trait >> where Self: Sized {
+                #decoder
             }
 
             fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+                #encode
+            }
+        }
+    }
+}
+
+pub(crate) fn expand_decoder(actor_attr: Option<&Attribute>, message_ty: &Ident, message_impl: &MessageImpl, codec_type: &CodecType, ext_path: &TokenStream) -> TokenStream {
+    let decoder_trait = with_crate(parse_str("decoder::MessageDecoder").unwrap());
+    let dy_message = with_crate(parse_str("actor::DynamicMessage").unwrap());
+    match codec_type {
+        CodecType::NoneSerde => {
+            quote!(None)
+        }
+        CodecType::Serde => {
+            match message_impl {
+                MessageImpl::Message => {
+                    let actor_ty = actor_attr.expect("actor attribute not found").parse_args::<Type>().expect("expect a type");
+                    let user_delegate = with_crate(parse_str("delegate::user::UserDelegate").unwrap());
+                    decoder(&decoder_trait, &dy_message, || {
+                        quote! {
+                            let message: #message_ty = #ext_path::decode_bytes(bytes)?;
+                            let message = #user_delegate::<#actor_ty>::new(message);
+                            Ok(message.into())
+                        }
+                    })
+                }
+                MessageImpl::AsyncMessage => {
+                    let actor_ty = actor_attr.expect("actor attribute not found").parse_args::<Type>().expect("expect a type");
+                    let async_delegate = with_crate(parse_str("delegate::user::AsyncUserDelegate").unwrap());
+                    decoder(&decoder_trait, &dy_message, || {
+                        quote! {
+                            let message: #message_ty = #ext_path::decode_bytes(bytes)?;
+                            let message = #async_delegate::<#actor_ty>::new(message);
+                            Ok(message.into())
+                        }
+                    })
+                }
+                MessageImpl::SystemMessage => {
+                    let system_delegate = with_crate(parse_str("delegate::system::SystemDelegate").unwrap());
+                    decoder(&decoder_trait, &dy_message, || {
+                        quote! {
+                            let message: #message_ty = #ext_path::decode_bytes(bytes)?;
+                            let message = #system_delegate::new(message);
+                            Ok(message.into())
+                        }
+                    })
+                }
+                MessageImpl::DeferredMessage => {
+                    decoder(&decoder_trait, &dy_message, || {
+                        quote! {
+                            let message: #message_ty = #ext_path::decode_bytes(bytes)?;
+                            let message = #dy_message::deferred(message);
+                            Ok(message)
+                        }
+                    })
+                }
+                MessageImpl::UntypedMessage => {
+                    decoder(&decoder_trait, &dy_message, || {
+                        quote! {
+                            let message: #message_ty = #ext_path::decode_bytes(bytes)?;
+                            let message = #dy_message::untyped(message);
+                            Ok(message)
+                        }
+                    })
+                }
+            }
+        }
+    }
+}
+
+pub(crate) fn decoder<F>(decoder_trait: &TokenStream, dy_message: &TokenStream, fn_body: F) -> TokenStream where F: FnOnce() -> TokenStream {
+    let body = fn_body();
+    quote! {
+        struct D;
+        impl #decoder_trait for D {
+            fn decode(&self, bytes: &[u8]) -> anyhow::Result<#dy_message> {
+                #body
+            }
+        }
+        Some(Box::new(D))
+    }
+}
+
+pub(crate) fn expand_encode(codec_type: &CodecType, ext_path: &TokenStream) -> TokenStream {
+    match codec_type {
+        CodecType::NoneSerde => {
+            quote! {
                 None
+            }
+        }
+        _ => {
+            quote! {
+                Some(#ext_path::encode_bytes(self))
             }
         }
     }
