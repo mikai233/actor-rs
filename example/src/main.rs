@@ -1,9 +1,8 @@
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use actor::actor::{Actor, Message, SystemMessage};
-use actor::actor::context::ActorContext;
-use actor_derive::{MessageCodec, EmptyCodec, SystemMessageCodec};
+use actor::{Actor, Message};
+use actor::context::ActorContext;
+use actor_derive::{EmptyCodec, MessageCodec};
 
 #[derive(EmptyCodec)]
 struct LocalMessage;
@@ -26,17 +25,6 @@ impl Message for RemoteMessage {
 
     fn handle(self: Box<Self>, _context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         println!("handle RemoteMessage");
-        Ok(())
-    }
-}
-
-#[derive(Serialize, Deserialize, SystemMessageCodec)]
-struct SysMessage;
-
-#[async_trait]
-impl SystemMessage for SysMessage {
-    async fn handle(self: Box<Self>, _context: &mut ActorContext) -> anyhow::Result<()> {
-        println!("handle SysMessage");
         Ok(())
     }
 }

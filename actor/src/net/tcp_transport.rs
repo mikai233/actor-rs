@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::net::SocketAddr;
-use std::ops::Not;
 
 use futures::StreamExt;
 use moka::sync::Cache;
