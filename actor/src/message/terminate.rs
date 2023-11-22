@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use actor_derive::SystemMessageCodec;
 
-use crate::actor::{CodecMessage, SystemMessage};
-use crate::actor::context::ActorContext;
+use crate::{ SystemMessage};
+use crate::context::ActorContext;
 
 #[derive(Serialize, Deserialize, SystemMessageCodec)]
 pub(crate) struct Terminate;

@@ -1,23 +1,22 @@
-use std::any::Any;
 use std::future::Future;
 use std::iter::repeat_with;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::time::Duration;
 
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use stubborn_io::{ReconnectOptions, StubbornTcpStream};
 use tokio::sync::mpsc::error::TrySendError;
 use tokio_util::codec::Framed;
 use tracing::{debug, error, info, warn};
 
-use crate::actor::{Actor, CodecMessage, Message};
-use crate::actor::context::{ActorContext, Context};
+use actor_derive::EmptyCodec;
+
+use crate::{Actor, Message};
 use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef};
 use crate::actor_ref::TActorRef;
-use crate::decoder::MessageDecoder;
+use crate::context::{ActorContext, Context};
 use crate::message::IDPacket;
 use crate::net::codec::PacketCodec;
 use crate::net::connection::{Connection, ConnectionTx};
@@ -47,30 +46,16 @@ impl Into<RemotePacket> for RemoteEnvelope {
     }
 }
 
+#[derive(EmptyCodec)]
 pub(crate) struct Connect {
     pub(crate) addr: SocketAddr,
     pub(crate) opts: ReconnectOptions,
 }
 
-
-impl CodecMessage for Connect {
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
-        None
-    }
-
-    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
-        None
-    }
-}
-
 impl Message for Connect {
     type T = TransportActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         let myself = context.myself.clone();
         context.spawn(async move {
             match StubbornTcpStream::connect_with_options(self.addr, self.opts).await {
@@ -93,23 +78,10 @@ impl Message for Connect {
     }
 }
 
+#[derive(EmptyCodec)]
 pub(crate) struct Connected {
     pub(crate) addr: SocketAddr,
     pub(crate) tx: ConnectionTx,
-}
-
-impl CodecMessage for Connected {
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
-        None
-    }
-
-    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
-        None
-    }
 }
 
 impl Message for Connected {
@@ -123,22 +95,9 @@ impl Message for Connected {
     }
 }
 
+#[derive(EmptyCodec)]
 pub(crate) struct Disconnect {
     pub(crate) addr: SocketAddr,
-}
-
-impl CodecMessage for Disconnect {
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
-        None
-    }
-
-    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
-        None
-    }
 }
 
 impl Message for Disconnect {
@@ -152,49 +111,23 @@ impl Message for Disconnect {
     }
 }
 
+#[derive(EmptyCodec)]
 pub(crate) struct SpawnInbound {
     pub(crate) fut: Pin<Box<dyn Future<Output=()> + Send + 'static>>,
-}
-
-impl CodecMessage for SpawnInbound {
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
-        None
-    }
-
-    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
-        None
-    }
 }
 
 impl Message for SpawnInbound {
     type T = TransportActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         context.spawn(self.fut);
         Ok(())
     }
 }
 
+#[derive(EmptyCodec)]
 pub(crate) struct InboundMessage {
     pub(crate) packet: RemotePacket,
-}
-
-impl CodecMessage for InboundMessage {
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
-        None
-    }
-
-    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
-        None
-    }
 }
 
 impl Message for InboundMessage {
@@ -216,22 +149,9 @@ impl Message for InboundMessage {
     }
 }
 
+#[derive(EmptyCodec)]
 pub(crate) struct OutboundMessage {
     pub(crate) envelope: RemoteEnvelope,
-}
-
-impl CodecMessage for OutboundMessage {
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
-        None
-    }
-
-    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
-        None
-    }
 }
 
 impl Message for OutboundMessage {

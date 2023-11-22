@@ -4,11 +4,10 @@ use std::fmt::{Debug, Formatter};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
-use crate::actor::{Actor, BoxedMessage, CodecMessage, DynamicMessage, Message, SystemMessage};
+use crate::{BoxedMessage, CodecMessage, DynamicMessage};
 use crate::decoder::MessageDecoder;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::terminate::Terminate;
-use crate::message::terminated::WatchTerminated;
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
 

@@ -1,8 +1,7 @@
 use std::ops::Deref;
 use std::sync::Arc;
-use tracing::warn;
 
-use crate::actor::Actor;
+use crate::Actor;
 use crate::actor_path::{ActorPath, RootActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
@@ -13,18 +12,18 @@ use crate::ext::random_actor_name;
 use crate::net::tcp_transport::TransportActor;
 use crate::props::Props;
 use crate::provider::TActorRefProvider;
-use crate::root_guardian::RootGuardian;
 use crate::system::ActorSystem;
-use crate::system_guardian::SystemGuardian;
-use crate::user_guardian::UserGuardian;
+use crate::system::root_guardian::RootGuardian;
+use crate::system::system_guardian::SystemGuardian;
+use crate::system::user_guardian::UserGuardian;
 
 #[derive(Debug, Clone)]
-pub(crate) struct LocalActorRefProvider {
+pub struct LocalActorRefProvider {
     inner: Arc<Inner>,
 }
 
 #[derive(Debug)]
-pub(crate) struct Inner {
+pub struct Inner {
     root_path: ActorPath,
     root_guardian: LocalActorRef,
     user_guardian: LocalActorRef,
@@ -84,7 +83,7 @@ impl LocalActorRefProvider {
         Ok(provider)
     }
 
-    pub(crate) fn spawn_tcp_transport(&self, system: &ActorSystem) -> anyhow::Result<ActorRef> {
+    pub(crate) fn spawn_tcp_transport(&self) -> anyhow::Result<ActorRef> {
         let transport_ref = self
             .system_guardian()
             .attach_child(
@@ -173,9 +172,9 @@ impl TActorRefProvider for LocalActorRefProvider {
 mod local_provider_test {
     use tracing::info;
 
-    use crate::actor::Actor;
-    use crate::actor::context::ActorContext;
+    use crate::{Actor, EmptyTestActor, EmptyTestMessage};
     use crate::actor_ref::ActorRefExt;
+    use crate::context::ActorContext;
     use crate::message::MessageRegistration;
     use crate::props::Props;
     use crate::provider::{ActorRefFactory, TActorRefProvider};
@@ -188,7 +187,7 @@ mod local_provider_test {
         type S = ();
         type A = ();
 
-        fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+        fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
             info!("actor a {} pre start", context.myself);
             context.actor_of(ActorB, (), Props::default(), None)?;
             Ok(())
@@ -202,34 +201,22 @@ mod local_provider_test {
         type S = ();
         type A = ();
 
-        fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+        fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
             info!("actor b {} pre start", context.myself);
-            context.actor_of(ActorC, (), Props::default(), None)?;
+            context.actor_of(EmptyTestActor, (), Props::default(), None)?;
             Ok(())
         }
     }
 
-    #[derive(Debug)]
-    struct ActorC;
-
-    impl Actor for ActorC {
-        type S = ();
-        type A = ();
-
-        fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
-            info!("actor c {} pre start", context.myself);
-            Ok(())
-        }
-    }
 
     #[test]
     fn test() -> anyhow::Result<()> {
         let system = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse()?, MessageRegistration::new())?;
-        let actor_a = system.actor_of(ActorA, (), Props::default(), None)?;
+        let _ = system.actor_of(ActorA, (), Props::default(), None)?;
         let actor_c = system
             .provider()
             .resolve_actor_ref(&"tcp://game@127.0.0.1:12121/user/$a/$b/$c".to_string());
-        actor_c.cast((), None);
+        actor_c.cast(EmptyTestMessage, None);
         std::thread::park();
         Ok(())
     }

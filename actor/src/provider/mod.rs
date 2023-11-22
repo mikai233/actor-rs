@@ -1,6 +1,6 @@
 use enum_dispatch::enum_dispatch;
 
-use crate::actor::Actor;
+use crate::Actor;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
@@ -75,7 +75,11 @@ pub trait ActorRefFactory {
     ) -> anyhow::Result<ActorRef>
         where
             T: Actor;
-    fn actor_selection(&self, path: String) {}
-    fn actor_selection_of_path(&self, path: ActorPath) {}
+    fn actor_selection(&self, _path: String) {
+        todo!()
+    }
+    fn actor_selection_of_path(&self, _path: ActorPath) {
+        todo!()
+    }
     fn stop(&self, actor: &ActorRef);
 }

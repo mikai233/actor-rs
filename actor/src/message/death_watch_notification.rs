@@ -3,10 +3,10 @@ use serde::{Deserialize, Serialize};
 
 use actor_derive::SystemMessageCodec;
 
-use crate::actor::SystemMessage;
-use crate::actor::context::ActorContext;
 use crate::actor_ref::SerializedActorRef;
+use crate::context::ActorContext;
 use crate::provider::{ActorRefFactory, TActorRefProvider};
+use crate::SystemMessage;
 
 #[derive(Serialize, Deserialize, SystemMessageCodec)]
 pub(crate) struct DeathWatchNotification(pub(crate) SerializedActorRef);

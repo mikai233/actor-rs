@@ -3,8 +3,8 @@ use std::fmt::{Debug, Formatter};
 
 use async_trait::async_trait;
 
-use crate::actor::{Actor, AsyncMessage, BoxedMessage, CodecMessage, DynamicMessage, Message};
-use crate::actor::context::ActorContext;
+use crate::{Actor, AsyncMessage, BoxedMessage, CodecMessage, DynamicMessage, Message};
+use crate::context::ActorContext;
 use crate::decoder::MessageDecoder;
 
 pub struct UserDelegate<T> where T: Actor {

@@ -1,4 +1,4 @@
-use crate::actor::Actor;
+use crate::Actor;
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::{AsyncUserDelegate, UserDelegate};
 

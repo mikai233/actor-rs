@@ -6,7 +6,7 @@ use std::sync::RwLock;
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 
-use crate::actor::{AsyncMessage, DeferredMessage, DynamicMessage, Message, SystemMessage};
+use crate::{AsyncMessage, DeferredMessage, DynamicMessage, Message, SystemMessage};
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
@@ -133,17 +133,22 @@ pub trait ActorRefExt: TActorRef {
     {
         self.tell(DynamicMessage::async_user(message), sender);
     }
-    fn cast_system<M>(&self, message: M, sender: Option<ActorRef>)
-        where
-            M: SystemMessage,
-    {
-        self.tell(DynamicMessage::system(message), sender);
-    }
     fn resp<M>(&self, message: M)
         where
             M: DeferredMessage,
     {
         self.tell(DynamicMessage::deferred(message), ActorRef::no_sender());
+    }
+}
+
+impl<T: ?Sized> ActorRefSystemExt for T where T: TActorRef {}
+
+pub(crate) trait ActorRefSystemExt: TActorRef {
+    fn cast_system<M>(&self, message: M, sender: Option<ActorRef>)
+        where
+            M: SystemMessage,
+    {
+        self.tell(DynamicMessage::system(message), sender);
     }
 }
 

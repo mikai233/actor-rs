@@ -1,5 +1,5 @@
-use crate::actor::DynamicMessage;
 use crate::actor_ref::ActorRef;
+use crate::DynamicMessage;
 
 #[derive(Debug)]
 pub(crate) struct Envelope {

@@ -1,13 +1,13 @@
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
-use crate::actor::DynamicMessage;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
+use crate::DynamicMessage;
 use crate::system::ActorSystem;
 
 #[derive(Clone)]
-pub(crate) struct FunctionRef {
+pub struct FunctionRef {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) message_handler: Arc<Box<dyn Fn(DynamicMessage, Option<ActorRef>) + Send + Sync + 'static>>,

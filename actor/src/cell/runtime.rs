@@ -1,14 +1,12 @@
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::future::Future;
-use std::pin::Pin;
 
 use tokio::task::yield_now;
 use tracing::error;
 
-use crate::actor::{Actor, AsyncMessage, Message};
-use crate::actor::context::{ActorContext, Context};
+use crate::{Actor, AsyncMessage, Message};
 use crate::actor_ref::ActorRef;
 use crate::cell::envelope::Envelope;
+use crate::context::{ActorContext, Context};
 use crate::delegate::MessageDelegate;
 use crate::net::mailbox::Mailbox;
 use crate::props::Props;

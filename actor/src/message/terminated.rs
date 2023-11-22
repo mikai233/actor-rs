@@ -1,5 +1,5 @@
-use crate::actor::Message;
 use crate::actor_ref::ActorRef;
+use crate::Message;
 use crate::system::ActorSystem;
 
 pub trait WatchTerminated: Message {

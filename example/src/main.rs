@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use actor::actor::{Actor, Message, SystemMessage};
 use actor::actor::context::ActorContext;
-use actor_derive::{MessageCodec, NoneCodec, SystemMessageCodec};
+use actor_derive::{MessageCodec, EmptyCodec, SystemMessageCodec};
 
-#[derive(NoneCodec)]
+#[derive(EmptyCodec)]
 struct LocalMessage;
 
 impl Message for LocalMessage {

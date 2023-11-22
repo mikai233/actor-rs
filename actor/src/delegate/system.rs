@@ -2,8 +2,8 @@ use std::any::Any;
 
 use async_trait::async_trait;
 
-use crate::actor::{BoxedMessage, CodecMessage, DynamicMessage, SystemMessage};
-use crate::actor::context::ActorContext;
+use crate::{BoxedMessage, CodecMessage, DynamicMessage, SystemMessage};
+use crate::context::ActorContext;
 use crate::decoder::MessageDecoder;
 
 pub struct SystemDelegate {

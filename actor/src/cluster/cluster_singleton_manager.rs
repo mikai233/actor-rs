@@ -1,10 +1,10 @@
 use std::fmt::{Debug, Formatter};
 
-use crate::actor::Actor;
-use crate::actor::context::ActorContext;
+use crate::Actor;
+use crate::context::ActorContext;
 
 #[derive(Debug)]
-pub struct ClusterSingletonManager {}
+pub struct ClusterSingletonManager;
 
 #[derive(Debug)]
 pub enum Message {}
@@ -23,7 +23,7 @@ impl Actor for ClusterSingletonManager {
     type S = State;
     type A = ();
 
-    fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+    fn pre_start(&self, _context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         todo!()
     }
 }

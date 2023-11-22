@@ -1,4 +1,4 @@
-use crate::actor::Actor;
+use crate::Actor;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;

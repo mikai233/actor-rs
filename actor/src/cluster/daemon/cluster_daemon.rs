@@ -1,6 +1,6 @@
-use crate::actor::Actor;
-use crate::actor::context::ActorContext;
+use crate::Actor;
 use crate::cluster::daemon::state::State;
+use crate::context::ActorContext;
 
 #[derive(Debug)]
 pub(crate) struct ClusterDaemon;
@@ -9,7 +9,7 @@ impl Actor for ClusterDaemon {
     type S = State;
     type A = ();
 
-    fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+    fn pre_start(&self, _context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         todo!()
     }
 }

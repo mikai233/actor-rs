@@ -1,7 +1,6 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::{Attribute, parse_str, Type};
-use syn::parse::Parse;
 
 use crate::metadata::{CodecType, MessageImpl};
 use crate::with_crate;
@@ -10,7 +9,7 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
     let message_ty = ast.ident;
     let actor_attr = ast.attrs.into_iter().filter(|attr| attr.path.is_ident("actor")).next();
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
-    let codec_trait = with_crate(parse_str("actor::CodecMessage").unwrap());
+    let codec_trait = with_crate(parse_str("CodecMessage").unwrap());
     let decoder_trait = with_crate(parse_str("decoder::MessageDecoder").unwrap());
     let ext_path = with_crate(parse_str("ext").unwrap());
     let decoder = expand_decoder(actor_attr.as_ref(), &message_ty, &message_impl, &codec_type, &ext_path);
@@ -34,7 +33,7 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
 
 pub(crate) fn expand_decoder(actor_attr: Option<&Attribute>, message_ty: &Ident, message_impl: &MessageImpl, codec_type: &CodecType, ext_path: &TokenStream) -> TokenStream {
     let decoder_trait = with_crate(parse_str("decoder::MessageDecoder").unwrap());
-    let dy_message = with_crate(parse_str("actor::DynamicMessage").unwrap());
+    let dy_message = with_crate(parse_str("DynamicMessage").unwrap());
     match codec_type {
         CodecType::NoneSerde => {
             quote!(None)

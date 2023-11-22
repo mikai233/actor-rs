@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use tracing::error;
 
-use crate::actor::DynamicMessage;
 use crate::actor_path::ActorPath;
-use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
+use crate::actor_path::TActorPath;
+use crate::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
+use crate::DynamicMessage;
 use crate::message::poison_pill::PoisonPill;
 use crate::net::message::{OutboundMessage, RemoteEnvelope};
 use crate::system::ActorSystem;
@@ -68,6 +69,20 @@ impl TActorRef for RemoteActorRef {
     }
 
     fn get_child<I>(&self, names: I) -> Option<ActorRef> where I: IntoIterator<Item=String> {
-        todo!()
+        let mut names = names.into_iter().peekable();
+        match names.peek().map(|n| n.as_str()) {
+            None => {
+                Some(self.clone().into())
+            }
+            Some("..") => None,
+            Some(_) => {
+                let remote_ref = RemoteActorRef {
+                    system: self.system(),
+                    path: self.path().descendant(names),
+                    transport: self.transport.clone(),
+                };
+                Some(remote_ref.into())
+            }
+        }
     }
 }

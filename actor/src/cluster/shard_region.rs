@@ -1,14 +1,14 @@
-use crate::actor::Actor;
-use crate::actor::context::ActorContext;
+use crate::Actor;
+use crate::context::ActorContext;
 
 #[derive(Debug)]
-pub struct ShardRegion {}
+pub struct ShardRegion;
 
 impl Actor for ShardRegion {
     type S = ();
     type A = ();
 
-    fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+    fn pre_start(&self, _context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         todo!()
     }
 }

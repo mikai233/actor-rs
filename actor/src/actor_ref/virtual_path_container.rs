@@ -4,13 +4,13 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use dashmap::mapref::one::Ref;
 
-use crate::actor::DynamicMessage;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
+use crate::DynamicMessage;
 use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
-pub(crate) struct VirtualPathContainer {
+pub struct VirtualPathContainer {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) parent: Box<ActorRef>,
@@ -26,7 +26,7 @@ impl TActorRef for VirtualPathContainer {
         &self.path
     }
 
-    fn tell(&self, message: DynamicMessage, sender: Option<ActorRef>) {
+    fn tell(&self, _message: DynamicMessage, _sender: Option<ActorRef>) {
         todo!()
     }
 

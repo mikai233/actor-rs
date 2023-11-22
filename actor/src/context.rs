@@ -4,13 +4,12 @@ use std::ops::Not;
 use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
 
 use anyhow::anyhow;
-use futures::StreamExt;
 use tokio::task::JoinHandle;
 use tracing::{error, warn};
 
-use crate::actor::{Actor, DynamicMessage, Message, UntypedMessage, UserDelegate};
+use crate::{Actor, DynamicMessage, Message, UntypedMessage, UserDelegate};
 use crate::actor_path::{ActorPath, ChildActorPath, TActorPath};
-use crate::actor_ref::{ActorRef, ActorRefExt, Cell, TActorRef};
+use crate::actor_ref::{ActorRef, ActorRefSystemExt, Cell, TActorRef};
 use crate::actor_ref::function_ref::FunctionRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::ext::random_name;

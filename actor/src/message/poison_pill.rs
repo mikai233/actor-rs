@@ -4,11 +4,11 @@ use tracing::debug;
 
 use actor_derive::SystemMessageCodec;
 
-use crate::actor::{CodecMessage, SystemMessage};
-use crate::actor::context::{ActorContext, Context};
+use crate::SystemMessage;
+use crate::context::{ActorContext, Context};
 use crate::provider::ActorRefFactory;
 
-#[derive(Debug, Serialize, Deserialize,SystemMessageCodec)]
+#[derive(Debug, Serialize, Deserialize, SystemMessageCodec)]
 pub struct PoisonPill;
 
 #[async_trait]

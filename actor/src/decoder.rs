@@ -1,4 +1,4 @@
-use crate::actor::DynamicMessage;
+use crate::DynamicMessage;
 
 pub trait MessageDecoder: Send + Sync + 'static {
     fn decode(&self, bytes: &[u8]) -> anyhow::Result<DynamicMessage>;

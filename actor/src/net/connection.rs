@@ -17,7 +17,7 @@ pub(crate) type ConnectionRx = tokio::sync::mpsc::Receiver<RemoteEnvelope>;
 pub(crate) struct Connection {
     pub(crate) addr: SocketAddr,
     pub(crate) framed: Framed<StubbornIo<TcpStream, SocketAddr>, PacketCodec>,
-    pub(crate) rx: tokio::sync::mpsc::Receiver<RemoteEnvelope>,
+    pub(crate) rx: ConnectionRx,
     pub(crate) transport: ActorRef,
 }
 

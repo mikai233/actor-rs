@@ -5,10 +5,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use tokio::runtime::Runtime;
 
-use crate::{system_guardian, user_guardian};
-use crate::actor::Actor;
+use crate::Actor;
 use crate::actor_path::{ActorPath, TActorPath};
-use crate::actor_ref::{ActorRef, ActorRefExt, Cell, TActorRef};
+use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::address::Address;
 use crate::message::MessageRegistration;
@@ -16,6 +15,10 @@ use crate::props::Props;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::provider::empty_provider::EmptyActorRefProvider;
 use crate::provider::remote_provider::RemoteActorRefProvider;
+
+pub mod root_guardian;
+pub(crate) mod system_guardian;
+pub(crate) mod user_guardian;
 
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
@@ -164,66 +167,18 @@ impl ActorRefFactory for ActorSystem {
 
 #[cfg(test)]
 mod system_test {
-    use std::any::Any;
     use std::net::SocketAddrV4;
     use std::time::Duration;
 
     use tracing::info;
 
-    use crate::actor::{Actor, CodecMessage, Message};
-    use crate::actor::context::ActorContext;
-    use crate::actor::context::Context;
+    use crate::{EmptyTestActor, EmptyTestMessage};
     use crate::actor_path::TActorPath;
-    use crate::actor_ref::{ActorRefExt, TActorRef};
-    use crate::decoder::MessageDecoder;
-    use crate::ext::encode_bytes;
+    use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
     use crate::message::MessageRegistration;
     use crate::props::Props;
     use crate::provider::ActorRefFactory;
     use crate::system::ActorSystem;
-    use crate::user_message_decoder;
-
-    #[derive(Debug)]
-    pub struct TestActor;
-
-    impl Actor for TestActor {
-        type S = ();
-        type A = ();
-
-        fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
-            info!("{} pre start", context.myself());
-            Ok(())
-        }
-
-        fn post_stop(&self, context: &mut ActorContext, state: &mut Self::S) -> anyhow::Result<()> {
-            info!("{} post stop", context.myself());
-            Ok(())
-        }
-    }
-
-    impl CodecMessage for () {
-        fn into_any(self: Box<Self>) -> Box<dyn Any> {
-            self
-        }
-
-        fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
-            Some(user_message_decoder!((), TestActor))
-        }
-
-        fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
-            Some(encode_bytes(self))
-        }
-    }
-
-    impl Message for () {
-        type T = TestActor;
-
-        fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-            info!("handle message");
-            Ok(())
-        }
-    }
-
 
     #[tokio::test]
     async fn test_spawn_actor() -> anyhow::Result<()> {
@@ -233,13 +188,13 @@ mod system_test {
         let system = ActorSystem::new(name, addr, reg)?;
         for i in 0..10 {
             let name = format!("testActor{}", i);
-            let actor = system.actor_of(TestActor, (), Props::default(), Some(name))?;
+            let actor = system.actor_of(EmptyTestActor, (), Props::default(), Some(name))?;
             let elements: Vec<String> = actor.path().elements();
             info!("{:?}", elements);
             tokio::spawn(async move {
                 info!("{}", actor);
                 loop {
-                    actor.cast((), None);
+                    actor.cast(EmptyTestMessage, ActorRef::no_sender());
                     tokio::time::sleep(Duration::from_secs(1)).await;
                 }
             });

@@ -10,7 +10,7 @@ use crate::metadata::{CodecType, MessageImpl};
 mod message;
 mod metadata;
 
-#[proc_macro_derive(NoneCodec)]
+#[proc_macro_derive(EmptyCodec)]
 pub fn empty_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::Message, CodecType::NoneSerde).into()

@@ -14,7 +14,7 @@ pub(crate) struct ClusterMember {
 }
 
 #[derive(Debug, Copy, Clone)]
-enum MemberState {
+pub(crate) enum MemberState {
     Unknown,
     Connecting,
     Connected,

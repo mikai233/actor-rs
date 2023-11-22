@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::actor::Actor;
+use crate::Actor;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::ActorRef;
@@ -20,7 +20,7 @@ pub struct RemoteActorRefProvider {
 impl RemoteActorRefProvider {
     pub(crate) fn init(system: &ActorSystem) -> anyhow::Result<()> {
         let local = LocalActorRefProvider::new(&system)?;
-        let transport = local.spawn_tcp_transport(system)?;
+        let transport = local.spawn_tcp_transport()?;
         let provider = Self { local, transport };
         *system.provider_rw().write().unwrap() = provider.into();
         Ok(())

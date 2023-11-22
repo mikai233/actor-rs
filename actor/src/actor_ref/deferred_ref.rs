@@ -4,7 +4,7 @@ use anyhow::anyhow;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::error::Elapsed;
 
-use crate::actor::{DeferredMessage, DynamicMessage, Message};
+use crate::{DeferredMessage, DynamicMessage, Message};
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};

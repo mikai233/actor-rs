@@ -3,7 +3,6 @@ use std::sync::{Arc, RwLock};
 
 use dashmap::DashMap;
 
-use crate::actor::Actor;
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::actor_ref::function_ref::FunctionRef;

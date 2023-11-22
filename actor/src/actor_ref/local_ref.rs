@@ -5,10 +5,10 @@ use anyhow::anyhow;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
-use crate::actor::{Actor, DynamicMessage};
-use crate::actor_path::{ChildActorPath, TActorPath};
+use crate::{Actor, DynamicMessage};
+use crate::actor_path::{ChildActorPath, };
 use crate::actor_path::ActorPath;
-use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
+use crate::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
 use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
 use crate::cell::runtime::ActorRuntime;
