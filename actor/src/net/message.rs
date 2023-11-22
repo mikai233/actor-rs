@@ -139,7 +139,7 @@ impl Message for InboundMessage {
             sender,
             target,
         } = self.packet;
-        let sender = sender.map(|s| state.resolve_actor_ref(context, s).clone());
+        let sender = sender.map(|s| state.resolve_actor_ref(context, s));
         let target = state.resolve_actor_ref(context, target);
         let system: ActorSystem = target.system();
         let reg = system.registration();

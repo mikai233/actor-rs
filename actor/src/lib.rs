@@ -31,6 +31,7 @@ pub mod decoder;
 pub mod delegate;
 pub mod message;
 pub mod context;
+mod event;
 
 pub trait Actor: Send + Sized + 'static {
     type S: State;

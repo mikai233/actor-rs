@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::net::SocketAddr;
-use std::num::NonZeroUsize;
+use std::ops::Not;
 
 use futures::StreamExt;
-use lru::LruCache;
+use moka::sync::Cache;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
@@ -67,7 +67,7 @@ impl Actor for TransportActor {
 #[derive(Debug)]
 pub(crate) struct TcpTransport {
     pub(crate) connections: HashMap<SocketAddr, ConnectionSender>,
-    pub(crate) actor_cache: LruCache<SerializedActorRef, ActorRef>,
+    pub(crate) actor_ref_cache: Cache<SerializedActorRef, ActorRef>,
     pub(crate) listener: Option<JoinHandle<()>>,
 }
 
@@ -75,7 +75,7 @@ impl TcpTransport {
     pub fn new() -> Self {
         Self {
             connections: HashMap::new(),
-            actor_cache: LruCache::new(NonZeroUsize::new(1000).unwrap()),
+            actor_ref_cache: Cache::new(1000),
             listener: None,
         }
     }
@@ -109,8 +109,8 @@ impl TcpTransport {
         }
     }
 
-    pub fn resolve_actor_ref(&mut self, context: &mut ActorContext, serialized_ref: SerializedActorRef) -> &ActorRef {
-        self.actor_cache.get_or_insert(serialized_ref.clone(), || {
+    pub fn resolve_actor_ref(&mut self, context: &mut ActorContext, serialized_ref: SerializedActorRef) -> ActorRef {
+        self.actor_ref_cache.get_with_by_ref(&serialized_ref, || {
             context.system()
                 .provider()
                 .resolve_actor_ref(&serialized_ref.path)
