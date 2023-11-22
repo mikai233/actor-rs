@@ -63,7 +63,7 @@ pub trait AsyncMessage: CodecMessage {
 }
 
 #[async_trait]
-pub trait SystemMessage: CodecMessage {
+pub(crate) trait SystemMessage: CodecMessage {
     async fn handle(self: Box<Self>, context: &mut ActorContext) -> anyhow::Result<()>;
 }
 
@@ -223,7 +223,7 @@ mod actor_test {
 
     use actor_derive::{DeferredMessageCodec, EmptyCodec, MessageCodec, UntypedMessageCodec};
 
-    use crate::{Actor, DeferredMessage, DynamicMessage, EmptyTestActor, Message, UntypedMessage};
+    use crate::{Actor, DynamicMessage, EmptyTestActor, Message};
     use crate::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef, TActorRef};
     use crate::actor_ref::deferred_ref::Patterns;
     use crate::context::{ActorContext, Context};
@@ -381,8 +381,6 @@ mod actor_test {
             content: String,
         }
 
-        impl DeferredMessage for MessageToAns {}
-
         fn reg() -> MessageRegistration {
             let mut reg = MessageRegistration::new();
             reg.register::<MessageToAsk>();
@@ -408,7 +406,6 @@ mod actor_test {
     async fn test_adapter() -> anyhow::Result<()> {
         #[derive(Serialize, Deserialize, UntypedMessageCodec)]
         struct TestUntyped;
-        impl UntypedMessage for TestUntyped {}
 
         #[derive(Serialize, Deserialize, MessageCodec)]
         #[actor(AdapterActor)]

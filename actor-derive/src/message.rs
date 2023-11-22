@@ -1,6 +1,6 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
-use syn::{Attribute, parse_str, Type};
+use syn::{Attribute, ImplGenerics, parse_str, Type, TypeGenerics, WhereClause};
 
 use crate::metadata::{CodecType, MessageImpl};
 use crate::with_crate;
@@ -14,7 +14,7 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
     let ext_path = with_crate(parse_str("ext").unwrap());
     let decoder = expand_decoder(actor_attr.as_ref(), &message_ty, &message_impl, &codec_type, &ext_path);
     let encode = expand_encode(&codec_type, &ext_path);
-    quote! {
+    let codec_impl = quote! {
         impl #impl_generics #codec_trait for #message_ty #ty_generics #where_clause {
             fn into_any(self: Box<Self>) -> Box<dyn std::any::Any> {
                 self
@@ -26,6 +26,30 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
 
             fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
                 #encode
+            }
+        }
+    };
+    let impl_message = match &message_impl {
+        MessageImpl::DeferredMessage => {
+            let message_trait = with_crate(parse_str("DeferredMessage").unwrap());
+            Some(expand_message_impl(&message_ty, message_trait, &impl_generics, &ty_generics, where_clause))
+        }
+        MessageImpl::UntypedMessage => {
+            let message_trait = with_crate(parse_str("UntypedMessage").unwrap());
+            Some(expand_message_impl(&message_ty, message_trait, &impl_generics, &ty_generics, where_clause))
+        }
+        _ => None
+    };
+    match impl_message {
+        None => {
+            quote! {
+                #codec_impl
+            }
+        }
+        Some(impl_message) => {
+            quote! {
+                #codec_impl
+                #impl_message
             }
         }
     }
@@ -119,6 +143,14 @@ pub(crate) fn expand_encode(codec_type: &CodecType, ext_path: &TokenStream) -> T
             quote! {
                 Some(#ext_path::encode_bytes(self))
             }
+        }
+    }
+}
+
+pub(crate) fn expand_message_impl(message_ty: &Ident, message_trait: TokenStream, impl_generics: &ImplGenerics, ty_generics: &TypeGenerics, where_clause: Option<&WhereClause>) -> TokenStream {
+    quote! {
+        impl #impl_generics #message_trait for #message_ty #ty_generics #where_clause {
+
         }
     }
 }
