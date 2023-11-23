@@ -1,5 +1,6 @@
 use std::future::Future;
 use std::net::SocketAddrV4;
+use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -10,6 +11,7 @@ use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::address::Address;
+use crate::event::event_bus::ActorEventBus;
 use crate::message::MessageRegistration;
 use crate::props::Props;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
@@ -20,7 +22,7 @@ pub mod root_guardian;
 pub(crate) mod system_guardian;
 pub(crate) mod user_guardian;
 mod timer_scheduler;
-mod message_factory;
+mod config;
 
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
@@ -28,12 +30,21 @@ pub struct ActorSystem {
 }
 
 #[derive(Debug)]
-struct Inner {
+pub struct Inner {
     address: Address,
     start_time: u128,
     provider: RwLock<ActorRefProvider>,
     reg: MessageRegistration,
     runtime: Runtime,
+    event_bus: ActorEventBus,
+}
+
+impl Deref for ActorSystem {
+    type Target = Arc<Inner>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl ActorSystem {
@@ -45,6 +56,7 @@ impl ActorSystem {
         };
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
+            .thread_name("actor-pool")
             .build()
             .expect("Failed building the Runtime");
         let inner = Inner {
@@ -53,6 +65,7 @@ impl ActorSystem {
             provider: RwLock::new(EmptyActorRefProvider.into()),
             reg,
             runtime,
+            event_bus: ActorEventBus::default(),
         };
         let system = Self {
             inner: inner.into(),
@@ -61,11 +74,11 @@ impl ActorSystem {
         Ok(system)
     }
     pub fn name(&self) -> &String {
-        &self.inner.address.system
+        &self.address.system
     }
 
     pub fn address(&self) -> &Address {
-        &&self.inner.address
+        &&self.address
     }
 
     fn child(&self, child: &String) -> ActorPath {
@@ -77,7 +90,7 @@ impl ActorSystem {
     }
 
     fn start_time(&self) -> u128 {
-        self.inner.start_time
+        self.start_time
     }
 
     fn terminate(&self) {
@@ -89,15 +102,15 @@ impl ActorSystem {
     }
 
     pub(crate) fn provider_rw(&self) -> &RwLock<ActorRefProvider> {
-        &self.inner.provider
+        &self.provider
     }
 
     pub(crate) fn registration(&self) -> &MessageRegistration {
-        &self.inner.reg
+        &self.reg
     }
 
     pub(crate) fn rt(&self) -> &Runtime {
-        &self.inner.runtime
+        &self.runtime
     }
 
     pub(crate) fn spawn<F>(&self, future: F) -> tokio::task::JoinHandle<F::Output>
@@ -110,6 +123,10 @@ impl ActorSystem {
     pub(crate) fn system_actor_of<T>(&self, actor: T, arg: T::A, name: Option<String>, props: Props) -> anyhow::Result<ActorRef> where T: Actor {
         self.system_guardian().attach_child(actor, arg, name, props)
     }
+
+    pub fn event_bus(&self) -> &ActorEventBus {
+        &self.event_bus
+    }
 }
 
 impl ActorRefFactory for ActorSystem {
@@ -118,7 +135,7 @@ impl ActorRefFactory for ActorSystem {
     }
 
     fn provider(&self) -> ActorRefProvider {
-        self.inner.provider.read().unwrap().clone()
+        self.provider.read().unwrap().clone()
     }
 
     fn guardian(&self) -> LocalActorRef {
