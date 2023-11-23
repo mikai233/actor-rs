@@ -94,15 +94,20 @@ mod actor_event_bus_test {
     #[tokio::test]
     async fn test_event_bus() -> anyhow::Result<()> {
         let system = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse().unwrap(), MessageRegistration::new())?;
-        let actor1 = system.actor_of(EmptyTestActor, (), Props::default(), None)?;
-        let actor2 = system.actor_of(EmptyTestActor, (), Props::default(), None)?;
-        let actor3 = system.actor_of(EmptyTestActor, (), Props::default(), None)?;
-        system.event_bus().subscribe(actor1.clone(), type_name::<EventMessage1>());
-        system.event_bus().subscribe(actor2.clone(), type_name::<EventMessage1>());
-        system.event_bus().subscribe(actor3.clone(), type_name::<EventMessage1>());
-        system.event_bus().subscribe(actor3.clone(), type_name::<EventMessage2>());
-        system.event_bus().publish(|| DynamicMessage::user(EventMessage1));
-        system.event_bus().publish(|| DynamicMessage::user(EventMessage2));
+        let actor1 = system.actor_of(EmptyTestActor, (), Props::default(), Some("actor1".to_string()))?;
+        let actor2 = system.actor_of(EmptyTestActor, (), Props::default(), Some("actor2".to_string()))?;
+        let actor3 = system.actor_of(EmptyTestActor, (), Props::default(), Some("actor3".to_string()))?;
+        let event_bus = system.event_bus();
+        event_bus.subscribe(actor1.clone(), type_name::<EventMessage1>());
+        event_bus.subscribe(actor2.clone(), type_name::<EventMessage1>());
+        event_bus.subscribe(actor3.clone(), type_name::<EventMessage1>());
+        event_bus.subscribe(actor3.clone(), type_name::<EventMessage2>());
+        event_bus.publish(|| DynamicMessage::user(EventMessage1));
+        event_bus.publish(|| DynamicMessage::user(EventMessage2));
+        event_bus.unsubscribe(&actor1, type_name::<EventMessage1>());
+        event_bus.publish(|| DynamicMessage::user(EventMessage1));
+        event_bus.unsubscribe_all(&actor3);
+        event_bus.publish(|| DynamicMessage::user(EventMessage2));
         tokio::time::sleep(Duration::from_secs(2)).await;
         Ok(())
     }
