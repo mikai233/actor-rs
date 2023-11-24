@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::task::Poll;
 use std::time::Duration;
 
+use async_trait::async_trait;
 use futures::task::ArcWake;
 use tokio_util::time::delay_queue::Key;
 use tokio_util::time::DelayQueue;
@@ -12,7 +13,7 @@ use tracing::{debug, instrument, warn};
 
 use actor_derive::EmptyCodec;
 
-use crate::{Actor, AsyncMessage, DynamicMessage, Message};
+use crate::{Actor, DynamicMessage, Message};
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::context::{ActorContext, Context};
 use crate::props::Props;
@@ -27,11 +28,12 @@ pub(crate) struct State {
     waker: futures::task::Waker,
 }
 
+#[async_trait]
 impl Actor for TimerSchedulerActor {
     type S = State;
     type A = ();
 
-    fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         let myself = context.myself();
         debug!("{} pre start", myself);
         let waker = futures::task::waker(Arc::new(SchedulerWaker { scheduler: myself.clone() }));
@@ -401,10 +403,10 @@ mod scheduler_test {
 
     use crate::{Actor, DynamicMessage, EmptyTestActor, Message};
     use crate::context::{ActorContext, Context};
-    use crate::message::MessageRegistration;
     use crate::props::Props;
     use crate::provider::ActorRefFactory;
     use crate::system::ActorSystem;
+    use crate::system::config::Config;
     use crate::system::timer_scheduler::{Schedule, TimerScheduler, TimerSchedulerActor};
 
     #[derive(Debug, EmptyCodec)]
@@ -433,7 +435,7 @@ mod scheduler_test {
 
     #[tokio::test]
     async fn test_scheduler() -> anyhow::Result<()> {
-        let system = ActorSystem::new("game".to_string(), "127.0.0.1:12122".parse().unwrap(), MessageRegistration::new())?;
+        let system = ActorSystem::create(Config::default()).await?;
         let scheduler_actor = system.actor_of(TimerSchedulerActor, (), Props::default(), None)?;
         let scheduler = TimerScheduler::with_actor(scheduler_actor);
         let actor = system.actor_of(EmptyTestActor, (), Props::default(), None)?;

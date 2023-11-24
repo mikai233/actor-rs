@@ -33,13 +33,14 @@ pub mod message;
 pub mod context;
 mod event;
 
-pub trait Actor: Send + Sized + 'static {
+#[async_trait]
+pub trait Actor: Send + Sync + Sized + 'static {
     type S: State;
     type A: Arg;
-    fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S>;
+    async fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S>;
 
     #[allow(unused_variables)]
-    fn post_stop(&self, context: &mut ActorContext, state: &mut Self::S) -> anyhow::Result<()> {
+    async fn post_stop(&self, context: &mut ActorContext, state: &mut Self::S) -> anyhow::Result<()> {
         Ok(())
     }
 }
@@ -185,16 +186,17 @@ impl<T> Arg for T where T: Any + Send {}
 #[derive(Debug)]
 pub(crate) struct EmptyTestActor;
 
+#[async_trait]
 impl Actor for EmptyTestActor {
     type S = ();
     type A = ();
 
-    fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         info!("{} pre start", context.myself());
         Ok(())
     }
 
-    fn post_stop(&self, context: &mut ActorContext, _state: &mut Self::S) -> anyhow::Result<()> {
+    async fn post_stop(&self, context: &mut ActorContext, _state: &mut Self::S) -> anyhow::Result<()> {
         info!("{} post stop", context.myself());
         Ok(())
     }
@@ -219,6 +221,7 @@ mod actor_test {
     use std::time::{Duration, SystemTime};
 
     use anyhow::Ok;
+    use async_trait::async_trait;
     use serde::{Deserialize, Serialize};
     use tracing::{info, Level};
 
@@ -229,11 +232,11 @@ mod actor_test {
     use crate::actor_ref::deferred_ref::Patterns;
     use crate::context::{ActorContext, Context};
     use crate::ext::init_logger;
-    use crate::message::MessageRegistration;
     use crate::message::terminated::WatchTerminated;
     use crate::props::Props;
     use crate::provider::{ActorRefFactory, TActorRefProvider};
     use crate::system::ActorSystem;
+    use crate::system::config::Config;
 
     #[ctor::ctor]
     fn init() {
@@ -245,11 +248,12 @@ mod actor_test {
         #[derive(Debug)]
         struct DeathWatchActor;
 
+        #[async_trait]
         impl Actor for DeathWatchActor {
             type S = ();
             type A = usize;
 
-            fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+            async fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
                 info!("actor {} pre start", context.myself);
                 for _ in 0..3 {
                     let n = arg - 1;
@@ -260,13 +264,13 @@ mod actor_test {
                 Ok(())
             }
 
-            fn post_stop(&self, context: &mut ActorContext, _state: &mut Self::S) -> anyhow::Result<()> {
+            async fn post_stop(&self, context: &mut ActorContext, _state: &mut Self::S) -> anyhow::Result<()> {
                 info!("actor {} post stop",context.myself);
                 Ok(())
             }
         }
 
-        let system = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse()?, MessageRegistration::new())?;
+        let system = ActorSystem::create(Config::default()).await?;
         let actor = system.actor_of(DeathWatchActor, 3, Props::default(), None)?;
         tokio::time::sleep(Duration::from_secs(1)).await;
         system.stop(&actor);
@@ -330,8 +334,8 @@ mod actor_test {
             }
         }
 
-        let system1 = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse().unwrap(), MessageRegistration::new())?;
-        let system2 = ActorSystem::new("game".to_string(), "127.0.0.1:12122".parse().unwrap(), MessageRegistration::new())?;
+        let system1 = ActorSystem::create(Config::default()).await?;
+        let system2 = ActorSystem::create(Config::default()).await?;
         let system1_actor = system1.actor_of(EmptyTestActor, (), Props::default(), None)?;
         let system2_actor1 = system2.actor_of(EmptyTestActor, (), Props::default(), None)?;
         let system2_actor2 = system2.actor_of(EmptyTestActor, (), Props::default(), None)?;
@@ -382,15 +386,15 @@ mod actor_test {
             content: String,
         }
 
-        fn reg() -> MessageRegistration {
-            let mut reg = MessageRegistration::new();
-            reg.register::<MessageToAsk>();
-            reg.register::<MessageToAns>();
-            reg
+        fn build_config() -> Config {
+            let mut config = Config::default();
+            config.reg.register::<MessageToAsk>();
+            config.reg.register::<MessageToAns>();
+            config
         }
 
-        let system1 = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse().unwrap(), reg())?;
-        let system2 = ActorSystem::new("game".to_string(), "127.0.0.1:12122".parse().unwrap(), reg())?;
+        let system1 = ActorSystem::create(build_config()).await?;
+        let system2 = ActorSystem::create(build_config()).await?;
         let actor_a = system1.actor_of(EmptyTestActor, (), Props::default(), None)?;
         let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
         let start = SystemTime::now();
@@ -422,11 +426,12 @@ mod actor_test {
         }
         struct AdapterActor;
 
+        #[async_trait]
         impl Actor for AdapterActor {
             type S = ();
             type A = ();
 
-            fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+            async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
                 let adapter = context.message_adapter::<TestUntyped>(|_| {
                     Ok(DynamicMessage::user(TestMessage))
                 });
@@ -434,13 +439,13 @@ mod actor_test {
                 Ok(())
             }
         }
-        fn reg() -> MessageRegistration {
-            let mut reg = MessageRegistration::new();
-            reg.register::<TestMessage>();
-            reg.register::<TestUntyped>();
-            reg
+        fn build_config() -> Config {
+            let mut config = Config::default();
+            config.reg.register::<TestMessage>();
+            config.reg.register::<TestUntyped>();
+            config
         }
-        let system = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse().unwrap(), reg())?;
+        let system = ActorSystem::create(build_config()).await?;
         system.actor_of(AdapterActor, (), Props::default(), None)?;
         tokio::time::sleep(Duration::from_secs(3)).await;
         Ok(())

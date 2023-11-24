@@ -50,7 +50,7 @@ impl<T> ActorRuntime<T>
             watching: HashMap::new(),
             watched_by: HashSet::new(),
         };
-        let mut state = match handler.pre_start(&mut context, arg) {
+        let mut state = match handler.pre_start(&mut context, arg).await {
             Ok(state) => state,
             Err(err) => {
                 error!("actor {:?} pre start error {:?}", actor, err);
@@ -92,7 +92,7 @@ impl<T> ActorRuntime<T>
                 }
             }
         }
-        if let Some(err) = handler.post_stop(&mut context, &mut state).err() {
+        if let Some(err) = handler.post_stop(&mut context, &mut state).await.err() {
             error!("actor {:?} post stop error {:?}", actor, err);
         }
         for task in context.async_tasks {

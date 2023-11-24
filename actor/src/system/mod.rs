@@ -1,9 +1,10 @@
+use std::fmt::{Debug, Formatter};
 use std::future::Future;
-use std::net::SocketAddrV4;
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use etcd_client::Client;
 use tokio::runtime::Runtime;
 
 use crate::Actor;
@@ -17,19 +18,19 @@ use crate::props::Props;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::provider::empty_provider::EmptyActorRefProvider;
 use crate::provider::remote_provider::RemoteActorRefProvider;
+use crate::system::config::{Config, EtcdConfig};
 
 pub mod root_guardian;
 pub(crate) mod system_guardian;
 pub(crate) mod user_guardian;
 mod timer_scheduler;
-mod config;
+pub mod config;
 
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
     inner: Arc<Inner>,
 }
 
-#[derive(Debug)]
 pub struct Inner {
     address: Address,
     start_time: u128,
@@ -37,6 +38,21 @@ pub struct Inner {
     reg: MessageRegistration,
     runtime: Runtime,
     event_bus: ActorEventBus,
+    client: Client,
+}
+
+impl Debug for Inner {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Inner")
+            .field("address", &self.address)
+            .field("start_time", &self.start_time)
+            .field("provider", &self.provider)
+            .field("reg", &self.reg)
+            .field("runtime", &self.runtime)
+            .field("event_bus", &self.event_bus)
+            .field("client", &"..")
+            .finish()
+    }
 }
 
 impl Deref for ActorSystem {
@@ -48,7 +64,10 @@ impl Deref for ActorSystem {
 }
 
 impl ActorSystem {
-    pub fn new(name: String, addr: SocketAddrV4, reg: MessageRegistration) -> anyhow::Result<Self> {
+    pub async fn create(config: Config) -> anyhow::Result<Self> {
+        let Config { name, addr, reg, etcd_config, } = config;
+        let EtcdConfig { endpoints, connect_options } = etcd_config;
+        let client = Client::connect(endpoints, connect_options).await?;
         let address = Address {
             protocol: "tcp".to_string(),
             system: name,
@@ -66,6 +85,7 @@ impl ActorSystem {
             reg,
             runtime,
             event_bus: ActorEventBus::default(),
+            client,
         };
         let system = Self {
             inner: inner.into(),
@@ -89,13 +109,15 @@ impl ActorSystem {
         self.guardian().path.descendant(names)
     }
 
-    fn start_time(&self) -> u128 {
+    pub fn start_time(&self) -> u128 {
         self.start_time
     }
 
-    fn terminate(&self) {
+    pub fn terminate(&self) {
         self.guardian().stop();
     }
+
+    pub async fn wait_termination(&self) {}
 
     pub(crate) fn system_guardian(&self) -> LocalActorRef {
         self.provider().system_guardian().clone()
@@ -109,11 +131,11 @@ impl ActorSystem {
         &self.reg
     }
 
-    pub(crate) fn rt(&self) -> &Runtime {
+    pub fn rt(&self) -> &Runtime {
         &self.runtime
     }
 
-    pub(crate) fn spawn<F>(&self, future: F) -> tokio::task::JoinHandle<F::Output>
+    pub fn spawn<F>(&self, future: F) -> tokio::task::JoinHandle<F::Output>
         where
             F: Future + Send + 'static,
             F::Output: Send + 'static, {
@@ -126,6 +148,10 @@ impl ActorSystem {
 
     pub fn event_bus(&self) -> &ActorEventBus {
         &self.event_bus
+    }
+
+    pub fn eclient(&self) -> &Client {
+        &self.client
     }
 }
 
@@ -186,7 +212,6 @@ impl ActorRefFactory for ActorSystem {
 
 #[cfg(test)]
 mod system_test {
-    use std::net::SocketAddrV4;
     use std::time::Duration;
 
     use tracing::info;
@@ -194,17 +219,14 @@ mod system_test {
     use crate::{EmptyTestActor, EmptyTestMessage};
     use crate::actor_path::TActorPath;
     use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
-    use crate::message::MessageRegistration;
     use crate::props::Props;
     use crate::provider::ActorRefFactory;
     use crate::system::ActorSystem;
+    use crate::system::config::Config;
 
     #[tokio::test]
     async fn test_spawn_actor() -> anyhow::Result<()> {
-        let name = "game".to_string();
-        let addr: SocketAddrV4 = "127.0.0.1:12121".parse()?;
-        let reg = MessageRegistration::new();
-        let system = ActorSystem::new(name, addr, reg)?;
+        let system = ActorSystem::create(Config::default()).await?;
         for i in 0..10 {
             let name = format!("testActor{}", i);
             let actor = system.actor_of(EmptyTestActor, (), Props::default(), Some(name))?;

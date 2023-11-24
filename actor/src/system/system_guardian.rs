@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use tracing::debug;
 
 use actor_derive::EmptyCodec;
@@ -24,11 +25,12 @@ impl Message for StopChild {
     }
 }
 
+#[async_trait]
 impl Actor for SystemGuardian {
     type S = ();
     type A = ();
 
-    fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         debug!("{} pre start", context.myself());
         Ok(())
     }

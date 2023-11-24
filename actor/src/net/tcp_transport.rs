@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::net::SocketAddr;
+use async_trait::async_trait;
 
 use futures::StreamExt;
 use moka::sync::Cache;
@@ -29,11 +30,12 @@ pub(crate) enum ConnectionSender {
     Connected(ConnectionTx),
 }
 
+#[async_trait]
 impl Actor for TransportActor {
     type S = TcpTransport;
     type A = ();
 
-    fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         let myself = context.myself.clone();
         let transport = TcpTransport::new();
         let address = context.system.address().clone();
@@ -120,6 +122,7 @@ impl TcpTransport {
 #[cfg(test)]
 mod transport_test {
     use std::time::Duration;
+    use async_trait::async_trait;
 
     use serde::{Deserialize, Serialize};
     use tracing::info;
@@ -129,11 +132,11 @@ mod transport_test {
     use crate::{Actor, Message};
     use crate::actor_ref::ActorRefExt;
     use crate::context::{ActorContext, Context};
-    use crate::message::MessageRegistration;
     use crate::props::Props;
     use crate::provider::ActorRefFactory;
     use crate::provider::TActorRefProvider;
     use crate::system::ActorSystem;
+    use crate::system::config::Config;
 
     struct PingPongActor;
 
@@ -183,28 +186,29 @@ mod transport_test {
         }
     }
 
+    #[async_trait]
     impl Actor for PingPongActor {
         type S = ();
         type A = ();
 
-        fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+        async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
             info!("{} pre start", context.myself);
             Ok(())
         }
     }
 
-    fn new_message_reg() -> MessageRegistration {
-        let mut reg = MessageRegistration::new();
-        reg.register::<Ping>();
-        reg.register::<Pong>();
-        reg
+    fn build_config() -> Config {
+        let mut config = Config::default();
+        config.reg.register::<Ping>();
+        config.reg.register::<Pong>();
+        config
     }
 
     #[tokio::test]
     async fn test() -> anyhow::Result<()> {
-        let system_a = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse()?, new_message_reg())?;
+        let system_a = ActorSystem::create(build_config()).await?;
         let actor_a = system_a.actor_of(PingPongActor, (), Props::default(), Some("actor_a".to_string()))?;
-        let system_a = ActorSystem::new("game".to_string(), "127.0.0.1:12122".parse()?, new_message_reg())?;
+        let system_a = ActorSystem::create(build_config()).await?;
         let _ = system_a.actor_of(PingPongActor, (), Props::default(), Some("actor_b".to_string()))?;
         loop {
             actor_a.cast(PingTo { to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string() }, None);

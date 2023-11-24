@@ -1,7 +1,7 @@
 use dashmap::{DashMap, DashSet};
 use tracing::debug;
 
-use crate::{CodecMessage, DynamicMessage};
+use crate::DynamicMessage;
 use crate::actor_ref::ActorRef;
 use crate::actor_ref::TActorRef;
 use crate::event::EventBus;
@@ -62,10 +62,10 @@ mod actor_event_bus_test {
     use crate::{Actor, DynamicMessage, EmptyTestActor, Message};
     use crate::context::{ActorContext, Context};
     use crate::event::EventBus;
-    use crate::message::MessageRegistration;
     use crate::props::Props;
     use crate::provider::ActorRefFactory;
     use crate::system::ActorSystem;
+    use crate::system::config::Config;
 
     #[derive(Debug, EmptyCodec)]
     struct EventMessage1;
@@ -93,7 +93,7 @@ mod actor_event_bus_test {
 
     #[tokio::test]
     async fn test_event_bus() -> anyhow::Result<()> {
-        let system = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse().unwrap(), MessageRegistration::new())?;
+        let system = ActorSystem::create(Config::default()).await?;
         let actor1 = system.actor_of(EmptyTestActor, (), Props::default(), Some("actor1".to_string()))?;
         let actor2 = system.actor_of(EmptyTestActor, (), Props::default(), Some("actor2".to_string()))?;
         let actor3 = system.actor_of(EmptyTestActor, (), Props::default(), Some("actor3".to_string()))?;

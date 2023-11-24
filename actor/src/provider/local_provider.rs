@@ -170,24 +170,26 @@ impl TActorRefProvider for LocalActorRefProvider {
 
 #[cfg(test)]
 mod local_provider_test {
+    use async_trait::async_trait;
     use tracing::info;
 
     use crate::{Actor, EmptyTestActor, EmptyTestMessage};
     use crate::actor_ref::ActorRefExt;
     use crate::context::ActorContext;
-    use crate::message::MessageRegistration;
     use crate::props::Props;
     use crate::provider::{ActorRefFactory, TActorRefProvider};
     use crate::system::ActorSystem;
+    use crate::system::config::Config;
 
     #[derive(Debug)]
     struct ActorA;
 
+    #[async_trait]
     impl Actor for ActorA {
         type S = ();
         type A = ();
 
-        fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+        async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
             info!("actor a {} pre start", context.myself);
             context.actor_of(ActorB, (), Props::default(), None)?;
             Ok(())
@@ -197,11 +199,12 @@ mod local_provider_test {
     #[derive(Debug)]
     struct ActorB;
 
+    #[async_trait]
     impl Actor for ActorB {
         type S = ();
         type A = ();
 
-        fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+        async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
             info!("actor b {} pre start", context.myself);
             context.actor_of(EmptyTestActor, (), Props::default(), None)?;
             Ok(())
@@ -209,9 +212,9 @@ mod local_provider_test {
     }
 
 
-    #[test]
-    fn test() -> anyhow::Result<()> {
-        let system = ActorSystem::new("game".to_string(), "127.0.0.1:12121".parse()?, MessageRegistration::new())?;
+    #[tokio::test]
+    async fn test() -> anyhow::Result<()> {
+        let system = ActorSystem::create(Config::default()).await?;
         let _ = system.actor_of(ActorA, (), Props::default(), None)?;
         let actor_c = system
             .provider()

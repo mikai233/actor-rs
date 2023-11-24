@@ -51,8 +51,8 @@ pub trait TActorRefProvider: Send {
     ) -> anyhow::Result<ActorRef>
         where
             T: Actor;
-    fn resolve_actor_ref(&self, path: &String) -> ActorRef {
-        match path.parse::<ActorPath>() {
+    fn resolve_actor_ref(&self, path: impl AsRef<str>) -> ActorRef {
+        match path.as_ref().parse::<ActorPath>() {
             Ok(actor_path) => self.resolve_actor_ref_of_path(&actor_path),
             Err(_) => self.dead_letters().clone(),
         }

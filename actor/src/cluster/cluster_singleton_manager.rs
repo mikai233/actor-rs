@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use async_trait::async_trait;
 
 use crate::Actor;
 use crate::context::ActorContext;
@@ -19,11 +20,12 @@ impl Debug for State {
     }
 }
 
+#[async_trait]
 impl Actor for ClusterSingletonManager {
     type S = State;
     type A = ();
 
-    fn pre_start(&self, _context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(&self, _context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         todo!()
     }
 }
