@@ -4,7 +4,7 @@ use anyhow::anyhow;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::error::Elapsed;
 
-use crate::{DeferredMessage, DynamicMessage, Message};
+use crate::{DynamicMessage, Message, UntypedMessage};
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
@@ -81,13 +81,13 @@ impl DeferredActorRef {
 pub struct Patterns;
 
 impl Patterns {
-    pub async fn ask<Req, Resp>(actor: &ActorRef, message: Req, timeout: Duration) -> anyhow::Result<Resp> where Req: Message, Resp: DeferredMessage {
+    pub async fn ask<Req, Resp>(actor: &ActorRef, message: Req, timeout: Duration) -> anyhow::Result<Resp> where Req: Message, Resp: UntypedMessage {
         let req_name = std::any::type_name::<Req>();
         let (deferred, rx) = DeferredActorRef::new(actor.system(), actor.path().name().to_string(), req_name);
         match deferred.ask(actor, rx, DynamicMessage::user(message), timeout).await {
             Ok(Some(resp)) => {
                 match resp {
-                    DynamicMessage::Deferred(m) => {
+                    DynamicMessage::Untyped(m) => {
                         match m.inner.into_any().downcast::<Resp>() {
                             Ok(resp) => {
                                 Ok(*resp)

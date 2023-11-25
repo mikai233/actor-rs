@@ -1,14 +1,13 @@
 #[derive(Debug)]
-pub(crate) enum CodecType {
+pub enum CodecType {
     NoneSerde,
     Serde,
 }
 
 #[derive(Debug)]
-pub(crate) enum MessageImpl {
+pub enum MessageImpl {
     Message,
     AsyncMessage,
     SystemMessage,
-    DeferredMessage,
     UntypedMessage,
 }

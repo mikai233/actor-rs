@@ -69,8 +69,6 @@ pub(crate) trait SystemMessage: CodecMessage {
     async fn handle(self: Box<Self>, context: &mut ActorContext) -> anyhow::Result<()>;
 }
 
-pub trait DeferredMessage: CodecMessage {}
-
 pub trait UntypedMessage: CodecMessage {}
 
 #[derive(Debug)]
@@ -78,7 +76,6 @@ pub enum DynamicMessage {
     User(BoxedMessage),
     AsyncUser(BoxedMessage),
     System(BoxedMessage),
-    Deferred(BoxedMessage),
     Untyped(BoxedMessage),
 }
 
@@ -124,11 +121,6 @@ impl DynamicMessage {
         DynamicMessage::System(BoxedMessage::new(delegate.name, delegate))
     }
 
-    pub fn deferred<M>(message: M) -> Self where M: DeferredMessage {
-        let name = std::any::type_name::<M>();
-        DynamicMessage::Deferred(BoxedMessage::new(name, message))
-    }
-
     pub(crate) fn untyped<M>(message: M) -> Self where M: UntypedMessage {
         let name = std::any::type_name::<M>();
         DynamicMessage::Untyped(BoxedMessage::new(name, message))
@@ -139,7 +131,6 @@ impl DynamicMessage {
             DynamicMessage::User(m) => { m.name() }
             DynamicMessage::AsyncUser(m) => { m.name() }
             DynamicMessage::System(m) => { m.name() }
-            DynamicMessage::Deferred(m) => { m.name() }
             DynamicMessage::Untyped(m) => { m.name() }
         }
     }
@@ -155,9 +146,6 @@ impl DynamicMessage {
             }
             DynamicMessage::System(m) => {
                 m.inner.into_any().downcast::<SystemDelegate>().map(|m| MessageDelegate::System(m))
-            }
-            DynamicMessage::Deferred(m) => {
-                panic!("unexpected Deferred message {}", m.name());
             }
             DynamicMessage::Untyped(m) => {
                 panic!("unexpected Untyped message {}", m.name());
@@ -218,6 +206,7 @@ impl Message for EmptyTestMessage {
 
 #[cfg(test)]
 mod actor_test {
+    use std::net::SocketAddrV4;
     use std::time::{Duration, SystemTime};
 
     use anyhow::Ok;
@@ -225,7 +214,7 @@ mod actor_test {
     use serde::{Deserialize, Serialize};
     use tracing::{info, Level};
 
-    use actor_derive::{DeferredMessageCodec, EmptyCodec, MessageCodec, UntypedMessageCodec};
+    use actor_derive::{EmptyCodec, MessageCodec, UntypedMessageCodec};
 
     use crate::{Actor, DynamicMessage, EmptyTestActor, Message};
     use crate::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef, TActorRef};
@@ -381,20 +370,21 @@ mod actor_test {
             }
         }
 
-        #[derive(Serialize, Deserialize, DeferredMessageCodec)]
+        #[derive(Serialize, Deserialize, UntypedMessageCodec)]
         struct MessageToAns {
             content: String,
         }
 
-        fn build_config() -> Config {
+        fn build_config(addr: SocketAddrV4) -> Config {
             let mut config = Config::default();
+            config.addr = addr;
             config.reg.register::<MessageToAsk>();
             config.reg.register::<MessageToAns>();
             config
         }
 
-        let system1 = ActorSystem::create(build_config()).await?;
-        let system2 = ActorSystem::create(build_config()).await?;
+        let system1 = ActorSystem::create(build_config("127.0.0.1:12121".parse()?)).await?;
+        let system2 = ActorSystem::create(build_config("127.0.0.1:12123".parse()?)).await?;
         let actor_a = system1.actor_of(EmptyTestActor, (), Props::default(), None)?;
         let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
         let start = SystemTime::now();

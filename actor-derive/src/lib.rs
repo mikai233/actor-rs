@@ -34,12 +34,6 @@ pub fn system_message_codec_derive(input: TokenStream) -> TokenStream {
     message::expand(ast, MessageImpl::SystemMessage, CodecType::Serde).into()
 }
 
-#[proc_macro_derive(DeferredMessageCodec)]
-pub fn deferred_message_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::DeferredMessage, CodecType::Serde).into()
-}
-
 #[proc_macro_derive(UntypedMessageCodec, attributes(actor))]
 pub fn untyped_message_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();

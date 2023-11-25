@@ -33,7 +33,6 @@ impl TActorRef for RemoteActorRef {
             DynamicMessage::User(message) => message,
             DynamicMessage::AsyncUser(message) => message,
             DynamicMessage::System(message) => message,
-            DynamicMessage::Deferred(message) => message,
             DynamicMessage::Untyped(message) => message,
         };
         match reg.encode_boxed(boxed_message) {

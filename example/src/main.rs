@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use actor::{Actor, Message};
@@ -31,6 +32,7 @@ impl Message for RemoteMessage {
 
 struct ActorA;
 
+#[async_trait]
 impl Actor for ActorA {
     type S = ();
     type A = ();

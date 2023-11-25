@@ -29,16 +29,11 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
             }
         }
     };
-    let impl_message = match &message_impl {
-        MessageImpl::DeferredMessage => {
-            let message_trait = with_crate(parse_str("DeferredMessage").unwrap());
-            Some(expand_message_impl(&message_ty, message_trait, &impl_generics, &ty_generics, where_clause))
-        }
-        MessageImpl::UntypedMessage => {
-            let message_trait = with_crate(parse_str("UntypedMessage").unwrap());
-            Some(expand_message_impl(&message_ty, message_trait, &impl_generics, &ty_generics, where_clause))
-        }
-        _ => None
+    let impl_message = if matches!(message_impl, MessageImpl::UntypedMessage) {
+        let message_trait = with_crate(parse_str("UntypedMessage").unwrap());
+        Some(expand_message_impl(&message_ty, message_trait, &impl_generics, &ty_generics, where_clause))
+    } else {
+        None
     };
     match impl_message {
         None => {
@@ -93,15 +88,6 @@ pub(crate) fn expand_decoder(actor_attr: Option<&Attribute>, message_ty: &Ident,
                             let message: #message_ty = #ext_path::decode_bytes(bytes)?;
                             let message = #system_delegate::new(message);
                             Ok(message.into())
-                        }
-                    })
-                }
-                MessageImpl::DeferredMessage => {
-                    decoder(&decoder_trait, &dy_message, || {
-                        quote! {
-                            let message: #message_ty = #ext_path::decode_bytes(bytes)?;
-                            let message = #dy_message::deferred(message);
-                            Ok(message)
                         }
                     })
                 }

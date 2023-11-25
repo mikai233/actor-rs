@@ -47,7 +47,7 @@ impl Actor for TimerSchedulerActor {
 }
 
 #[derive(Debug, Clone)]
-struct ScheduleKey {
+pub struct ScheduleKey {
     index: u64,
     scheduler: ActorRef,
 }
