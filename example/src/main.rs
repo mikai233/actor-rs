@@ -1,8 +1,14 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use tracing::Level;
 
 use actor::{Actor, Message};
 use actor::context::ActorContext;
+use actor::ext::init_logger;
+use actor::props::Props;
+use actor::provider::ActorRefFactory;
+use actor::system::ActorSystem;
+use actor::system::config::Config;
 use actor_derive::{EmptyCodec, MessageCodec};
 
 #[derive(EmptyCodec)]
@@ -44,5 +50,9 @@ impl Actor for ActorA {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    init_logger(Level::DEBUG);
+    let system = ActorSystem::create(Config::default()).await?;
+    system.actor_of(ActorA, (), Props::default(), None)?;
+    system.wait_termination().await;
     Ok(())
 }

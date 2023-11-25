@@ -59,7 +59,7 @@ impl LocalActorRefProvider {
             system: system.clone(),
             path: root_path.child("deadLetters"),
         };
-        root_guardian.cell.children().write().unwrap().insert(dead_letters.path.name().clone(), dead_letters.clone().into());
+        // root_guardian.cell.children().write().unwrap().insert(dead_letters.path.name().clone(), dead_letters.clone().into());
         let temp_node = root_path.child("temp");
         let temp_container = VirtualPathContainer {
             system: system.clone(),

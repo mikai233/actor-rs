@@ -3,10 +3,11 @@ use tracing::debug;
 
 use actor_derive::EmptyCodec;
 
-use crate::{Actor,  Message};
-use crate::actor_ref::ActorRef;
+use crate::{Actor, Message};
+use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::context::{ActorContext, Context};
 use crate::provider::ActorRefFactory;
+use crate::system::root_guardian::ChildGuardianStarted;
 
 #[derive(Debug)]
 pub(crate) struct SystemGuardian;
@@ -32,6 +33,7 @@ impl Actor for SystemGuardian {
 
     async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         debug!("{} pre start", context.myself());
+        context.parent().unwrap().cast(ChildGuardianStarted { guardian: context.myself.clone() }, ActorRef::no_sender());
         Ok(())
     }
 }

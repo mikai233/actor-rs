@@ -95,8 +95,7 @@ impl ActorRefFactory for ActorContext {
     }
 
     fn stop(&self, actor: &ActorRef) {
-        let sender = self.myself().clone();
-        actor.cast_system(Terminate, Some(sender));
+        actor.cast_system(Terminate, ActorRef::no_sender());
     }
 }
 
@@ -134,8 +133,8 @@ impl Context for ActorContext {
             match self.watching.get(&watch_actor) {
                 None => {
                     let watch = Watch {
-                        watchee: watch_actor.clone().into(),
-                        watcher: self.myself.clone().into(),
+                        watchee: watch_actor.clone(),
+                        watcher: self.myself.clone(),
                     };
                     watch_actor.cast_system(watch, ActorRef::no_sender());
                     self.watching.insert(watch_actor, message);
@@ -151,8 +150,8 @@ impl Context for ActorContext {
     fn unwatch(&mut self, subject: &ActorRef) {
         let myself = self.myself();
         if myself != subject && self.watching.contains_key(subject) {
-            let watchee = subject.clone().into();
-            let watcher = myself.clone().into();
+            let watchee = subject.clone();
+            let watcher = myself.clone();
             if self.myself.path().address() == subject.path().address() {
                 subject.cast_system(Unwatch { watchee, watcher }, ActorRef::no_sender());
             } else {
@@ -232,7 +231,7 @@ impl ActorContext {
 
     pub(crate) fn finish_terminate(&mut self) {
         if let Some(parent) = self.parent() {
-            parent.cast_system(DeathWatchNotification(self.myself.clone().into()), Some(self.myself.clone()));
+            parent.cast_system(DeathWatchNotification(self.myself.clone()), ActorRef::no_sender());
         }
         self.tell_watchers_we_died();
         self.unwatch_watched_actors();
@@ -263,7 +262,7 @@ impl ActorContext {
     fn tell_watchers_we_died(&mut self) {
         self.watched_by.drain().for_each(|watcher| {
             if self.myself.parent().map(|p| *p != watcher).unwrap_or(true) {
-                let myself = self.myself.clone().into();
+                let myself = self.myself.clone();
                 debug!("{} tell watcher {} we died", myself, watcher);
                 watcher.cast_system(DeathWatchNotification(myself), ActorRef::no_sender());
             }
@@ -272,8 +271,8 @@ impl ActorContext {
 
     fn unwatch_watched_actors(&mut self) {
         self.watching.drain().for_each(|(actor, _)| {
-            let watchee = actor.clone().into();
-            let watcher = self.myself.clone().into();
+            let watchee = actor.clone();
+            let watcher = self.myself.clone();
             actor.cast_system(Unwatch { watchee, watcher }, ActorRef::no_sender());
         })
     }

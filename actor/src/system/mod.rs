@@ -5,6 +5,7 @@ use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use etcd_client::Client;
+use futures::FutureExt;
 use tokio::runtime::Runtime;
 
 use crate::Actor;
@@ -19,6 +20,7 @@ use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::provider::empty_provider::EmptyActorRefProvider;
 use crate::provider::remote_provider::RemoteActorRefProvider;
 use crate::system::config::{Config, EtcdConfig};
+use crate::system::root_guardian::{AddShutdownHook, Shutdown};
 
 pub mod root_guardian;
 pub(crate) mod system_guardian;
@@ -115,7 +117,15 @@ impl ActorSystem {
         self.guardian().stop();
     }
 
-    pub async fn wait_termination(&self) {}
+    pub async fn wait_termination(&self) {
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {
+                let (tx, mut rx) = tokio::sync::oneshot::channel();
+                self.provider().root_guardian().cast_async(Shutdown { signal: tx }, ActorRef::no_sender());
+                let _ = rx.await;
+            }
+        }
+    }
 
     pub(crate) fn system_guardian(&self) -> LocalActorRef {
         self.provider().system_guardian().clone()
@@ -151,6 +161,10 @@ impl ActorSystem {
 
     pub fn eclient(&self) -> &Client {
         &self.client
+    }
+
+    pub fn add_shutdown_hook<F>(&self, fut: F) where F: Future<Output=()> + Send + 'static {
+        self.provider().root_guardian().cast(AddShutdownHook { fut: fut.boxed() }, ActorRef::no_sender());
     }
 }
 

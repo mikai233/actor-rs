@@ -6,8 +6,10 @@ use dashmap::DashMap;
 use dashmap::mapref::one::Ref;
 
 use crate::actor_path::ActorPath;
-use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
 use crate::DynamicMessage;
+use crate::message::death_watch_notification::DeathWatchNotification;
+use crate::message::terminate::Terminate;
 use crate::system::ActorSystem;
 
 #[derive(Clone)]
@@ -38,8 +40,12 @@ impl TActorRef for VirtualPathContainer {
         &self.path
     }
 
-    fn tell(&self, _message: DynamicMessage, _sender: Option<ActorRef>) {
-        todo!()
+    fn tell(&self, message: DynamicMessage, _sender: Option<ActorRef>) {
+        if let DynamicMessage::System(system_message) = message {
+            if system_message.name == std::any::type_name::<Terminate>() {
+                self.parent.cast_system(DeathWatchNotification(self.clone().into()), ActorRef::no_sender());
+            }
+        }
     }
 
     fn stop(&self) {}
