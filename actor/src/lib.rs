@@ -217,7 +217,7 @@ mod actor_test {
     use actor_derive::{EmptyCodec, MessageCodec, UntypedMessageCodec};
 
     use crate::{Actor, DynamicMessage, EmptyTestActor, Message};
-    use crate::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef, TActorRef};
+    use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
     use crate::actor_ref::deferred_ref::Patterns;
     use crate::context::{ActorContext, Context};
     use crate::ext::init_logger;

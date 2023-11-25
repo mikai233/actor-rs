@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 
 use async_trait::async_trait;
-use tracing::{debug, instrument, trace};
+use tracing::{debug, trace};
 
 use actor_derive::EmptyCodec;
 

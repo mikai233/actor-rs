@@ -51,6 +51,7 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
 }
 
 pub(crate) fn expand_decoder(actor_attr: Option<&Attribute>, message_ty: &Ident, message_impl: &MessageImpl, codec_type: &CodecType, ext_path: &TokenStream) -> TokenStream {
+    let provider_trait = with_crate(parse_str("provider::ActorRefProvider").unwrap());
     let decoder_trait = with_crate(parse_str("decoder::MessageDecoder").unwrap());
     let dy_message = with_crate(parse_str("DynamicMessage").unwrap());
     match codec_type {
@@ -62,7 +63,7 @@ pub(crate) fn expand_decoder(actor_attr: Option<&Attribute>, message_ty: &Ident,
                 MessageImpl::Message => {
                     let actor_ty = actor_attr.expect("actor attribute not found").parse_args::<Type>().expect("expect a type");
                     let user_delegate = with_crate(parse_str("delegate::user::UserDelegate").unwrap());
-                    decoder(&decoder_trait, &dy_message, || {
+                    decoder(&decoder_trait, &provider_trait, &dy_message, || {
                         quote! {
                             let message: #message_ty = #ext_path::decode_bytes(bytes)?;
                             let message = #user_delegate::<#actor_ty>::new(message);
@@ -73,7 +74,7 @@ pub(crate) fn expand_decoder(actor_attr: Option<&Attribute>, message_ty: &Ident,
                 MessageImpl::AsyncMessage => {
                     let actor_ty = actor_attr.expect("actor attribute not found").parse_args::<Type>().expect("expect a type");
                     let async_delegate = with_crate(parse_str("delegate::user::AsyncUserDelegate").unwrap());
-                    decoder(&decoder_trait, &dy_message, || {
+                    decoder(&decoder_trait, &provider_trait, &dy_message, || {
                         quote! {
                             let message: #message_ty = #ext_path::decode_bytes(bytes)?;
                             let message = #async_delegate::<#actor_ty>::new(message);
@@ -83,7 +84,7 @@ pub(crate) fn expand_decoder(actor_attr: Option<&Attribute>, message_ty: &Ident,
                 }
                 MessageImpl::SystemMessage => {
                     let system_delegate = with_crate(parse_str("delegate::system::SystemDelegate").unwrap());
-                    decoder(&decoder_trait, &dy_message, || {
+                    decoder(&decoder_trait, &provider_trait, &dy_message, || {
                         quote! {
                             let message: #message_ty = #ext_path::decode_bytes(bytes)?;
                             let message = #system_delegate::new(message);
@@ -92,7 +93,7 @@ pub(crate) fn expand_decoder(actor_attr: Option<&Attribute>, message_ty: &Ident,
                     })
                 }
                 MessageImpl::UntypedMessage => {
-                    decoder(&decoder_trait, &dy_message, || {
+                    decoder(&decoder_trait, &provider_trait, &dy_message, || {
                         quote! {
                             let message: #message_ty = #ext_path::decode_bytes(bytes)?;
                             let message = #dy_message::untyped(message);
@@ -105,12 +106,12 @@ pub(crate) fn expand_decoder(actor_attr: Option<&Attribute>, message_ty: &Ident,
     }
 }
 
-pub(crate) fn decoder<F>(decoder_trait: &TokenStream, dy_message: &TokenStream, fn_body: F) -> TokenStream where F: FnOnce() -> TokenStream {
+pub(crate) fn decoder<F>(decoder_trait: &TokenStream, provider_trait: &TokenStream, dy_message: &TokenStream, fn_body: F) -> TokenStream where F: FnOnce() -> TokenStream {
     let body = fn_body();
     quote! {
         struct D;
         impl #decoder_trait for D {
-            fn decode(&self, bytes: &[u8]) -> anyhow::Result<#dy_message> {
+            fn decode(&self, provider: &#provider_trait, bytes: &[u8]) -> anyhow::Result<#dy_message> {
                 #body
             }
         }

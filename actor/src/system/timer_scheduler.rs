@@ -427,7 +427,7 @@ mod scheduler_test {
     impl Message for OnFixedSchedule {
         type T = EmptyTestActor;
 
-        fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
             info!("{} OnFixedSchedule", context.myself());
             Ok(())
         }

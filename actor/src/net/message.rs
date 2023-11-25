@@ -21,6 +21,7 @@ use crate::message::IDPacket;
 use crate::net::codec::PacketCodec;
 use crate::net::connection::{Connection, ConnectionTx};
 use crate::net::tcp_transport::{ConnectionSender, TransportActor};
+use crate::provider::ActorRefFactory;
 use crate::system::ActorSystem;
 
 pub(crate) struct RemoteEnvelope {
@@ -143,7 +144,7 @@ impl Message for InboundMessage {
         let target = state.resolve_actor_ref(context, target);
         let system: ActorSystem = target.system();
         let reg = system.registration();
-        let message = reg.decode(packet)?;
+        let message = reg.decode(&state.provider, packet)?;
         target.tell(message, sender);
         Ok(())
     }

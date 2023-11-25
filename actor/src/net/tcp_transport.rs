@@ -18,7 +18,7 @@ use crate::ext::decode_bytes;
 use crate::net::codec::PacketCodec;
 use crate::net::connection::ConnectionTx;
 use crate::net::message::{InboundMessage, RemotePacket, SpawnInbound};
-use crate::provider::{ActorRefFactory, TActorRefProvider};
+use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 
 #[derive(Debug)]
 pub(crate) struct TransportActor;
@@ -37,7 +37,7 @@ impl Actor for TransportActor {
 
     async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         let myself = context.myself.clone();
-        let transport = TcpTransport::new();
+        let transport = TcpTransport::new(context.system.provider());
         let address = context.system.address().clone();
         let addr = address.addr;
         context.spawn(async move {
@@ -70,14 +70,16 @@ pub(crate) struct TcpTransport {
     pub(crate) connections: HashMap<SocketAddr, ConnectionSender>,
     pub(crate) actor_ref_cache: Cache<SerializedActorRef, ActorRef>,
     pub(crate) listener: Option<JoinHandle<()>>,
+    pub(crate) provider: ActorRefProvider,
 }
 
 impl TcpTransport {
-    pub fn new() -> Self {
+    pub fn new(provider: ActorRefProvider) -> Self {
         Self {
             connections: HashMap::new(),
             actor_ref_cache: Cache::new(1000),
             listener: None,
+            provider,
         }
     }
 

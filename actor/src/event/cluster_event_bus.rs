@@ -2,18 +2,16 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use etcd_client::{Client, GetOptions};
-use serde::{Deserialize, Serialize};
 use tracing::error;
 
-use actor_derive::{EmptyCodec, MessageCodec};
+use actor_derive::EmptyCodec;
 
 use crate::{Actor, Message};
-use crate::actor_ref::{ActorRef, SerializedActorRef};
+use crate::actor_ref::ActorRef;
 use crate::actor_ref::TActorRef;
 use crate::context::{ActorContext, Context};
 use crate::message::terminated::WatchTerminated;
 use crate::provider::{ActorRefFactory, TActorRefProvider};
-use crate::system::ActorSystem;
 
 #[derive(Debug)]
 pub(crate) struct ClusterEventBusActor;

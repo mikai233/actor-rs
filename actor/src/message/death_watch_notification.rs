@@ -1,22 +1,46 @@
+use std::any::Any;
+
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 
-use actor_derive::SystemMessageCodec;
-
-use crate::actor_ref::SerializedActorRef;
+use crate::{CodecMessage, DynamicMessage, SystemMessage};
+use crate::actor_ref::{ActorRef, SerializedActorRef};
 use crate::context::ActorContext;
-use crate::provider::{ActorRefFactory, TActorRefProvider};
-use crate::SystemMessage;
+use crate::decoder::MessageDecoder;
+use crate::delegate::system::SystemDelegate;
+use crate::ext::{decode_bytes, encode_bytes};
+use crate::provider::{ActorRefProvider, TActorRefProvider};
 
-#[derive(Serialize, Deserialize, SystemMessageCodec)]
-pub(crate) struct DeathWatchNotification(pub(crate) SerializedActorRef);
+pub(crate) struct DeathWatchNotification(pub(crate) ActorRef);
+
+impl CodecMessage for DeathWatchNotification {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+        struct D;
+        impl MessageDecoder for D {
+            fn decode(&self, provider: &ActorRefProvider, bytes: &[u8]) -> anyhow::Result<DynamicMessage> {
+                let serialized: SerializedActorRef = decode_bytes(bytes)?;
+                let actor_ref = provider.resolve_actor_ref(&serialized.path);
+                let message = SystemDelegate::new(DeathWatchNotification(actor_ref));
+                Ok(message.into())
+            }
+        }
+        Some(Box::new(D))
+    }
+
+    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+        let serialized: SerializedActorRef = self.0.clone().into();
+        Some(encode_bytes(&serialized))
+    }
+}
 
 #[async_trait]
 impl SystemMessage for DeathWatchNotification {
     async fn handle(self: Box<Self>, context: &mut ActorContext) -> anyhow::Result<()> {
         //TODO 当停止的Actor是本地Actor时，此时用resolve_actor_ref是拿不到ActorRef的引用的，只能拿到DeadLetterRef，这个时候就不正确了
-        let actor_ref = context.system().provider().resolve_actor_ref(&self.0.path);
-        context.watched_actor_terminated(actor_ref);
+        context.watched_actor_terminated(self.0);
         Ok(())
     }
 }

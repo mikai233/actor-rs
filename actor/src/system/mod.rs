@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use etcd_client::Client;
-use tokio::runtime::{Handle, Runtime};
+use tokio::runtime::Runtime;
 
 use crate::Actor;
 use crate::actor_path::{ActorPath, TActorPath};

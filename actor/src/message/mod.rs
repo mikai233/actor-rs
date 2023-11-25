@@ -10,6 +10,7 @@ use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::terminate::Terminate;
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
+use crate::provider::ActorRefProvider;
 
 pub(crate) mod death_watch_notification;
 pub(crate) mod terminated;
@@ -75,10 +76,10 @@ impl MessageRegistration {
         Ok(packet)
     }
 
-    pub(crate) fn decode(&self, packet: IDPacket) -> anyhow::Result<DynamicMessage> {
+    pub(crate) fn decode(&self, provider: &ActorRefProvider, packet: IDPacket) -> anyhow::Result<DynamicMessage> {
         let id = packet.id;
         let decoder = self.decoder.get(&id).ok_or(anyhow!("message {} not register", id))?;
-        decoder.decode(&packet.bytes)
+        decoder.decode(provider, &packet.bytes)
     }
 
     fn register_all_system_message(&mut self) {
