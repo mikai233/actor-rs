@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use tokio::task::yield_now;
-use tracing::error;
+use tracing::{error, trace};
 
 use crate::{Actor, AsyncMessage, Message};
 use crate::actor_ref::ActorRef;

@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use std::ops::Not;
 use std::sync::Arc;
 
@@ -9,12 +10,23 @@ use crate::actor_ref::{ActorRef, TActorRef};
 use crate::DynamicMessage;
 use crate::system::ActorSystem;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct VirtualPathContainer {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) parent: Box<ActorRef>,
     pub(crate) children: Arc<DashMap<String, ActorRef>>,
+}
+
+impl Debug for VirtualPathContainer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VirtualPathContainer")
+            .field("system", &"..")
+            .field("path", &self.path)
+            .field("parent", &self.parent)
+            .field("children", &self.children)
+            .finish()
+    }
 }
 
 impl TActorRef for VirtualPathContainer {

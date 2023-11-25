@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
 
 use anyhow::anyhow;
 use tokio::task::JoinHandle;
-use tracing::{error, warn};
+use tracing::{debug, error, warn};
 
 use crate::{Actor, DynamicMessage, Message, UntypedMessage, UserDelegate};
 use crate::actor_path::{ActorPath, ChildActorPath, TActorPath};
@@ -32,6 +32,7 @@ pub trait Context: ActorRefFactory {
     fn parent(&self) -> Option<&ActorRef>;
     fn watch<T>(&mut self, terminate: T) where T: WatchTerminated;
     fn unwatch(&mut self, subject: &ActorRef);
+    fn is_watching(&self, subject: &ActorRef) -> bool;
     fn message_adapter<M>(&mut self, f: impl Fn(M) -> anyhow::Result<DynamicMessage> + Send + Sync + 'static) -> ActorRef
         where
             M: UntypedMessage;
@@ -127,22 +128,21 @@ impl Context for ActorContext {
     }
 
     fn watch<T>(&mut self, terminate: T) where T: WatchTerminated {
-        let system = self.system();
-        let actor = terminate.watch_actor(system);
-        let message = DynamicMessage::user(terminate);
-        if actor != self.myself {
-            match self.watching.get(&actor) {
+        let watch_actor = terminate.watch_actor().clone();
+        if &watch_actor != self.myself() {
+            let message = DynamicMessage::user(terminate);
+            match self.watching.get(&watch_actor) {
                 None => {
                     let watch = Watch {
-                        watchee: actor.clone().into(),
+                        watchee: watch_actor.clone().into(),
                         watcher: self.myself.clone().into(),
                     };
-                    actor.cast_system(watch, None);
-                    self.watching.insert(actor, message);
+                    watch_actor.cast_system(watch, ActorRef::no_sender());
+                    self.watching.insert(watch_actor, message);
                 }
                 Some(previous) => {
                     warn!("drop previous watch message {} and insert new watch message {}", previous.name(), message.name());
-                    self.watching.insert(actor, message);
+                    self.watching.insert(watch_actor, message);
                 }
             }
         }
@@ -154,11 +154,15 @@ impl Context for ActorContext {
             let watchee = subject.clone().into();
             let watcher = myself.clone().into();
             if self.myself.path().address() == subject.path().address() {
-                subject.cast_system(Unwatch { watchee, watcher }, None);
+                subject.cast_system(Unwatch { watchee, watcher }, ActorRef::no_sender());
             } else {
-                self.provider().resolve_actor_ref_of_path(subject.path()).cast_system(Unwatch { watchee, watcher }, None);
+                self.provider().resolve_actor_ref_of_path(subject.path()).cast_system(Unwatch { watchee, watcher }, ActorRef::no_sender());
             }
         }
+    }
+
+    fn is_watching(&self, subject: &ActorRef) -> bool {
+        self.watching.contains_key(subject)
     }
 
     fn message_adapter<M>(&mut self, f: impl Fn(M) -> anyhow::Result<DynamicMessage> + Send + Sync + 'static) -> ActorRef
@@ -235,14 +239,15 @@ impl ActorContext {
         self.state = ActorState::CanTerminate;
     }
 
-    pub(crate) fn watched_actor_terminated(&mut self, actor: ActorRef) {
-        if let Some(watch_terminated) = self.watching.remove(&actor) {
+    pub(crate) fn watched_actor_terminated(&mut self, watching_actor: ActorRef) {
+        debug!("{} watched actor {} terminated", self.myself, watching_actor);
+        if let Some(watch_terminated) = self.watching.remove(&watching_actor) {
             if !matches!(self.state, ActorState::Terminating) {
                 self.myself.tell(watch_terminated, None);
             }
         }
-        if self.children().get(actor.path().name()).is_some() {
-            self.handle_child_terminated(actor);
+        if self.children().get(watching_actor.path().name()).is_some() {
+            self.handle_child_terminated(watching_actor);
         }
     }
 
@@ -256,10 +261,11 @@ impl ActorContext {
     }
 
     fn tell_watchers_we_died(&mut self) {
-        self.watched_by.drain().for_each(|actor| {
-            if self.myself.parent().map(|p| *p != actor).unwrap_or(true) {
+        self.watched_by.drain().for_each(|watcher| {
+            if self.myself.parent().map(|p| *p != watcher).unwrap_or(true) {
                 let myself = self.myself.clone().into();
-                actor.cast_system(DeathWatchNotification(myself), None);
+                debug!("{} tell watcher {} we died", myself, watcher);
+                watcher.cast_system(DeathWatchNotification(myself), ActorRef::no_sender());
             }
         });
     }
@@ -268,7 +274,7 @@ impl ActorContext {
         self.watching.drain().for_each(|(actor, _)| {
             let watchee = actor.clone().into();
             let watcher = self.myself.clone().into();
-            actor.cast_system(Unwatch { watchee, watcher }, None);
+            actor.cast_system(Unwatch { watchee, watcher }, ActorRef::no_sender());
         })
     }
 

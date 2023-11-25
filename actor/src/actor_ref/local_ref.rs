@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::fmt::{Debug, Formatter};
 use std::sync::RwLock;
 
 use anyhow::anyhow;
@@ -6,7 +7,7 @@ use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
 use crate::{Actor, DynamicMessage};
-use crate::actor_path::{ChildActorPath, };
+use crate::actor_path::{ChildActorPath};
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
 use crate::cell::ActorCell;
@@ -20,12 +21,23 @@ use crate::system::ActorSystem;
 
 use super::Cell;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct LocalActorRef {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) sender: MailboxSender,
     pub(crate) cell: ActorCell,
+}
+
+impl Debug for LocalActorRef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LocalActorRef")
+            .field("system", &"..")
+            .field("path", &self.path)
+            .field("sender", &self.sender)
+            .field("cell", &self.cell)
+            .finish()
+    }
 }
 
 impl TActorRef for LocalActorRef {

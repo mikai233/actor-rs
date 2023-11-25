@@ -4,8 +4,8 @@ use tracing::{debug, error};
 
 use actor_derive::SystemMessageCodec;
 
-use crate::{ SystemMessage};
-use crate::actor_ref::SerializedActorRef;
+use crate::{SystemMessage};
+use crate::actor_ref::{SerializedActorRef, TActorRef};
 use crate::context::ActorContext;
 use crate::provider::{ActorRefFactory, TActorRefProvider};
 
@@ -25,6 +25,7 @@ impl SystemMessage for Watch {
         let watcher_self = watcher == context.myself;
         if watchee_self && !watcher_self {
             if !context.watched_by.contains(&watcher) {
+                debug!("{} is watched by {}", context.myself, watcher);
                 context.watched_by.insert(watcher);
             } else {
                 debug!("watcher {} already added for {}", watcher, context.myself);

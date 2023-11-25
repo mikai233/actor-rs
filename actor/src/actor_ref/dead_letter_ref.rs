@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use tracing::info;
 
 use crate::actor_path::ActorPath;
@@ -5,10 +6,19 @@ use crate::actor_ref::{ActorRef, TActorRef};
 use crate::DynamicMessage;
 use crate::system::ActorSystem;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct DeadLetterActorRef {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
+}
+
+impl Debug for DeadLetterActorRef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DeadLetterActorRef")
+            .field("system", &"..")
+            .field("path", &self.path)
+            .finish()
+    }
 }
 
 impl TActorRef for DeadLetterActorRef {

@@ -3,5 +3,5 @@ use crate::Message;
 use crate::system::ActorSystem;
 
 pub trait WatchTerminated: Message {
-    fn watch_actor(&self, system: &ActorSystem) -> ActorRef;
+    fn watch_actor(&self) -> &ActorRef;
 }

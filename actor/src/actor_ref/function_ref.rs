@@ -16,7 +16,7 @@ pub struct FunctionRef {
 impl Debug for FunctionRef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FunctionRef")
-            .field("system", &self.system)
+            .field("system", &"..")
             .field("path", &self.path)
             .field("message_handler", &"..")
             .finish()

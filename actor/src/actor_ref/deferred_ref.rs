@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -11,7 +12,7 @@ use crate::actor_ref::{ActorRef, TActorRef};
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::system::ActorSystem;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct DeferredActorRef {
     system: ActorSystem,
     provider: Box<ActorRefProvider>,
@@ -19,6 +20,19 @@ pub struct DeferredActorRef {
     parent: Box<ActorRef>,
     sender: Sender<DynamicMessage>,
     message_name: &'static str,
+}
+
+impl Debug for DeferredActorRef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DeferredActorRef")
+            .field("system", &"..")
+            .field("provider", &self.provider)
+            .field("path", &self.path)
+            .field("parent", &self.parent)
+            .field("sender", &self.sender)
+            .field("message_name", &self.message_name)
+            .finish()
+    }
 }
 
 impl TActorRef for DeferredActorRef {

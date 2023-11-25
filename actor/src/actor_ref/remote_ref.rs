@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use tracing::error;
@@ -10,11 +11,21 @@ use crate::message::poison_pill::PoisonPill;
 use crate::net::message::{OutboundMessage, RemoteEnvelope};
 use crate::system::ActorSystem;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct RemoteActorRef {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) transport: Arc<ActorRef>,
+}
+
+impl Debug for RemoteActorRef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RemoteActorRef")
+            .field("system", &"..")
+            .field("path", &self.path)
+            .field("transport", &self.transport)
+            .finish()
+    }
 }
 
 impl TActorRef for RemoteActorRef {

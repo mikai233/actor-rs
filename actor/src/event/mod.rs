@@ -7,7 +7,7 @@ pub trait EventBus {
     type Subscriber;
 
     fn subscribe(&self, subscriber: Self::Subscriber, to: Self::Classifier);
-    fn unsubscribe(&self, subscriber: &Self::Subscriber, from: Self::Classifier);
-    fn unsubscribe_all(&self, subscriber: &Self::Subscriber);
-    fn publish(&self, event_factory: impl Fn() -> Self::Event);
+    fn unsubscribe(&self, subscriber: Self::Subscriber, from: Self::Classifier);
+    fn unsubscribe_all(&self, subscriber: Self::Subscriber);
+    fn publish(&self, event_factory: impl Fn() -> Self::Event + Send + 'static);
 }

@@ -12,7 +12,7 @@ use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::address::Address;
-use crate::event::event_bus::ActorEventBus;
+use crate::event::event_bus::SystemEventBus;
 use crate::message::MessageRegistration;
 use crate::props::Props;
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
@@ -37,7 +37,6 @@ pub struct Inner {
     provider: RwLock<ActorRefProvider>,
     reg: MessageRegistration,
     runtime: Runtime,
-    event_bus: ActorEventBus,
     client: Client,
 }
 
@@ -49,7 +48,7 @@ impl Debug for Inner {
             .field("provider", &self.provider)
             .field("reg", &self.reg)
             .field("runtime", &self.runtime)
-            .field("event_bus", &self.event_bus)
+            // .field("event_bus", &self.event_bus)
             .field("client", &"..")
             .finish()
     }
@@ -84,7 +83,6 @@ impl ActorSystem {
             provider: RwLock::new(EmptyActorRefProvider.into()),
             reg,
             runtime,
-            event_bus: ActorEventBus::default(),
             client,
         };
         let system = Self {
@@ -146,8 +144,9 @@ impl ActorSystem {
         self.system_guardian().attach_child(actor, arg, name, props)
     }
 
-    pub fn event_bus(&self) -> &ActorEventBus {
-        &self.event_bus
+    pub fn event_bus(&self) -> &SystemEventBus {
+        // &self.event_bus
+        todo!()
     }
 
     pub fn eclient(&self) -> &Client {

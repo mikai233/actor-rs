@@ -40,27 +40,27 @@ impl Debug for ActorRef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ActorRef::LocalActorRef(l) => f
-                .debug_struct("ActorRef::LocalActorRef")
+                .debug_struct("LocalActorRef")
                 .field("path", l.path())
                 .finish_non_exhaustive(),
             ActorRef::RemoteActorRef(r) => f
-                .debug_struct("ActorRef::RemoteActorRef")
+                .debug_struct("RemoteActorRef")
                 .field("path", r.path())
                 .finish_non_exhaustive(),
             ActorRef::DeadLetterActorRef(d) => f
-                .debug_struct("ActorRef::DeadLetterActorRef")
+                .debug_struct("DeadLetterActorRef")
                 .field("path", d.path())
                 .finish_non_exhaustive(),
             ActorRef::VirtualPathContainer(v) => f
-                .debug_struct("ActorRef::VirtualPathContainer")
+                .debug_struct("VirtualPathContainer")
                 .field("path", v.path())
                 .finish_non_exhaustive(),
             ActorRef::DeferredActorRef(d) => f.
-                debug_struct("ActorRef::DeferredActorRef")
+                debug_struct("DeferredActorRef")
                 .field("path", d.path())
                 .finish_non_exhaustive(),
             ActorRef::FunctionRef(fr) => f.
-                debug_struct("ActorRef::FunctionRef")
+                debug_struct("FunctionRef")
                 .field("path", fr.path())
                 .finish_non_exhaustive()
         }

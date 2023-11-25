@@ -269,15 +269,14 @@ mod actor_test {
 
     #[tokio::test]
     async fn test_watch() -> anyhow::Result<()> {
-        #[derive(Debug, Serialize, Deserialize, MessageCodec)]
-        #[actor(EmptyTestActor)]
+        #[derive(Debug, EmptyCodec)]
         struct WatchActorTerminate {
-            watch: SerializedActorRef,
+            watch: ActorRef,
         }
 
         impl WatchTerminated for WatchActorTerminate {
-            fn watch_actor(&self, system: &ActorSystem) -> ActorRef {
-                system.provider().resolve_actor_ref(&self.watch.path)
+            fn watch_actor(&self) -> &ActorRef {
+                &self.watch
             }
         }
 
@@ -301,7 +300,7 @@ mod actor_test {
             fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
                 info!("{} watch {}", context.myself, self.actor);
                 let watch = WatchActorTerminate {
-                    watch: self.actor.into(),
+                    watch: self.actor,
                 };
                 context.watch(watch);
                 Ok(())
@@ -323,8 +322,14 @@ mod actor_test {
             }
         }
 
-        let system1 = ActorSystem::create(Config::default()).await?;
-        let system2 = ActorSystem::create(Config::default()).await?;
+        fn build_config(addr: SocketAddrV4) -> Config {
+            let mut config = Config::default();
+            config.addr = addr;
+            config
+        }
+
+        let system1 = ActorSystem::create(build_config("127.0.0.1:12121".parse()?)).await?;
+        let system2 = ActorSystem::create(build_config("127.0.0.1:12122".parse()?)).await?;
         let system1_actor = system1.actor_of(EmptyTestActor, (), Props::default(), None)?;
         let system2_actor1 = system2.actor_of(EmptyTestActor, (), Props::default(), None)?;
         let system2_actor2 = system2.actor_of(EmptyTestActor, (), Props::default(), None)?;

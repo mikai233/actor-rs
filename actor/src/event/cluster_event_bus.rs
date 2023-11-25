@@ -5,7 +5,7 @@ use etcd_client::{Client, GetOptions};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
-use actor_derive::MessageCodec;
+use actor_derive::{EmptyCodec, MessageCodec};
 
 use crate::{Actor, Message};
 use crate::actor_ref::{ActorRef, SerializedActorRef};
@@ -66,13 +66,12 @@ impl ClusterEventBusActor {
                 Some(event) => {
                     let path = kv.value_str()?;
                     let actor_ref = context.system.provider().resolve_actor_ref(path);
-                    let watch_ref: SerializedActorRef = actor_ref.clone().into();
                     let subscriber = ClusterSubscriber {
                         path: path.to_string(),
                         subscriber: actor_ref,
                     };
                     let w = WatchSubscriberTerminate {
-                        watch: watch_ref,
+                        watch: subscriber.subscriber.clone(),
                     };
                     context.watch(w);
                     subscribers.entry(event.to_string()).or_insert(Vec::new()).push(subscriber);
@@ -83,15 +82,14 @@ impl ClusterEventBusActor {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, MessageCodec)]
-#[actor(ClusterEventBusActor)]
+#[derive(Debug, EmptyCodec)]
 struct WatchSubscriberTerminate {
-    watch: SerializedActorRef,
+    watch: ActorRef,
 }
 
 impl WatchTerminated for WatchSubscriberTerminate {
-    fn watch_actor(&self, system: &ActorSystem) -> ActorRef {
-        system.provider().resolve_actor_ref(&self.watch.path)
+    fn watch_actor(&self) -> &ActorRef {
+        &self.watch
     }
 }
 
@@ -99,11 +97,11 @@ impl Message for WatchSubscriberTerminate {
     type T = ClusterEventBusActor;
 
     fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-        for subscribers in state.subscribers.values_mut() {
-            subscribers.retain(|subscriber| {
-                subscriber.path != self.watch.path
-            });
-        }
+        // for subscribers in state.subscribers.values_mut() {
+        //     subscribers.retain(|subscriber| {
+        //         subscriber.path != self.watch.path()
+        //     });
+        // }
         Ok(())
     }
 }
