@@ -21,7 +21,6 @@ use crate::message::IDPacket;
 use crate::net::codec::PacketCodec;
 use crate::net::connection::{Connection, ConnectionTx};
 use crate::net::tcp_transport::{ConnectionSender, TransportActor};
-use crate::provider::ActorRefFactory;
 use crate::system::ActorSystem;
 
 pub(crate) struct RemoteEnvelope {

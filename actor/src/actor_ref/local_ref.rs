@@ -1,13 +1,14 @@
 use std::collections::BTreeMap;
 use std::fmt::{Debug, Formatter};
-use std::sync::RwLock;
+use std::ops::Deref;
+use std::sync::{Arc, RwLock};
 
 use anyhow::anyhow;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
 use crate::{Actor, DynamicMessage};
-use crate::actor_path::{ChildActorPath};
+use crate::actor_path::ChildActorPath;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
 use crate::cell::ActorCell;
@@ -23,10 +24,22 @@ use super::Cell;
 
 #[derive(Clone)]
 pub struct LocalActorRef {
+    pub(crate) inner: Arc<Inner>,
+}
+
+pub struct Inner {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) sender: MailboxSender,
     pub(crate) cell: ActorCell,
+}
+
+impl Deref for LocalActorRef {
+    type Target = Arc<Inner>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl Debug for LocalActorRef {
@@ -177,11 +190,14 @@ impl LocalActorRef {
     pub(crate) fn make_child<T>(&self, actor: T, arg: T::A, name: String, props: Props) -> anyhow::Result<ActorRef> where T: Actor {
         let (sender, mailbox) = props.mailbox();
         let path = ChildActorPath::new(self.path.clone(), name.clone(), ActorPath::new_uid()).into();
-        let child_ref = LocalActorRef {
+        let inner = Inner {
             system: self.system(),
             path,
             sender,
             cell: ActorCell::new(Some(self.clone().into())),
+        };
+        let child_ref = LocalActorRef {
+            inner: inner.into(),
         };
         let mut children = self.children().write().unwrap();
         if children.contains_key(&name) {

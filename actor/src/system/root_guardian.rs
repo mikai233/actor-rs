@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use futures::future::{BoxFuture, join_all};
-use tracing::{debug, info};
+use tracing::debug;
 
 use actor_derive::EmptyCodec;
 
-use crate::{Actor, AsyncMessage, CodecMessage, Message};
+use crate::{Actor, AsyncMessage, Message};
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::context::{ActorContext, Context};
 use crate::message::terminated::WatchTerminated;
@@ -119,7 +119,7 @@ pub(crate) struct AddShutdownHook {
 impl Message for AddShutdownHook {
     type T = RootGuardian;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, _context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         state.shutdown_hooks.push(self.fut);
         Ok(())
     }

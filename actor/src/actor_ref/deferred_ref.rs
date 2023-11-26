@@ -1,4 +1,6 @@
 use std::fmt::{Debug, Formatter};
+use std::ops::Deref;
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -14,12 +16,24 @@ use crate::system::ActorSystem;
 
 #[derive(Clone)]
 pub struct DeferredActorRef {
+    pub(crate) inner: Arc<Inner>,
+}
+
+pub struct Inner {
     system: ActorSystem,
-    provider: Box<ActorRefProvider>,
+    provider: Arc<ActorRefProvider>,
     path: ActorPath,
     parent: Box<ActorRef>,
     sender: Sender<DynamicMessage>,
     message_name: &'static str,
+}
+
+impl Deref for DeferredActorRef {
+    type Target = Arc<Inner>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl Debug for DeferredActorRef {
@@ -73,13 +87,16 @@ impl DeferredActorRef {
         let path = provider.temp_path_of_prefix(Some(target_name));
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         let parent = Box::new(provider.temp_container().clone());
-        let deferred_ref = DeferredActorRef {
+        let inner = Inner {
             system,
-            provider: Box::new(provider),
+            provider,
             path: path.clone(),
             parent,
             sender: tx,
             message_name,
+        };
+        let deferred_ref = DeferredActorRef {
+            inner: inner.into(),
         };
         deferred_ref.provider.register_temp_actor(deferred_ref.clone().into(), deferred_ref.path());
         (deferred_ref, rx)

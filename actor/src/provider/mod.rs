@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use enum_dispatch::enum_dispatch;
 
 use crate::Actor;
@@ -15,7 +17,7 @@ pub(crate) mod local_provider;
 pub(crate) mod remote_provider;
 
 #[enum_dispatch]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum ActorRefProvider {
     EmptyActorRefProvider,
     LocalActorRefProvider,
@@ -23,7 +25,7 @@ pub enum ActorRefProvider {
 }
 
 impl ActorRefProvider {
-    fn remote_or_panic(&self) -> &RemoteActorRefProvider {
+    pub(crate) fn remote_or_panic(&self) -> &RemoteActorRefProvider {
         match self {
             ActorRefProvider::RemoteActorRefProvider(r) => r,
             _ => panic!("expect RemoteActorRefProvider"),
@@ -63,7 +65,7 @@ pub trait TActorRefProvider: Send {
 
 pub trait ActorRefFactory {
     fn system(&self) -> &ActorSystem;
-    fn provider(&self) -> ActorRefProvider;
+    fn provider(&self) -> Arc<ActorRefProvider>;
     fn guardian(&self) -> LocalActorRef;
     fn lookup_root(&self) -> ActorRef;
     fn actor_of<T>(

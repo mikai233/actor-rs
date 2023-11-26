@@ -10,7 +10,7 @@ use crate::context::{ActorContext, Context};
 use crate::decoder::MessageDecoder;
 use crate::delegate::system::SystemDelegate;
 use crate::ext::{decode_bytes, encode_bytes};
-use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
+use crate::provider::{ActorRefProvider, TActorRefProvider};
 
 #[derive(Debug)]
 pub(crate) struct Unwatch {

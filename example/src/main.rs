@@ -1,6 +1,8 @@
+use std::time::Duration;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use tracing::Level;
+use tracing::{info, Level};
 
 use actor::{Actor, Message};
 use actor::context::ActorContext;
@@ -53,6 +55,11 @@ async fn main() -> anyhow::Result<()> {
     init_logger(Level::DEBUG);
     let system = ActorSystem::create(Config::default()).await?;
     system.actor_of(ActorA, (), Props::default(), None)?;
+    system.scheduler().start_timer_with_fixed_delay_with(
+        None,
+        Duration::from_secs(1),
+        || Box::new(|| info!("hello world")),
+    );
     system.wait_termination().await;
     Ok(())
 }

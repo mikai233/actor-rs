@@ -8,7 +8,6 @@ use actor_derive::EmptyCodec;
 
 use crate::{Actor, Message};
 use crate::actor_ref::ActorRef;
-use crate::actor_ref::TActorRef;
 use crate::context::{ActorContext, Context};
 use crate::message::terminated::WatchTerminated;
 use crate::provider::{ActorRefFactory, TActorRefProvider};

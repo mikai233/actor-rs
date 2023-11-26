@@ -5,13 +5,13 @@ use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::actor_ref::remote_ref::RemoteActorRef;
+use crate::actor_ref::remote_ref::{Inner, RemoteActorRef};
 use crate::props::Props;
-use crate::provider::{ActorRefFactory, TActorRefProvider};
+use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::provider::local_provider::LocalActorRefProvider;
 use crate::system::ActorSystem;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct RemoteActorRefProvider {
     pub(crate) local: LocalActorRefProvider,
     pub(crate) transport: ActorRef,
@@ -20,9 +20,9 @@ pub struct RemoteActorRefProvider {
 impl RemoteActorRefProvider {
     pub(crate) fn init(system: &ActorSystem) -> anyhow::Result<()> {
         let local = LocalActorRefProvider::new(&system)?;
-        let transport = local.spawn_tcp_transport()?;
-        let provider = Self { local, transport };
-        *system.provider_rw().write().unwrap() = provider.into();
+        let transport = local.start_tcp_transport()?;
+        let provider: ActorRefProvider = Self { local, transport }.into();
+        system.provider.store(Arc::new(provider));
         Ok(())
     }
 }
@@ -74,7 +74,7 @@ impl TActorRefProvider for RemoteActorRefProvider {
         where
             T: Actor,
     {
-        //TODO remote spawn
+        // TODO remote spawn
         self.local.actor_of(actor, arg, props, supervisor)
     }
 
@@ -85,10 +85,13 @@ impl TActorRefProvider for RemoteActorRefProvider {
             let system = self.system_guardian().system.clone();
             let provider = system.provider();
             let remote = provider.remote_or_panic();
-            let remote = RemoteActorRef {
+            let inner = Inner {
                 system: self.system_guardian().system.clone(),
                 path: path.clone(),
                 transport: Arc::new(remote.transport.clone()),
+            };
+            let remote = RemoteActorRef {
+                inner: inner.into()
             };
             remote.into()
         }

@@ -4,9 +4,11 @@ use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use arc_swap::{ArcSwap, ArcSwapOption};
 use etcd_client::Client;
 use futures::FutureExt;
 use tokio::runtime::Runtime;
+use tokio::sync::oneshot::{channel, Receiver, Sender};
 
 use crate::Actor;
 use crate::actor_path::{ActorPath, TActorPath};
@@ -21,14 +23,15 @@ use crate::provider::empty_provider::EmptyActorRefProvider;
 use crate::provider::remote_provider::RemoteActorRefProvider;
 use crate::system::config::{Config, EtcdConfig};
 use crate::system::root_guardian::{AddShutdownHook, Shutdown};
+use crate::system::timer_scheduler::{TimerScheduler, TimerSchedulerActor};
 
 pub mod root_guardian;
 pub(crate) mod system_guardian;
 pub(crate) mod user_guardian;
-mod timer_scheduler;
+pub(crate) mod timer_scheduler;
 pub mod config;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ActorSystem {
     inner: Arc<Inner>,
 }
@@ -36,22 +39,26 @@ pub struct ActorSystem {
 pub struct Inner {
     address: Address,
     start_time: u128,
-    provider: RwLock<ActorRefProvider>,
-    reg: MessageRegistration,
+    pub(crate) provider: ArcSwap<ActorRefProvider>,
+    registration: MessageRegistration,
     runtime: Runtime,
     client: Client,
+    signal: RwLock<(Option<Sender<()>>, Option<Receiver<()>>)>,
+    scheduler: ArcSwapOption<TimerScheduler>,
+    event_bus: ArcSwapOption<SystemEventBus>,
 }
 
-impl Debug for Inner {
+impl Debug for ActorSystem {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Inner")
+        f.debug_struct("ActorSystem")
             .field("address", &self.address)
             .field("start_time", &self.start_time)
             .field("provider", &self.provider)
-            .field("reg", &self.reg)
+            .field("reg", &self.registration)
             .field("runtime", &self.runtime)
-            // .field("event_bus", &self.event_bus)
             .field("client", &"..")
+            .field("scheduler", &self.scheduler)
+            .field("event_bus", &self.event_bus)
             .finish()
     }
 }
@@ -79,18 +86,24 @@ impl ActorSystem {
             .thread_name("actor-pool")
             .build()
             .expect("Failed building the Runtime");
+        let (tx, rx) = channel();
         let inner = Inner {
             start_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
             address,
-            provider: RwLock::new(EmptyActorRefProvider.into()),
-            reg,
+            provider: ArcSwap::new(Arc::new(EmptyActorRefProvider::default().into())),
+            registration: reg,
             runtime,
             client,
+            signal: RwLock::new((Some(tx), Some(rx))),
+            scheduler: ArcSwapOption::new(None),
+            event_bus: ArcSwapOption::new(None),
         };
         let system = Self {
             inner: inner.into(),
         };
         RemoteActorRefProvider::init(&system)?;
+        system.init_event_bus()?;
+        system.init_scheduler()?;
         Ok(system)
     }
     pub fn name(&self) -> &String {
@@ -114,15 +127,36 @@ impl ActorSystem {
     }
 
     pub fn terminate(&self) {
-        self.guardian().stop();
+        if let Some(tx) = self.signal.write().unwrap().0.take() {
+            let _ = tx.send(());
+        }
     }
 
     pub async fn wait_termination(&self) {
-        tokio::select! {
-            _ = tokio::signal::ctrl_c() => {
-                let (tx, mut rx) = tokio::sync::oneshot::channel();
-                self.provider().root_guardian().cast_async(Shutdown { signal: tx }, ActorRef::no_sender());
-                let _ = rx.await;
+        let rx = self.signal.write().unwrap().1.take();
+        let guardian = self.provider().root_guardian().clone();
+        async fn stop(guardian: LocalActorRef) {
+            let (tx, rx) = channel();
+            guardian.cast_async(Shutdown { signal: tx }, ActorRef::no_sender());
+            let _ = rx.await;
+        }
+        match rx {
+            None => {
+                tokio::select! {
+                    _ = tokio::signal::ctrl_c() => {
+                        stop(guardian).await;
+                    }
+                }
+            }
+            Some(rx) => {
+                tokio::select! {
+                    _ = tokio::signal::ctrl_c() => {
+                        stop(guardian).await;
+                    }
+                    _ = rx => {
+                        stop(guardian).await;
+                    }
+                }
             }
         }
     }
@@ -131,15 +165,11 @@ impl ActorSystem {
         self.provider().system_guardian().clone()
     }
 
-    pub(crate) fn provider_rw(&self) -> &RwLock<ActorRefProvider> {
-        &self.provider
-    }
-
     pub(crate) fn registration(&self) -> &MessageRegistration {
-        &self.reg
+        &self.registration
     }
 
-    pub fn rt(&self) -> &Runtime {
+    pub fn runtime(&self) -> &Runtime {
         &self.runtime
     }
 
@@ -147,16 +177,19 @@ impl ActorSystem {
         where
             F: Future + Send + 'static,
             F::Output: Send + 'static, {
-        self.rt().spawn(future)
+        self.runtime().spawn(future)
     }
 
     pub(crate) fn system_actor_of<T>(&self, actor: T, arg: T::A, name: Option<String>, props: Props) -> anyhow::Result<ActorRef> where T: Actor {
         self.system_guardian().attach_child(actor, arg, name, props)
     }
 
-    pub fn event_bus(&self) -> &SystemEventBus {
-        // &self.event_bus
-        todo!()
+    pub fn event_bus(&self) -> Arc<SystemEventBus> {
+        unsafe { self.event_bus.load().as_ref().unwrap_unchecked().clone() }
+    }
+
+    pub fn scheduler(&self) -> Arc<TimerScheduler> {
+        unsafe { self.scheduler.load().as_ref().unwrap_unchecked().clone() }
     }
 
     pub fn eclient(&self) -> &Client {
@@ -166,6 +199,19 @@ impl ActorSystem {
     pub fn add_shutdown_hook<F>(&self, fut: F) where F: Future<Output=()> + Send + 'static {
         self.provider().root_guardian().cast(AddShutdownHook { fut: fut.boxed() }, ActorRef::no_sender());
     }
+
+    fn init_event_bus(&self) -> anyhow::Result<()> {
+        let event_bus = SystemEventBus::new(self)?;
+        self.event_bus.store(Some(event_bus.into()));
+        Ok(())
+    }
+
+    fn init_scheduler(&self) -> anyhow::Result<()> {
+        let timers = self.system_guardian().attach_child(TimerSchedulerActor, (), Some("timers".to_string()), Props::default())?;
+        let scheduler = TimerScheduler::with_actor(timers);
+        self.scheduler.store(Some(scheduler.into()));
+        Ok(())
+    }
 }
 
 impl ActorRefFactory for ActorSystem {
@@ -173,8 +219,8 @@ impl ActorRefFactory for ActorSystem {
         &self
     }
 
-    fn provider(&self) -> ActorRefProvider {
-        self.provider.read().unwrap().clone()
+    fn provider(&self) -> Arc<ActorRefProvider> {
+        self.provider.load_full()
     }
 
     fn guardian(&self) -> LocalActorRef {

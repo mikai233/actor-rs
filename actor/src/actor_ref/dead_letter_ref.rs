@@ -1,4 +1,6 @@
 use std::fmt::{Debug, Formatter};
+use std::ops::Deref;
+use std::sync::Arc;
 use tracing::info;
 
 use crate::actor_path::ActorPath;
@@ -8,8 +10,20 @@ use crate::system::ActorSystem;
 
 #[derive(Clone)]
 pub struct DeadLetterActorRef {
+    pub(crate) inner: Arc<Inner>,
+}
+
+pub struct Inner {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
+}
+
+impl Deref for DeadLetterActorRef {
+    type Target = Arc<Inner>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl Debug for DeadLetterActorRef {

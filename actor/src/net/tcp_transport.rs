@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use async_trait::async_trait;
 
 use futures::StreamExt;
@@ -70,11 +71,11 @@ pub(crate) struct TcpTransport {
     pub(crate) connections: HashMap<SocketAddr, ConnectionSender>,
     pub(crate) actor_ref_cache: Cache<SerializedActorRef, ActorRef>,
     pub(crate) listener: Option<JoinHandle<()>>,
-    pub(crate) provider: ActorRefProvider,
+    pub(crate) provider: Arc<ActorRefProvider>,
 }
 
 impl TcpTransport {
-    pub fn new(provider: ActorRefProvider) -> Self {
+    pub fn new(provider: Arc<ActorRefProvider>) -> Self {
         Self {
             connections: HashMap::new(),
             actor_ref_cache: Cache::new(1000),

@@ -1,7 +1,6 @@
-#![feature(exclusive_range_pattern)]
-
 use std::any::Any;
 use std::fmt::{Debug, Formatter};
+use std::panic::UnwindSafe;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -32,9 +31,10 @@ pub mod delegate;
 pub mod message;
 pub mod context;
 mod event;
+pub mod routing;
 
 #[async_trait]
-pub trait Actor: Send + Sync + Sized + 'static {
+pub trait Actor: Send + Sync + Sized + UnwindSafe + 'static {
     type S: State;
     type A: Arg;
     async fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S>;

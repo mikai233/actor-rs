@@ -5,7 +5,7 @@ use crate::actor_ref::local_ref::LocalActorRef;
 use crate::props::Props;
 use crate::provider::TActorRefProvider;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default)]
 pub struct EmptyActorRefProvider;
 
 impl TActorRefProvider for EmptyActorRefProvider {

@@ -39,7 +39,6 @@ impl CodecMessage for DeathWatchNotification {
 #[async_trait]
 impl SystemMessage for DeathWatchNotification {
     async fn handle(self: Box<Self>, context: &mut ActorContext) -> anyhow::Result<()> {
-        //TODO 当停止的Actor是本地Actor时，此时用resolve_actor_ref是拿不到ActorRef的引用的，只能拿到DeadLetterRef，这个时候就不正确了
         context.watched_actor_terminated(self.0);
         Ok(())
     }

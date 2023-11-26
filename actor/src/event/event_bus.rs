@@ -15,7 +15,7 @@ use crate::message::terminated::WatchTerminated;
 use crate::props::Props;
 use crate::system::ActorSystem;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SystemEventBus {
     event_bus: ActorRef,
 }

@@ -10,7 +10,7 @@ use tracing::{debug, error, warn};
 use crate::{Actor, DynamicMessage, Message, UntypedMessage, UserDelegate};
 use crate::actor_path::{ActorPath, ChildActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, ActorRefSystemExt, Cell, TActorRef};
-use crate::actor_ref::function_ref::FunctionRef;
+use crate::actor_ref::function_ref::{FunctionRef, Inner};
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::ext::random_name;
 use crate::message::death_watch_notification::DeathWatchNotification;
@@ -63,7 +63,7 @@ impl ActorRefFactory for ActorContext {
         &self.system
     }
 
-    fn provider(&self) -> ActorRefProvider {
+    fn provider(&self) -> Arc<ActorRefProvider> {
         self.system.provider()
     }
 
@@ -301,10 +301,13 @@ impl ActorContext {
         }
         let child_path = ChildActorPath::new(self.myself.path().clone(), n, ActorPath::new_uid());
         let name = child_path.name().clone();
-        let function_ref = FunctionRef {
+        let inner = Inner {
             system: self.system.clone(),
             path: child_path.into(),
             message_handler: Arc::new(Box::new(f)),
+        };
+        let function_ref = FunctionRef {
+            inner: inner.into(),
         };
         self.myself.local_or_panic().underlying().add_function_ref(name, function_ref.clone());
         function_ref

@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Formatter};
-use std::ops::Not;
+use std::ops::{Deref, Not};
 use std::sync::Arc;
 
 use dashmap::DashMap;
@@ -14,10 +14,22 @@ use crate::system::ActorSystem;
 
 #[derive(Clone)]
 pub struct VirtualPathContainer {
+    pub(crate) inner: Arc<Inner>,
+}
+
+pub struct Inner {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) parent: Box<ActorRef>,
     pub(crate) children: Arc<DashMap<String, ActorRef>>,
+}
+
+impl Deref for VirtualPathContainer {
+    type Target = Arc<Inner>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl Debug for VirtualPathContainer {

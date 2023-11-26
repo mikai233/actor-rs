@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::actor_path::ActorPath;
@@ -8,9 +9,21 @@ use crate::system::ActorSystem;
 
 #[derive(Clone)]
 pub struct FunctionRef {
+    pub(crate) inner: Arc<Inner>,
+}
+
+pub struct Inner {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) message_handler: Arc<Box<dyn Fn(DynamicMessage, Option<ActorRef>) + Send + Sync + 'static>>,
+}
+
+impl Deref for FunctionRef {
+    type Target = Arc<Inner>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl Debug for FunctionRef {
@@ -23,7 +36,7 @@ impl Debug for FunctionRef {
     }
 }
 
-impl TActorRef for FunctionRef where {
+impl TActorRef for FunctionRef {
     fn system(&self) -> ActorSystem {
         self.system.clone()
     }

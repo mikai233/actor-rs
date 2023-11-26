@@ -304,10 +304,10 @@ impl TimerScheduler {
         })
     }
 
-    pub fn with_actor(actor: ActorRef) -> Self {
+    pub fn with_actor(timers: ActorRef) -> Self {
         Self {
             index: AtomicU64::new(0),
-            scheduler_actor: actor,
+            scheduler_actor: timers,
         }
     }
 

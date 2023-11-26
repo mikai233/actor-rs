@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use std::ops::Deref;
 use std::sync::Arc;
 
 use tracing::error;
@@ -13,9 +14,21 @@ use crate::system::ActorSystem;
 
 #[derive(Clone)]
 pub struct RemoteActorRef {
+    pub(crate) inner: Arc<Inner>,
+}
+
+pub struct Inner {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) transport: Arc<ActorRef>,
+}
+
+impl Deref for RemoteActorRef {
+    type Target = Arc<Inner>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl Debug for RemoteActorRef {
@@ -86,10 +99,13 @@ impl TActorRef for RemoteActorRef {
             }
             Some("..") => None,
             Some(_) => {
-                let remote_ref = RemoteActorRef {
+                let inner = Inner {
                     system: self.system(),
                     path: self.path().descendant(names),
                     transport: self.transport.clone(),
+                };
+                let remote_ref = RemoteActorRef {
+                    inner: inner.into(),
                 };
                 Some(remote_ref.into())
             }

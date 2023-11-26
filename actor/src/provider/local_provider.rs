@@ -1,4 +1,3 @@
-use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::Actor;
@@ -8,6 +7,7 @@ use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::cell::ActorCell;
+use crate::event::event_bus::SystemEventBus;
 use crate::ext::random_actor_name;
 use crate::net::tcp_transport::TransportActor;
 use crate::props::Props;
@@ -15,15 +15,11 @@ use crate::provider::TActorRefProvider;
 use crate::system::ActorSystem;
 use crate::system::root_guardian::RootGuardian;
 use crate::system::system_guardian::SystemGuardian;
+use crate::system::timer_scheduler::{TimerScheduler, TimerSchedulerActor};
 use crate::system::user_guardian::UserGuardian;
 
-#[derive(Debug, Clone)]
-pub struct LocalActorRefProvider {
-    inner: Arc<Inner>,
-}
-
 #[derive(Debug)]
-pub struct Inner {
+pub struct LocalActorRefProvider {
     root_path: ActorPath,
     root_guardian: LocalActorRef,
     user_guardian: LocalActorRef,
@@ -33,57 +29,57 @@ pub struct Inner {
     temp_container: VirtualPathContainer,
 }
 
-impl Deref for LocalActorRefProvider {
-    type Target = Arc<Inner>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
 impl LocalActorRefProvider {
     pub(crate) fn new(system: &ActorSystem) -> anyhow::Result<Self> {
         let root_path = RootActorPath::new(system.address().clone(), "/".to_string());
         let root_props = Props::default();
         let (sender, mailbox) = root_props.mailbox();
-        let root_guardian = LocalActorRef {
+        let inner = crate::actor_ref::local_ref::Inner {
             system: system.clone(),
             path: root_path.clone().into(),
             sender,
             cell: ActorCell::new(None),
         };
+        let root_guardian = LocalActorRef {
+            inner: inner.into(),
+        };
         root_guardian.start(RootGuardian, (), root_props, mailbox);
         let system_guardian = root_guardian.attach_child(SystemGuardian, (), Some("system".to_string()), Props::default())?;
+        let system_guardian = system_guardian.local_or_panic();
         let user_guardian = root_guardian.attach_child(UserGuardian, (), Some("user".to_string()), Props::default())?;
-        let dead_letters = DeadLetterActorRef {
+        let user_guardian = user_guardian.local_or_panic();
+        let inner = crate::actor_ref::dead_letter_ref::Inner {
             system: system.clone(),
             path: root_path.child("deadLetters"),
         };
+        let dead_letters = DeadLetterActorRef {
+            inner: inner.into(),
+        };
         // root_guardian.cell.children().write().unwrap().insert(dead_letters.path.name().clone(), dead_letters.clone().into());
         let temp_node = root_path.child("temp");
-        let temp_container = VirtualPathContainer {
+        let inner = crate::actor_ref::virtual_path_container::Inner {
             system: system.clone(),
             path: temp_node.clone(),
             parent: Box::new(root_guardian.clone().into()),
             children: Arc::new(Default::default()),
         };
+        let temp_container = VirtualPathContainer {
+            inner: inner.into(),
+        };
         root_guardian.cell.children().write().unwrap().insert(temp_node.name().clone(), temp_container.clone().into());
-        let inner = Inner {
+        let provider = LocalActorRefProvider {
             root_path: root_path.into(),
             root_guardian,
-            user_guardian: user_guardian.local_or_panic().clone().into(),
-            system_guardian: system_guardian.local_or_panic().clone().into(),
+            user_guardian: user_guardian.clone().into(),
+            system_guardian: system_guardian.clone().into(),
             dead_letters: dead_letters.into(),
             temp_node,
             temp_container,
         };
-        let provider = Self {
-            inner: inner.into(),
-        };
         Ok(provider)
     }
 
-    pub(crate) fn spawn_tcp_transport(&self) -> anyhow::Result<ActorRef> {
+    pub(crate) fn start_tcp_transport(&self) -> anyhow::Result<ActorRef> {
         let transport_ref = self
             .system_guardian()
             .attach_child(
@@ -123,7 +119,7 @@ impl TActorRefProvider for LocalActorRefProvider {
             builder.push_str(prefix.unwrap().as_str());
         }
         builder.push_str(random_actor_name().as_str());
-        self.inner.temp_node.child(&builder)
+        self.temp_node.child(&builder)
     }
 
     fn temp_container(&self) -> ActorRef {
@@ -131,12 +127,12 @@ impl TActorRefProvider for LocalActorRefProvider {
     }
 
     fn register_temp_actor(&self, actor: ActorRef, path: &ActorPath) {
-        assert_eq!(path.parent(), self.inner.temp_node, "cannot register_temp_actor() with anything not obtained from temp_path()");
+        assert_eq!(path.parent(), self.temp_node, "cannot register_temp_actor() with anything not obtained from temp_path()");
         self.temp_container.add_child(path.name().to_string(), actor);
     }
 
     fn unregister_temp_actor(&self, path: &ActorPath) {
-        assert_eq!(path.parent(), self.inner.temp_node, "cannot unregister_temp_actor() with anything not obtained from temp_path()");
+        assert_eq!(path.parent(), self.temp_node, "cannot unregister_temp_actor() with anything not obtained from temp_path()");
         self.temp_container.remove_child(path.name());
     }
 
@@ -164,7 +160,7 @@ impl TActorRefProvider for LocalActorRefProvider {
     }
 
     fn dead_letters(&self) -> &ActorRef {
-        &self.inner.dead_letters
+        &self.dead_letters
     }
 }
 
