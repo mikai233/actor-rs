@@ -27,12 +27,12 @@ impl Actor for RootGuardian {
     type S = State;
     type A = ();
 
-    async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         debug!("{} pre start", context.myself());
         Ok(State::default())
     }
 
-    async fn post_stop(&self, context: &mut ActorContext, state: &mut Self::S) -> anyhow::Result<()> {
+    async fn post_stop(context: &mut ActorContext, state: &mut Self::S) -> anyhow::Result<()> {
         debug!("{} post stop", context.myself());
         if let Some(signal) = state.shutdown_signal.take() {
             let _ = signal.send(());

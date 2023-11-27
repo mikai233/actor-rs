@@ -45,7 +45,7 @@ impl TActorRefProvider for EmptyActorRefProvider {
         panic!("unreachable");
     }
 
-    fn actor_of<T>(&self, _actor: T, _arg: T::A, _props: Props, _supervisor: &ActorRef) -> anyhow::Result<ActorRef> where T: Actor {
+    fn actor_of<T>(&self, _props: Props<T>, _supervisor: &ActorRef) -> anyhow::Result<ActorRef> where T: Actor {
         panic!("unreachable");
     }
 

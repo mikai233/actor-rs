@@ -17,7 +17,7 @@ use crate::actor_ref::local_ref::LocalActorRef;
 use crate::address::Address;
 use crate::event::event_bus::SystemEventBus;
 use crate::message::MessageRegistration;
-use crate::props::Props;
+use crate::props::{noarg_props, Props};
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 use crate::provider::empty_provider::EmptyActorRefProvider;
 use crate::provider::remote_provider::RemoteActorRefProvider;
@@ -180,8 +180,8 @@ impl ActorSystem {
         self.runtime().spawn(future)
     }
 
-    pub(crate) fn system_actor_of<T>(&self, actor: T, arg: T::A, name: Option<String>, props: Props) -> anyhow::Result<ActorRef> where T: Actor {
-        self.system_guardian().attach_child(actor, arg, name, props)
+    pub(crate) fn system_actor_of<T>(&self, props: Props<T>, name: Option<String>) -> anyhow::Result<ActorRef> where T: Actor {
+        self.system_guardian().attach_child(props, name)
     }
 
     pub fn event_bus(&self) -> Arc<SystemEventBus> {
@@ -207,7 +207,7 @@ impl ActorSystem {
     }
 
     fn init_scheduler(&self) -> anyhow::Result<()> {
-        let timers = self.system_guardian().attach_child(TimerSchedulerActor, (), Some("timers".to_string()), Props::default())?;
+        let timers = self.system_guardian().attach_child(noarg_props::<TimerSchedulerActor>(), Some("timers".to_string()))?;
         let scheduler = TimerScheduler::with_actor(timers);
         self.scheduler.store(Some(scheduler.into()));
         Ok(())
@@ -231,17 +231,11 @@ impl ActorRefFactory for ActorSystem {
         self.provider().root_guardian().clone().into()
     }
 
-    fn actor_of<T>(
-        &self,
-        actor: T,
-        arg: T::A,
-        props: Props,
-        name: Option<String>,
-    ) -> anyhow::Result<ActorRef>
+    fn actor_of<T>(&self, props: Props<T>, name: Option<String>) -> anyhow::Result<ActorRef>
         where
             T: Actor,
     {
-        self.guardian().attach_child(actor, arg, name, props)
+        self.guardian().attach_child(props, name)
     }
 
     fn stop(&self, actor: &ActorRef) {
@@ -278,7 +272,7 @@ mod system_test {
     use crate::{EmptyTestActor, EmptyTestMessage};
     use crate::actor_path::TActorPath;
     use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
-    use crate::props::Props;
+    use crate::props::noarg_props;
     use crate::provider::ActorRefFactory;
     use crate::system::ActorSystem;
     use crate::system::config::Config;
@@ -288,7 +282,7 @@ mod system_test {
         let system = ActorSystem::create(Config::default()).await?;
         for i in 0..10 {
             let name = format!("testActor{}", i);
-            let actor = system.actor_of(EmptyTestActor, (), Props::default(), Some(name))?;
+            let actor = system.actor_of(noarg_props::<EmptyTestActor>(), Some(name))?;
             let elements: Vec<String> = actor.path().elements();
             info!("{:?}", elements);
             tokio::spawn(async move {

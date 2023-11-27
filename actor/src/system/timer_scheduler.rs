@@ -16,7 +16,7 @@ use actor_derive::EmptyCodec;
 use crate::{Actor, DynamicMessage, Message};
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::context::{ActorContext, Context};
-use crate::props::Props;
+use crate::props::noarg_props;
 use crate::provider::ActorRefFactory;
 
 #[derive(Debug)]
@@ -33,7 +33,7 @@ impl Actor for TimerSchedulerActor {
     type S = State;
     type A = ();
 
-    async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         let myself = context.myself();
         debug!("{} pre start", myself);
         let waker = futures::task::waker(Arc::new(SchedulerWaker { scheduler: myself.clone() }));
@@ -297,7 +297,7 @@ pub struct TimerScheduler {
 
 impl TimerScheduler {
     pub fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
-        let actor = context.actor_of(TimerSchedulerActor, (), Props::default(), Some("timer_scheduler".to_string()))?;
+        let actor = context.actor_of(noarg_props::<TimerSchedulerActor>(), Some("timer_scheduler".to_string()))?;
         Ok(Self {
             index: AtomicU64::new(0),
             scheduler_actor: actor,
@@ -403,11 +403,11 @@ mod scheduler_test {
 
     use crate::{Actor, DynamicMessage, EmptyTestActor, Message};
     use crate::context::{ActorContext, Context};
-    use crate::props::Props;
+    use crate::props::noarg_props;
     use crate::provider::ActorRefFactory;
     use crate::system::ActorSystem;
     use crate::system::config::Config;
-    use crate::system::timer_scheduler::{Schedule, TimerScheduler, TimerSchedulerActor};
+    use crate::system::timer_scheduler::{TimerScheduler, TimerSchedulerActor};
 
     #[derive(Debug, EmptyCodec)]
     struct OnOnceSchedule;
@@ -436,15 +436,9 @@ mod scheduler_test {
     #[tokio::test]
     async fn test_scheduler() -> anyhow::Result<()> {
         let system = ActorSystem::create(Config::default()).await?;
-        let scheduler_actor = system.actor_of(TimerSchedulerActor, (), Props::default(), None)?;
+        let scheduler_actor = system.actor_of(noarg_props::<TimerSchedulerActor>(), None)?;
         let scheduler = TimerScheduler::with_actor(scheduler_actor);
-        let actor = system.actor_of(EmptyTestActor, (), Props::default(), None)?;
-        let once = Schedule::Once {
-            index: 0,
-            delay: Duration::from_secs(1),
-            message: DynamicMessage::user(OnOnceSchedule),
-            receiver: actor.clone(),
-        };
+        let actor = system.actor_of(noarg_props::<EmptyTestActor>(), None)?;
         scheduler.start_single_timer(
             Duration::from_secs(1),
             DynamicMessage::user(OnOnceSchedule),

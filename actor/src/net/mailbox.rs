@@ -5,6 +5,7 @@ use crate::cell::envelope::Envelope;
 pub(crate) struct Mailbox {
     pub(crate) message: Receiver<Envelope>,
     pub(crate) system: Receiver<Envelope>,
+    pub(crate) throughput: usize,
 }
 
 impl Mailbox {

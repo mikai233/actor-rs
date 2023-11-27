@@ -6,7 +6,7 @@ use crate::{BoxedMessage, CodecMessage, DynamicMessage, SystemMessage};
 use crate::context::ActorContext;
 use crate::decoder::MessageDecoder;
 
-pub struct SystemDelegate {
+pub(crate) struct SystemDelegate {
     pub(crate) name: &'static str,
     pub(crate) message: Box<dyn SystemMessage>,
 }

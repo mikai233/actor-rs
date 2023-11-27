@@ -75,13 +75,7 @@ impl ActorRefFactory for ActorContext {
         self.myself().clone()
     }
 
-    fn actor_of<T>(
-        &self,
-        actor: T,
-        arg: T::A,
-        props: Props,
-        name: Option<String>,
-    ) -> anyhow::Result<ActorRef>
+    fn actor_of<T>(&self, props: Props<T>, name: Option<String>) -> anyhow::Result<ActorRef>
         where
             T: Actor,
     {
@@ -91,7 +85,7 @@ impl ActorRefFactory for ActorContext {
                 self.myself
             ));
         }
-        self.myself.local_or_panic().attach_child(actor, arg, name, props)
+        self.myself.local_or_panic().attach_child(props, name)
     }
 
     fn stop(&self, actor: &ActorRef) {

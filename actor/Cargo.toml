@@ -26,6 +26,7 @@ tracing-subscriber = { version = "0.3", features = ["local-time"] }
 moka = { version = "0.12", features = ["sync"] }
 async-trait = "0.1.74"
 arc-swap = "1.6"
+dyn-clone = "1.0"
 
 [dev-dependencies]
 ctor = "0.2"

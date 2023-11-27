@@ -1,9 +1,9 @@
 use std::any::Any;
 use std::fmt::{Debug, Formatter};
-use std::panic::UnwindSafe;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
+use dyn_clone::DynClone;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
@@ -32,15 +32,16 @@ pub mod message;
 pub mod context;
 mod event;
 pub mod routing;
+mod indirect_actor_producer;
 
 #[async_trait]
-pub trait Actor: Send + Sync + Sized + UnwindSafe + 'static {
+pub trait Actor: Send + Sync + Sized + 'static {
     type S: State;
     type A: Arg;
-    async fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S>;
+    async fn pre_start(context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S>;
 
     #[allow(unused_variables)]
-    async fn post_stop(&self, context: &mut ActorContext, state: &mut Self::S) -> anyhow::Result<()> {
+    async fn post_stop(context: &mut ActorContext, state: &mut Self::S) -> anyhow::Result<()> {
         Ok(())
     }
 }
@@ -167,9 +168,9 @@ pub trait State: Any + Send {}
 
 impl<T> State for T where T: Any + Send {}
 
-pub trait Arg: Any + Send {}
+pub trait Arg: Any + Send + DynClone {}
 
-impl<T> Arg for T where T: Any + Send {}
+impl<T> Arg for T where T: Any + Send + DynClone {}
 
 #[derive(Debug)]
 pub(crate) struct EmptyTestActor;
@@ -179,12 +180,12 @@ impl Actor for EmptyTestActor {
     type S = ();
     type A = ();
 
-    async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         info!("{} pre start", context.myself());
         Ok(())
     }
 
-    async fn post_stop(&self, context: &mut ActorContext, _state: &mut Self::S) -> anyhow::Result<()> {
+    async fn post_stop(context: &mut ActorContext, _state: &mut Self::S) -> anyhow::Result<()> {
         info!("{} post stop", context.myself());
         Ok(())
     }
@@ -222,7 +223,7 @@ mod actor_test {
     use crate::context::{ActorContext, Context};
     use crate::ext::init_logger;
     use crate::message::terminated::WatchTerminated;
-    use crate::props::Props;
+    use crate::props::{noarg_props, props};
     use crate::provider::{ActorRefFactory, TActorRefProvider};
     use crate::system::ActorSystem;
     use crate::system::config::Config;
@@ -242,25 +243,25 @@ mod actor_test {
             type S = ();
             type A = usize;
 
-            async fn pre_start(&self, context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
+            async fn pre_start(context: &mut ActorContext, arg: Self::A) -> anyhow::Result<Self::S> {
                 info!("actor {} pre start", context.myself);
                 for _ in 0..3 {
                     let n = arg - 1;
                     if n > 0 {
-                        context.actor_of(DeathWatchActor, arg - 1, Props::default(), None)?;
+                        context.actor_of(props::<DeathWatchActor>(arg - 1), None)?;
                     }
                 }
                 Ok(())
             }
 
-            async fn post_stop(&self, context: &mut ActorContext, _state: &mut Self::S) -> anyhow::Result<()> {
+            async fn post_stop(context: &mut ActorContext, _state: &mut Self::S) -> anyhow::Result<()> {
                 info!("actor {} post stop",context.myself);
                 Ok(())
             }
         }
 
         let system = ActorSystem::create(Config::default()).await?;
-        let actor = system.actor_of(DeathWatchActor, 3, Props::default(), None)?;
+        let actor = system.actor_of(props::<DeathWatchActor>(3), None)?;
         tokio::time::sleep(Duration::from_secs(1)).await;
         system.stop(&actor);
         tokio::time::sleep(Duration::from_secs(3)).await;
@@ -330,9 +331,9 @@ mod actor_test {
 
         let system1 = ActorSystem::create(build_config("127.0.0.1:12121".parse()?)).await?;
         let system2 = ActorSystem::create(build_config("127.0.0.1:12122".parse()?)).await?;
-        let system1_actor = system1.actor_of(EmptyTestActor, (), Props::default(), None)?;
-        let system2_actor1 = system2.actor_of(EmptyTestActor, (), Props::default(), None)?;
-        let system2_actor2 = system2.actor_of(EmptyTestActor, (), Props::default(), None)?;
+        let system1_actor = system1.actor_of(noarg_props::<EmptyTestActor>(), None)?;
+        let system2_actor1 = system2.actor_of(noarg_props::<EmptyTestActor>(), None)?;
+        let system2_actor2 = system2.actor_of(noarg_props::<EmptyTestActor>(), None)?;
         tokio::time::sleep(Duration::from_secs(1)).await;
         system1_actor.cast(WatchFor { actor: system2_actor1.clone() }, None);
         system1_actor.cast(WatchFor { actor: system2_actor2.clone() }, None);
@@ -390,7 +391,7 @@ mod actor_test {
 
         let system1 = ActorSystem::create(build_config("127.0.0.1:12121".parse()?)).await?;
         let system2 = ActorSystem::create(build_config("127.0.0.1:12123".parse()?)).await?;
-        let actor_a = system1.actor_of(EmptyTestActor, (), Props::default(), None)?;
+        let actor_a = system1.actor_of(noarg_props::<EmptyTestActor>(), None)?;
         let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
         let start = SystemTime::now();
         for _ in 0..10000 {
@@ -426,7 +427,7 @@ mod actor_test {
             type S = ();
             type A = ();
 
-            async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+            async fn pre_start(context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
                 let adapter = context.message_adapter::<TestUntyped>(|_| {
                     Ok(DynamicMessage::user(TestMessage))
                 });
@@ -441,7 +442,7 @@ mod actor_test {
             config
         }
         let system = ActorSystem::create(build_config()).await?;
-        system.actor_of(AdapterActor, (), Props::default(), None)?;
+        system.actor_of(noarg_props::<AdapterActor>(), None)?;
         tokio::time::sleep(Duration::from_secs(3)).await;
         Ok(())
     }

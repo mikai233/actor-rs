@@ -12,7 +12,7 @@ use crate::actor_ref::TActorRef;
 use crate::context::{ActorContext, Context};
 use crate::event::EventBus;
 use crate::message::terminated::WatchTerminated;
-use crate::props::Props;
+use crate::props::noarg_props;
 use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
@@ -22,7 +22,7 @@ pub struct SystemEventBus {
 
 impl SystemEventBus {
     pub(crate) fn new(system: &ActorSystem) -> anyhow::Result<Self> {
-        let event_bus = system.system_actor_of(EventBusActor, (), Some("system_event_bus".to_string()), Props::default())?;
+        let event_bus = system.system_actor_of(noarg_props::<EventBusActor>(), Some("system_event_bus".to_string()))?;
         Ok(Self {
             event_bus,
         })
@@ -58,7 +58,7 @@ impl Actor for EventBusActor {
     type S = HashMap<&'static str, HashSet<ActorRef>>;
     type A = ();
 
-    async fn pre_start(&self, _context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(_context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         Ok(HashMap::new())
     }
 }
@@ -186,7 +186,7 @@ mod actor_event_bus_test {
     use crate::context::{ActorContext, Context};
     use crate::event::event_bus::{EventBusActor, SystemEventBus};
     use crate::event::EventBus;
-    use crate::props::Props;
+    use crate::props::noarg_props;
     use crate::provider::ActorRefFactory;
     use crate::system::ActorSystem;
     use crate::system::config::Config;
@@ -218,10 +218,10 @@ mod actor_event_bus_test {
     #[tokio::test]
     async fn test_event_bus() -> anyhow::Result<()> {
         let system = ActorSystem::create(Config::default()).await?;
-        let actor1 = system.actor_of(EmptyTestActor, (), Props::default(), Some("actor1".to_string()))?;
-        let actor2 = system.actor_of(EmptyTestActor, (), Props::default(), Some("actor2".to_string()))?;
-        let actor3 = system.actor_of(EmptyTestActor, (), Props::default(), Some("actor3".to_string()))?;
-        let event_bus_actor = system.actor_of(EventBusActor, (), Props::default(), None)?;
+        let actor1 = system.actor_of(noarg_props::<EmptyTestActor>(), Some("actor1".to_string()))?;
+        let actor2 = system.actor_of(noarg_props::<EmptyTestActor>(), Some("actor2".to_string()))?;
+        let actor3 = system.actor_of(noarg_props::<EmptyTestActor>(), Some("actor3".to_string()))?;
+        let event_bus_actor = system.actor_of(noarg_props::<EventBusActor>(), None)?;
         let event_bus = SystemEventBus {
             event_bus: event_bus_actor,
         };

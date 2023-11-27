@@ -25,6 +25,7 @@ pub(crate) struct IDPacket {
     bytes: Vec<u8>,
 }
 
+#[derive(Clone)]
 pub struct MessageRegistration {
     pub id: u32,
     pub name_id: HashMap<&'static str, u32>,

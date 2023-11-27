@@ -30,6 +30,7 @@ impl CodecMessage for Unwatch {
     }
 
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+        #[derive(Clone)]
         struct D;
         impl MessageDecoder for D {
             fn decode(&self, provider: &ActorRefProvider, bytes: &[u8]) -> anyhow::Result<DynamicMessage> {

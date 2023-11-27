@@ -8,8 +8,8 @@ use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
 use crate::{Actor, DynamicMessage};
-use crate::actor_path::ChildActorPath;
 use crate::actor_path::ActorPath;
+use crate::actor_path::ChildActorPath;
 use crate::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
 use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
@@ -179,15 +179,15 @@ impl LocalActorRef {
         }
     }
 
-    pub(crate) fn attach_child<T>(&self, actor: T, arg: T::A, name: Option<String>, props: Props) -> anyhow::Result<ActorRef> where T: Actor {
+    pub(crate) fn attach_child<T>(&self, props: Props<T>, name: Option<String>) -> anyhow::Result<ActorRef> where T: Actor {
         if let Some(name) = &name {
             check_name(name)?;
         }
         let name = name.unwrap_or(random_actor_name());
-        self.make_child(actor, arg, name, props)
+        self.make_child(props, name)
     }
 
-    pub(crate) fn make_child<T>(&self, actor: T, arg: T::A, name: String, props: Props) -> anyhow::Result<ActorRef> where T: Actor {
+    pub(crate) fn make_child<T>(&self, props: Props<T>, name: String) -> anyhow::Result<ActorRef> where T: Actor {
         let (sender, mailbox) = props.mailbox();
         let path = ChildActorPath::new(self.path.clone(), name.clone(), ActorPath::new_uid()).into();
         let inner = Inner {
@@ -204,15 +204,13 @@ impl LocalActorRef {
             return Err(anyhow!("duplicate actor name {}", name));
         }
         children.insert(name, child_ref.clone().into());
-        child_ref.start(actor, arg, props, mailbox);
-        Ok(child_ref.clone().into())
+        child_ref.start::<T>(props.arg, mailbox);
+        Ok(child_ref.into())
     }
 
-    pub(crate) fn start<T>(&self, actor: T, arg: T::A, props: Props, mailbox: Mailbox) where T: Actor {
-        let rt = ActorRuntime {
+    pub(crate) fn start<T>(&self, arg: T::A, mailbox: Mailbox) where T: Actor {
+        let rt = ActorRuntime::<T> {
             myself: self.clone().into(),
-            handler: actor,
-            props,
             system: self.system(),
             mailbox,
             arg,

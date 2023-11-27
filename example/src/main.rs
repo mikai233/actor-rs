@@ -7,7 +7,7 @@ use tracing::{info, Level};
 use actor::{Actor, Message};
 use actor::context::ActorContext;
 use actor::ext::init_logger;
-use actor::props::Props;
+use actor::props::noarg_props;
 use actor::provider::ActorRefFactory;
 use actor::system::ActorSystem;
 use actor::system::config::Config;
@@ -45,7 +45,7 @@ impl Actor for ActorA {
     type S = ();
     type A = ();
 
-    async fn pre_start(&self, _context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(_context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         Ok(())
     }
 }
@@ -54,7 +54,7 @@ impl Actor for ActorA {
 async fn main() -> anyhow::Result<()> {
     init_logger(Level::DEBUG);
     let system = ActorSystem::create(Config::default()).await?;
-    system.actor_of(ActorA, (), Props::default(), None)?;
+    system.actor_of(noarg_props::<ActorA>(), None)?;
     system.scheduler().start_timer_with_fixed_delay_with(
         None,
         Duration::from_secs(1),

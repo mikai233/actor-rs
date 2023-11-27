@@ -44,13 +44,7 @@ pub trait TActorRefProvider: Send {
     fn temp_container(&self) -> ActorRef;
     fn register_temp_actor(&self, actor: ActorRef, path: &ActorPath);
     fn unregister_temp_actor(&self, path: &ActorPath);
-    fn actor_of<T>(
-        &self,
-        actor: T,
-        arg: T::A,
-        props: Props,
-        supervisor: &ActorRef,
-    ) -> anyhow::Result<ActorRef>
+    fn actor_of<T>(&self, props: Props<T>, supervisor: &ActorRef) -> anyhow::Result<ActorRef>
         where
             T: Actor;
     fn resolve_actor_ref(&self, path: impl AsRef<str>) -> ActorRef {
@@ -68,13 +62,7 @@ pub trait ActorRefFactory {
     fn provider(&self) -> Arc<ActorRefProvider>;
     fn guardian(&self) -> LocalActorRef;
     fn lookup_root(&self) -> ActorRef;
-    fn actor_of<T>(
-        &self,
-        actor: T,
-        arg: T::A,
-        props: Props,
-        name: Option<String>,
-    ) -> anyhow::Result<ActorRef>
+    fn actor_of<T>(&self, props: Props<T>, name: Option<String>) -> anyhow::Result<ActorRef>
         where
             T: Actor;
     fn actor_selection(&self, _path: String) {

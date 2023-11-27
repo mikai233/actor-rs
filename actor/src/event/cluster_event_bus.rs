@@ -31,20 +31,21 @@ impl Actor for ClusterEventBusActor {
     type S = State;
     type A = ();
 
-    async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
-        let mut client = context.system.eclient().clone();
-        let subscribers = match self.get_subscribers(context, &mut client).await {
-            Ok(subscribers) => subscribers,
-            Err(err) => {
-                error!("get cluster subscribers error {:?}", err);
-                HashMap::new()
-            }
-        };
-        let state = State {
-            client,
-            subscribers,
-        };
-        Ok(state)
+    async fn pre_start(context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+        todo!()
+        // let mut client = context.system.eclient().clone();
+        // let subscribers = match self.get_subscribers(context, &mut client).await {
+        //     Ok(subscribers) => subscribers,
+        //     Err(err) => {
+        //         error!("get cluster subscribers error {:?}", err);
+        //         HashMap::new()
+        //     }
+        // };
+        // let state = State {
+        //     client,
+        //     subscribers,
+        // };
+        // Ok(state)
     }
 }
 

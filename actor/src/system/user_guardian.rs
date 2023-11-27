@@ -31,7 +31,7 @@ impl Actor for UserGuardian {
     type S = ();
     type A = ();
 
-    async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         debug!("{} pre start", context.myself());
         context.parent().unwrap().cast(ChildGuardianStarted { guardian: context.myself.clone() }, ActorRef::no_sender());
         Ok(())

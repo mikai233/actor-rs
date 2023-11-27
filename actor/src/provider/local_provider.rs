@@ -7,15 +7,13 @@ use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::cell::ActorCell;
-use crate::event::event_bus::SystemEventBus;
 use crate::ext::random_actor_name;
 use crate::net::tcp_transport::TransportActor;
-use crate::props::Props;
+use crate::props::{noarg_props, Props};
 use crate::provider::TActorRefProvider;
 use crate::system::ActorSystem;
 use crate::system::root_guardian::RootGuardian;
 use crate::system::system_guardian::SystemGuardian;
-use crate::system::timer_scheduler::{TimerScheduler, TimerSchedulerActor};
 use crate::system::user_guardian::UserGuardian;
 
 #[derive(Debug)]
@@ -32,7 +30,7 @@ pub struct LocalActorRefProvider {
 impl LocalActorRefProvider {
     pub(crate) fn new(system: &ActorSystem) -> anyhow::Result<Self> {
         let root_path = RootActorPath::new(system.address().clone(), "/".to_string());
-        let root_props = Props::default();
+        let root_props = noarg_props::<RootGuardian>();
         let (sender, mailbox) = root_props.mailbox();
         let inner = crate::actor_ref::local_ref::Inner {
             system: system.clone(),
@@ -43,10 +41,10 @@ impl LocalActorRefProvider {
         let root_guardian = LocalActorRef {
             inner: inner.into(),
         };
-        root_guardian.start(RootGuardian, (), root_props, mailbox);
-        let system_guardian = root_guardian.attach_child(SystemGuardian, (), Some("system".to_string()), Props::default())?;
+        root_guardian.start::<RootGuardian>((), mailbox);
+        let system_guardian = root_guardian.attach_child(noarg_props::<SystemGuardian>(), Some("system".to_string()))?;
         let system_guardian = system_guardian.local_or_panic();
-        let user_guardian = root_guardian.attach_child(UserGuardian, (), Some("user".to_string()), Props::default())?;
+        let user_guardian = root_guardian.attach_child(noarg_props::<UserGuardian>(), Some("user".to_string()))?;
         let user_guardian = user_guardian.local_or_panic();
         let inner = crate::actor_ref::dead_letter_ref::Inner {
             system: system.clone(),
@@ -82,11 +80,7 @@ impl LocalActorRefProvider {
     pub(crate) fn start_tcp_transport(&self) -> anyhow::Result<ActorRef> {
         let transport_ref = self
             .system_guardian()
-            .attach_child(
-                TransportActor,
-                (),
-                Some("tcp_transport".to_string()),
-                Props::default())?;
+            .attach_child(noarg_props::<TransportActor>(), Some("tcp_transport".to_string()))?;
         Ok(transport_ref)
     }
 }
@@ -136,17 +130,11 @@ impl TActorRefProvider for LocalActorRefProvider {
         self.temp_container.remove_child(path.name());
     }
 
-    fn actor_of<T>(
-        &self,
-        actor: T,
-        arg: T::A,
-        props: Props,
-        supervisor: &ActorRef,
-    ) -> anyhow::Result<ActorRef>
+    fn actor_of<T>(&self, props: Props<T>, supervisor: &ActorRef) -> anyhow::Result<ActorRef>
         where
             T: Actor,
     {
-        supervisor.local_or_panic().attach_child(actor, arg, None, props)
+        supervisor.local_or_panic().attach_child(props, None)
     }
 
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {
@@ -172,7 +160,7 @@ mod local_provider_test {
     use crate::{Actor, EmptyTestActor, EmptyTestMessage};
     use crate::actor_ref::ActorRefExt;
     use crate::context::ActorContext;
-    use crate::props::Props;
+    use crate::props::noarg_props;
     use crate::provider::{ActorRefFactory, TActorRefProvider};
     use crate::system::ActorSystem;
     use crate::system::config::Config;
@@ -185,9 +173,9 @@ mod local_provider_test {
         type S = ();
         type A = ();
 
-        async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+        async fn pre_start(context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
             info!("actor a {} pre start", context.myself);
-            context.actor_of(ActorB, (), Props::default(), None)?;
+            context.actor_of(noarg_props::<ActorA>(), None)?;
             Ok(())
         }
     }
@@ -200,9 +188,9 @@ mod local_provider_test {
         type S = ();
         type A = ();
 
-        async fn pre_start(&self, context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+        async fn pre_start(context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
             info!("actor b {} pre start", context.myself);
-            context.actor_of(EmptyTestActor, (), Props::default(), None)?;
+            context.actor_of(noarg_props::<EmptyTestActor>(), None)?;
             Ok(())
         }
     }
@@ -211,7 +199,7 @@ mod local_provider_test {
     #[tokio::test]
     async fn test() -> anyhow::Result<()> {
         let system = ActorSystem::create(Config::default()).await?;
-        let _ = system.actor_of(ActorA, (), Props::default(), None)?;
+        let _ = system.actor_of(noarg_props::<ActorA>(), None)?;
         let actor_c = system
             .provider()
             .resolve_actor_ref(&"tcp://game@127.0.0.1:12121/user/$a/$b/$c".to_string());

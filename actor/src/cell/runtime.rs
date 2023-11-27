@@ -9,37 +9,26 @@ use crate::cell::envelope::Envelope;
 use crate::context::{ActorContext, Context};
 use crate::delegate::MessageDelegate;
 use crate::net::mailbox::Mailbox;
-use crate::props::Props;
 use crate::provider::ActorRefFactory;
 use crate::state::ActorState;
 use crate::system::ActorSystem;
 
-pub struct ActorRuntime<T>
-    where
-        T: Actor,
-{
+pub struct ActorRuntime<T> where T: Actor {
     pub(crate) myself: ActorRef,
-    pub(crate) handler: T,
-    pub(crate) props: Props,
     pub(crate) system: ActorSystem,
     pub(crate) mailbox: Mailbox,
     pub(crate) arg: T::A,
 }
 
-impl<T> ActorRuntime<T>
-    where
-        T: Actor,
-{
+impl<T> ActorRuntime<T> where T: Actor {
     pub(crate) async fn run(self) {
         let Self {
             myself,
-            handler,
-            props,
             system,
             mut mailbox,
             arg,
         } = self;
-        let actor = std::any::type_name::<T>();
+        let actor_name = std::any::type_name::<T>();
         let mut context = ActorContext {
             state: ActorState::Init,
             myself,
@@ -50,10 +39,10 @@ impl<T> ActorRuntime<T>
             watching: HashMap::new(),
             watched_by: HashSet::new(),
         };
-        let mut state = match handler.pre_start(&mut context, arg).await {
+        let mut state = match T::pre_start(&mut context, arg).await {
             Ok(state) => state,
             Err(err) => {
-                error!("actor {:?} pre start error {:?}", actor, err);
+                error!("actor {:?} pre start error {:?}", actor_name, err);
                 context.stop(&context.myself());
                 while let Some(message) = mailbox.system.recv().await {
                     Self::handle_system(&mut context, message).await;
@@ -82,7 +71,7 @@ impl<T> ActorRuntime<T>
                     }
                     context.remove_finished_tasks();
                     throughput += 1;
-                    if throughput >= props.throughput {
+                    if throughput >= mailbox.throughput {
                         throughput = 0;
                         yield_now().await;
                     }
@@ -92,8 +81,8 @@ impl<T> ActorRuntime<T>
                 }
             }
         }
-        if let Some(err) = handler.post_stop(&mut context, &mut state).await.err() {
-            error!("actor {:?} post stop error {:?}", actor, err);
+        if let Some(err) = T::post_stop(&mut context, &mut state).await.err() {
+            error!("actor {:?} post stop error {:?}", actor_name, err);
         }
         for task in context.async_tasks {
             task.abort();

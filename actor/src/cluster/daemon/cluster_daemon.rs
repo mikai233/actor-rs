@@ -11,7 +11,7 @@ impl Actor for ClusterDaemon {
     type S = State;
     type A = ();
 
-    async fn pre_start(&self, _context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(_context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
         todo!()
     }
 }

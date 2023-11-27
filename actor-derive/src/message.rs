@@ -109,6 +109,7 @@ pub(crate) fn expand_decoder(actor_attr: Option<&Attribute>, message_ty: &Ident,
 pub(crate) fn decoder<F>(decoder_trait: &TokenStream, provider_trait: &TokenStream, dy_message: &TokenStream, fn_body: F) -> TokenStream where F: FnOnce() -> TokenStream {
     let body = fn_body();
     quote! {
+        #[derive(Clone)]
         struct D;
         impl #decoder_trait for D {
             fn decode(&self, provider: &#provider_trait, bytes: &[u8]) -> anyhow::Result<#dy_message> {
