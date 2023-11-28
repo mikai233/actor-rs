@@ -6,7 +6,7 @@ use tracing::{debug, trace};
 
 use actor_derive::EmptyCodec;
 
-use crate::{Actor, DynamicMessage, Message};
+use crate::{Actor, DynMessage, Message};
 use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::actor_ref::TActorRef;
 use crate::context::{ActorContext, Context};
@@ -30,7 +30,7 @@ impl SystemEventBus {
 }
 
 impl EventBus for SystemEventBus {
-    type Event = DynamicMessage;
+    type Event = DynMessage;
     type Classifier = &'static str;
     type Subscriber = ActorRef;
 
@@ -153,7 +153,7 @@ impl Message for UnsubscribeAll {
 
 #[derive(EmptyCodec)]
 struct Publish {
-    event_factory: Box<dyn Fn() -> DynamicMessage + Send>,
+    event_factory: Box<dyn Fn() -> DynMessage + Send>,
 }
 
 impl Message for Publish {
@@ -173,6 +173,7 @@ impl Message for Publish {
     }
 }
 
+#[cfg(test)]
 mod actor_event_bus_test {
     use std::any::type_name;
     use std::time::Duration;
@@ -181,7 +182,7 @@ mod actor_event_bus_test {
 
     use actor_derive::EmptyCodec;
 
-    use crate::{Actor, DynamicMessage, EmptyTestActor, Message};
+    use crate::{Actor, DynMessage, EmptyTestActor, Message};
     use crate::actor_ref::TActorRef;
     use crate::context::{ActorContext, Context};
     use crate::event::event_bus::{EventBusActor, SystemEventBus};
@@ -229,16 +230,16 @@ mod actor_event_bus_test {
         event_bus.subscribe(actor2.clone(), type_name::<EventMessage1>());
         event_bus.subscribe(actor3.clone(), type_name::<EventMessage1>());
         event_bus.subscribe(actor3.clone(), type_name::<EventMessage2>());
-        event_bus.publish(|| DynamicMessage::user(EventMessage1));
-        event_bus.publish(|| DynamicMessage::user(EventMessage2));
+        event_bus.publish(|| DynMessage::user(EventMessage1));
+        event_bus.publish(|| DynMessage::user(EventMessage2));
         event_bus.unsubscribe(actor1, type_name::<EventMessage1>());
-        event_bus.publish(|| DynamicMessage::user(EventMessage1));
+        event_bus.publish(|| DynMessage::user(EventMessage1));
         event_bus.unsubscribe_all(actor3);
-        event_bus.publish(|| DynamicMessage::user(EventMessage2));
+        event_bus.publish(|| DynMessage::user(EventMessage2));
         tokio::time::sleep(Duration::from_secs(1)).await;
         actor2.stop();
         tokio::time::sleep(Duration::from_secs(1)).await;
-        event_bus.publish(|| DynamicMessage::user(EventMessage1));
+        event_bus.publish(|| DynMessage::user(EventMessage1));
         tokio::time::sleep(Duration::from_secs(2)).await;
         Ok(())
     }

@@ -5,7 +5,7 @@ use tracing::info;
 
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::DynamicMessage;
+use crate::DynMessage;
 use crate::system::ActorSystem;
 
 #[derive(Clone)]
@@ -44,7 +44,7 @@ impl TActorRef for DeadLetterActorRef {
         &self.path
     }
 
-    fn tell(&self, message: DynamicMessage, sender: Option<ActorRef>) {
+    fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
         let name = message.name();
         match sender {
             None => {

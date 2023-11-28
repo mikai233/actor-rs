@@ -5,9 +5,9 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use dashmap::mapref::one::Ref;
 
+use crate::{DynMessage, MessageType};
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
-use crate::DynamicMessage;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::terminate::Terminate;
 use crate::system::ActorSystem;
@@ -52,9 +52,9 @@ impl TActorRef for VirtualPathContainer {
         &self.path
     }
 
-    fn tell(&self, message: DynamicMessage, _sender: Option<ActorRef>) {
-        if let DynamicMessage::System(system_message) = message {
-            if system_message.name == std::any::type_name::<Terminate>() {
+    fn tell(&self, message: DynMessage, _sender: Option<ActorRef>) {
+        if matches!(message.message_type, MessageType::System) {
+            if message.name == std::any::type_name::<Terminate>() {
                 self.parent.cast_system(DeathWatchNotification(self.clone().into()), ActorRef::no_sender());
             }
         }

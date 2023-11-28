@@ -6,7 +6,7 @@ use std::sync::RwLock;
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 
-use crate::{AsyncMessage, DynamicMessage, Message, SystemMessage, UntypedMessage};
+use crate::{AsyncMessage, DynMessage, Message, SystemMessage, UntypedMessage};
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
@@ -84,7 +84,7 @@ impl ActorRef {
 pub trait TActorRef: Debug + Send + Sync + 'static {
     fn system(&self) -> ActorSystem;
     fn path(&self) -> &ActorPath;
-    fn tell(&self, message: DynamicMessage, sender: Option<ActorRef>);
+    fn tell(&self, message: DynMessage, sender: Option<ActorRef>);
     fn stop(&self);
     fn parent(&self) -> Option<&ActorRef>;
     fn get_child<I>(&self, names: I) -> Option<ActorRef>
@@ -125,19 +125,19 @@ pub trait ActorRefExt: TActorRef {
         where
             M: Message,
     {
-        self.tell(DynamicMessage::user(message), sender);
+        self.tell(DynMessage::user(message), sender);
     }
     fn cast_async<M>(&self, message: M, sender: Option<ActorRef>)
         where
             M: AsyncMessage,
     {
-        self.tell(DynamicMessage::async_user(message), sender);
+        self.tell(DynMessage::async_user(message), sender);
     }
     fn resp<M>(&self, message: M)
         where
             M: UntypedMessage,
     {
-        self.tell(DynamicMessage::untyped(message), ActorRef::no_sender());
+        self.tell(DynMessage::untyped(message), ActorRef::no_sender());
     }
 }
 
@@ -148,7 +148,7 @@ pub(crate) trait ActorRefSystemExt: TActorRef {
         where
             M: SystemMessage,
     {
-        self.tell(DynamicMessage::system(message), sender);
+        self.tell(DynMessage::system(message), sender);
     }
 }
 

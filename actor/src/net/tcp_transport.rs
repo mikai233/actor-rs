@@ -202,8 +202,8 @@ mod transport_test {
 
     fn build_config() -> Config {
         let mut config = Config::default();
-        config.reg.register::<Ping>();
-        config.reg.register::<Pong>();
+        config.registration.register::<Ping>();
+        config.registration.register::<Pong>();
         config
     }
 

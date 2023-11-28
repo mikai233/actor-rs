@@ -2,7 +2,7 @@ use std::any::Any;
 
 use async_trait::async_trait;
 
-use crate::{BoxedMessage, CodecMessage, DynamicMessage, SystemMessage};
+use crate::{CodecMessage, DynMessage, MessageType, SystemMessage};
 use crate::context::ActorContext;
 use crate::decoder::MessageDecoder;
 
@@ -32,6 +32,10 @@ impl CodecMessage for SystemDelegate {
     fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
         self.message.encode()
     }
+
+    fn dyn_clone(&self) -> Option<DynMessage> {
+        self.message.dyn_clone()
+    }
 }
 
 #[async_trait]
@@ -41,11 +45,12 @@ impl SystemMessage for SystemDelegate {
     }
 }
 
-impl Into<DynamicMessage> for SystemDelegate {
-    fn into(self) -> DynamicMessage {
-        DynamicMessage::System(BoxedMessage {
+impl Into<DynMessage> for SystemDelegate {
+    fn into(self) -> DynMessage {
+        DynMessage {
             name: self.name,
-            inner: Box::new(self),
-        })
+            message_type: MessageType::System,
+            boxed: Box::new(self),
+        }
     }
 }

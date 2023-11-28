@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::error::Elapsed;
 
-use crate::{DynamicMessage, Message, UntypedMessage};
+use crate::{DynMessage, Message, MessageType, UntypedMessage};
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
@@ -24,7 +24,7 @@ pub struct Inner {
     provider: Arc<ActorRefProvider>,
     path: ActorPath,
     parent: Box<ActorRef>,
-    sender: Sender<DynamicMessage>,
+    sender: Sender<DynMessage>,
     message_name: &'static str,
 }
 
@@ -58,7 +58,7 @@ impl TActorRef for DeferredActorRef {
         &self.path
     }
 
-    fn tell(&self, message: DynamicMessage, _sender: Option<ActorRef>) {
+    fn tell(&self, message: DynMessage, _sender: Option<ActorRef>) {
         let _ = self.sender.try_send(message);
     }
 
@@ -82,7 +82,7 @@ impl TActorRef for DeferredActorRef {
 }
 
 impl DeferredActorRef {
-    pub(crate) fn new(system: ActorSystem, target_name: String, message_name: &'static str) -> (Self, Receiver<DynamicMessage>) {
+    pub(crate) fn new(system: ActorSystem, target_name: String, message_name: &'static str) -> (Self, Receiver<DynMessage>) {
         let provider = system.provider();
         let path = provider.temp_path_of_prefix(Some(target_name));
         let (tx, rx) = tokio::sync::mpsc::channel(1);
@@ -101,7 +101,7 @@ impl DeferredActorRef {
         deferred_ref.provider.register_temp_actor(deferred_ref.clone().into(), deferred_ref.path());
         (deferred_ref, rx)
     }
-    pub(crate) async fn ask(&self, target: &ActorRef, mut rx: Receiver<DynamicMessage>, message: DynamicMessage, timeout: Duration) -> Result<Option<DynamicMessage>, Elapsed> {
+    pub(crate) async fn ask(&self, target: &ActorRef, mut rx: Receiver<DynMessage>, message: DynMessage, timeout: Duration) -> Result<Option<DynMessage>, Elapsed> {
         target.tell(message, Some(self.clone().into()));
         let resp = tokio::time::timeout(timeout, rx.recv()).await;
         self.provider.unregister_temp_actor(&self.path);
@@ -115,23 +115,22 @@ impl Patterns {
     pub async fn ask<Req, Resp>(actor: &ActorRef, message: Req, timeout: Duration) -> anyhow::Result<Resp> where Req: Message, Resp: UntypedMessage {
         let req_name = std::any::type_name::<Req>();
         let (deferred, rx) = DeferredActorRef::new(actor.system(), actor.path().name().to_string(), req_name);
-        match deferred.ask(actor, rx, DynamicMessage::user(message), timeout).await {
+        match deferred.ask(actor, rx, DynMessage::user(message), timeout).await {
             Ok(Some(resp)) => {
-                match resp {
-                    DynamicMessage::Untyped(m) => {
-                        match m.inner.into_any().downcast::<Resp>() {
-                            Ok(resp) => {
-                                Ok(*resp)
-                            }
-                            Err(_) => {
-                                let resp_name = std::any::type_name::<Resp>();
-                                Err(anyhow!("{} ask {} expect {} resp, but found other type resp", actor, req_name, resp_name))
-                            }
+                let message = resp.boxed.into_any();
+                let message_type = resp.message_type;
+                if matches!(message_type, MessageType::Untyped) {
+                    match message.downcast::<Resp>() {
+                        Ok(resp) => {
+                            Ok(*resp)
+                        }
+                        Err(_) => {
+                            let resp_name = std::any::type_name::<Resp>();
+                            Err(anyhow!("{} ask {} expect {} resp, but found other type resp", actor, req_name, resp_name))
                         }
                     }
-                    _ => {
-                        Err(anyhow!("{} ask {} expect Deferred resp, but found other type message", actor, req_name))
-                    }
+                } else {
+                    Err(anyhow!("{} ask {} expect Deferred resp, but found other type message", actor, req_name))
                 }
             }
             Ok(None) => {

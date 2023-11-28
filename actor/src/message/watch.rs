@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 
-use crate::{CodecMessage, DynamicMessage, SystemMessage};
+use crate::{CodecMessage, DynMessage, SystemMessage};
 use crate::actor_ref::{ActorRef, SerializedActorRef};
 use crate::context::ActorContext;
 use crate::decoder::MessageDecoder;
@@ -33,7 +33,7 @@ impl CodecMessage for Watch {
         #[derive(Clone)]
         struct D;
         impl MessageDecoder for D {
-            fn decode(&self, provider: &ActorRefProvider, bytes: &[u8]) -> anyhow::Result<DynamicMessage> {
+            fn decode(&self, provider: &ActorRefProvider, bytes: &[u8]) -> anyhow::Result<DynMessage> {
                 let serialized: SerializedWatch = decode_bytes(bytes)?;
                 let watchee = provider.resolve_actor_ref(&serialized.watchee.path);
                 let watcher = provider.resolve_actor_ref(&serialized.watcher.path);
@@ -50,6 +50,10 @@ impl CodecMessage for Watch {
             watcher: self.watcher.clone().into(),
         };
         Some(encode_bytes(&serialized))
+    }
+
+    fn dyn_clone(&self) -> Option<DynMessage> {
+        None
     }
 }
 

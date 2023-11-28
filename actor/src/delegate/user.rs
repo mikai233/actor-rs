@@ -3,7 +3,7 @@ use std::fmt::{Debug, Formatter};
 
 use async_trait::async_trait;
 
-use crate::{Actor, AsyncMessage, BoxedMessage, CodecMessage, DynamicMessage, Message};
+use crate::{Actor, AsyncMessage, CodecMessage, DynMessage, Message, MessageType};
 use crate::context::ActorContext;
 use crate::decoder::MessageDecoder;
 
@@ -42,6 +42,10 @@ impl<T> CodecMessage for UserDelegate<T> where T: 'static + Actor + Send {
     fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
         self.message.encode()
     }
+
+    fn dyn_clone(&self) -> Option<DynMessage> {
+        self.message.dyn_clone()
+    }
 }
 
 impl<T> Message for UserDelegate<T> where T: Actor + Send + 'static {
@@ -52,12 +56,13 @@ impl<T> Message for UserDelegate<T> where T: Actor + Send + 'static {
     }
 }
 
-impl<T> Into<DynamicMessage> for UserDelegate<T> where T: Actor {
-    fn into(self) -> DynamicMessage {
-        DynamicMessage::User(BoxedMessage {
+impl<T> Into<DynMessage> for UserDelegate<T> where T: Actor {
+    fn into(self) -> DynMessage {
+        DynMessage {
             name: self.name,
-            inner: Box::new(self),
-        })
+            message_type: MessageType::User,
+            boxed: Box::new(self),
+        }
     }
 }
 
@@ -96,6 +101,10 @@ impl<T> CodecMessage for AsyncUserDelegate<T> where T: 'static + Actor + Send {
     fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
         self.message.encode()
     }
+
+    fn dyn_clone(&self) -> Option<DynMessage> {
+        self.message.dyn_clone()
+    }
 }
 
 #[async_trait]
@@ -107,11 +116,12 @@ impl<T> AsyncMessage for AsyncUserDelegate<T> where T: Actor + Send + 'static {
     }
 }
 
-impl<T> Into<DynamicMessage> for AsyncUserDelegate<T> where T: Actor {
-    fn into(self) -> DynamicMessage {
-        DynamicMessage::User(BoxedMessage {
+impl<T> Into<DynMessage> for AsyncUserDelegate<T> where T: Actor {
+    fn into(self) -> DynMessage {
+        DynMessage {
             name: self.name,
-            inner: Box::new(self),
-        })
+            message_type: MessageType::AsyncUser,
+            boxed: Box::new(self),
+        }
     }
 }

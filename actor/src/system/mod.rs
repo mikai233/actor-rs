@@ -73,7 +73,7 @@ impl Deref for ActorSystem {
 
 impl ActorSystem {
     pub async fn create(config: Config) -> anyhow::Result<Self> {
-        let Config { name, addr, reg, etcd_config, } = config;
+        let Config { name, addr, registration: reg, etcd_config, } = config;
         let EtcdConfig { endpoints, connect_options } = etcd_config;
         let client = Client::connect(endpoints, connect_options).await?;
         let address = Address {

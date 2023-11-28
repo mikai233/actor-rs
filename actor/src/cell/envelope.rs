@@ -1,9 +1,9 @@
 use crate::actor_ref::ActorRef;
-use crate::DynamicMessage;
+use crate::DynMessage;
 
 #[derive(Debug)]
 pub(crate) struct Envelope {
-    pub(crate) message: DynamicMessage,
+    pub(crate) message: DynMessage,
     pub(crate) sender: Option<ActorRef>,
 }
 

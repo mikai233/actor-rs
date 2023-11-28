@@ -4,8 +4,7 @@ use crate::Actor;
 use crate::net::mailbox::{Mailbox, MailboxSender};
 use crate::routing::router_config::RouterConfig;
 
-#[derive(Clone)]
-pub struct Props<T> where T: Actor {
+pub struct Props<T> where T: Actor, T::A: Clone {
     pub(crate) arg: T::A,
     pub(crate) router_config: Option<Box<dyn RouterConfig>>,
     pub(crate) mailbox_size: usize,
@@ -13,7 +12,7 @@ pub struct Props<T> where T: Actor {
     pub(crate) throughput: usize,
 }
 
-impl<T> Props<T> where T: Actor {
+impl<T> Props<T> where T: Actor, T::A: Clone {
     pub fn create(arg: T::A) -> Props<T> {
         Self {
             arg,
@@ -38,8 +37,11 @@ impl<T> Props<T> where T: Actor {
         (sender, mailbox)
     }
 
-    pub fn with_router<R>(r: R) -> Props<T> where R: RouterConfig {
+    pub fn with_router<R>(&self, r: R) -> Props<T> where R: RouterConfig {
         todo!()
+        // let mut props = Clone::clone(self);
+        // props.router_config = Some(Box::new(r));
+        // props
     }
 
     pub fn router_config(&self) -> Option<&Box<dyn RouterConfig>> {

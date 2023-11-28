@@ -9,11 +9,11 @@ use async_trait::async_trait;
 use futures::task::ArcWake;
 use tokio_util::time::delay_queue::Key;
 use tokio_util::time::DelayQueue;
-use tracing::{debug, instrument, warn};
+use tracing::{debug, error, instrument, warn};
 
 use actor_derive::EmptyCodec;
 
-use crate::{Actor, DynamicMessage, Message};
+use crate::{Actor, DynMessage, Message};
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::context::{ActorContext, Context};
 use crate::props::noarg_props;
@@ -63,7 +63,7 @@ enum Schedule {
     Once {
         index: u64,
         delay: Duration,
-        message: DynamicMessage,
+        message: DynMessage,
         receiver: ActorRef,
     },
     OnceWith {
@@ -75,7 +75,7 @@ enum Schedule {
         index: u64,
         initial_delay: Option<Duration>,
         interval: Duration,
-        factory: Box<dyn Fn() -> DynamicMessage + Send + 'static>,
+        message: DynMessage,
         receiver: ActorRef,
     },
     FixedDelayWith {
@@ -154,12 +154,12 @@ impl Debug for Schedule {
                     .field("receiver", receiver)
                     .finish()
             }
-            Schedule::FixedDelay { index, initial_delay, interval, receiver, .. } => {
+            Schedule::FixedDelay { index, initial_delay, interval, message, receiver } => {
                 f.debug_struct("FixedDelay")
                     .field("index", index)
                     .field("initial_delay", initial_delay)
                     .field("interval", interval)
-                    .field("factory", &"..")
+                    .field("message", message)
                     .field("receiver", receiver)
                     .finish()
             }
@@ -190,7 +190,6 @@ struct CancelSchedule {
 impl Message for CancelSchedule {
     type T = TimerSchedulerActor;
 
-    #[instrument(skip_all)]
     fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         match state.index.remove(&self.index) {
             None => {
@@ -212,7 +211,6 @@ struct CancelAllSchedule;
 impl Message for CancelAllSchedule {
     type T = TimerSchedulerActor;
 
-    #[instrument(skip_all)]
     fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         state.index.clear();
         state.queue.clear();
@@ -227,7 +225,6 @@ struct PollExpired;
 impl Message for PollExpired {
     type T = TimerSchedulerActor;
 
-    #[instrument(skip_all)]
     fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
         let waker = &state.waker;
         let queue = &mut state.queue;
@@ -241,15 +238,21 @@ impl Message for PollExpired {
                     index_map.remove(&index);
                     receiver.tell(message, ActorRef::no_sender());
                 }
-                Schedule::FixedDelay { index, interval, factory, receiver, .. } => {
-                    let message = factory();
-                    receiver.tell(message, ActorRef::no_sender());
+                Schedule::FixedDelay { index, interval, message, receiver, .. } => {
+                    match message.clone() {
+                        None => {
+                            error!("fixed delay with message {:?} not impl dyn_clone, message cannot be cloned", message);
+                        }
+                        Some(message) => {
+                            receiver.tell(message, ActorRef::no_sender());
+                        }
+                    }
                     let next_delay = interval;
                     let reschedule = Schedule::FixedDelay {
                         index,
                         initial_delay: None,
                         interval,
-                        factory,
+                        message,
                         receiver,
                     };
                     let new_key = queue.insert(reschedule, next_delay);
@@ -311,7 +314,7 @@ impl TimerScheduler {
         }
     }
 
-    pub fn start_single_timer(&self, delay: Duration, message: DynamicMessage, receiver: ActorRef) -> ScheduleKey {
+    pub fn start_single_timer(&self, delay: Duration, message: DynMessage, receiver: ActorRef) -> ScheduleKey {
         let index = self.index.fetch_add(1, Ordering::Relaxed);
         let once = Schedule::Once {
             index,
@@ -342,20 +345,19 @@ impl TimerScheduler {
         }
     }
 
-    pub fn start_timer_with_fixed_delay<F>(
+    pub fn start_timer_with_fixed_delay(
         &self,
         initial_delay: Option<Duration>,
         interval: Duration,
-        factory: F,
+        message: DynMessage,
         receiver: ActorRef,
-    ) -> ScheduleKey
-        where F: Fn() -> DynamicMessage + Send + 'static {
+    ) -> ScheduleKey {
         let index = self.index.fetch_add(1, Ordering::Relaxed);
         let fixed_delay = Schedule::FixedDelay {
             index,
             initial_delay,
             interval,
-            factory: Box::new(factory),
+            message,
             receiver,
         };
         self.scheduler_actor.cast(fixed_delay, ActorRef::no_sender());
@@ -399,9 +401,9 @@ mod scheduler_test {
 
     use tracing::info;
 
-    use actor_derive::EmptyCodec;
+    use actor_derive::{CloneableEmptyCodec, EmptyCodec};
 
-    use crate::{Actor, DynamicMessage, EmptyTestActor, Message};
+    use crate::{Actor, CodecMessage, DynMessage, EmptyTestActor, Message};
     use crate::context::{ActorContext, Context};
     use crate::props::noarg_props;
     use crate::provider::ActorRefFactory;
@@ -421,7 +423,8 @@ mod scheduler_test {
         }
     }
 
-    #[derive(Debug, EmptyCodec)]
+    #[derive(Debug, Clone, CloneableEmptyCodec)]
+    #[actor(EmptyTestActor)]
     struct OnFixedSchedule;
 
     impl Message for OnFixedSchedule {
@@ -441,12 +444,12 @@ mod scheduler_test {
         let actor = system.actor_of(noarg_props::<EmptyTestActor>(), None)?;
         scheduler.start_single_timer(
             Duration::from_secs(1),
-            DynamicMessage::user(OnOnceSchedule),
+            DynMessage::user(OnOnceSchedule),
             actor.clone());
         let key = scheduler.start_timer_with_fixed_delay(
             None,
             Duration::from_millis(500),
-            || DynamicMessage::user(OnFixedSchedule),
+            DynMessage::user(OnFixedSchedule),
             actor.clone());
         tokio::time::sleep(Duration::from_secs(4)).await;
         key.cancel();

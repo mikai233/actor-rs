@@ -50,6 +50,7 @@ pub trait CodecMessage: Any + Send {
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized;
     fn encode(&self) -> Option<anyhow::Result<Vec<u8>>>;
+    fn dyn_clone(&self) -> Option<DynMessage>;
 }
 
 pub trait Message: CodecMessage {
@@ -72,84 +73,84 @@ pub(crate) trait SystemMessage: CodecMessage {
 
 pub trait UntypedMessage: CodecMessage {}
 
-#[derive(Debug)]
-pub enum DynamicMessage {
-    User(BoxedMessage),
-    AsyncUser(BoxedMessage),
-    System(BoxedMessage),
-    Untyped(BoxedMessage),
+#[derive(Debug, Copy, Clone)]
+pub enum MessageType {
+    User,
+    AsyncUser,
+    System,
+    Untyped,
 }
 
-pub struct BoxedMessage {
+pub struct DynMessage {
     pub(crate) name: &'static str,
-    pub(crate) inner: Box<dyn CodecMessage>,
+    pub(crate) message_type: MessageType,
+    pub(crate) boxed: Box<dyn CodecMessage>,
 }
 
-impl Debug for BoxedMessage {
+impl Debug for DynMessage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("BoxedMessage")
+        f.debug_struct("DynMessage")
             .field("name", &self.name)
-            .finish_non_exhaustive()
+            .field("message_type", &self.message_type)
+            .field("boxed", &"..")
+            .finish()
     }
 }
 
-impl BoxedMessage {
+impl DynMessage {
     pub fn name(&self) -> &'static str {
         self.name
     }
 
-    pub fn new<M>(name: &'static str, message: M) -> Self where M: CodecMessage {
-        BoxedMessage {
+    pub fn new<M>(name: &'static str, message_type: MessageType, message: M) -> Self where M: CodecMessage {
+        DynMessage {
             name,
-            inner: Box::new(message),
+            message_type,
+            boxed: Box::new(message),
         }
+    }
+
+    pub fn clone(&self) -> Option<DynMessage> {
+        self.boxed.dyn_clone()
     }
 }
 
-impl DynamicMessage {
+impl DynMessage {
     pub fn user<M>(message: M) -> Self where M: Message {
         let delegate = UserDelegate::new(message);
-        DynamicMessage::User(BoxedMessage::new(delegate.name, delegate))
+        DynMessage::new(delegate.name, MessageType::User, delegate)
     }
 
     pub fn async_user<M>(message: M) -> Self where M: AsyncMessage {
         let delegate = AsyncUserDelegate::new(message);
-        DynamicMessage::AsyncUser(BoxedMessage::new(delegate.name, delegate))
+        DynMessage::new(delegate.name, MessageType::AsyncUser, delegate)
     }
 
     pub fn system<M>(message: M) -> Self where M: SystemMessage {
         let delegate = SystemDelegate::new(message);
-        DynamicMessage::System(BoxedMessage::new(delegate.name, delegate))
+        DynMessage::new(delegate.name, MessageType::System, delegate)
     }
 
-    pub(crate) fn untyped<M>(message: M) -> Self where M: UntypedMessage {
+    pub fn untyped<M>(message: M) -> Self where M: UntypedMessage {
         let name = std::any::type_name::<M>();
-        DynamicMessage::Untyped(BoxedMessage::new(name, message))
-    }
-
-    pub(crate) fn name(&self) -> &'static str {
-        match self {
-            DynamicMessage::User(m) => { m.name() }
-            DynamicMessage::AsyncUser(m) => { m.name() }
-            DynamicMessage::System(m) => { m.name() }
-            DynamicMessage::Untyped(m) => { m.name() }
-        }
+        DynMessage::new(name, MessageType::Untyped, message)
     }
 
     pub(crate) fn downcast_into_delegate<T>(self) -> anyhow::Result<MessageDelegate<T>> where T: Actor {
         let name = self.name();
-        let delegate = match self {
-            DynamicMessage::User(m) => {
-                m.inner.into_any().downcast::<UserDelegate<T>>().map(|m| MessageDelegate::User(m))
+        let message = self.boxed.into_any();
+        let delegate = match self.message_type {
+            MessageType::User => {
+                message.downcast::<UserDelegate<T>>().map(|m| MessageDelegate::User(m))
             }
-            DynamicMessage::AsyncUser(m) => {
-                m.inner.into_any().downcast::<AsyncUserDelegate<T>>().map(|m| MessageDelegate::AsyncUser(m))
+            MessageType::AsyncUser => {
+                message.downcast::<AsyncUserDelegate<T>>().map(|m| MessageDelegate::AsyncUser(m))
             }
-            DynamicMessage::System(m) => {
-                m.inner.into_any().downcast::<SystemDelegate>().map(|m| MessageDelegate::System(m))
+            MessageType::System => {
+                message.downcast::<SystemDelegate>().map(|m| MessageDelegate::System(m))
             }
-            DynamicMessage::Untyped(m) => {
-                panic!("unexpected Untyped message {}", m.name());
+            MessageType::Untyped => {
+                panic!("unexpected Untyped message {}", name);
             }
         };
         match delegate {
@@ -171,6 +172,8 @@ impl<T> State for T where T: Any + Send {}
 pub trait Arg: Any + Send + DynClone {}
 
 impl<T> Arg for T where T: Any + Send + DynClone {}
+
+dyn_clone::clone_trait_object!(Arg);
 
 #[derive(Debug)]
 pub(crate) struct EmptyTestActor;
@@ -217,7 +220,7 @@ mod actor_test {
 
     use actor_derive::{EmptyCodec, MessageCodec, UntypedMessageCodec};
 
-    use crate::{Actor, DynamicMessage, EmptyTestActor, Message};
+    use crate::{Actor, DynMessage, EmptyTestActor, Message};
     use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
     use crate::actor_ref::deferred_ref::Patterns;
     use crate::context::{ActorContext, Context};
@@ -384,8 +387,8 @@ mod actor_test {
         fn build_config(addr: SocketAddrV4) -> Config {
             let mut config = Config::default();
             config.addr = addr;
-            config.reg.register::<MessageToAsk>();
-            config.reg.register::<MessageToAns>();
+            config.registration.register::<MessageToAsk>();
+            config.registration.register::<MessageToAns>();
             config
         }
 
@@ -429,16 +432,16 @@ mod actor_test {
 
             async fn pre_start(context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
                 let adapter = context.message_adapter::<TestUntyped>(|_| {
-                    Ok(DynamicMessage::user(TestMessage))
+                    Ok(DynMessage::user(TestMessage))
                 });
-                adapter.tell(DynamicMessage::untyped(TestUntyped), ActorRef::no_sender());
+                adapter.tell(DynMessage::untyped(TestUntyped), ActorRef::no_sender());
                 Ok(())
             }
         }
         fn build_config() -> Config {
             let mut config = Config::default();
-            config.reg.register::<TestMessage>();
-            config.reg.register::<TestUntyped>();
+            config.registration.register::<TestMessage>();
+            config.registration.register::<TestUntyped>();
             config
         }
         let system = ActorSystem::create(build_config()).await?;

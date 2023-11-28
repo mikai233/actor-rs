@@ -4,7 +4,7 @@ use std::fmt::{Debug, Formatter};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
-use crate::{BoxedMessage, CodecMessage, DynamicMessage};
+use crate::{CodecMessage, DynMessage};
 use crate::decoder::MessageDecoder;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::terminate::Terminate;
@@ -62,9 +62,9 @@ impl MessageRegistration {
         self.id += 1;
     }
 
-    pub(crate) fn encode_boxed(&self, boxed_message: BoxedMessage) -> anyhow::Result<IDPacket> {
-        let BoxedMessage { name, inner: message } = boxed_message;
-        self.encode(name, &*message)
+    pub(crate) fn encode_boxed(&self, message: DynMessage) -> anyhow::Result<IDPacket> {
+        let DynMessage { name, boxed: boxed_message, .. } = message;
+        self.encode(name, &*boxed_message)
     }
 
     pub(crate) fn encode(&self, name: &'static str, message: &dyn CodecMessage) -> anyhow::Result<IDPacket> {
@@ -77,7 +77,7 @@ impl MessageRegistration {
         Ok(packet)
     }
 
-    pub(crate) fn decode(&self, provider: &ActorRefProvider, packet: IDPacket) -> anyhow::Result<DynamicMessage> {
+    pub(crate) fn decode(&self, provider: &ActorRefProvider, packet: IDPacket) -> anyhow::Result<DynMessage> {
         let id = packet.id;
         let decoder = self.decoder.get(&id).ok_or(anyhow!("message {} not register", id))?;
         decoder.decode(provider, &packet.bytes)

@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::DynamicMessage;
+use crate::DynMessage;
 use crate::system::ActorSystem;
 
 #[derive(Clone)]
@@ -15,7 +15,7 @@ pub struct FunctionRef {
 pub struct Inner {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
-    pub(crate) message_handler: Arc<Box<dyn Fn(DynamicMessage, Option<ActorRef>) + Send + Sync + 'static>>,
+    pub(crate) message_handler: Arc<Box<dyn Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static>>,
 }
 
 impl Deref for FunctionRef {
@@ -45,7 +45,7 @@ impl TActorRef for FunctionRef {
         &self.path
     }
 
-    fn tell(&self, message: DynamicMessage, sender: Option<ActorRef>) {
+    fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
         (self.message_handler)(message, sender);
     }
 

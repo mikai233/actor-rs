@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, warn};
 
-use crate::{Actor, DynamicMessage, Message, UntypedMessage, UserDelegate};
+use crate::{Actor, DynMessage, Message, MessageType, UntypedMessage, UserDelegate};
 use crate::actor_path::{ActorPath, ChildActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, ActorRefSystemExt, Cell, TActorRef};
 use crate::actor_ref::function_ref::{FunctionRef, Inner};
@@ -33,7 +33,7 @@ pub trait Context: ActorRefFactory {
     fn watch<T>(&mut self, terminate: T) where T: WatchTerminated;
     fn unwatch(&mut self, subject: &ActorRef);
     fn is_watching(&self, subject: &ActorRef) -> bool;
-    fn message_adapter<M>(&mut self, f: impl Fn(M) -> anyhow::Result<DynamicMessage> + Send + Sync + 'static) -> ActorRef
+    fn message_adapter<M>(&mut self, f: impl Fn(M) -> anyhow::Result<DynMessage> + Send + Sync + 'static) -> ActorRef
         where
             M: UntypedMessage;
 }
@@ -41,7 +41,7 @@ pub trait Context: ActorRefFactory {
 impl<T: ?Sized> ContextExt for T where T: Context {}
 
 pub trait ContextExt: Context {
-    fn forward(&self, to: &ActorRef, message: DynamicMessage) {
+    fn forward(&self, to: &ActorRef, message: DynMessage) {
         to.tell(message, self.sender().cloned())
     }
 }
@@ -51,10 +51,10 @@ pub struct ActorContext {
     pub(crate) state: ActorState,
     pub(crate) myself: ActorRef,
     pub(crate) sender: Option<ActorRef>,
-    pub(crate) stash: VecDeque<(DynamicMessage, Option<ActorRef>)>,
+    pub(crate) stash: VecDeque<(DynMessage, Option<ActorRef>)>,
     pub(crate) async_tasks: Vec<JoinHandle<()>>,
     pub(crate) system: ActorSystem,
-    pub(crate) watching: HashMap<ActorRef, DynamicMessage>,
+    pub(crate) watching: HashMap<ActorRef, DynMessage>,
     pub(crate) watched_by: HashSet<ActorRef>,
 }
 
@@ -123,7 +123,7 @@ impl Context for ActorContext {
     fn watch<T>(&mut self, terminate: T) where T: WatchTerminated {
         let watch_actor = terminate.watch_actor().clone();
         if &watch_actor != self.myself() {
-            let message = DynamicMessage::user(terminate);
+            let message = DynMessage::user(terminate);
             match self.watching.get(&watch_actor) {
                 None => {
                     let watch = Watch {
@@ -158,27 +158,27 @@ impl Context for ActorContext {
         self.watching.contains_key(subject)
     }
 
-    fn message_adapter<M>(&mut self, f: impl Fn(M) -> anyhow::Result<DynamicMessage> + Send + Sync + 'static) -> ActorRef
+    fn message_adapter<M>(&mut self, f: impl Fn(M) -> anyhow::Result<DynMessage> + Send + Sync + 'static) -> ActorRef
         where
             M: UntypedMessage {
         let myself = self.myself.clone();
         self.add_function_ref(move |message, sender| {
-            let dy_name = message.name();
-            let dc_name = std::any::type_name::<M>();
-            if let DynamicMessage::Untyped(message) = message {
-                match message.inner.into_any().downcast::<M>() {
+            let DynMessage { name, message_type, boxed } = message;
+            let downcast_name = std::any::type_name::<M>();
+            if matches!(message_type, MessageType::Untyped) {
+                match boxed.into_any().downcast::<M>() {
                     Ok(message) => {
                         match f(*message) {
                             Ok(t) => {
                                 myself.tell(t, sender);
                             }
                             Err(error) => {
-                                error!("message {} transform error {:?}", dc_name, error);
+                                error!("message {} transform error {:?}", downcast_name, error);
                             }
                         }
                     }
                     Err(_) => {
-                        error!("message {} cannot downcast to {}", dy_name, dc_name);
+                        error!("message {} cannot downcast to {}", name, downcast_name);
                     }
                 }
             }
@@ -287,7 +287,7 @@ impl ActorContext {
 
     pub(crate) fn add_function_ref<F>(&self, f: F, name: Option<String>) -> FunctionRef
         where
-            F: Fn(DynamicMessage, Option<ActorRef>) + Send + Sync + 'static
+            F: Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static
     {
         let mut n = random_name("$$".to_string());
         if let Some(name) = name {

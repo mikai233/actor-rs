@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
-use crate::{Actor, DynamicMessage};
+use crate::{Actor, DynMessage, MessageType};
 use crate::actor_path::ActorPath;
 use crate::actor_path::ChildActorPath;
 use crate::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
@@ -62,22 +62,22 @@ impl TActorRef for LocalActorRef {
         &self.path
     }
 
-    fn tell(&self, message: DynamicMessage, sender: Option<ActorRef>) {
+    fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
         let envelop = Envelope { message, sender };
-        match &envelop.message {
-            DynamicMessage::User(_) | DynamicMessage::AsyncUser(_) => {
+        match &envelop.message.message_type {
+            MessageType::User | MessageType::AsyncUser => {
                 if let Some(error) = self.sender.message.try_send(envelop).err() {
                     self.log_send_error(error);
                 }
             }
-            DynamicMessage::System(_) => {
+            MessageType::System => {
                 if let Some(error) = self.sender.system.try_send(envelop).err() {
                     self.log_send_error(error);
                 }
             }
-            DynamicMessage::Untyped(m) => {
+            MessageType::Untyped => {
                 let myself: ActorRef = self.clone().into();
-                warn!("unexpected Deferred message {} to {}", m.name(), myself);
+                warn!("unexpected Untyped message {} to {}", envelop.message.name, myself);
             }
         }
     }

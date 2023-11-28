@@ -7,7 +7,7 @@ use tracing::error;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
-use crate::DynamicMessage;
+use crate::DynMessage;
 use crate::message::poison_pill::PoisonPill;
 use crate::net::message::{OutboundMessage, RemoteEnvelope};
 use crate::system::ActorSystem;
@@ -50,16 +50,10 @@ impl TActorRef for RemoteActorRef {
         &self.path
     }
 
-    fn tell(&self, message: DynamicMessage, sender: Option<ActorRef>) {
-        let reg = self.system.registration();
-        let name = message.name();
-        let boxed_message = match message {
-            DynamicMessage::User(message) => message,
-            DynamicMessage::AsyncUser(message) => message,
-            DynamicMessage::System(message) => message,
-            DynamicMessage::Untyped(message) => message,
-        };
-        match reg.encode_boxed(boxed_message) {
+    fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
+        let registration = self.system.registration();
+        let name = message.name;
+        match registration.encode_boxed(message) {
             Ok(packet) => {
                 let envelope = RemoteEnvelope {
                     packet,
