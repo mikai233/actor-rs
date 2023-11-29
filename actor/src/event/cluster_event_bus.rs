@@ -15,11 +15,6 @@ use crate::provider::{ActorRefFactory, TActorRefProvider};
 #[derive(Debug)]
 pub(crate) struct ClusterEventBusActor;
 
-pub(crate) struct State {
-    client: Client,
-    subscribers: HashMap<String, Vec<ClusterSubscriber>>,
-}
-
 #[derive(Debug)]
 struct ClusterSubscriber {
     path: String,
@@ -28,10 +23,7 @@ struct ClusterSubscriber {
 
 #[async_trait]
 impl Actor for ClusterEventBusActor {
-    type S = State;
-    type A = ();
-
-    async fn pre_start(context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
         todo!()
         // let mut client = context.system.eclient().clone();
         // let subscribers = match self.get_subscribers(context, &mut client).await {
@@ -92,9 +84,9 @@ impl WatchTerminated for WatchSubscriberTerminate {
 }
 
 impl Message for WatchSubscriberTerminate {
-    type T = ClusterEventBusActor;
+    type A = ClusterEventBusActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         // for subscribers in state.subscribers.values_mut() {
         //     subscribers.retain(|subscriber| {
         //         subscriber.path != self.watch.path()

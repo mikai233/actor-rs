@@ -12,7 +12,7 @@ use crate::actor_ref::TActorRef;
 use crate::context::{ActorContext, Context};
 use crate::event::EventBus;
 use crate::message::terminated::WatchTerminated;
-use crate::props::noarg_props;
+use crate::props::Props;
 use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
@@ -22,7 +22,7 @@ pub struct SystemEventBus {
 
 impl SystemEventBus {
     pub(crate) fn new(system: &ActorSystem) -> anyhow::Result<Self> {
-        let event_bus = system.system_actor_of(noarg_props::<EventBusActor>(), Some("system_event_bus".to_string()))?;
+        let event_bus = system.system_actor_of(Props::create(|_| EventBusActor::default()), Some("system_event_bus".to_string()))?;
         Ok(Self {
             event_bus,
         })
@@ -51,17 +51,13 @@ impl EventBus for SystemEventBus {
     }
 }
 
-struct EventBusActor;
+#[derive(Default)]
+struct EventBusActor {
+    subscribers: HashMap<&'static str, HashSet<ActorRef>>,
+}
 
 #[async_trait]
-impl Actor for EventBusActor {
-    type S = HashMap<&'static str, HashSet<ActorRef>>;
-    type A = ();
-
-    async fn pre_start(_context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
-        Ok(HashMap::new())
-    }
-}
+impl Actor for EventBusActor {}
 
 #[derive(Debug, EmptyCodec)]
 struct WatchSubscriberTerminated {
@@ -75,9 +71,9 @@ impl WatchTerminated for WatchSubscriberTerminated {
 }
 
 impl Message for WatchSubscriberTerminated {
-    type T = EventBusActor;
+    type A = EventBusActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         debug!("{} watch subscriber {} terminate, unsubscribe all events", context.myself, self.watch);
         context.myself().cast(UnsubscribeAll { subscriber: self.watch }, ActorRef::no_sender());
         Ok(())
@@ -91,9 +87,9 @@ struct Subscribe {
 }
 
 impl Message for Subscribe {
-    type T = EventBusActor;
+    type A = EventBusActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Subscribe { subscriber, to } = *self;
         debug!("subscriber {} subscribe event {}", subscriber, to);
         if context.is_watching(&subscriber).not() {
@@ -103,7 +99,7 @@ impl Message for Subscribe {
             context.watch(watch);
             debug!("watch subscriber {} to {}", subscriber, to);
         }
-        let subscribers = state.entry(to).or_insert(HashSet::new());
+        let subscribers = actor.subscribers.entry(to).or_insert(HashSet::new());
         subscribers.insert(subscriber);
         Ok(())
     }
@@ -116,13 +112,13 @@ struct Unsubscribe {
 }
 
 impl Message for Unsubscribe {
-    type T = EventBusActor;
+    type A = EventBusActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Unsubscribe { subscriber, from } = *self;
-        if let Some(subscribers) = state.get_mut(from) {
+        if let Some(subscribers) = actor.subscribers.get_mut(from) {
             subscribers.remove(&subscriber);
-            let all_subscribers = state.values().flat_map(|s| s.iter()).collect::<Vec<&ActorRef>>();
+            let all_subscribers = actor.subscribers.values().flat_map(|s| s.iter()).collect::<Vec<&ActorRef>>();
             if all_subscribers.into_iter().all(|s| s != &subscriber) {
                 context.unwatch(&subscriber);
                 debug!("unwatch subscriber {} form {}", subscriber, from);
@@ -139,10 +135,10 @@ struct UnsubscribeAll {
 }
 
 impl Message for UnsubscribeAll {
-    type T = EventBusActor;
+    type A = EventBusActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-        for subscribers in state.values_mut() {
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        for subscribers in actor.subscribers.values_mut() {
             subscribers.retain(|s| s != &self.subscriber);
         }
         context.unwatch(&self.subscriber);
@@ -157,12 +153,12 @@ struct Publish {
 }
 
 impl Message for Publish {
-    type T = EventBusActor;
+    type A = EventBusActor;
 
-    fn handle(self: Box<Self>, _context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let event = (self.event_factory)();
         let name = event.name();
-        if let Some(subscribers) = state.get(name) {
+        if let Some(subscribers) = actor.subscribers.get(name) {
             for subscriber in subscribers {
                 let event = (self.event_factory)();
                 subscriber.tell(event, ActorRef::no_sender());
@@ -182,12 +178,12 @@ mod actor_event_bus_test {
 
     use actor_derive::EmptyCodec;
 
-    use crate::{Actor, DynMessage, EmptyTestActor, Message};
+    use crate::{DynMessage, EmptyTestActor, Message};
     use crate::actor_ref::TActorRef;
     use crate::context::{ActorContext, Context};
     use crate::event::event_bus::{EventBusActor, SystemEventBus};
     use crate::event::EventBus;
-    use crate::props::noarg_props;
+    use crate::props::Props;
     use crate::provider::ActorRefFactory;
     use crate::system::ActorSystem;
     use crate::system::config::Config;
@@ -196,9 +192,9 @@ mod actor_event_bus_test {
     struct EventMessage1;
 
     impl Message for EventMessage1 {
-        type T = EmptyTestActor;
+        type A = EmptyTestActor;
 
-        fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             info!("{} handle event message {:?}", context.myself(), self);
             Ok(())
         }
@@ -208,9 +204,9 @@ mod actor_event_bus_test {
     struct EventMessage2;
 
     impl Message for EventMessage2 {
-        type T = EmptyTestActor;
+        type A = EmptyTestActor;
 
-        fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             info!("{} handle event message {:?}", context.myself(), self);
             Ok(())
         }
@@ -219,10 +215,11 @@ mod actor_event_bus_test {
     #[tokio::test]
     async fn test_event_bus() -> anyhow::Result<()> {
         let system = ActorSystem::create(Config::default()).await?;
-        let actor1 = system.actor_of(noarg_props::<EmptyTestActor>(), Some("actor1".to_string()))?;
-        let actor2 = system.actor_of(noarg_props::<EmptyTestActor>(), Some("actor2".to_string()))?;
-        let actor3 = system.actor_of(noarg_props::<EmptyTestActor>(), Some("actor3".to_string()))?;
-        let event_bus_actor = system.actor_of(noarg_props::<EventBusActor>(), None)?;
+        let props = Props::create(|_| EmptyTestActor);
+        let actor1 = system.spawn_actor(props.clone(), Some("actor1".to_string()))?;
+        let actor2 = system.spawn_actor(props.clone(), Some("actor2".to_string()))?;
+        let actor3 = system.spawn_actor(props.clone(), Some("actor3".to_string()))?;
+        let event_bus_actor = system.spawn_actor(Props::create(|_| EventBusActor::default()), None)?;
         let event_bus = SystemEventBus {
             event_bus: event_bus_actor,
         };

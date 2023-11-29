@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use actor_derive::SystemMessageCodec;
 
-use crate::{ SystemMessage};
+use crate::SystemMessage;
 use crate::context::ActorContext;
 
 #[derive(Serialize, Deserialize, SystemMessageCodec)]

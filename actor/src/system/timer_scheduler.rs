@@ -16,33 +16,32 @@ use actor_derive::EmptyCodec;
 use crate::{Actor, DynMessage, Message};
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::context::{ActorContext, Context};
-use crate::props::noarg_props;
+use crate::props::Props;
 use crate::provider::ActorRefFactory;
 
 #[derive(Debug)]
-pub(crate) struct TimerSchedulerActor;
-
-pub(crate) struct State {
+pub(crate) struct TimerSchedulerActor {
     queue: DelayQueue<Schedule>,
     index: HashMap<u64, Key>,
     waker: futures::task::Waker,
 }
 
-#[async_trait]
-impl Actor for TimerSchedulerActor {
-    type S = State;
-    type A = ();
-
-    async fn pre_start(context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
-        let myself = context.myself();
-        debug!("{} pre start", myself);
-        let waker = futures::task::waker(Arc::new(SchedulerWaker { scheduler: myself.clone() }));
-        let state = State {
+impl TimerSchedulerActor {
+    pub(crate) fn new(myself: ActorRef) -> Self {
+        let waker = futures::task::waker(Arc::new(SchedulerWaker { scheduler: myself }));
+        Self {
             queue: DelayQueue::new(),
             index: HashMap::new(),
             waker,
-        };
-        Ok(state)
+        }
+    }
+}
+
+#[async_trait]
+impl Actor for TimerSchedulerActor {
+    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+        debug!("{} pre start", context.myself);
+        Ok(())
     }
 }
 
@@ -87,32 +86,32 @@ enum Schedule {
 }
 
 impl Message for Schedule {
-    type T = TimerSchedulerActor;
+    type A = TimerSchedulerActor;
 
     #[instrument(skip_all)]
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match &*self {
             Schedule::Once { index, delay, .. } => {
                 let index = *index;
                 let delay = *delay;
-                self.once(state, index, delay);
+                self.once(actor, index, delay);
             }
             Schedule::FixedDelay { index, initial_delay, interval, .. } => {
                 let index = *index;
                 let initial_delay = *initial_delay;
                 let interval = *interval;
-                self.fixed_delay(state, index, initial_delay, interval);
+                self.fixed_delay(actor, index, initial_delay, interval);
             }
             Schedule::OnceWith { index, delay, .. } => {
                 let index = *index;
                 let delay = delay.clone();
-                self.once(state, index, delay);
+                self.once(actor, index, delay);
             }
             Schedule::FixedDelayWith { index, initial_delay, interval, .. } => {
                 let index = *index;
                 let initial_delay = *initial_delay;
                 let interval = *interval;
-                self.fixed_delay(state, index, initial_delay, interval);
+                self.fixed_delay(actor, index, initial_delay, interval);
             }
         }
         context.myself().cast(PollExpired, ActorRef::no_sender());
@@ -121,25 +120,25 @@ impl Message for Schedule {
 }
 
 impl Schedule {
-    fn once(self: Box<Self>, state: &mut State, index: u64, delay: Duration) {
-        let delay_key = state.queue.insert(*self, delay);
-        debug_assert!(!state.index.contains_key(&index));
-        state.index.insert(index, delay_key);
+    fn once(self: Box<Self>, actor: &mut TimerSchedulerActor, index: u64, delay: Duration) {
+        let delay_key = actor.queue.insert(*self, delay);
+        debug_assert!(!actor.index.contains_key(&index));
+        actor.index.insert(index, delay_key);
     }
 
-    fn fixed_delay(self: Box<Self>, state: &mut State, index: u64, initial_delay: Option<Duration>, interval: Duration) {
+    fn fixed_delay(self: Box<Self>, actor: &mut TimerSchedulerActor, index: u64, initial_delay: Option<Duration>, interval: Duration) {
         let delay_key = match initial_delay {
             None => {
                 let delay = interval;
-                state.queue.insert(*self, delay)
+                actor.queue.insert(*self, delay)
             }
             Some(initial_delay) => {
                 let delay = initial_delay;
-                state.queue.insert(*self, delay)
+                actor.queue.insert(*self, delay)
             }
         };
-        debug_assert!(!state.index.contains_key(&index));
-        state.index.insert(index, delay_key);
+        debug_assert!(!actor.index.contains_key(&index));
+        actor.index.insert(index, delay_key);
     }
 }
 
@@ -188,15 +187,15 @@ struct CancelSchedule {
 }
 
 impl Message for CancelSchedule {
-    type T = TimerSchedulerActor;
+    type A = TimerSchedulerActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-        match state.index.remove(&self.index) {
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        match actor.index.remove(&self.index) {
             None => {
                 warn!("{} not found in TimerScheduler", self.index);
             }
             Some(key) => {
-                state.queue.try_remove(&key);
+                actor.queue.try_remove(&key);
                 debug!("schedule index {} removed from TimerScheduler", self.index);
             }
         }
@@ -209,11 +208,11 @@ impl Message for CancelSchedule {
 struct CancelAllSchedule;
 
 impl Message for CancelAllSchedule {
-    type T = TimerSchedulerActor;
+    type A = TimerSchedulerActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-        state.index.clear();
-        state.queue.clear();
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        actor.index.clear();
+        actor.queue.clear();
         debug!("{} {:?}", context.myself(), self);
         Ok(())
     }
@@ -223,12 +222,12 @@ impl Message for CancelAllSchedule {
 struct PollExpired;
 
 impl Message for PollExpired {
-    type T = TimerSchedulerActor;
+    type A = TimerSchedulerActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-        let waker = &state.waker;
-        let queue = &mut state.queue;
-        let index_map = &mut state.index;
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        let waker = &actor.waker;
+        let queue = &mut actor.queue;
+        let index_map = &mut actor.index;
         let mut ctx = futures::task::Context::from_waker(waker);
 
         while let Poll::Ready(Some(expired)) = queue.poll_expired(&mut ctx) {
@@ -300,10 +299,14 @@ pub struct TimerScheduler {
 
 impl TimerScheduler {
     pub fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
-        let actor = context.actor_of(noarg_props::<TimerSchedulerActor>(), Some("timer_scheduler".to_string()))?;
+        let scheduler_actor = context
+            .spawn_actor(
+                Props::create(move |context| TimerSchedulerActor::new(context.myself.clone())),
+                Some("timer_scheduler".to_string()),
+            )?;
         Ok(Self {
             index: AtomicU64::new(0),
-            scheduler_actor: actor,
+            scheduler_actor,
         })
     }
 
@@ -403,9 +406,9 @@ mod scheduler_test {
 
     use actor_derive::{CloneableEmptyCodec, EmptyCodec};
 
-    use crate::{Actor, CodecMessage, DynMessage, EmptyTestActor, Message};
+    use crate::{DynMessage, EmptyTestActor, Message};
     use crate::context::{ActorContext, Context};
-    use crate::props::noarg_props;
+    use crate::props::Props;
     use crate::provider::ActorRefFactory;
     use crate::system::ActorSystem;
     use crate::system::config::Config;
@@ -415,9 +418,9 @@ mod scheduler_test {
     struct OnOnceSchedule;
 
     impl Message for OnOnceSchedule {
-        type T = EmptyTestActor;
+        type A = EmptyTestActor;
 
-        fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             info!("{} OnOnceSchedule", context.myself());
             Ok(())
         }
@@ -428,9 +431,9 @@ mod scheduler_test {
     struct OnFixedSchedule;
 
     impl Message for OnFixedSchedule {
-        type T = EmptyTestActor;
+        type A = EmptyTestActor;
 
-        fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             info!("{} OnFixedSchedule", context.myself());
             Ok(())
         }
@@ -439,9 +442,9 @@ mod scheduler_test {
     #[tokio::test]
     async fn test_scheduler() -> anyhow::Result<()> {
         let system = ActorSystem::create(Config::default()).await?;
-        let scheduler_actor = system.actor_of(noarg_props::<TimerSchedulerActor>(), None)?;
+        let scheduler_actor = system.spawn_actor(Props::create(|context| TimerSchedulerActor::new(context.myself.clone())), None)?;
         let scheduler = TimerScheduler::with_actor(scheduler_actor);
-        let actor = system.actor_of(noarg_props::<EmptyTestActor>(), None)?;
+        let actor = system.spawn_actor(Props::create(|_| EmptyTestActor), None)?;
         scheduler.start_single_timer(
             Duration::from_secs(1),
             DynMessage::user(OnOnceSchedule),

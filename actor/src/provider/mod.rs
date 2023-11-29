@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use enum_dispatch::enum_dispatch;
 
-use crate::Actor;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
@@ -44,9 +43,7 @@ pub trait TActorRefProvider: Send {
     fn temp_container(&self) -> ActorRef;
     fn register_temp_actor(&self, actor: ActorRef, path: &ActorPath);
     fn unregister_temp_actor(&self, path: &ActorPath);
-    fn actor_of<T>(&self, props: Props<T>, supervisor: &ActorRef) -> anyhow::Result<ActorRef>
-        where
-            T: Actor;
+    fn actor_of(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef>;
     fn resolve_actor_ref(&self, path: impl AsRef<str>) -> ActorRef {
         match path.as_ref().parse::<ActorPath>() {
             Ok(actor_path) => self.resolve_actor_ref_of_path(&actor_path),
@@ -62,9 +59,7 @@ pub trait ActorRefFactory {
     fn provider(&self) -> Arc<ActorRefProvider>;
     fn guardian(&self) -> LocalActorRef;
     fn lookup_root(&self) -> ActorRef;
-    fn actor_of<T>(&self, props: Props<T>, name: Option<String>) -> anyhow::Result<ActorRef>
-        where
-            T: Actor;
+    fn spawn_actor(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef>;
     fn actor_selection(&self, _path: String) {
         todo!()
     }

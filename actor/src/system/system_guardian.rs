@@ -18,9 +18,9 @@ pub(crate) struct StopChild {
 }
 
 impl Message for StopChild {
-    type T = SystemGuardian;
+    type A = SystemGuardian;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         context.stop(&self.child);
         Ok(())
     }
@@ -28,10 +28,7 @@ impl Message for StopChild {
 
 #[async_trait]
 impl Actor for SystemGuardian {
-    type S = ();
-    type A = ();
-
-    async fn pre_start(context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{} pre start", context.myself());
         context.parent().unwrap().cast(ChildGuardianStarted { guardian: context.myself.clone() }, ActorRef::no_sender());
         Ok(())

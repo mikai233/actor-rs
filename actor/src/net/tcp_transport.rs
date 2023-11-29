@@ -8,7 +8,6 @@ use futures::StreamExt;
 use moka::sync::Cache;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpListener;
-use tokio::task::JoinHandle;
 use tokio_util::codec::Framed;
 use tracing::{info, warn};
 
@@ -22,7 +21,11 @@ use crate::net::message::{InboundMessage, RemotePacket, SpawnInbound};
 use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
 
 #[derive(Debug)]
-pub(crate) struct TransportActor;
+pub(crate) struct TransportActor {
+    pub(crate) connections: HashMap<SocketAddr, ConnectionSender>,
+    pub(crate) actor_ref_cache: Cache<SerializedActorRef, ActorRef>,
+    pub(crate) provider: Arc<ActorRefProvider>,
+}
 
 #[derive(Debug)]
 pub(crate) enum ConnectionSender {
@@ -33,12 +36,8 @@ pub(crate) enum ConnectionSender {
 
 #[async_trait]
 impl Actor for TransportActor {
-    type S = TcpTransport;
-    type A = ();
-
-    async fn pre_start(context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let myself = context.myself.clone();
-        let transport = TcpTransport::new(context.system.provider());
         let address = context.system.address().clone();
         let addr = address.addr;
         context.spawn(async move {
@@ -49,7 +48,7 @@ impl Actor for TransportActor {
                     Ok((stream, peer_addr)) => {
                         let actor = myself.clone();
                         let connection_fut = async move {
-                            TcpTransport::accept_inbound_connection(stream, peer_addr, actor).await;
+                            TransportActor::accept_inbound_connection(stream, peer_addr, actor).await;
                         };
                         myself.cast(
                             SpawnInbound { fut: Box::pin(connection_fut) },
@@ -62,24 +61,16 @@ impl Actor for TransportActor {
                 }
             }
         });
-        Ok(transport)
+        Ok(())
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct TcpTransport {
-    pub(crate) connections: HashMap<SocketAddr, ConnectionSender>,
-    pub(crate) actor_ref_cache: Cache<SerializedActorRef, ActorRef>,
-    pub(crate) listener: Option<JoinHandle<()>>,
-    pub(crate) provider: Arc<ActorRefProvider>,
-}
 
-impl TcpTransport {
+impl TransportActor {
     pub fn new(provider: Arc<ActorRefProvider>) -> Self {
         Self {
             connections: HashMap::new(),
             actor_ref_cache: Cache::new(1000),
-            listener: None,
             provider,
         }
     }
@@ -135,7 +126,7 @@ mod transport_test {
     use crate::{Actor, Message};
     use crate::actor_ref::ActorRefExt;
     use crate::context::{ActorContext, Context};
-    use crate::props::noarg_props;
+    use crate::props::Props;
     use crate::provider::ActorRefFactory;
     use crate::provider::TActorRefProvider;
     use crate::system::ActorSystem;
@@ -148,9 +139,9 @@ mod transport_test {
     struct Ping;
 
     impl Message for Ping {
-        type T = PingPongActor;
+        type A = PingPongActor;
 
-        fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             let myself = context.myself.clone();
             let sender = context.sender().unwrap().clone();
             context.spawn(async move {
@@ -166,9 +157,9 @@ mod transport_test {
     struct Pong;
 
     impl Message for Pong {
-        type T = PingPongActor;
+        type A = PingPongActor;
 
-        fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             info!("{} pong", context.myself());
             Ok(())
         }
@@ -180,9 +171,9 @@ mod transport_test {
     }
 
     impl Message for PingTo {
-        type T = PingPongActor;
+        type A = PingPongActor;
 
-        fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             let to = context.system.provider().resolve_actor_ref(&self.to);
             to.cast(Ping, Some(context.myself.clone()));
             Ok(())
@@ -191,10 +182,7 @@ mod transport_test {
 
     #[async_trait]
     impl Actor for PingPongActor {
-        type S = ();
-        type A = ();
-
-        async fn pre_start(context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+        async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
             info!("{} pre start", context.myself);
             Ok(())
         }
@@ -210,9 +198,10 @@ mod transport_test {
     #[tokio::test]
     async fn test() -> anyhow::Result<()> {
         let system_a = ActorSystem::create(build_config()).await?;
-        let actor_a = system_a.actor_of(noarg_props::<PingPongActor>(), Some("actor_a".to_string()))?;
+        let props = Props::create(|_| PingPongActor);
+        let actor_a = system_a.spawn_actor(props.clone(), Some("actor_a".to_string()))?;
         let system_a = ActorSystem::create(build_config()).await?;
-        let _ = system_a.actor_of(noarg_props::<PingPongActor>(), Some("actor_b".to_string()))?;
+        let _ = system_a.spawn_actor(props.clone(), Some("actor_b".to_string()))?;
         loop {
             actor_a.cast(PingTo { to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string() }, None);
             tokio::time::sleep(Duration::from_secs(1)).await;

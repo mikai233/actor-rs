@@ -1,4 +1,3 @@
-use crate::Actor;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
@@ -45,7 +44,7 @@ impl TActorRefProvider for EmptyActorRefProvider {
         panic!("unreachable");
     }
 
-    fn actor_of<T>(&self, _props: Props<T>, _supervisor: &ActorRef) -> anyhow::Result<ActorRef> where T: Actor {
+    fn actor_of(&self, _props: Props, _supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
         panic!("unreachable");
     }
 

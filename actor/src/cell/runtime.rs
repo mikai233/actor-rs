@@ -1,58 +1,35 @@
-use std::collections::{HashMap, HashSet, VecDeque};
-
 use tokio::task::yield_now;
 use tracing::error;
 
 use crate::{Actor, AsyncMessage, Message};
-use crate::actor_ref::ActorRef;
 use crate::cell::envelope::Envelope;
 use crate::context::{ActorContext, Context};
 use crate::delegate::MessageDelegate;
 use crate::net::mailbox::Mailbox;
 use crate::provider::ActorRefFactory;
 use crate::state::ActorState;
-use crate::system::ActorSystem;
 
-pub struct ActorRuntime<T> where T: Actor {
-    pub(crate) myself: ActorRef,
-    pub(crate) system: ActorSystem,
+pub struct ActorRuntime<A> where A: Actor {
+    pub(crate) actor: A,
+    pub(crate) context: ActorContext,
     pub(crate) mailbox: Mailbox,
-    pub(crate) arg: T::A,
 }
 
 impl<T> ActorRuntime<T> where T: Actor {
     pub(crate) async fn run(self) {
-        let Self {
-            myself,
-            system,
-            mut mailbox,
-            arg,
-        } = self;
+        let Self { mut actor, mut context, mut mailbox } = self;
         let actor_name = std::any::type_name::<T>();
-        let mut context = ActorContext {
-            state: ActorState::Init,
-            myself,
-            sender: None,
-            stash: VecDeque::new(),
-            async_tasks: Vec::new(),
-            system,
-            watching: HashMap::new(),
-            watched_by: HashSet::new(),
-        };
-        let mut state = match T::pre_start(&mut context, arg).await {
-            Ok(state) => state,
-            Err(err) => {
-                error!("actor {:?} pre start error {:?}", actor_name, err);
-                context.stop(&context.myself());
-                while let Some(message) = mailbox.system.recv().await {
-                    Self::handle_system(&mut context, message).await;
-                    if matches!(context.state, ActorState::CanTerminate) {
-                        break;
-                    }
+        if let Err(err) = actor.pre_start(&mut context).await {
+            error!("actor {:?} pre start error {:?}", actor_name, err);
+            context.stop(&context.myself());
+            while let Some(message) = mailbox.system.recv().await {
+                Self::handle_system(&mut context, message).await;
+                if matches!(context.state, ActorState::CanTerminate) {
+                    break;
                 }
-                return;
             }
-        };
+            return;
+        }
         context.state = ActorState::Started;
         let mut throughput = 0;
         loop {
@@ -66,7 +43,7 @@ impl<T> ActorRuntime<T> where T: Actor {
                     context.remove_finished_tasks();
                 }
                 Some(message) = mailbox.message.recv(), if matches!(context.state, ActorState::Started) => {
-                    if Self::handle_message(&mut context, &mut state, message).await {
+                    if Self::handle_message(&mut context, &mut actor, message).await {
                         break;
                     }
                     context.remove_finished_tasks();
@@ -81,7 +58,7 @@ impl<T> ActorRuntime<T> where T: Actor {
                 }
             }
         }
-        if let Some(err) = T::post_stop(&mut context, &mut state).await.err() {
+        if let Some(err) = actor.post_stop(&mut context).await.err() {
             error!("actor {:?} post stop error {:?}", actor_name, err);
         }
         for task in context.async_tasks {
@@ -118,20 +95,20 @@ impl<T> ActorRuntime<T> where T: Actor {
         context.sender.take();
     }
 
-    async fn handle_message(context: &mut ActorContext, state: &mut T::S, envelope: Envelope) -> bool {
+    async fn handle_message(context: &mut ActorContext, actor: &mut T, envelope: Envelope) -> bool {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
         match message.downcast_into_delegate::<T>() {
             Ok(delegate) => {
                 match delegate {
                     MessageDelegate::User(user) => {
-                        if let Some(e) = user.handle(context, state).err() {
+                        if let Some(e) = user.handle(context, actor).err() {
                             let actor_name = std::any::type_name::<T>();
                             error!("{} {:?}", actor_name, e);
                         }
                     }
                     MessageDelegate::AsyncUser(user) => {
-                        if let Some(e) = user.handle(context, state).await.err() {
+                        if let Some(e) = user.handle(context, actor).await.err() {
                             let actor_name = std::any::type_name::<T>();
                             error!("{} {:?}", actor_name, e);
                         }

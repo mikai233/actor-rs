@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::Actor;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::ActorRef;
@@ -64,10 +63,7 @@ impl TActorRefProvider for RemoteActorRefProvider {
         self.local.unregister_temp_actor(path)
     }
 
-    fn actor_of<T>(&self, props: Props<T>, supervisor: &ActorRef) -> anyhow::Result<ActorRef>
-        where
-            T: Actor,
-    {
+    fn actor_of(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
         // TODO remote spawn
         self.local.actor_of(props, supervisor)
     }

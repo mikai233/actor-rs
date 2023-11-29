@@ -12,11 +12,11 @@ use tracing::{debug, error, info, warn};
 
 use actor_derive::EmptyCodec;
 
-use crate::{Actor, Message};
 use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef};
 use crate::actor_ref::TActorRef;
 use crate::context::{ActorContext, Context};
+use crate::Message;
 use crate::message::IDPacket;
 use crate::net::codec::PacketCodec;
 use crate::net::connection::{Connection, ConnectionTx};
@@ -53,9 +53,9 @@ pub(crate) struct Connect {
 }
 
 impl Message for Connect {
-    type T = TransportActor;
+    type A = TransportActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         let myself = context.myself.clone();
         context.spawn(async move {
             match StubbornTcpStream::connect_with_options(self.addr, self.opts).await {
@@ -85,10 +85,10 @@ pub(crate) struct Connected {
 }
 
 impl Message for Connected {
-    type T = TransportActor;
+    type A = TransportActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-        state.connections.insert(self.addr, ConnectionSender::Connected(self.tx));
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        actor.connections.insert(self.addr, ConnectionSender::Connected(self.tx));
         info!("{} connect to {}", context.myself, self.addr);
         context.unstash_all();
         Ok(())
@@ -101,10 +101,10 @@ pub(crate) struct Disconnect {
 }
 
 impl Message for Disconnect {
-    type T = TransportActor;
+    type A = TransportActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-        state.connections.remove(&self.addr);
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        actor.connections.remove(&self.addr);
         let myself = context.myself();
         info!("{} disconnect to {}", myself, self.addr);
         Ok(())
@@ -117,9 +117,9 @@ pub(crate) struct SpawnInbound {
 }
 
 impl Message for SpawnInbound {
-    type T = TransportActor;
+    type A = TransportActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         context.spawn(self.fut);
         Ok(())
     }
@@ -131,19 +131,19 @@ pub(crate) struct InboundMessage {
 }
 
 impl Message for InboundMessage {
-    type T = TransportActor;
+    type A = TransportActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let RemotePacket {
             packet,
             sender,
             target,
         } = self.packet;
-        let sender = sender.map(|s| state.resolve_actor_ref(context, s));
-        let target = state.resolve_actor_ref(context, target);
+        let sender = sender.map(|s| actor.resolve_actor_ref(context, s));
+        let target = actor.resolve_actor_ref(context, target);
         let system: ActorSystem = target.system();
         let reg = system.registration();
-        let message = reg.decode(&state.provider, packet)?;
+        let message = reg.decode(&actor.provider, packet)?;
         target.tell(message, sender);
         Ok(())
     }
@@ -155,11 +155,11 @@ pub(crate) struct OutboundMessage {
 }
 
 impl Message for OutboundMessage {
-    type T = TransportActor;
+    type A = TransportActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let addr: SocketAddr = self.envelope.target.path().address().addr.into();
-        let sender = state.connections.entry(addr).or_insert(ConnectionSender::NotConnected);
+        let sender = actor.connections.entry(addr).or_insert(ConnectionSender::NotConnected);
         match sender {
             ConnectionSender::NotConnected => {
                 let opts = ReconnectOptions::new()

@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, warn};
 
-use crate::{Actor, DynMessage, Message, MessageType, UntypedMessage, UserDelegate};
+use crate::{DynMessage, Message, MessageType, UntypedMessage, UserDelegate};
 use crate::actor_path::{ActorPath, ChildActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, ActorRefSystemExt, Cell, TActorRef};
 use crate::actor_ref::function_ref::{FunctionRef, Inner};
@@ -75,10 +75,7 @@ impl ActorRefFactory for ActorContext {
         self.myself().clone()
     }
 
-    fn actor_of<T>(&self, props: Props<T>, name: Option<String>) -> anyhow::Result<ActorRef>
-        where
-            T: Actor,
-    {
+    fn spawn_actor(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
         if !matches!(self.state, ActorState::Init | ActorState::Started) {
             return Err(anyhow!(
                 "cannot spawn child actor while parent actor {} is terminating",
@@ -187,6 +184,18 @@ impl Context for ActorContext {
 }
 
 impl ActorContext {
+    pub(crate) fn new(myself: ActorRef, system: ActorSystem) -> Self {
+        Self {
+            state: ActorState::Init,
+            myself,
+            sender: None,
+            stash: Default::default(),
+            async_tasks: vec![],
+            system,
+            watching: Default::default(),
+            watched_by: Default::default(),
+        }
+    }
     pub fn stash<M>(&mut self, message: M) where M: Message {
         let sender = self.sender.clone();
         let message = UserDelegate::new(message);

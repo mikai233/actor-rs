@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use actor_derive::MessageCodec;
 
-use crate::{Actor, Message};
+use crate::Message;
 use crate::cluster::daemon::cluster_daemon::ClusterDaemon;
 use crate::context::ActorContext;
 
@@ -15,9 +15,9 @@ pub(crate) struct MemberJoin {
 }
 
 impl Message for MemberJoin {
-    type T = ClusterDaemon;
+    type A = ClusterDaemon;
 
-    fn handle(self: Box<Self>, _context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         todo!()
     }
 }

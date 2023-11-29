@@ -10,31 +10,24 @@ use crate::context::{ActorContext, Context};
 use crate::message::terminated::WatchTerminated;
 use crate::provider::ActorRefFactory;
 
-#[derive(Debug)]
-pub(crate) struct RootGuardian;
-
 #[derive(Default)]
-pub(crate) struct State {
+pub(crate) struct RootGuardian {
     shutdown_hooks: Vec<BoxFuture<'static, ()>>,
     user_stopped: bool,
     system_stopped: bool,
     shutdown_signal: Option<tokio::sync::oneshot::Sender<()>>,
 }
 
-
 #[async_trait]
 impl Actor for RootGuardian {
-    type S = State;
-    type A = ();
-
-    async fn pre_start(context: &mut ActorContext, _arg: Self::A) -> anyhow::Result<Self::S> {
+    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{} pre start", context.myself());
-        Ok(State::default())
+        Ok(())
     }
 
-    async fn post_stop(context: &mut ActorContext, state: &mut Self::S) -> anyhow::Result<()> {
+    async fn post_stop(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{} post stop", context.myself());
-        if let Some(signal) = state.shutdown_signal.take() {
+        if let Some(signal) = self.shutdown_signal.take() {
             let _ = signal.send(());
         }
         Ok(())
@@ -48,12 +41,12 @@ pub(crate) struct Shutdown {
 
 #[async_trait]
 impl AsyncMessage for Shutdown {
-    type T = RootGuardian;
+    type A = RootGuardian;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         debug!("shutdown received, start shutdown actor system");
-        state.shutdown_signal = Some(self.signal);
-        join_all(state.shutdown_hooks.drain(..)).await;
+        actor.shutdown_signal = Some(self.signal);
+        join_all(actor.shutdown_hooks.drain(..)).await;
         context.system.guardian().stop();
         Ok(())
     }
@@ -65,9 +58,9 @@ pub(crate) struct ChildGuardianStarted {
 }
 
 impl Message for ChildGuardianStarted {
-    type T = RootGuardian;
+    type A = RootGuardian;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         context.watch(WatchGuardianTerminated { guardian: self.guardian });
         Ok(())
     }
@@ -85,25 +78,25 @@ impl WatchTerminated for WatchGuardianTerminated {
 }
 
 impl Message for WatchGuardianTerminated {
-    type T = RootGuardian;
+    type A = RootGuardian;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if self.guardian == context.system.guardian().into() {
-            state.user_stopped = true;
+            actor.user_stopped = true;
             debug!("user guardian stopped");
             match context.children().get("system") {
                 None => {
-                    state.system_stopped = true;
+                    actor.system_stopped = true;
                 }
                 Some(system) => {
                     system.stop();
                 }
             }
         } else if self.guardian == context.system.system_guardian().into() {
-            state.system_stopped = true;
+            actor.system_stopped = true;
             debug!("system guardian stopped");
         }
-        if state.user_stopped && state.system_stopped {
+        if actor.user_stopped && actor.system_stopped {
             debug!("user guardian and system guardian stopped, stop the root guardian");
             context.stop(context.myself());
         }
@@ -117,10 +110,10 @@ pub(crate) struct AddShutdownHook {
 }
 
 impl Message for AddShutdownHook {
-    type T = RootGuardian;
+    type A = RootGuardian;
 
-    fn handle(self: Box<Self>, _context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-        state.shutdown_hooks.push(self.fut);
+    fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        actor.shutdown_hooks.push(self.fut);
         Ok(())
     }
 }

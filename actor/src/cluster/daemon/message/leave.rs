@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 
 use actor_derive::MessageCodec;
 
-use crate::Actor;
 use crate::cluster::daemon::cluster_daemon::ClusterDaemon;
 use crate::context::ActorContext;
 use crate::Message;
@@ -16,9 +15,9 @@ pub(crate) struct MemberLeave {
 }
 
 impl Message for MemberLeave {
-    type T = ClusterDaemon;
+    type A = ClusterDaemon;
 
-    fn handle(self: Box<Self>, _context: &mut ActorContext, _state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         todo!()
     }
 }

@@ -7,12 +7,12 @@ use crate::{Actor, AsyncMessage, CodecMessage, DynMessage, Message, MessageType}
 use crate::context::ActorContext;
 use crate::decoder::MessageDecoder;
 
-pub struct UserDelegate<T> where T: Actor {
+pub struct UserDelegate<A> where A: Actor {
     pub(crate) name: &'static str,
-    pub(crate) message: Box<dyn Message<T=T>>,
+    pub(crate) message: Box<dyn Message<A=A>>,
 }
 
-impl<T> Debug for UserDelegate<T> where T: Actor {
+impl<A> Debug for UserDelegate<A> where A: Actor {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("UserDelegate")
             .field("name", &self.name)
@@ -21,8 +21,8 @@ impl<T> Debug for UserDelegate<T> where T: Actor {
     }
 }
 
-impl<T> UserDelegate<T> where T: Actor {
-    pub fn new<M>(message: M) -> Self where M: Message<T=T> {
+impl<A> UserDelegate<A> where A: Actor {
+    pub fn new<M>(message: M) -> Self where M: Message<A=A> {
         Self {
             name: std::any::type_name::<M>(),
             message: Box::new(message),
@@ -30,7 +30,7 @@ impl<T> UserDelegate<T> where T: Actor {
     }
 }
 
-impl<T> CodecMessage for UserDelegate<T> where T: 'static + Actor + Send {
+impl<A> CodecMessage for UserDelegate<A> where A: 'static + Actor + Send {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -48,15 +48,15 @@ impl<T> CodecMessage for UserDelegate<T> where T: 'static + Actor + Send {
     }
 }
 
-impl<T> Message for UserDelegate<T> where T: Actor + Send + 'static {
-    type T = T;
+impl<A> Message for UserDelegate<A> where A: Actor + Send + 'static {
+    type A = A;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-        self.message.handle(context, state)
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        self.message.handle(context, actor)
     }
 }
 
-impl<T> Into<DynMessage> for UserDelegate<T> where T: Actor {
+impl<A> Into<DynMessage> for UserDelegate<A> where A: Actor {
     fn into(self) -> DynMessage {
         DynMessage {
             name: self.name,
@@ -66,12 +66,12 @@ impl<T> Into<DynMessage> for UserDelegate<T> where T: Actor {
     }
 }
 
-pub struct AsyncUserDelegate<T> where T: Actor {
+pub struct AsyncUserDelegate<A> where A: Actor {
     pub(crate) name: &'static str,
-    pub(crate) message: Box<dyn AsyncMessage<T=T>>,
+    pub(crate) message: Box<dyn AsyncMessage<A=A>>,
 }
 
-impl<T> Debug for AsyncUserDelegate<T> where T: Actor {
+impl<A> Debug for AsyncUserDelegate<A> where A: Actor {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AsyncUserDelegate")
             .field("name", &self.name)
@@ -80,8 +80,8 @@ impl<T> Debug for AsyncUserDelegate<T> where T: Actor {
     }
 }
 
-impl<T> AsyncUserDelegate<T> where T: Actor {
-    pub fn new<M>(message: M) -> Self where M: AsyncMessage<T=T> {
+impl<A> AsyncUserDelegate<A> where A: Actor {
+    pub fn new<M>(message: M) -> Self where M: AsyncMessage<A=A> {
         Self {
             name: std::any::type_name::<M>(),
             message: Box::new(message),
@@ -89,7 +89,7 @@ impl<T> AsyncUserDelegate<T> where T: Actor {
     }
 }
 
-impl<T> CodecMessage for AsyncUserDelegate<T> where T: 'static + Actor + Send {
+impl<A> CodecMessage for AsyncUserDelegate<A> where A: 'static + Actor + Send {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -108,15 +108,15 @@ impl<T> CodecMessage for AsyncUserDelegate<T> where T: 'static + Actor + Send {
 }
 
 #[async_trait]
-impl<T> AsyncMessage for AsyncUserDelegate<T> where T: Actor + Send + 'static {
-    type T = T;
+impl<A> AsyncMessage for AsyncUserDelegate<A> where A: Actor + Send + 'static {
+    type A = A;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, state: &mut <Self::T as Actor>::S) -> anyhow::Result<()> {
-        self.message.handle(context, state).await
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        self.message.handle(context, actor).await
     }
 }
 
-impl<T> Into<DynMessage> for AsyncUserDelegate<T> where T: Actor {
+impl<A> Into<DynMessage> for AsyncUserDelegate<A> where A: Actor {
     fn into(self) -> DynMessage {
         DynMessage {
             name: self.name,
