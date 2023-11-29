@@ -27,7 +27,7 @@ pub(crate) struct IDPacket {
 
 #[derive(Clone)]
 pub struct MessageRegistration {
-    pub id: u32,
+    pub next_id: u32,
     pub name_id: HashMap<&'static str, u32>,
     pub decoder: HashMap<u32, Box<dyn MessageDecoder>>,
 }
@@ -35,7 +35,7 @@ pub struct MessageRegistration {
 impl Debug for MessageRegistration {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MessageRegistration")
-            .field("id", &self.id)
+            .field("next_id", &self.next_id)
             .field("name_id", &self.name_id)
             .field("decoder", &"..")
             .finish()
@@ -45,7 +45,7 @@ impl Debug for MessageRegistration {
 impl MessageRegistration {
     pub fn new() -> Self {
         let mut reg = Self {
-            id: 0,
+            next_id: 0,
             name_id: HashMap::new(),
             decoder: HashMap::new(),
         };
@@ -57,9 +57,9 @@ impl MessageRegistration {
         let name = std::any::type_name::<M>();
         let decoder = M::decoder().expect(&*format!("{} decoder is empty", name));
         assert!(!self.name_id.contains_key(name), "message {} already registered", name);
-        self.name_id.insert(name, self.id);
-        self.decoder.insert(self.id, decoder);
-        self.id += 1;
+        self.name_id.insert(name, self.next_id);
+        self.decoder.insert(self.next_id, decoder);
+        self.next_id += 1;
     }
 
     pub(crate) fn encode_boxed(&self, message: DynMessage) -> anyhow::Result<IDPacket> {

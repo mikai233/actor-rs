@@ -81,7 +81,7 @@ enum Schedule {
         index: u64,
         initial_delay: Option<Duration>,
         interval: Duration,
-        factory: Box<dyn (Fn() -> Box<dyn Fn() + Send + 'static>) + Send + 'static>,
+        block: Arc<Box<dyn Fn() + Send + Sync + 'static>>,
     },
 }
 
@@ -261,15 +261,15 @@ impl Message for PollExpired {
                     index_map.remove(&index);
                     context.spawn(async move { block() });
                 }
-                Schedule::FixedDelayWith { index, interval, factory, .. } => {
-                    let block = factory();
-                    context.spawn(async move { block() });
+                Schedule::FixedDelayWith { index, interval, block, .. } => {
+                    let block_clone = block.clone();
+                    context.spawn(async move { block_clone() });
                     let next_delay = interval;
                     let reschedule = Schedule::FixedDelayWith {
                         index,
                         initial_delay: None,
                         interval,
-                        factory,
+                        block,
                     };
                     let new_key = queue.insert(reschedule, next_delay);
                     index_map.insert(index, new_key);
@@ -374,17 +374,17 @@ impl TimerScheduler {
         &self,
         initial_delay: Option<Duration>,
         interval: Duration,
-        factory_fn: F,
+        block: F,
     ) -> ScheduleKey
         where
-            F: Fn() -> Box<dyn Fn() + Send + 'static> + Send + 'static,
+            F: Fn() + Send + Sync + 'static,
     {
         let index = self.index.fetch_add(1, Ordering::Relaxed);
         let fixed_delay_with = Schedule::FixedDelayWith {
             index,
             initial_delay,
             interval,
-            factory: Box::new(factory_fn),
+            block: Arc::new(Box::new(block)),
         };
         self.scheduler_actor.cast(fixed_delay_with, ActorRef::no_sender());
         ScheduleKey {
