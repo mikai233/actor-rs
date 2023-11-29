@@ -75,14 +75,24 @@ impl ActorRefFactory for ActorContext {
         self.myself().clone()
     }
 
-    fn spawn_actor(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
+    fn spawn_actor(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
         if !matches!(self.state, ActorState::Init | ActorState::Started) {
             return Err(anyhow!(
                 "cannot spawn child actor while parent actor {} is terminating",
                 self.myself
             ));
         }
-        self.myself.local_or_panic().attach_child(props, name)
+        self.myself.local_or_panic().attach_child(props, Some(name.into()))
+    }
+
+    fn spawn_anonymous_actor(&self, props: Props) -> anyhow::Result<ActorRef> {
+        if !matches!(self.state, ActorState::Init | ActorState::Started) {
+            return Err(anyhow!(
+                "cannot spawn child actor while parent actor {} is terminating",
+                self.myself
+            ));
+        }
+        self.myself.local_or_panic().attach_child(props, None)
     }
 
     fn stop(&self, actor: &ActorRef) {

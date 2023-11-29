@@ -216,10 +216,10 @@ mod actor_event_bus_test {
     async fn test_event_bus() -> anyhow::Result<()> {
         let system = ActorSystem::create(Config::default()).await?;
         let props = Props::create(|_| EmptyTestActor);
-        let actor1 = system.spawn_actor(props.clone(), Some("actor1".to_string()))?;
-        let actor2 = system.spawn_actor(props.clone(), Some("actor2".to_string()))?;
-        let actor3 = system.spawn_actor(props.clone(), Some("actor3".to_string()))?;
-        let event_bus_actor = system.spawn_actor(Props::create(|_| EventBusActor::default()), None)?;
+        let actor1 = system.spawn_actor(props.clone(), "actor1")?;
+        let actor2 = system.spawn_actor(props.clone(), "actor2")?;
+        let actor3 = system.spawn_actor(props.clone(), "actor3")?;
+        let event_bus_actor = system.spawn_anonymous_actor(Props::create(|_| EventBusActor::default()))?;
         let event_bus = SystemEventBus {
             event_bus: event_bus_actor,
         };

@@ -59,7 +59,8 @@ pub trait ActorRefFactory {
     fn provider(&self) -> Arc<ActorRefProvider>;
     fn guardian(&self) -> LocalActorRef;
     fn lookup_root(&self) -> ActorRef;
-    fn spawn_actor(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef>;
+    fn spawn_actor(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef>;
+    fn spawn_anonymous_actor(&self, props: Props) -> anyhow::Result<ActorRef>;
     fn actor_selection(&self, _path: String) {
         todo!()
     }

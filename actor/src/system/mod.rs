@@ -230,8 +230,12 @@ impl ActorRefFactory for ActorSystem {
         self.provider().root_guardian().clone().into()
     }
 
-    fn spawn_actor(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
-        self.guardian().attach_child(props, name)
+    fn spawn_actor(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
+        self.guardian().attach_child(props, Some(name.into()))
+    }
+
+    fn spawn_anonymous_actor(&self, props: Props) -> anyhow::Result<ActorRef> {
+        self.guardian().attach_child(props, None)
     }
 
     fn stop(&self, actor: &ActorRef) {
@@ -278,7 +282,7 @@ mod system_test {
         let system = ActorSystem::create(Config::default()).await?;
         for i in 0..10 {
             let name = format!("testActor{}", i);
-            let actor = system.spawn_actor(Props::create(|_| EmptyTestActor), Some(name))?;
+            let actor = system.spawn_actor(Props::create(|_| EmptyTestActor), name)?;
             let elements: Vec<String> = actor.path().elements();
             info!("{:?}", elements);
             tokio::spawn(async move {

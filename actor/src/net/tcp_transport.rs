@@ -199,9 +199,9 @@ mod transport_test {
     async fn test() -> anyhow::Result<()> {
         let system_a = ActorSystem::create(build_config()).await?;
         let props = Props::create(|_| PingPongActor);
-        let actor_a = system_a.spawn_actor(props.clone(), Some("actor_a".to_string()))?;
+        let actor_a = system_a.spawn_actor(props.clone(), "actor_a")?;
         let system_a = ActorSystem::create(build_config()).await?;
-        let _ = system_a.spawn_actor(props.clone(), Some("actor_b".to_string()))?;
+        let _ = system_a.spawn_actor(props.clone(), "actor_b")?;
         loop {
             actor_a.cast(PingTo { to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string() }, None);
             tokio::time::sleep(Duration::from_secs(1)).await;

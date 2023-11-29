@@ -168,7 +168,7 @@ mod local_provider_test {
     impl Actor for ActorA {
         async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
             info!("actor a {} pre start", context.myself);
-            context.spawn_actor(Props::create(|_| ActorA), None)?;
+            context.spawn_anonymous_actor(Props::create(|_| ActorA))?;
             Ok(())
         }
     }
@@ -180,7 +180,7 @@ mod local_provider_test {
     impl Actor for ActorB {
         async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
             info!("actor b {} pre start", context.myself);
-            context.spawn_actor(Props::create(|_| EmptyTestActor), None)?;
+            context.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
             Ok(())
         }
     }
@@ -189,7 +189,7 @@ mod local_provider_test {
     #[tokio::test]
     async fn test() -> anyhow::Result<()> {
         let system = ActorSystem::create(Config::default()).await?;
-        let _ = system.spawn_actor(Props::create(|_| ActorA), None)?;
+        let _ = system.spawn_anonymous_actor(Props::create(|_| ActorA))?;
         let actor_c = system
             .provider()
             .resolve_actor_ref(&"tcp://game@127.0.0.1:12121/user/$a/$b/$c".to_string());

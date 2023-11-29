@@ -302,7 +302,7 @@ impl TimerScheduler {
         let scheduler_actor = context
             .spawn_actor(
                 Props::create(move |context| TimerSchedulerActor::new(context.myself.clone())),
-                Some("timer_scheduler".to_string()),
+                "timer_scheduler",
             )?;
         Ok(Self {
             index: AtomicU64::new(0),
@@ -442,9 +442,9 @@ mod scheduler_test {
     #[tokio::test]
     async fn test_scheduler() -> anyhow::Result<()> {
         let system = ActorSystem::create(Config::default()).await?;
-        let scheduler_actor = system.spawn_actor(Props::create(|context| TimerSchedulerActor::new(context.myself.clone())), None)?;
+        let scheduler_actor = system.spawn_anonymous_actor(Props::create(|context| TimerSchedulerActor::new(context.myself.clone())))?;
         let scheduler = TimerScheduler::with_actor(scheduler_actor);
-        let actor = system.spawn_actor(Props::create(|_| EmptyTestActor), None)?;
+        let actor = system.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
         scheduler.start_single_timer(
             Duration::from_secs(1),
             DynMessage::user(OnOnceSchedule),

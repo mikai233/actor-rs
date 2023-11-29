@@ -236,7 +236,7 @@ mod actor_test {
                 for _ in 0..3 {
                     let n = self.depth - 1;
                     if n > 0 {
-                        context.spawn_actor(Props::create(move |_| DeathWatchActor { depth: n }), None)?;
+                        context.spawn_anonymous_actor(Props::create(move |_| DeathWatchActor { depth: n }))?;
                     }
                 }
                 Ok(())
@@ -249,7 +249,7 @@ mod actor_test {
         }
 
         let system = ActorSystem::create(Config::default()).await?;
-        let actor = system.spawn_actor(Props::create(|_| DeathWatchActor { depth: 3 }), None)?;
+        let actor = system.spawn_anonymous_actor(Props::create(|_| DeathWatchActor { depth: 3 }))?;
         tokio::time::sleep(Duration::from_secs(1)).await;
         system.stop(&actor);
         tokio::time::sleep(Duration::from_secs(3)).await;
@@ -320,9 +320,9 @@ mod actor_test {
         let system1 = ActorSystem::create(build_config("127.0.0.1:12121".parse()?)).await?;
         let system2 = ActorSystem::create(build_config("127.0.0.1:12122".parse()?)).await?;
         let props = Props::create(|_| EmptyTestActor);
-        let system1_actor = system1.spawn_actor(props.clone(), None)?;
-        let system2_actor1 = system2.spawn_actor(props.clone(), None)?;
-        let system2_actor2 = system2.spawn_actor(props.clone(), None)?;
+        let system1_actor = system1.spawn_anonymous_actor(props.clone())?;
+        let system2_actor1 = system2.spawn_anonymous_actor(props.clone())?;
+        let system2_actor2 = system2.spawn_anonymous_actor(props.clone())?;
         tokio::time::sleep(Duration::from_secs(1)).await;
         system1_actor.cast(WatchFor { actor: system2_actor1.clone() }, None);
         system1_actor.cast(WatchFor { actor: system2_actor2.clone() }, None);
@@ -380,7 +380,7 @@ mod actor_test {
 
         let system1 = ActorSystem::create(build_config("127.0.0.1:12121".parse()?)).await?;
         let system2 = ActorSystem::create(build_config("127.0.0.1:12123".parse()?)).await?;
-        let actor_a = system1.spawn_actor(Props::create(|_| EmptyTestActor), None)?;
+        let actor_a = system1.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
         let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
         let start = SystemTime::now();
         for _ in 0..10000 {
@@ -428,7 +428,7 @@ mod actor_test {
             config
         }
         let system = ActorSystem::create(build_config()).await?;
-        system.spawn_actor(Props::create(|_| AdapterActor), None)?;
+        system.spawn_anonymous_actor(Props::create(|_| AdapterActor))?;
         tokio::time::sleep(Duration::from_secs(3)).await;
         Ok(())
     }
