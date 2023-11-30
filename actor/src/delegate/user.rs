@@ -35,6 +35,10 @@ impl<A> CodecMessage for UserDelegate<A> where A: 'static + Actor + Send {
         self
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
         None
     }
@@ -91,6 +95,10 @@ impl<A> AsyncUserDelegate<A> where A: Actor {
 
 impl<A> CodecMessage for AsyncUserDelegate<A> where A: 'static + Actor + Send {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
         self
     }
 

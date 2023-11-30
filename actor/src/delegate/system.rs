@@ -25,6 +25,10 @@ impl CodecMessage for SystemDelegate {
         self
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
         None
     }

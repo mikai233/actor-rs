@@ -14,6 +14,7 @@ use crate::actor_ref::deferred_ref::DeferredActorRef;
 use crate::actor_ref::function_ref::FunctionRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::remote_ref::RemoteActorRef;
+use crate::actor_ref::routed_actor_ref::RoutedActorRef;
 use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::cell::ActorCell;
 use crate::system::ActorSystem;
@@ -24,6 +25,7 @@ pub mod remote_ref;
 pub(crate) mod virtual_path_container;
 pub mod deferred_ref;
 pub(crate) mod function_ref;
+mod routed_actor_ref;
 
 #[enum_dispatch]
 #[derive(Clone)]
@@ -34,6 +36,7 @@ pub enum ActorRef {
     VirtualPathContainer,
     DeferredActorRef,
     FunctionRef,
+    RoutedActorRef,
 }
 
 impl Debug for ActorRef {
@@ -62,6 +65,10 @@ impl Debug for ActorRef {
             ActorRef::FunctionRef(fr) => f.
                 debug_struct("FunctionRef")
                 .field("path", fr.path())
+                .finish_non_exhaustive(),
+            ActorRef::RoutedActorRef(rr) => f.
+                debug_struct("RoutedActorRef")
+                .field("path", &rr.path)
                 .finish_non_exhaustive()
         }
     }

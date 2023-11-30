@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tracing::{info, Level};
 
@@ -40,7 +39,6 @@ impl Message for RemoteMessage {
 
 struct ActorA;
 
-#[async_trait]
 impl Actor for ActorA {}
 
 #[tokio::main]

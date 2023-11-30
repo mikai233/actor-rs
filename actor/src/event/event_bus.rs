@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 
-use async_trait::async_trait;
 use tracing::{debug, trace};
 
 use actor_derive::EmptyCodec;
@@ -56,7 +55,6 @@ struct EventBusActor {
     subscribers: HashMap<&'static str, HashSet<ActorRef>>,
 }
 
-#[async_trait]
 impl Actor for EventBusActor {}
 
 #[derive(Debug, EmptyCodec)]

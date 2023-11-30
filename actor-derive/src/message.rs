@@ -22,6 +22,10 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
                 self
             }
 
+            fn as_any(&self) -> &dyn std::any::Any {
+                self
+            }
+
             fn decoder() -> Option<Box<dyn #decoder_trait >> where Self: Sized {
                 #decoder
             }

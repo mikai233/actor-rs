@@ -48,6 +48,7 @@ pub trait Actor: Send + Sized + 'static {
 
 pub trait CodecMessage: Any + Send {
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
+    fn as_any(&self) -> &dyn Any;
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized;
     fn encode(&self) -> Option<anyhow::Result<Vec<u8>>>;
     fn dyn_clone(&self) -> Option<DynMessage>;

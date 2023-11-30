@@ -29,6 +29,10 @@ impl CodecMessage for Watch {
         self
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
         #[derive(Clone)]
         struct D;
