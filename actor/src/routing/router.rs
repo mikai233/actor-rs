@@ -1,4 +1,5 @@
 use std::ops::Deref;
+use std::sync::Arc;
 
 use tracing::error;
 
@@ -10,7 +11,7 @@ use crate::DynMessage;
 
 pub struct Router {
     logic: Box<dyn RoutingLogic>,
-    routees: Vec<Box<dyn Routee>>,
+    routees: Vec<Arc<Box<dyn Routee>>>,
 }
 
 impl Router {
@@ -24,7 +25,7 @@ impl Router {
     pub fn new_with_routees<L>(logic: L, routees: Vec<Box<dyn Routee>>) -> Self where L: RoutingLogic {
         Self {
             logic: Box::new(logic),
-            routees,
+            routees: routees.into_iter().map(Into::into).collect(),
         }
     }
 
@@ -32,16 +33,7 @@ impl Router {
         if message.boxed.as_any().is::<Broadcast>() {
             let broadcast = message.boxed.into_any().downcast::<Broadcast>().unwrap();
             let message = broadcast.message;
-            for routee in &self.routees {
-                match message.clone() {
-                    None => {
-                        error!("route message {} not impl dyn_clone", message.name())
-                    }
-                    Some(message) => {
-                        routee.send(message, sender.clone());
-                    }
-                }
-            }
+            SeveralRoutees { routees: self.routees.clone() }.send(message, sender);
         } else {
             self.send(&self.logic.select(&message, &self.routees), message, sender);
         }
@@ -51,7 +43,7 @@ impl Router {
 }
 
 pub trait RoutingLogic: Send + Sync + 'static {
-    fn select(&self, message: &DynMessage, routees: &Vec<Box<dyn Routee>>) -> &Box<dyn Routee>;
+    fn select(&self, message: &DynMessage, routees: &Vec<Arc<Box<dyn Routee>>>) -> Arc<Box<dyn Routee>>;
 }
 
 pub trait Routee: Send + Sync + 'static {
@@ -86,23 +78,23 @@ impl Routee for NoRoutee {
 }
 
 pub struct SeveralRoutees {
-    pub routees: Vec<Box<dyn Routee>>,
+    pub routees: Vec<Arc<Box<dyn Routee>>>,
 }
 
-// impl Routee for SeveralRoutees {
-//     fn send(&self, message: DynMessage, sender: Option<ActorRef>) {
-//         for routee in &self.routees {
-//             match message.clone() {
-//                 None => {
-//                     error!("route message {} not impl dyn_clone", message.name())
-//                 }
-//                 Some(message) => {
-//                     routee.send(message, sender.clone());
-//                 }
-//             }
-//         }
-//     }
-// }
+impl Routee for SeveralRoutees {
+    fn send(&self, message: DynMessage, sender: Option<ActorRef>) {
+        for routee in &self.routees {
+            match message.clone() {
+                None => {
+                    error!("route message {} not impl dyn_clone", message.name())
+                }
+                Some(message) => {
+                    routee.send(message, sender.clone());
+                }
+            }
+        }
+    }
+}
 
 #[derive(Debug, EmptyCodec)]
 pub struct Broadcast {
