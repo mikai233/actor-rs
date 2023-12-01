@@ -1,25 +1,33 @@
 use std::fmt::{Debug, Formatter};
 
+use dyn_clone::DynClone;
+
 use actor_derive::EmptyCodec;
 
+use crate::{DynMessage, Message, MessageType};
 use crate::context::ActorContext;
-use crate::Message;
 use crate::props::Props;
 use crate::routing::router::{Routee, Router};
-use crate::routing::router_actor::RouterActor;
+use crate::routing::router_actor::{RouterActor, WatchRouteeTerminated};
 use crate::system::ActorSystem;
 
-pub trait RouterConfig {
+pub trait RouterConfig: DynClone {
     fn create_router(&self, system: ActorSystem) -> Router;
     fn create_router_actor(&self) -> RouterActor;
+    fn is_management_message(&self, message: &DynMessage) -> bool {
+        if message.name == std::any::type_name::<WatchRouteeTerminated>()
+            || matches!(message.message_type, MessageType::System) {
+            true
+        } else {
+            false
+        }
+    }
 }
 
 pub trait Pool: RouterConfig {
     fn nr_of_instances(&self, sys: &ActorSystem) -> usize;
     fn new_routee(&self, routee_props: Props, context: ActorContext) -> Box<dyn Routee>;
-    fn props(self, routee_props: Props) -> Props {
-        routee_props.with_router(self)
-    }
+    fn props(&self, routee_props: Props) -> Props;
 }
 
 #[derive(EmptyCodec)]
