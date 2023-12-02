@@ -20,7 +20,7 @@ pub struct VirtualPathContainer {
 pub struct Inner {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
-    pub(crate) parent: Box<ActorRef>,
+    pub(crate) parent: ActorRef,
     pub(crate) children: Arc<DashMap<String, ActorRef>>,
 }
 

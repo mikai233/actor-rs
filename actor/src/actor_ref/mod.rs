@@ -19,13 +19,13 @@ use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::cell::ActorCell;
 use crate::system::ActorSystem;
 
-pub mod dead_letter_ref;
-pub mod local_ref;
-pub mod remote_ref;
+pub(crate) mod dead_letter_ref;
+pub(crate) mod local_ref;
+pub(crate) mod remote_ref;
 pub(crate) mod virtual_path_container;
-pub mod deferred_ref;
+pub(crate) mod deferred_ref;
 pub(crate) mod function_ref;
-mod routed_actor_ref;
+pub(crate) mod routed_actor_ref;
 
 #[enum_dispatch]
 #[derive(Clone)]

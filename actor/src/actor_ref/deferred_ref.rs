@@ -23,7 +23,7 @@ pub struct Inner {
     system: ActorSystem,
     provider: Arc<ActorRefProvider>,
     path: ActorPath,
-    parent: Box<ActorRef>,
+    parent: ActorRef,
     sender: Sender<DynMessage>,
     message_name: &'static str,
 }
@@ -86,7 +86,7 @@ impl DeferredActorRef {
         let provider = system.provider();
         let path = provider.temp_path_of_prefix(Some(target_name));
         let (tx, rx) = tokio::sync::mpsc::channel(1);
-        let parent = Box::new(provider.temp_container().clone());
+        let parent = provider.temp_container().clone();
         let inner = Inner {
             system,
             provider,

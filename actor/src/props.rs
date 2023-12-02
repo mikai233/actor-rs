@@ -7,20 +7,20 @@ use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
 use crate::context::ActorContext;
 use crate::net::mailbox::{Mailbox, MailboxSender};
-use crate::routing::router_config::RouterConfig;
+use crate::routing::router_config::TRouterConfig;
 use crate::system::ActorSystem;
 
 #[derive(Clone)]
 pub struct Props {
-    pub(crate) spawner: Arc<Box<dyn Fn(ActorRef, Mailbox, ActorSystem)>>,
-    pub(crate) router_config: Option<Arc<Box<dyn RouterConfig>>>,
+    pub(crate) spawner: Arc<Box<dyn Fn(ActorRef, Mailbox, ActorSystem) + Send + Sync + 'static>>,
+    pub(crate) router_config: Option<Arc<Box<dyn TRouterConfig>>>,
     pub(crate) mailbox_size: usize,
     pub(crate) system_size: usize,
     pub(crate) throughput: usize,
 }
 
 impl Props {
-    pub fn create<F, A>(f: F) -> Self where F: Fn(&mut ActorContext) -> A + 'static, A: Actor {
+    pub fn create<F, A>(f: F) -> Self where F: Fn(&mut ActorContext) -> A + 'static + Send + Sync + 'static, A: Actor {
         let spawn_fn = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
             let mut context = ActorContext::new(myself, system);
             let system = context.system.clone();
@@ -55,14 +55,14 @@ impl Props {
         (sender, mailbox)
     }
 
-    pub fn with_router<R>(&self, r: R) -> Props where R: RouterConfig {
+    pub fn with_router<R>(&self, r: R) -> Props where R: TRouterConfig {
         todo!()
         // let mut props = Clone::clone(self);
         // props.router_config = Some(Box::new(r));
         // props
     }
 
-    pub fn router_config(&self) -> Option<Arc<Box<dyn RouterConfig>>> {
+    pub fn router_config(&self) -> Option<Arc<Box<dyn TRouterConfig>>> {
         self.router_config.as_ref().cloned()
     }
 }

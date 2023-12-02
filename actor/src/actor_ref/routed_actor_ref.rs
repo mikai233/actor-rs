@@ -6,7 +6,9 @@ use arc_swap::ArcSwap;
 
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor_ref::local_ref::LocalActorRef;
 use crate::DynMessage;
+use crate::props::Props;
 use crate::routing::router::Router;
 use crate::system::ActorSystem;
 
@@ -18,7 +20,10 @@ pub struct RoutedActorRef {
 pub struct Inner {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
+    pub(crate) router_actor: LocalActorRef,
     pub(crate) router: ArcSwap<Router>,
+    pub(crate) router_props: Props,
+    pub(crate) parent: ActorRef,
 }
 
 impl Deref for RoutedActorRef {
@@ -48,11 +53,18 @@ impl TActorRef for RoutedActorRef {
     }
 
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
-        todo!()
+        match self.router_props.router_config().unwrap().is_management_message(&message) {
+            true => {
+                self.router_actor.tell(message, sender);
+            }
+            false => {
+                self.router.load().route(message, sender);
+            }
+        }
     }
 
     fn stop(&self) {
-        todo!()
+        self.router_actor.stop()
     }
 
     fn parent(&self) -> Option<&ActorRef> {
@@ -60,6 +72,6 @@ impl TActorRef for RoutedActorRef {
     }
 
     fn get_child<I>(&self, names: I) -> Option<ActorRef> where I: IntoIterator<Item=String> {
-        todo!()
+        self.router_actor.get_child(names)
     }
 }

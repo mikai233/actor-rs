@@ -1,4 +1,7 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, Ordering};
+
+use dashmap::DashMap;
 
 use crate::actor_path::{ActorPath, RootActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, TActorRef};
@@ -6,7 +9,7 @@ use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::cell::ActorCell;
-use crate::ext::random_actor_name;
+use crate::ext::base64;
 use crate::net::tcp_transport::TransportActor;
 use crate::props::Props;
 use crate::provider::{ActorRefFactory, TActorRefProvider};
@@ -21,7 +24,9 @@ pub struct LocalActorRefProvider {
     root_guardian: LocalActorRef,
     user_guardian: LocalActorRef,
     system_guardian: LocalActorRef,
+    extra_names: DashMap<String, ActorRef>,
     dead_letters: ActorRef,
+    temp_number: AtomicI64,
     temp_node: ActorPath,
     temp_container: VirtualPathContainer,
 }
@@ -47,29 +52,27 @@ impl LocalActorRefProvider {
         let user_guardian = user_guardian.local_or_panic();
         let inner = crate::actor_ref::dead_letter_ref::Inner {
             system: system.clone(),
-            path: root_path.child("deadLetters"),
+            path: root_path.child("dead_letters"),
         };
-        let dead_letters = DeadLetterActorRef {
-            inner: inner.into(),
-        };
-        // root_guardian.cell.children().write().unwrap().insert(dead_letters.path.name().clone(), dead_letters.clone().into());
+        let dead_letters = DeadLetterActorRef { inner: inner.into() };
         let temp_node = root_path.child("temp");
         let inner = crate::actor_ref::virtual_path_container::Inner {
             system: system.clone(),
             path: temp_node.clone(),
-            parent: Box::new(root_guardian.clone().into()),
+            parent: root_guardian.clone().into(),
             children: Arc::new(Default::default()),
         };
         let temp_container = VirtualPathContainer {
             inner: inner.into(),
         };
-        root_guardian.cell.children().write().unwrap().insert(temp_node.name().clone(), temp_container.clone().into());
         let provider = LocalActorRefProvider {
             root_path: root_path.into(),
             root_guardian,
             user_guardian: user_guardian.clone().into(),
             system_guardian: system_guardian.clone().into(),
+            extra_names: DashMap::new(),
             dead_letters: dead_letters.into(),
+            temp_number: AtomicI64::new(0),
             temp_node,
             temp_container,
         };
@@ -111,7 +114,8 @@ impl TActorRefProvider for LocalActorRefProvider {
         if !prefix_is_none_or_empty {
             builder.push_str(prefix.unwrap().as_str());
         }
-        builder.push_str(random_actor_name().as_str());
+        builder.push_str("$");
+        let builder = base64(self.temp_number.fetch_add(1, Ordering::Relaxed), builder);
         self.temp_node.child(&builder)
     }
 
@@ -135,9 +139,25 @@ impl TActorRefProvider for LocalActorRefProvider {
 
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {
         if path.address() == self.root_path().address() {
-            self.root_guardian()
-                .get_child(path.elements())
-                .unwrap_or_else(|| self.dead_letters().clone())
+            let elements = path.elements();
+            match elements.iter().peekable().peek() {
+                Some(peek) if peek.as_str() == "temp" => {
+                    let mut iter = elements.into_iter();
+                    iter.next();
+                    TActorRef::get_child(&self.temp_container, iter).unwrap_or_else(|| self.dead_letters.clone())
+                }
+                Some(peek) if peek.as_str() == "dead_letters" => {
+                    self.dead_letters.clone()
+                }
+                Some(peek) if self.extra_names.contains_key(*peek) => {
+                    self.extra_names.get(*peek).map(|r| r.value().clone()).unwrap_or_else(|| self.dead_letters.clone())
+                }
+                _ => {
+                    self.root_guardian()
+                        .get_child(elements)
+                        .unwrap_or_else(|| self.dead_letters().clone())
+                }
+            }
         } else {
             self.dead_letters().clone()
         }

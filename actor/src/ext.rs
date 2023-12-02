@@ -49,7 +49,7 @@ pub fn init_logger(level: tracing::Level) {
         .init();
 }
 
-fn base64(l: i64, mut s: String) -> String {
+pub(crate) fn base64(l: i64, mut s: String) -> String {
     let index = l & 63;
     let (_, c) = BASE64_CHARS
         .char_indices()
@@ -64,16 +64,16 @@ fn base64(l: i64, mut s: String) -> String {
     }
 }
 
-pub fn random_actor_name() -> String {
+pub(crate) fn random_actor_name() -> String {
     random_name("$".to_string())
 }
 
-pub fn random_name(prefix: String) -> String {
+pub(crate) fn random_name(prefix: String) -> String {
     let num = ACTOR_NAME_OFFSET.fetch_add(1, Ordering::Relaxed);
     base64(num, prefix)
 }
 
-pub fn check_name(name: &String) -> anyhow::Result<()> {
+pub(crate) fn check_name(name: &String) -> anyhow::Result<()> {
     let valid = name.chars().all(|c| match c {
         'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => true,
         _ => false
