@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::context::ActorContext;
 use crate::props::Props;
 use crate::routing::router::{Routee, Router};
@@ -8,6 +10,14 @@ use crate::system::ActorSystem;
 #[derive(Clone)]
 pub(crate) struct GroupRouterConfig {
     config: Box<dyn Group>,
+}
+
+impl Deref for GroupRouterConfig {
+    type Target = Box<dyn Group>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.config
+    }
 }
 
 impl TRouterConfig for GroupRouterConfig {

@@ -9,6 +9,7 @@ use crate::ext::{decode_bytes, encode_bytes};
 use crate::message::terminated::WatchTerminated;
 use crate::provider::{ActorRefProvider, TActorRefProvider};
 
+#[derive(Clone)]
 pub struct RouterActor;
 
 impl Actor for RouterActor {}

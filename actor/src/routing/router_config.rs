@@ -14,6 +14,7 @@ use crate::routing::router::{Routee, Router};
 use crate::routing::router_actor::{RouterActor, WatchRouteeTerminated};
 use crate::system::ActorSystem;
 
+#[enum_dispatch(RouterConfig)]
 pub trait TRouterConfig: Send + Sync + DynClone + 'static {
     fn create_router(&self, system: ActorSystem) -> Router;
     fn create_router_actor(&self) -> RouterActor;
@@ -33,7 +34,7 @@ pub trait TRouterConfig: Send + Sync + DynClone + 'static {
 
 pub trait Pool: TRouterConfig {
     fn nr_of_instances(&self, sys: &ActorSystem) -> usize;
-    fn new_routee(&self, routee_props: Props, context: ActorContext) -> Box<dyn Routee>;
+    fn new_routee(&self, routee_props: Props, context: &mut ActorContext) -> Box<dyn Routee>;
     fn props(&self, routee_props: Props) -> Props;
 }
 
@@ -47,7 +48,8 @@ pub trait Group: TRouterConfig {
 
 dyn_clone::clone_trait_object!(Group);
 
-#[enum_dispatch(TRouterConfig)]
+#[enum_dispatch]
+#[derive(Clone)]
 pub enum RouterConfig {
     PoolRouterConfig,
     GroupRouterConfig,

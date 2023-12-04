@@ -4,6 +4,7 @@ use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 
 use anyhow::anyhow;
+use arc_swap::{ArcSwap, ArcSwapAny};
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
@@ -17,6 +18,10 @@ use crate::ext::{check_name, random_actor_name};
 use crate::message::poison_pill::PoisonPill;
 use crate::net::mailbox::MailboxSender;
 use crate::props::Props;
+use crate::provider::ActorRefFactory;
+use crate::routing::router::Routee;
+use crate::routing::router_config::{Pool, RouterConfig};
+use crate::routing::router_config::TRouterConfig;
 use crate::system::ActorSystem;
 
 use super::Cell;
@@ -189,21 +194,48 @@ impl LocalActorRef {
     pub(crate) fn make_child(&self, props: Props, name: String) -> anyhow::Result<ActorRef> {
         let (sender, mailbox) = props.mailbox();
         let path = ChildActorPath::new(self.path.clone(), name.clone(), ActorPath::new_uid()).into();
-        let inner = Inner {
-            system: self.system(),
-            path,
-            sender,
-            cell: ActorCell::new(Some(self.clone().into())),
-        };
-        let child_ref = LocalActorRef {
-            inner: inner.into(),
-        };
-        let mut children = self.children().write().unwrap();
-        if children.contains_key(&name) {
-            return Err(anyhow!("duplicate actor name {}", name));
+        match props.router_config() {
+            None => {
+                let inner = Inner {
+                    system: self.system(),
+                    path,
+                    sender,
+                    cell: ActorCell::new(Some(self.clone().into())),
+                };
+                let child_ref = LocalActorRef {
+                    inner: inner.into(),
+                };
+                let mut children = self.children().write().unwrap();
+                if children.contains_key(&name) {
+                    return Err(anyhow!("duplicate actor name {}", name));
+                }
+                children.insert(name, child_ref.clone().into());
+                (props.spawner)(child_ref.clone().into(), mailbox, self.system());
+                Ok(child_ref.into())
+            }
+            Some(router_config) => {
+                let router_actor = router_config.create_router_actor();
+                let router_actor = self.system.spawn_actor(Props::create(move |_| router_actor.clone()), name)?;
+                let router = router_config.create_router(self.system.clone());
+                let inner = crate::actor_ref::routed_actor_ref::Inner {
+                    system: self.system.clone(),
+                    path,
+                    router_actor,
+                    router: ArcSwap::new(router.into()),
+                    router_props: props.clone(),
+                    parent: self.clone().into(),
+                };
+                match &**router_config {
+                    RouterConfig::PoolRouterConfig(pool) => {
+                        let nr_of_routees = pool.nr_of_instances(&self.system);
+                        let mut routess: Vec<Box<dyn Routee>> = vec![];
+                        todo!()
+                    }
+                    RouterConfig::GroupRouterConfig(group) => {
+                        todo!()
+                    }
+                }
+            }
         }
-        children.insert(name, child_ref.clone().into());
-        (props.spawner)(child_ref.clone().into(), mailbox, self.system());
-        Ok(child_ref.into())
     }
 }

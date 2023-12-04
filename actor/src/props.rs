@@ -7,13 +7,13 @@ use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
 use crate::context::ActorContext;
 use crate::net::mailbox::{Mailbox, MailboxSender};
-use crate::routing::router_config::TRouterConfig;
+use crate::routing::router_config::{RouterConfig, TRouterConfig};
 use crate::system::ActorSystem;
 
 #[derive(Clone)]
 pub struct Props {
     pub(crate) spawner: Arc<Box<dyn Fn(ActorRef, Mailbox, ActorSystem) + Send + Sync + 'static>>,
-    pub(crate) router_config: Option<Arc<Box<dyn TRouterConfig>>>,
+    pub(crate) router_config: Option<Arc<RouterConfig>>,
     pub(crate) mailbox_size: usize,
     pub(crate) system_size: usize,
     pub(crate) throughput: usize,
@@ -62,7 +62,7 @@ impl Props {
         // props
     }
 
-    pub fn router_config(&self) -> Option<Arc<Box<dyn TRouterConfig>>> {
-        self.router_config.as_ref().cloned()
+    pub fn router_config(&self) -> Option<&Arc<RouterConfig>> {
+        self.router_config.as_ref()
     }
 }

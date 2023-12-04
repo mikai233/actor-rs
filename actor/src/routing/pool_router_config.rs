@@ -1,3 +1,5 @@
+use std::ops::Deref;
+use enum_dispatch::enum_dispatch;
 use crate::context::ActorContext;
 use crate::props::Props;
 use crate::routing::router::{Routee, Router};
@@ -8,6 +10,14 @@ use crate::system::ActorSystem;
 #[derive(Clone)]
 pub(crate) struct PoolRouterConfig {
     config: Box<dyn Pool>,
+}
+
+impl Deref for PoolRouterConfig {
+    type Target = Box<dyn Pool>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.config
+    }
 }
 
 impl TRouterConfig for PoolRouterConfig {
@@ -25,7 +35,7 @@ impl Pool for PoolRouterConfig {
         self.config.nr_of_instances(sys)
     }
 
-    fn new_routee(&self, routee_props: Props, context: ActorContext) -> Box<dyn Routee> {
+    fn new_routee(&self, routee_props: Props, context: &mut ActorContext) -> Box<dyn Routee> {
         self.config.new_routee(routee_props, context)
     }
 

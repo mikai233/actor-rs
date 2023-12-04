@@ -6,10 +6,10 @@ use arc_swap::ArcSwap;
 
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::actor_ref::local_ref::LocalActorRef;
 use crate::DynMessage;
 use crate::props::Props;
 use crate::routing::router::Router;
+use crate::routing::router_config::TRouterConfig;
 use crate::system::ActorSystem;
 
 #[derive(Clone)]
@@ -20,7 +20,7 @@ pub struct RoutedActorRef {
 pub struct Inner {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
-    pub(crate) router_actor: LocalActorRef,
+    pub(crate) router_actor: ActorRef,
     pub(crate) router: ArcSwap<Router>,
     pub(crate) router_props: Props,
     pub(crate) parent: ActorRef,
