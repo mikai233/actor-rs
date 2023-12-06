@@ -3,13 +3,13 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use tracing::{info, Level};
 
-use actor::{Actor, Message};
-use actor::context::ActorContext;
-use actor::ext::init_logger;
-use actor::props::Props;
-use actor::provider::ActorRefFactory;
-use actor::system::ActorSystem;
-use actor::system::config::Config;
+use actor_core::{Actor, Message};
+use actor_core::context::ActorContext;
+use actor_core::ext::init_logger;
+use actor_core::props::Props;
+use actor_core::provider::ActorRefFactory;
+use actor_core::system::ActorSystem;
+use actor_core::system::config::Config;
 use actor_derive::{EmptyCodec, MessageCodec};
 
 #[derive(EmptyCodec)]

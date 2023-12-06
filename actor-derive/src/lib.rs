@@ -71,7 +71,7 @@ pub fn cloneable_untyped_message_codec_derive(input: TokenStream) -> TokenStream
 }
 
 pub(crate) fn with_crate(path: syn::Path) -> proc_macro2::TokenStream {
-    let found_crate = crate_name("actor").expect("actor is present in `Cargo.toml`");
+    let found_crate = crate_name("actor-core").expect("actor-core is present in `Cargo.toml`");
     match found_crate {
         FoundCrate::Itself => quote!(crate::#path),
         FoundCrate::Name(name) => {

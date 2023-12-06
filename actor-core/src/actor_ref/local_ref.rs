@@ -4,7 +4,7 @@ use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 
 use anyhow::anyhow;
-use arc_swap::{ArcSwap, ArcSwapAny};
+use arc_swap::ArcSwap;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 

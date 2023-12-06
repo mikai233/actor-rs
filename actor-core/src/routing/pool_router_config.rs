@@ -1,5 +1,5 @@
 use std::ops::Deref;
-use enum_dispatch::enum_dispatch;
+
 use crate::context::ActorContext;
 use crate::props::Props;
 use crate::routing::router::{Routee, Router};
