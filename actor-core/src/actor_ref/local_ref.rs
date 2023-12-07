@@ -9,16 +9,16 @@ use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
 use crate::{DynMessage, MessageType};
-use crate::actor_path::ActorPath;
-use crate::actor_path::ChildActorPath;
-use crate::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
+use crate::actor::actor_path::{ActorPath, ChildActorPath};
+use crate::actor::actor_ref::{ActorRefSystemExt, TActorRef};
+use crate::actor::actor_ref::ActorRef;
+use crate::actor::actor_ref_factory::ActorRefFactory;
+use crate::actor::mailbox::MailboxSender;
 use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
 use crate::ext::{check_name, random_actor_name};
 use crate::message::poison_pill::PoisonPill;
-use crate::net::mailbox::MailboxSender;
 use crate::props::Props;
-use crate::provider::ActorRefFactory;
 use crate::routing::router::Routee;
 use crate::routing::router_config::{Pool, RouterConfig};
 use crate::routing::router_config::TRouterConfig;
@@ -183,7 +183,7 @@ impl LocalActorRef {
         }
     }
 
-    pub(crate) fn attach_child(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
+    pub fn attach_child(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
         if let Some(name) = &name {
             check_name(name)?;
         }

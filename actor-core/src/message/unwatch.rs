@@ -5,12 +5,13 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 
 use crate::{CodecMessage, DynMessage, SystemMessage};
-use crate::actor_ref::{ActorRef, SerializedActorRef};
-use crate::context::{ActorContext, Context};
+use crate::actor::actor_ref::ActorRef;
+use crate::actor::actor_ref_provider::ActorRefProvider;
+use crate::actor::context::{ActorContext, Context};
+use crate::actor_ref::SerializedActorRef;
 use crate::decoder::MessageDecoder;
 use crate::delegate::system::SystemDelegate;
 use crate::ext::{decode_bytes, encode_bytes};
-use crate::provider::{ActorRefProvider, TActorRefProvider};
 
 #[derive(Debug)]
 pub(crate) struct Unwatch {
@@ -37,7 +38,7 @@ impl CodecMessage for Unwatch {
         #[derive(Clone)]
         struct D;
         impl MessageDecoder for D {
-            fn decode(&self, provider: &ActorRefProvider, bytes: &[u8]) -> anyhow::Result<DynMessage> {
+            fn decode(&self, provider: &Box<dyn ActorRefProvider>, bytes: &[u8]) -> anyhow::Result<DynMessage> {
                 let serialized: SerializedUnwatch = decode_bytes(bytes)?;
                 let watchee = provider.resolve_actor_ref(&serialized.watchee.path);
                 let watcher = provider.resolve_actor_ref(&serialized.watcher.path);

@@ -6,23 +6,23 @@ use tokio::net::TcpStream;
 use tokio_util::codec::Framed;
 use tracing::warn;
 
-use crate::actor_ref::{ActorRef, ActorRefExt};
-use crate::ext::encode_bytes;
-use crate::net::codec::{Packet, PacketCodec};
-use crate::net::message::{Disconnect, RemoteEnvelope, RemotePacket};
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::ext::encode_bytes;
+use actor_remote::::codec::{Packet, PacketCodec};
+use actor_remote::::message::{Disconnect, RemoteEnvelope, RemotePacket};
 
-pub(crate) type ConnectionTx = tokio::sync::mpsc::Sender<RemoteEnvelope>;
-pub(crate) type ConnectionRx = tokio::sync::mpsc::Receiver<RemoteEnvelope>;
+pub type ConnectionTx = tokio::sync::mpsc::Sender<RemoteEnvelope>;
+pub type ConnectionRx = tokio::sync::mpsc::Receiver<RemoteEnvelope>;
 
-pub(crate) struct Connection {
-    pub(crate) addr: SocketAddr,
-    pub(crate) framed: Framed<StubbornIo<TcpStream, SocketAddr>, PacketCodec>,
-    pub(crate) rx: ConnectionRx,
-    pub(crate) transport: ActorRef,
+pub struct Connection {
+    pub addr: SocketAddr,
+    pub framed: Framed<StubbornIo<TcpStream, SocketAddr>, PacketCodec>,
+    pub rx: ConnectionRx,
+    pub transport: ActorRef,
 }
 
 impl Connection {
-    pub(crate) fn new(addr: SocketAddr, framed: Framed<StubbornIo<TcpStream, SocketAddr, >, PacketCodec>, transport: ActorRef) -> (Self, ConnectionTx) {
+    pub fn new(addr: SocketAddr, framed: Framed<StubbornIo<TcpStream, SocketAddr, >, PacketCodec>, transport: ActorRef) -> (Self, ConnectionTx) {
         let (tx, rx) = tokio::sync::mpsc::channel(10000);
         let myself = Self {
             addr,
@@ -32,7 +32,7 @@ impl Connection {
         };
         (myself, tx)
     }
-    pub(crate) fn start(self) {
+    pub fn start(self) {
         let mut connection = self;
         tokio::spawn(async move {
             loop {

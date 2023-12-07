@@ -7,9 +7,7 @@ use actor_core::{Actor, Message};
 use actor_core::context::ActorContext;
 use actor_core::ext::init_logger;
 use actor_core::props::Props;
-use actor_core::provider::ActorRefFactory;
 use actor_core::system::ActorSystem;
-use actor_core::system::config::Config;
 use actor_derive::{EmptyCodec, MessageCodec};
 
 #[derive(EmptyCodec)]
@@ -44,7 +42,7 @@ impl Actor for ActorA {}
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     init_logger(Level::DEBUG);
-    let system = ActorSystem::create(Config::default()).await?;
+    let system = ActorSystem::default();
     system.spawn_anonymous_actor(Props::create(|_| ActorA))?;
     system.scheduler().start_timer_with_fixed_delay_with(
         None,

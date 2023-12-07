@@ -6,7 +6,7 @@ use enum_dispatch::enum_dispatch;
 use actor_derive::EmptyCodec;
 
 use crate::{DynMessage, Message, MessageType};
-use crate::context::ActorContext;
+use crate::actor::context::ActorContext;
 use crate::props::Props;
 use crate::routing::group_router_config::GroupRouterConfig;
 use crate::routing::pool_router_config::PoolRouterConfig;

@@ -4,9 +4,9 @@ use tracing::debug;
 use actor_derive::EmptyCodec;
 
 use crate::{Actor, Message};
-use crate::actor_ref::{ActorRef, ActorRefExt};
-use crate::context::{ActorContext, Context};
-use crate::provider::ActorRefFactory;
+use crate::actor::actor_ref::{ActorRef, ActorRefExt};
+use crate::actor::actor_ref_factory::ActorRefFactory;
+use crate::actor::context::ActorContext;
 use crate::system::root_guardian::ChildGuardianStarted;
 
 #[derive(Debug)]

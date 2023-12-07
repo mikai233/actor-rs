@@ -2,12 +2,11 @@ use tokio::task::yield_now;
 use tracing::error;
 
 use crate::{Actor, AsyncMessage, Message};
+use crate::actor::context::ActorContext;
+use crate::actor::mailbox::Mailbox;
 use crate::cell::envelope::Envelope;
-use crate::context::{ActorContext, Context};
 use crate::delegate::MessageDelegate;
-use crate::net::mailbox::Mailbox;
-use crate::provider::ActorRefFactory;
-use crate::state::ActorState;
+use crate::actor::state::ActorState;
 
 pub struct ActorRuntime<A> where A: Actor {
     pub(crate) actor: A,

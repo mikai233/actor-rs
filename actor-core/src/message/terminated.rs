@@ -1,4 +1,4 @@
-use crate::actor_ref::ActorRef;
+use crate::actor::actor_ref::ActorRef;
 use crate::Message;
 
 pub trait WatchTerminated: Message {

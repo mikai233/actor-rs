@@ -3,7 +3,7 @@ use std::any::Any;
 use async_trait::async_trait;
 
 use crate::{CodecMessage, DynMessage, MessageType, SystemMessage};
-use crate::context::ActorContext;
+use crate::actor::context::ActorContext;
 use crate::decoder::MessageDecoder;
 
 pub(crate) struct SystemDelegate {

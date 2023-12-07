@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use tracing::info;
 
-use crate::actor_path::ActorPath;
-use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor::actor_path::ActorPath;
+use crate::actor::actor_ref::{ActorRef, TActorRef};
 use crate::DynMessage;
 use crate::system::ActorSystem;
 

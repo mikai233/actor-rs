@@ -12,28 +12,28 @@ use tracing::{debug, error, info, warn};
 
 use actor_derive::EmptyCodec;
 
-use crate::actor_path::TActorPath;
-use crate::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef};
-use crate::actor_ref::TActorRef;
-use crate::context::{ActorContext, Context};
-use crate::Message;
-use crate::message::IDPacket;
-use crate::net::codec::PacketCodec;
-use crate::net::connection::{Connection, ConnectionTx};
-use crate::net::tcp_transport::{ConnectionSender, TransportActor};
-use crate::system::ActorSystem;
+use actor_core::actor_path::TActorPath;
+use actor_core::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef};
+use actor_core::actor_ref::TActorRef;
+use actor_core::context::{ActorContext, Context};
+use actor_core::Message;
+use actor_core::message::IDPacket;
+use actor_remote::::codec::PacketCodec;
+use actor_remote::::connection::{Connection, ConnectionTx};
+use actor_remote::::tcp_transport::{ConnectionSender, TransportActor};
+use actor_core::system::ActorSystem;
 
-pub(crate) struct RemoteEnvelope {
-    pub(crate) packet: IDPacket,
-    pub(crate) sender: Option<ActorRef>,
-    pub(crate) target: ActorRef,
+pub struct RemoteEnvelope {
+    pub packet: IDPacket,
+    pub sender: Option<ActorRef>,
+    pub target: ActorRef,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct RemotePacket {
-    pub(crate) packet: IDPacket,
-    pub(crate) sender: Option<SerializedActorRef>,
-    pub(crate) target: SerializedActorRef,
+pub struct RemotePacket {
+    pub packet: IDPacket,
+    pub sender: Option<SerializedActorRef>,
+    pub target: SerializedActorRef,
 }
 
 impl Into<RemotePacket> for RemoteEnvelope {
@@ -47,9 +47,9 @@ impl Into<RemotePacket> for RemoteEnvelope {
 }
 
 #[derive(EmptyCodec)]
-pub(crate) struct Connect {
-    pub(crate) addr: SocketAddr,
-    pub(crate) opts: ReconnectOptions,
+pub struct Connect {
+    pub addr: SocketAddr,
+    pub opts: ReconnectOptions,
 }
 
 impl Message for Connect {
@@ -79,9 +79,9 @@ impl Message for Connect {
 }
 
 #[derive(EmptyCodec)]
-pub(crate) struct Connected {
-    pub(crate) addr: SocketAddr,
-    pub(crate) tx: ConnectionTx,
+pub struct Connected {
+    pub addr: SocketAddr,
+    pub tx: ConnectionTx,
 }
 
 impl Message for Connected {
@@ -96,8 +96,8 @@ impl Message for Connected {
 }
 
 #[derive(EmptyCodec)]
-pub(crate) struct Disconnect {
-    pub(crate) addr: SocketAddr,
+pub struct Disconnect {
+    pub addr: SocketAddr,
 }
 
 impl Message for Disconnect {
@@ -112,8 +112,8 @@ impl Message for Disconnect {
 }
 
 #[derive(EmptyCodec)]
-pub(crate) struct SpawnInbound {
-    pub(crate) fut: Pin<Box<dyn Future<Output=()> + Send + 'static>>,
+pub struct SpawnInbound {
+    pub fut: Pin<Box<dyn Future<Output=()> + Send + 'static>>,
 }
 
 impl Message for SpawnInbound {
@@ -126,8 +126,8 @@ impl Message for SpawnInbound {
 }
 
 #[derive(EmptyCodec)]
-pub(crate) struct InboundMessage {
-    pub(crate) packet: RemotePacket,
+pub struct InboundMessage {
+    pub packet: RemotePacket,
 }
 
 impl Message for InboundMessage {
@@ -150,8 +150,8 @@ impl Message for InboundMessage {
 }
 
 #[derive(EmptyCodec)]
-pub(crate) struct OutboundMessage {
-    pub(crate) envelope: RemoteEnvelope,
+pub struct OutboundMessage {
+    pub envelope: RemoteEnvelope,
 }
 
 impl Message for OutboundMessage {

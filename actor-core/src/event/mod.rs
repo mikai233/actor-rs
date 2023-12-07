@@ -1,5 +1,4 @@
 pub mod event_bus;
-pub mod cluster_event_bus;
 
 pub trait EventBus {
     type Event;

@@ -5,8 +5,7 @@ use tracing::error;
 
 use actor_derive::EmptyCodec;
 
-use crate::actor_ref::ActorRef;
-use crate::actor_ref::TActorRef;
+use crate::actor::actor_ref::ActorRef;
 use crate::DynMessage;
 
 pub struct Router {

@@ -3,9 +3,9 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
+use crate::actor::actor_path::ActorPath;
 
-use crate::actor_path::ActorPath;
-use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor::actor_ref::{ActorRef, TActorRef};
 use crate::DynMessage;
 use crate::props::Props;
 use crate::routing::router::Router;

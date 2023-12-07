@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::Actor;
+use actor_core::Actor;
 
 #[derive(Debug)]
 pub struct ClusterSingletonManager;

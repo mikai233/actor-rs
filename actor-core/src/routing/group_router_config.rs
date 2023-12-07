@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use crate::context::ActorContext;
+use crate::actor::context::ActorContext;
 use crate::props::Props;
 use crate::routing::router::{Routee, Router};
 use crate::routing::router_actor::RouterActor;

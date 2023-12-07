@@ -5,12 +5,12 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 use crate::{CodecMessage, DynMessage};
+use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::decoder::MessageDecoder;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::terminate::Terminate;
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
-use crate::provider::ActorRefProvider;
 
 pub(crate) mod death_watch_notification;
 pub(crate) mod terminated;
@@ -77,7 +77,7 @@ impl MessageRegistration {
         Ok(packet)
     }
 
-    pub(crate) fn decode(&self, provider: &ActorRefProvider, packet: IDPacket) -> anyhow::Result<DynMessage> {
+    pub(crate) fn decode(&self, provider: &Box<dyn ActorRefProvider>, packet: IDPacket) -> anyhow::Result<DynMessage> {
         let id = packet.id;
         let decoder = self.decoder.get(&id).ok_or(anyhow!("message {} not register", id))?;
         decoder.decode(provider, &packet.bytes)

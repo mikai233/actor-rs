@@ -61,7 +61,7 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
 }
 
 pub(crate) fn expand_decoder(actor_attr: Option<&Attribute>, message_ty: &Ident, message_impl: &MessageImpl, codec_type: &CodecType, ext_path: &TokenStream, dy_message: &TokenStream) -> TokenStream {
-    let provider_trait = with_crate(parse_str("provider::ActorRefProvider").unwrap());
+    let provider_trait = with_crate(parse_str("actor::actor_ref_provider::ActorRefProvider").unwrap());
     let decoder_trait = with_crate(parse_str("decoder::MessageDecoder").unwrap());
     match codec_type {
         CodecType::NoneSerde => {
@@ -121,7 +121,7 @@ pub(crate) fn decoder<F>(decoder_trait: &TokenStream, provider_trait: &TokenStre
         #[derive(Clone)]
         struct D;
         impl #decoder_trait for D {
-            fn decode(&self, provider: &#provider_trait, bytes: &[u8]) -> anyhow::Result<#dy_message> {
+            fn decode(&self, provider: &Box<dyn #provider_trait>, bytes: &[u8]) -> anyhow::Result<#dy_message> {
                 #body
             }
         }

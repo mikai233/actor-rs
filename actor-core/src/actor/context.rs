@@ -8,8 +8,12 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, warn};
 
 use crate::{DynMessage, Message, MessageType, UntypedMessage, UserDelegate};
-use crate::actor_path::{ActorPath, ChildActorPath, TActorPath};
-use crate::actor_ref::{ActorRef, ActorRefSystemExt, Cell, TActorRef};
+use crate::actor::actor_path::{ActorPath, ChildActorPath, TActorPath};
+use crate::actor::actor_ref::{ActorRef, ActorRefSystemExt};
+use crate::actor::actor_ref_factory::ActorRefFactory;
+use crate::actor::actor_ref_provider::ActorRefProvider;
+use crate::actor::state::ActorState;
+use crate::actor_ref::Cell;
 use crate::actor_ref::function_ref::{FunctionRef, Inner};
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::ext::random_name;
@@ -19,8 +23,6 @@ use crate::message::terminated::WatchTerminated;
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
 use crate::props::Props;
-use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
-use crate::state::ActorState;
 use crate::system::ActorSystem;
 
 pub trait Context: ActorRefFactory {
@@ -63,7 +65,7 @@ impl ActorRefFactory for ActorContext {
         &self.system
     }
 
-    fn provider(&self) -> Arc<ActorRefProvider> {
+    fn provider(&self) -> Arc<Box<dyn ActorRefProvider>> {
         self.system.provider()
     }
 

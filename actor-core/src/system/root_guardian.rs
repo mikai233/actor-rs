@@ -5,10 +5,10 @@ use tracing::debug;
 use actor_derive::EmptyCodec;
 
 use crate::{Actor, AsyncMessage, Message};
-use crate::actor_ref::{ActorRef, TActorRef};
-use crate::context::{ActorContext, Context};
+use crate::actor::actor_ref::{ActorRef, TActorRef};
+use crate::actor::actor_ref_factory::ActorRefFactory;
+use crate::actor::context::{ActorContext, Context};
 use crate::message::terminated::WatchTerminated;
-use crate::provider::ActorRefFactory;
 
 #[derive(Default)]
 pub(crate) struct RootGuardian {

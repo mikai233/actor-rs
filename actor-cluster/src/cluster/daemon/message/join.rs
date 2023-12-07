@@ -4,14 +4,14 @@ use serde::{Deserialize, Serialize};
 
 use actor_derive::MessageCodec;
 
-use crate::Message;
-use crate::cluster::daemon::cluster_daemon::ClusterDaemon;
-use crate::context::ActorContext;
+use actor_core::Message;
+use actor_cluster::::daemon::cluster_daemon::ClusterDaemon;
+use actor_core::context::ActorContext;
 
 #[derive(Debug, Serialize, Deserialize, MessageCodec)]
 #[actor(ClusterDaemon)]
-pub(crate) struct MemberJoin {
-    pub(crate) addr: SocketAddr,
+pub struct MemberJoin {
+    pub addr: SocketAddr,
 }
 
 impl Message for MemberJoin {

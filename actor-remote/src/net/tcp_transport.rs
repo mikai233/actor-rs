@@ -11,24 +11,24 @@ use tokio::net::TcpListener;
 use tokio_util::codec::Framed;
 use tracing::{info, warn};
 
-use crate::Actor;
-use crate::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef};
-use crate::context::ActorContext;
-use crate::ext::decode_bytes;
-use crate::net::codec::PacketCodec;
-use crate::net::connection::ConnectionTx;
-use crate::net::message::{InboundMessage, RemotePacket, SpawnInbound};
-use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
+use actor_core::Actor;
+use actor_core::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef};
+use actor_core::context::ActorContext;
+use actor_core::ext::decode_bytes;
+use actor_remote::::codec::PacketCodec;
+use actor_remote::::connection::ConnectionTx;
+use actor_remote::::message::{InboundMessage, RemotePacket, SpawnInbound};
+use actor_core::provider::{ActorRefFactory, ActorRefProvider, ActorRefProvider};
 
 #[derive(Debug)]
-pub(crate) struct TransportActor {
-    pub(crate) connections: HashMap<SocketAddr, ConnectionSender>,
-    pub(crate) actor_ref_cache: Cache<SerializedActorRef, ActorRef>,
-    pub(crate) provider: Arc<ActorRefProvider>,
+pub struct TransportActor {
+    pub connections: HashMap<SocketAddr, ConnectionSender>,
+    pub actor_ref_cache: Cache<SerializedActorRef, ActorRef>,
+    pub provider: Arc<ActorRefProvider>,
 }
 
 #[derive(Debug)]
-pub(crate) enum ConnectionSender {
+pub enum ConnectionSender {
     NotConnected,
     Connecting,
     Connected(ConnectionTx),
@@ -123,14 +123,13 @@ mod transport_test {
 
     use actor_derive::{EmptyCodec, MessageCodec};
 
-    use crate::{Actor, Message};
-    use crate::actor_ref::ActorRefExt;
-    use crate::context::{ActorContext, Context};
-    use crate::props::Props;
-    use crate::provider::ActorRefFactory;
-    use crate::provider::TActorRefProvider;
-    use crate::system::ActorSystem;
-    use crate::system::config::Config;
+    use actor_core::actor_ref::ActorRefExt;
+    use actor_core::context::{ActorContext, Context};
+    use actor_core::props::Props;
+    use actor_core::provider::ActorRefFactory;
+    use actor_core::provider::ActorRefProvider;
+    use actor_core::system::ActorSystem;
+    use actor_core::system::config::ActorSystemConfig;
 
     struct PingPongActor;
 
@@ -188,8 +187,8 @@ mod transport_test {
         }
     }
 
-    fn build_config() -> Config {
-        let mut config = Config::default();
+    fn build_config() -> ActorSystemConfig {
+        let mut config = ActorSystemConfig::default();
         config.registration.register::<Ping>();
         config.registration.register::<Pong>();
         config

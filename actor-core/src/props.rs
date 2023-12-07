@@ -3,10 +3,10 @@ use std::sync::Arc;
 use tokio::sync::mpsc::channel;
 
 use crate::Actor;
-use crate::actor_ref::ActorRef;
+use crate::actor::actor_ref::ActorRef;
+use crate::actor::context::ActorContext;
 use crate::cell::runtime::ActorRuntime;
-use crate::context::ActorContext;
-use crate::net::mailbox::{Mailbox, MailboxSender};
+use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::routing::router_config::{RouterConfig, TRouterConfig};
 use crate::system::ActorSystem;
 

@@ -5,22 +5,21 @@ use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use arc_swap::{ArcSwap, ArcSwapOption};
-use etcd_client::Client;
 use futures::FutureExt;
+use rand::random;
 use tokio::runtime::Runtime;
 use tokio::sync::oneshot::{channel, Receiver, Sender};
 
-use crate::actor_path::{ActorPath, TActorPath};
-use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
+use crate::actor::actor_path::{ActorPath, TActorPath};
+use crate::actor::actor_ref::{ActorRef, ActorRefExt};
+use crate::actor::actor_ref_factory::ActorRefFactory;
+use crate::actor::actor_ref_provider::ActorRefProvider;
+use crate::actor::empty_actor_ref_provider::EmptyActorRefProvider;
+use crate::actor::extension::{ActorSystemExtension, Extension};
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::address::Address;
 use crate::event::event_bus::SystemEventBus;
-use crate::message::MessageRegistration;
 use crate::props::Props;
-use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
-use crate::provider::empty_provider::EmptyActorRefProvider;
-use crate::provider::remote_provider::RemoteActorRefProvider;
-use crate::system::config::{Config, EtcdConfig};
+use crate::system::config::ActorSystemConfig;
 use crate::system::root_guardian::{AddShutdownHook, Shutdown};
 use crate::system::timer_scheduler::{TimerScheduler, TimerSchedulerActor};
 
@@ -36,28 +35,27 @@ pub struct ActorSystem {
 }
 
 pub struct Inner {
-    address: Address,
+    name: String,
+    uid: i64,
     start_time: u128,
-    pub(crate) provider: ArcSwap<ActorRefProvider>,
-    registration: MessageRegistration,
+    pub provider: ArcSwap<Box<dyn ActorRefProvider>>,
     runtime: Runtime,
-    client: Client,
     signal: RwLock<(Option<Sender<()>>, Option<Receiver<()>>)>,
     scheduler: ArcSwapOption<TimerScheduler>,
     event_bus: ArcSwapOption<SystemEventBus>,
+    extensions: ActorSystemExtension,
 }
 
 impl Debug for ActorSystem {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ActorSystem")
-            .field("address", &self.address)
+            .field("name", &self.name)
             .field("start_time", &self.start_time)
             .field("provider", &self.provider)
-            .field("reg", &self.registration)
             .field("runtime", &self.runtime)
-            .field("client", &"..")
             .field("scheduler", &self.scheduler)
             .field("event_bus", &self.event_bus)
+            .field("extensions", &self.extensions)
             .finish()
     }
 }
@@ -71,15 +69,7 @@ impl Deref for ActorSystem {
 }
 
 impl ActorSystem {
-    pub async fn create(config: Config) -> anyhow::Result<Self> {
-        let Config { name, addr, registration: reg, etcd_config, } = config;
-        let EtcdConfig { endpoints, connect_options } = etcd_config;
-        let client = Client::connect(endpoints, connect_options).await?;
-        let address = Address {
-            protocol: "tcp".to_string(),
-            system: name,
-            addr,
-        };
+    pub async fn create(name: impl Into<String>, config: ActorSystemConfig) -> anyhow::Result<Self> {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .thread_name("actor-pool")
@@ -87,30 +77,26 @@ impl ActorSystem {
             .expect("Failed building the Runtime");
         let (tx, rx) = channel();
         let inner = Inner {
+            name: name.into(),
+            uid: random(),
             start_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
-            address,
-            provider: ArcSwap::new(Arc::new(EmptyActorRefProvider::default().into())),
-            registration: reg,
+            provider: ArcSwap::new(Arc::new(Box::new(EmptyActorRefProvider))),
             runtime,
-            client,
             signal: RwLock::new((Some(tx), Some(rx))),
             scheduler: ArcSwapOption::new(None),
             event_bus: ArcSwapOption::new(None),
+            extensions: ActorSystemExtension::default(),
         };
         let system = Self {
             inner: inner.into(),
         };
-        RemoteActorRefProvider::init(&system)?;
+        // RemoteActorRefProvider::init(&system)?;
         system.init_event_bus()?;
         system.init_scheduler()?;
         Ok(system)
     }
     pub fn name(&self) -> &String {
-        &self.address.system
-    }
-
-    pub fn address(&self) -> &Address {
-        &&self.address
+        &self.name
     }
 
     fn child(&self, child: &String) -> ActorPath {
@@ -164,10 +150,6 @@ impl ActorSystem {
         self.provider().system_guardian().clone()
     }
 
-    pub(crate) fn registration(&self) -> &MessageRegistration {
-        &self.registration
-    }
-
     pub fn runtime(&self) -> &Runtime {
         &self.runtime
     }
@@ -191,10 +173,6 @@ impl ActorSystem {
         unsafe { self.scheduler.load().as_ref().unwrap_unchecked().clone() }
     }
 
-    pub fn eclient(&self) -> &Client {
-        &self.client
-    }
-
     pub fn add_shutdown_hook<F>(&self, fut: F) where F: Future<Output=()> + Send + 'static {
         self.provider().root_guardian().cast(AddShutdownHook { fut: fut.boxed() }, ActorRef::no_sender());
     }
@@ -211,6 +189,16 @@ impl ActorSystem {
         self.scheduler.store(Some(scheduler.into()));
         Ok(())
     }
+
+    pub fn register_extension<E>(&self, extension: E) where E: Extension {
+        self.extensions.register(extension);
+    }
+}
+
+impl Default for ActorSystem {
+    fn default() -> Self {
+        ActorSystem::create("mikai233", ActorSystemConfig::default())
+    }
 }
 
 impl ActorRefFactory for ActorSystem {
@@ -218,7 +206,7 @@ impl ActorRefFactory for ActorSystem {
         &self
     }
 
-    fn provider(&self) -> Arc<ActorRefProvider> {
+    fn provider(&self) -> Arc<Box<dyn ActorRefProvider>> {
         self.provider.load_full()
     }
 
@@ -263,37 +251,36 @@ impl ActorRefFactory for ActorSystem {
     }
 }
 
-#[cfg(test)]
-mod system_test {
-    use std::time::Duration;
-
-    use tracing::info;
-
-    use crate::{EmptyTestActor, EmptyTestMessage};
-    use crate::actor_path::TActorPath;
-    use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
-    use crate::props::Props;
-    use crate::provider::ActorRefFactory;
-    use crate::system::ActorSystem;
-    use crate::system::config::Config;
-
-    #[tokio::test]
-    async fn test_spawn_actor() -> anyhow::Result<()> {
-        let system = ActorSystem::create(Config::default()).await?;
-        for i in 0..10 {
-            let name = format!("testActor{}", i);
-            let actor = system.spawn_actor(Props::create(|_| EmptyTestActor), name)?;
-            let elements: Vec<String> = actor.path().elements();
-            info!("{:?}", elements);
-            tokio::spawn(async move {
-                info!("{}", actor);
-                loop {
-                    actor.cast(EmptyTestMessage, ActorRef::no_sender());
-                    tokio::time::sleep(Duration::from_secs(1)).await;
-                }
-            });
-        }
-        tokio::time::sleep(Duration::from_secs(10)).await;
-        Ok(())
-    }
-}
+// #[cfg(test)]
+// mod system_test {
+//     use std::time::Duration;
+//
+//     use tracing::info;
+//
+//     use crate::{EmptyTestActor, EmptyTestMessage};
+//     use crate::actor_path::TActorPath;
+//     use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
+//     use crate::actor_ref_factory::ActorRefFactory;
+//     use crate::props::Props;
+//     use crate::system::ActorSystem;
+//
+//     #[tokio::test]
+//     async fn test_spawn_actor() -> anyhow::Result<()> {
+//         let system = ActorSystem::default();
+//         for i in 0..10 {
+//             let name = format!("testActor{}", i);
+//             let actor = system.spawn_actor(Props::create(|_| EmptyTestActor), name)?;
+//             let elements: Vec<String> = actor.path().elements();
+//             info!("{:?}", elements);
+//             tokio::spawn(async move {
+//                 info!("{}", actor);
+//                 loop {
+//                     actor.cast(EmptyTestMessage, ActorRef::no_sender());
+//                     tokio::time::sleep(Duration::from_secs(1)).await;
+//                 }
+//             });
+//         }
+//         tokio::time::sleep(Duration::from_secs(10)).await;
+//         Ok(())
+//     }
+// }

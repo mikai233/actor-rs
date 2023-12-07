@@ -6,7 +6,7 @@ use thiserror::Error;
 use tokio_util::bytes::{BufMut, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
 
-use crate::ext::read_u32;
+use actor_core::ext::read_u32;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Packet {

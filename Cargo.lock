@@ -64,6 +64,11 @@ dependencies = [
 [[package]]
 name = "actor-remote"
 version = "0.1.0"
+dependencies = [
+ "actor-core",
+ "anyhow",
+ "tokio",
+]
 
 [[package]]
 name = "addr2line"

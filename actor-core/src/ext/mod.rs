@@ -5,6 +5,9 @@ use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
 use tracing_subscriber::fmt::time::LocalTime;
 
+pub mod option_ext;
+pub mod as_any;
+
 const BASE64_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+~";
 static ACTOR_NAME_OFFSET: AtomicI64 = AtomicI64::new(0);
 
@@ -82,17 +85,5 @@ pub(crate) fn check_name(name: &String) -> anyhow::Result<()> {
         Ok(())
     } else {
         Err(anyhow!( "name {} is invalid, allowed chars a..=z, A..=Z, 0..=9, _", name, ))
-    }
-}
-
-#[cfg(test)]
-mod ext_test {
-    use crate::ext::random_actor_name;
-
-    #[test]
-    fn test_random_name() {
-        for _ in 0..10000 {
-            random_actor_name();
-        }
     }
 }

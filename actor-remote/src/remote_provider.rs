@@ -1,32 +1,40 @@
 use std::sync::Arc;
 
-use crate::actor_path::ActorPath;
-use crate::actor_path::TActorPath;
-use crate::actor_ref::ActorRef;
-use crate::actor_ref::local_ref::LocalActorRef;
-use crate::actor_ref::remote_ref::{Inner, RemoteActorRef};
-use crate::props::Props;
-use crate::provider::{ActorRefFactory, ActorRefProvider, TActorRefProvider};
-use crate::provider::local_provider::LocalActorRefProvider;
-use crate::system::ActorSystem;
+use actor_core::actor_path::ActorPath;
+use actor_core::actor_path::TActorPath;
+use actor_core::actor_ref::ActorRef;
+use actor_core::actor_ref::local_ref::LocalActorRef;
+use actor_core::actor_ref::remote_ref::{Inner, RemoteActorRef};
+use actor_core::actor::actor_ref_provider::ActorRefProvider;
+use actor_core::local_actor_ref_provider::LocalActorRefProvider;
+use actor_core::props::Props;
+use actor_core::provider::{ActorRefFactory, ActorRefProvider};
+use actor_core::provider::local_provider::LocalActorRefProvider;
+use actor_core::system::ActorSystem;
 
 #[derive(Debug)]
 pub struct RemoteActorRefProvider {
-    pub(crate) local: LocalActorRefProvider,
-    pub(crate) transport: ActorRef,
+    pub local: LocalActorRefProvider,
+    pub transport: ActorRef,
 }
 
 impl RemoteActorRefProvider {
-    pub(crate) fn init(system: &ActorSystem) -> anyhow::Result<()> {
+    pub fn init(system: &ActorSystem) -> anyhow::Result<()> {
         let local = LocalActorRefProvider::new(&system)?;
         let transport = local.start_tcp_transport()?;
-        let provider: ActorRefProvider = Self { local, transport }.into();
+        let provider = Box::new(Self { local, transport });
         system.provider.store(Arc::new(provider));
         Ok(())
     }
+    pub(crate) fn start_tcp_transport(&self) -> anyhow::Result<ActorRef> {
+        let transport_ref = self
+            .system_guardian()
+            .attach_child(Props::create(|context| TransportActor::new(context.provider())), Some("tcp_transport".to_string()))?;
+        Ok(transport_ref)
+    }
 }
 
-impl TActorRefProvider for RemoteActorRefProvider {
+impl ActorRefProvider for RemoteActorRefProvider {
     fn root_guardian(&self) -> &LocalActorRef {
         self.local.root_guardian()
     }

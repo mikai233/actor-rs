@@ -4,8 +4,7 @@ use tracing::debug;
 
 use actor_derive::SystemMessageCodec;
 
-use crate::context::{ActorContext, Context};
-use crate::provider::ActorRefFactory;
+use crate::actor::context::{ActorContext, Context};
 use crate::SystemMessage;
 
 #[derive(Debug, Serialize, Deserialize, SystemMessageCodec)]

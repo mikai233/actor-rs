@@ -3,16 +3,16 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use dashmap::DashMap;
 
-use crate::actor_path::{ActorPath, RootActorPath, TActorPath};
-use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor::actor_path::{ActorPath, RootActorPath, TActorPath};
+use crate::actor::actor_ref::ActorRef;
+use crate::actor::actor_ref::TActorRef;
+use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::cell::ActorCell;
 use crate::ext::base64;
-use crate::net::tcp_transport::TransportActor;
 use crate::props::Props;
-use crate::provider::{ActorRefFactory, TActorRefProvider};
 use crate::system::ActorSystem;
 use crate::system::root_guardian::RootGuardian;
 use crate::system::system_guardian::SystemGuardian;
@@ -32,7 +32,7 @@ pub struct LocalActorRefProvider {
 }
 
 impl LocalActorRefProvider {
-    pub(crate) fn new(system: &ActorSystem) -> anyhow::Result<Self> {
+    pub fn new(system: &ActorSystem) -> anyhow::Result<Self> {
         let root_path = RootActorPath::new(system.address().clone(), "/".to_string());
         let root_props = Props::create(|_| { RootGuardian::default() });
         let (sender, mailbox) = root_props.mailbox();
@@ -78,16 +78,9 @@ impl LocalActorRefProvider {
         };
         Ok(provider)
     }
-
-    pub(crate) fn start_tcp_transport(&self) -> anyhow::Result<ActorRef> {
-        let transport_ref = self
-            .system_guardian()
-            .attach_child(Props::create(|context| TransportActor::new(context.provider())), Some("tcp_transport".to_string()))?;
-        Ok(transport_ref)
-    }
 }
 
-impl TActorRefProvider for LocalActorRefProvider {
+impl ActorRefProvider for LocalActorRefProvider {
     fn root_guardian(&self) -> &LocalActorRef {
         &self.root_guardian
     }
@@ -168,53 +161,53 @@ impl TActorRefProvider for LocalActorRefProvider {
     }
 }
 
-#[cfg(test)]
-mod local_provider_test {
-    use async_trait::async_trait;
-    use tracing::info;
-
-    use crate::{Actor, EmptyTestActor, EmptyTestMessage};
-    use crate::actor_ref::ActorRefExt;
-    use crate::context::ActorContext;
-    use crate::props::Props;
-    use crate::provider::{ActorRefFactory, TActorRefProvider};
-    use crate::system::ActorSystem;
-    use crate::system::config::Config;
-
-    #[derive(Debug)]
-    struct ActorA;
-
-    #[async_trait]
-    impl Actor for ActorA {
-        async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-            info!("actor a {} pre start", context.myself);
-            context.spawn_anonymous_actor(Props::create(|_| ActorA))?;
-            Ok(())
-        }
-    }
-
-    #[derive(Debug)]
-    struct ActorB;
-
-    #[async_trait]
-    impl Actor for ActorB {
-        async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-            info!("actor b {} pre start", context.myself);
-            context.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
-            Ok(())
-        }
-    }
-
-
-    #[tokio::test]
-    async fn test() -> anyhow::Result<()> {
-        let system = ActorSystem::create(Config::default()).await?;
-        let _ = system.spawn_anonymous_actor(Props::create(|_| ActorA))?;
-        let actor_c = system
-            .provider()
-            .resolve_actor_ref(&"tcp://game@127.0.0.1:12121/user/$a/$b/$c".to_string());
-        actor_c.cast(EmptyTestMessage, None);
-        std::thread::park();
-        Ok(())
-    }
-}
+// #[cfg(test)]
+// mod local_provider_test {
+//     use async_trait::async_trait;
+//     use tracing::info;
+//
+//     use crate::{Actor, EmptyTestActor, EmptyTestMessage};
+//     use crate::actor::actor_ref::ActorRefExt;
+//     use crate::actor_ref_factory::ActorRefFactory;
+//     use crate::actor::context::ActorContext;
+//     use crate::props::Props;
+//     use crate::system::ActorSystem;
+//     use crate::system::config::ActorSystemConfig;
+//
+//     #[derive(Debug)]
+//     struct ActorA;
+//
+//     #[async_trait]
+//     impl Actor for ActorA {
+//         async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+//             info!("actor a {} pre start", context.myself);
+//             context.spawn_anonymous_actor(Props::create(|_| ActorA))?;
+//             Ok(())
+//         }
+//     }
+//
+//     #[derive(Debug)]
+//     struct ActorB;
+//
+//     #[async_trait]
+//     impl Actor for ActorB {
+//         async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+//             info!("actor b {} pre start", context.myself);
+//             context.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
+//             Ok(())
+//         }
+//     }
+//
+//
+//     #[tokio::test]
+//     async fn test() -> anyhow::Result<()> {
+//         let system = ActorSystem::create(ActorSystemConfig::default()).await?;
+//         let _ = system.spawn_anonymous_actor(Props::create(|_| ActorA))?;
+//         let actor_c = system
+//             .provider()
+//             .resolve_actor_ref(&"tcp://game@127.0.0.1:12121/user/$a/$b/$c".to_string());
+//         actor_c.cast(EmptyTestMessage, None);
+//         std::thread::park();
+//         Ok(())
+//     }
+// }

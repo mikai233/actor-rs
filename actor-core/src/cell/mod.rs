@@ -3,8 +3,8 @@ use std::sync::{Arc, RwLock};
 
 use dashmap::DashMap;
 
-use crate::actor_path::{ActorPath, TActorPath};
-use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor::actor_path::{ActorPath, TActorPath};
+use crate::actor::actor_ref::ActorRef;
 use crate::actor_ref::function_ref::FunctionRef;
 
 pub(crate) mod envelope;

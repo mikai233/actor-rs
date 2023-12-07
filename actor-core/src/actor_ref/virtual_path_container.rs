@@ -6,8 +6,8 @@ use dashmap::DashMap;
 use dashmap::mapref::one::Ref;
 
 use crate::{DynMessage, MessageType};
-use crate::actor_path::ActorPath;
-use crate::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
+use crate::actor::actor_path::ActorPath;
+use crate::actor::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::terminate::Terminate;
 use crate::system::ActorSystem;
