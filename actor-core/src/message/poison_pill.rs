@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use tracing::debug;
 
 use actor_derive::SystemMessageCodec;
+use crate::actor::actor_ref_factory::ActorRefFactory;
 
 use crate::actor::context::{ActorContext, Context};
 use crate::SystemMessage;

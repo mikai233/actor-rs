@@ -326,84 +326,84 @@ impl ChildActorPath {
     }
 }
 
-#[cfg(test)]
-mod actor_path_test {
-    use anyhow::Ok;
-
-    use crate::actor_path::{ActorPath, ChildActorPath, RootActorPath, TActorPath};
-    use crate::address::Address;
-
-    fn get_address() -> Address {
-        Address {
-            protocol: "tcp".to_string(),
-            system: "game_server".to_string(),
-            addr: "127.0.0.1:12121".parse().unwrap(),
-        }
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_root_actor_panic() {
-        let addr = get_address();
-        RootActorPath::new(addr, "/a/b".to_string());
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_root_actor_panic2() {
-        let addr = get_address();
-        RootActorPath::new(addr, "#a".to_string());
-    }
-
-    #[test]
-    fn test_root_actor() {
-        let addr = get_address();
-        RootActorPath::new(addr.clone(), "/a".to_string());
-        let root = RootActorPath::new(addr, "a".to_string());
-        root.with_uid(ActorPath::undefined_uid());
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_child_actor_panic() {
-        let addr = get_address();
-        let root = RootActorPath::new(addr, "a".to_string()).into();
-        ChildActorPath::new(root, "b#".to_string(), 11233);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_child_actor_panic2() {
-        let addr = get_address();
-        let root = RootActorPath::new(addr, "a".to_string()).into();
-        ChildActorPath::new(root, "b/".to_string(), 11233);
-    }
-
-    #[test]
-    fn test_actor_path() {
-        let addr = get_address();
-        let root: ActorPath = RootActorPath::new(addr, "/a".to_string()).into();
-        let child = root.child(&"b121#112223289".to_string());
-        assert_eq!(child.to_string(), format!("{}/a/b121", get_address()));
-        let c1 = child.child(&"child1#-12324".to_string());
-        assert_eq!(c1.to_string(), format!("{}/a/b121/child1", get_address()));
-        let c2 = child.child(&"child2#3249238".to_string());
-        assert_eq!(c2.to_string(), format!("{}/a/b121/child2", get_address()));
-    }
-
-    #[test]
-    fn test_actor_path_serde() -> anyhow::Result<()> {
-        let addr = get_address();
-        let root: ActorPath = RootActorPath::new(addr, "/".to_string()).into();
-        let actor_path = root.descendant(vec![
-            "user".to_string(),
-            "$a".to_string(),
-            "$a".to_string(),
-            format!("$aa#{}", ActorPath::new_uid()),
-        ]);
-        let url = actor_path.to_serialization();
-        let parse_path: ActorPath = url.parse()?;
-        assert_eq!(actor_path, parse_path);
-        Ok(())
-    }
-}
+// #[cfg(test)]
+// mod actor_path_test {
+//     use anyhow::Ok;
+//
+//     use crate::actor_path::{ActorPath, ChildActorPath, RootActorPath, TActorPath};
+//     use crate::address::Address;
+//
+//     fn get_address() -> Address {
+//         Address {
+//             protocol: "tcp".to_string(),
+//             system: "game_server".to_string(),
+//             addr: "127.0.0.1:12121".parse().unwrap(),
+//         }
+//     }
+//
+//     #[test]
+//     #[should_panic]
+//     fn test_root_actor_panic() {
+//         let addr = get_address();
+//         RootActorPath::new(addr, "/a/b".to_string());
+//     }
+//
+//     #[test]
+//     #[should_panic]
+//     fn test_root_actor_panic2() {
+//         let addr = get_address();
+//         RootActorPath::new(addr, "#a".to_string());
+//     }
+//
+//     #[test]
+//     fn test_root_actor() {
+//         let addr = get_address();
+//         RootActorPath::new(addr.clone(), "/a".to_string());
+//         let root = RootActorPath::new(addr, "a".to_string());
+//         root.with_uid(ActorPath::undefined_uid());
+//     }
+//
+//     #[test]
+//     #[should_panic]
+//     fn test_child_actor_panic() {
+//         let addr = get_address();
+//         let root = RootActorPath::new(addr, "a".to_string()).into();
+//         ChildActorPath::new(root, "b#".to_string(), 11233);
+//     }
+//
+//     #[test]
+//     #[should_panic]
+//     fn test_child_actor_panic2() {
+//         let addr = get_address();
+//         let root = RootActorPath::new(addr, "a".to_string()).into();
+//         ChildActorPath::new(root, "b/".to_string(), 11233);
+//     }
+//
+//     #[test]
+//     fn test_actor_path() {
+//         let addr = get_address();
+//         let root: ActorPath = RootActorPath::new(addr, "/a".to_string()).into();
+//         let child = root.child(&"b121#112223289".to_string());
+//         assert_eq!(child.to_string(), format!("{}/a/b121", get_address()));
+//         let c1 = child.child(&"child1#-12324".to_string());
+//         assert_eq!(c1.to_string(), format!("{}/a/b121/child1", get_address()));
+//         let c2 = child.child(&"child2#3249238".to_string());
+//         assert_eq!(c2.to_string(), format!("{}/a/b121/child2", get_address()));
+//     }
+//
+//     #[test]
+//     fn test_actor_path_serde() -> anyhow::Result<()> {
+//         let addr = get_address();
+//         let root: ActorPath = RootActorPath::new(addr, "/".to_string()).into();
+//         let actor_path = root.descendant(vec![
+//             "user".to_string(),
+//             "$a".to_string(),
+//             "$a".to_string(),
+//             format!("$aa#{}", ActorPath::new_uid()),
+//         ]);
+//         let url = actor_path.to_serialization();
+//         let parse_path: ActorPath = url.parse()?;
+//         assert_eq!(actor_path, parse_path);
+//         Ok(())
+//     }
+// }

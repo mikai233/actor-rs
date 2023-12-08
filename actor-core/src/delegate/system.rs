@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use crate::{CodecMessage, DynMessage, MessageType, SystemMessage};
 use crate::actor::context::ActorContext;
-use crate::decoder::MessageDecoder;
+use crate::actor::decoder::MessageDecoder;
 
 pub(crate) struct SystemDelegate {
     pub(crate) name: &'static str,

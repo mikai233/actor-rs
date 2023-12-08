@@ -6,11 +6,11 @@ use arc_swap::ArcSwap;
 use crate::actor::actor_path::ActorPath;
 
 use crate::actor::actor_ref::{ActorRef, TActorRef};
+use crate::actor::actor_system::ActorSystem;
 use crate::DynMessage;
 use crate::props::Props;
 use crate::routing::router::Router;
 use crate::routing::router_config::TRouterConfig;
-use crate::system::ActorSystem;
 
 #[derive(Clone)]
 pub struct RoutedActorRef {
@@ -71,7 +71,7 @@ impl TActorRef for RoutedActorRef {
         todo!()
     }
 
-    fn get_child<I>(&self, names: I) -> Option<ActorRef> where I: IntoIterator<Item=String> {
+    fn get_child(&self, names: Vec<String>) -> Option<ActorRef> {
         self.router_actor.get_child(names)
     }
 }

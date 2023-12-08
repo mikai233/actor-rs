@@ -9,3 +9,4 @@ edition = "2021"
 actor-core = { path = "../actor-core" }
 tokio = { workspace = true }
 anyhow = { workspace = true }
+serde = { workspace = true }

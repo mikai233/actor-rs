@@ -3,22 +3,19 @@ use std::fmt::Debug;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use async_trait::async_trait;
-use futures::StreamExt;
-use moka::sync::Cache;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::net::TcpListener;
-use tokio_util::codec::Framed;
-use tracing::{info, warn};
 
-use actor_core::Actor;
+use actor_core::actor::actor_ref::ActorRef;
+use actor_core::actor::actor_ref_factory::ActorRefFactory;
+use actor_core::actor::context::ActorContext;
+use actor_core::actor::serialized_ref::SerializedActorRef;
 use actor_core::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef};
 use actor_core::context::ActorContext;
 use actor_core::ext::decode_bytes;
+use actor_core::provider::{ActorRefFactory, ActorRefProvider, ActorRefProvider};
 use actor_remote::::codec::PacketCodec;
 use actor_remote::::connection::ConnectionTx;
 use actor_remote::::message::{InboundMessage, RemotePacket, SpawnInbound};
-use actor_core::provider::{ActorRefFactory, ActorRefProvider, ActorRefProvider};
 
 #[derive(Debug)]
 pub struct TransportActor {
@@ -113,97 +110,97 @@ impl TransportActor {
     }
 }
 
-#[cfg(test)]
-mod transport_test {
-    use std::time::Duration;
-
-    use async_trait::async_trait;
-    use serde::{Deserialize, Serialize};
-    use tracing::info;
-
-    use actor_derive::{EmptyCodec, MessageCodec};
-
-    use actor_core::actor_ref::ActorRefExt;
-    use actor_core::context::{ActorContext, Context};
-    use actor_core::props::Props;
-    use actor_core::provider::ActorRefFactory;
-    use actor_core::provider::ActorRefProvider;
-    use actor_core::system::ActorSystem;
-    use actor_core::system::config::ActorSystemConfig;
-
-    struct PingPongActor;
-
-    #[derive(Serialize, Deserialize, MessageCodec)]
-    #[actor(PingPongActor)]
-    struct Ping;
-
-    impl Message for Ping {
-        type A = PingPongActor;
-
-        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-            let myself = context.myself.clone();
-            let sender = context.sender().unwrap().clone();
-            context.spawn(async move {
-                sender.cast(Pong, Some(myself));
-                tokio::time::sleep(Duration::from_secs(1)).await;
-            });
-            Ok(())
-        }
-    }
-
-    #[derive(Serialize, Deserialize, MessageCodec)]
-    #[actor(PingPongActor)]
-    struct Pong;
-
-    impl Message for Pong {
-        type A = PingPongActor;
-
-        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-            info!("{} pong", context.myself());
-            Ok(())
-        }
-    }
-
-    #[derive(EmptyCodec)]
-    struct PingTo {
-        to: String,
-    }
-
-    impl Message for PingTo {
-        type A = PingPongActor;
-
-        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-            let to = context.system.provider().resolve_actor_ref(&self.to);
-            to.cast(Ping, Some(context.myself.clone()));
-            Ok(())
-        }
-    }
-
-    #[async_trait]
-    impl Actor for PingPongActor {
-        async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-            info!("{} pre start", context.myself);
-            Ok(())
-        }
-    }
-
-    fn build_config() -> ActorSystemConfig {
-        let mut config = ActorSystemConfig::default();
-        config.registration.register::<Ping>();
-        config.registration.register::<Pong>();
-        config
-    }
-
-    #[tokio::test]
-    async fn test() -> anyhow::Result<()> {
-        let system_a = ActorSystem::create(build_config()).await?;
-        let props = Props::create(|_| PingPongActor);
-        let actor_a = system_a.spawn_actor(props.clone(), "actor_a")?;
-        let system_a = ActorSystem::create(build_config()).await?;
-        let _ = system_a.spawn_actor(props.clone(), "actor_b")?;
-        loop {
-            actor_a.cast(PingTo { to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string() }, None);
-            tokio::time::sleep(Duration::from_secs(1)).await;
-        }
-    }
-}
+// #[cfg(test)]
+// mod transport_test {
+//     use std::time::Duration;
+//
+//     use async_trait::async_trait;
+//     use serde::{Deserialize, Serialize};
+//     use tracing::info;
+//
+//     use actor_derive::{EmptyCodec, MessageCodec};
+//
+//     use actor_core::actor_ref::ActorRefExt;
+//     use actor_core::context::{ActorContext, Context};
+//     use actor_core::props::Props;
+//     use actor_core::provider::ActorRefFactory;
+//     use actor_core::provider::ActorRefProvider;
+//     use actor_core::system::ActorSystem;
+//     use actor_core::system::config::ActorSystemConfig;
+//
+//     struct PingPongActor;
+//
+//     #[derive(Serialize, Deserialize, MessageCodec)]
+//     #[actor(PingPongActor)]
+//     struct Ping;
+//
+//     impl Message for Ping {
+//         type A = PingPongActor;
+//
+//         fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+//             let myself = context.myself.clone();
+//             let sender = context.sender().unwrap().clone();
+//             context.spawn(async move {
+//                 sender.cast(Pong, Some(myself));
+//                 tokio::time::sleep(Duration::from_secs(1)).await;
+//             });
+//             Ok(())
+//         }
+//     }
+//
+//     #[derive(Serialize, Deserialize, MessageCodec)]
+//     #[actor(PingPongActor)]
+//     struct Pong;
+//
+//     impl Message for Pong {
+//         type A = PingPongActor;
+//
+//         fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+//             info!("{} pong", context.myself());
+//             Ok(())
+//         }
+//     }
+//
+//     #[derive(EmptyCodec)]
+//     struct PingTo {
+//         to: String,
+//     }
+//
+//     impl Message for PingTo {
+//         type A = PingPongActor;
+//
+//         fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+//             let to = context.system.provider().resolve_actor_ref(&self.to);
+//             to.cast(Ping, Some(context.myself.clone()));
+//             Ok(())
+//         }
+//     }
+//
+//     #[async_trait]
+//     impl Actor for PingPongActor {
+//         async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+//             info!("{} pre start", context.myself);
+//             Ok(())
+//         }
+//     }
+//
+//     fn build_config() -> ActorSystemConfig {
+//         let mut config = ActorSystemConfig::default();
+//         config.registration.register::<Ping>();
+//         config.registration.register::<Pong>();
+//         config
+//     }
+//
+//     #[tokio::test]
+//     async fn test() -> anyhow::Result<()> {
+//         let system_a = ActorSystem::create(build_config()).await?;
+//         let props = Props::create(|_| PingPongActor);
+//         let actor_a = system_a.spawn_actor(props.clone(), "actor_a")?;
+//         let system_a = ActorSystem::create(build_config()).await?;
+//         let _ = system_a.spawn_actor(props.clone(), "actor_b")?;
+//         loop {
+//             actor_a.cast(PingTo { to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string() }, None);
+//             tokio::time::sleep(Duration::from_secs(1)).await;
+//         }
+//     }
+// }

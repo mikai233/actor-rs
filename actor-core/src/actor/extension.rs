@@ -7,7 +7,7 @@ use dashmap::mapref::one::{MappedRef, MappedRefMut};
 
 use crate::ext::as_any::AsAny;
 
-pub trait Extension: Any + AsAny + Send {}
+pub trait Extension: Any + AsAny + Send + Sync {}
 
 #[derive(Default)]
 pub struct ActorSystemExtension {
@@ -71,7 +71,7 @@ impl DerefMut for ActorSystemExtension {
 
 impl Debug for ActorSystemExtension {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        let extensions = self.extensions.iter().map(|e| e.key()).collect::<Vec<_>>();
+        let extensions = self.extensions.iter().map(|e| *e.key()).collect::<Vec<_>>();
         f.debug_struct("ActorExtension")
             .field("extensions", &extensions)
             .finish()

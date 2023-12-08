@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 
@@ -6,8 +7,8 @@ use crate::{CodecMessage, DynMessage, SystemMessage};
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::context::ActorContext;
-use crate::actor_ref::SerializedActorRef;
-use crate::decoder::MessageDecoder;
+use crate::actor::decoder::MessageDecoder;
+use crate::actor::serialized_ref::SerializedActorRef;
 use crate::delegate::system::SystemDelegate;
 use crate::ext::{decode_bytes, encode_bytes};
 
@@ -26,7 +27,7 @@ impl CodecMessage for DeathWatchNotification {
         #[derive(Clone)]
         struct D;
         impl MessageDecoder for D {
-            fn decode(&self, provider: &Box<dyn ActorRefProvider>, bytes: &[u8]) -> anyhow::Result<DynMessage> {
+            fn decode(&self, provider: &Arc<Box<dyn ActorRefProvider>>, bytes: &[u8]) -> anyhow::Result<DynMessage> {
                 let serialized: SerializedActorRef = decode_bytes(bytes)?;
                 let actor_ref = provider.resolve_actor_ref(&serialized.path);
                 let message = SystemDelegate::new(DeathWatchNotification(actor_ref));

@@ -1,12 +1,15 @@
 use std::any::Any;
-use crate::actor::actor_path::ActorPath;
+use std::fmt::Debug;
+use std::ops::Deref;
+use std::sync::Arc;
 
+use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_ref::ActorRef;
-use crate::actor_ref::local_ref::LocalActorRef;
+use crate::actor::local_ref::LocalActorRef;
 use crate::ext::as_any::AsAny;
 use crate::props::Props;
 
-pub trait ActorRefProvider: Send + Any + AsAny {
+pub trait ActorRefProvider: Send + Sync + Any + AsAny + Debug {
     fn root_guardian(&self) -> &LocalActorRef;
     fn guardian(&self) -> &LocalActorRef;
     fn system_guardian(&self) -> &LocalActorRef;
@@ -17,8 +20,8 @@ pub trait ActorRefProvider: Send + Any + AsAny {
     fn register_temp_actor(&self, actor: ActorRef, path: &ActorPath);
     fn unregister_temp_actor(&self, path: &ActorPath);
     fn actor_of(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef>;
-    fn resolve_actor_ref(&self, path: impl AsRef<str>) -> ActorRef {
-        match path.as_ref().parse::<ActorPath>() {
+    fn resolve_actor_ref(&self, path: &str) -> ActorRef {
+        match path.parse::<ActorPath>() {
             Ok(actor_path) => self.resolve_actor_ref_of_path(&actor_path),
             Err(_) => self.dead_letters().clone(),
         }

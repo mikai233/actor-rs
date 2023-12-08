@@ -6,21 +6,18 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use actor_derive::MessageCodec;
+use actor::decoder::MessageDecoder;
 
-use crate::actor::context::ActorContext;
-use crate::decoder::MessageDecoder;
+use crate::actor::context::{ActorContext, Context};
 use crate::delegate::MessageDelegate;
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::{AsyncUserDelegate, UserDelegate};
 
-pub mod actor_ref;
 pub mod system;
 pub mod props;
 pub(crate) mod address;
 pub mod ext;
 mod cell;
-pub mod decoder;
 pub mod delegate;
 pub mod message;
 mod event;
@@ -177,18 +174,18 @@ impl Actor for EmptyTestActor {
 }
 
 
-#[derive(Debug, Serialize, Deserialize, MessageCodec)]
-#[actor(EmptyTestActor)]
-pub(crate) struct EmptyTestMessage;
-
-impl Message for EmptyTestMessage {
-    type A = EmptyTestActor;
-
-    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-        info!("{} handle {:?}", context.myself(), self);
-        Ok(())
-    }
-}
+// #[derive(Debug, Serialize, Deserialize, MessageCodec)]
+// #[actor(EmptyTestActor)]
+// pub(crate) struct EmptyTestMessage;
+//
+// impl Message for EmptyTestMessage {
+//     type A = EmptyTestActor;
+//
+//     fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+//         info!("{} handle {:?}", context.myself(), self);
+//         Ok(())
+//     }
+// }
 
 // #[cfg(test)]
 // mod actor_test {

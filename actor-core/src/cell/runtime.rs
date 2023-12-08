@@ -2,7 +2,8 @@ use tokio::task::yield_now;
 use tracing::error;
 
 use crate::{Actor, AsyncMessage, Message};
-use crate::actor::context::ActorContext;
+use crate::actor::actor_ref_factory::ActorRefFactory;
+use crate::actor::context::{ActorContext, Context};
 use crate::actor::mailbox::Mailbox;
 use crate::cell::envelope::Envelope;
 use crate::delegate::MessageDelegate;

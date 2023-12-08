@@ -6,8 +6,8 @@ use tracing::info;
 
 use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_ref::{ActorRef, TActorRef};
+use crate::actor::actor_system::ActorSystem;
 use crate::DynMessage;
-use crate::system::ActorSystem;
 
 #[derive(Clone)]
 pub struct DeadLetterActorRef {
@@ -63,7 +63,13 @@ impl TActorRef for DeadLetterActorRef {
         None
     }
 
-    fn get_child<I>(&self, _names: I) -> Option<ActorRef> where I: IntoIterator<Item=String> {
+    fn get_child(&self, _names: Vec<String>) -> Option<ActorRef> {
         None
+    }
+}
+
+impl Into<ActorRef> for DeadLetterActorRef {
+    fn into(self) -> ActorRef {
+        ActorRef::new(self)
     }
 }

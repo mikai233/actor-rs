@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_ref::{ActorRef, TActorRef};
+use crate::actor::actor_system::ActorSystem;
 use crate::DynMessage;
-use crate::system::ActorSystem;
 
 #[derive(Clone)]
 pub struct FunctionRef {
@@ -57,7 +57,7 @@ impl TActorRef for FunctionRef {
         None
     }
 
-    fn get_child<I>(&self, names: I) -> Option<ActorRef> where I: IntoIterator<Item=String> {
+    fn get_child(&self, names: Vec<String>) -> Option<ActorRef> {
         let mut names = names.into_iter();
         match names.next() {
             None => {
@@ -67,5 +67,11 @@ impl TActorRef for FunctionRef {
                 None
             }
         }
+    }
+}
+
+impl Into<ActorRef> for FunctionRef {
+    fn into(self) -> ActorRef {
+        ActorRef::new(self)
     }
 }

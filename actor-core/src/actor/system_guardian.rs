@@ -6,8 +6,8 @@ use actor_derive::EmptyCodec;
 use crate::{Actor, Message};
 use crate::actor::actor_ref::{ActorRef, ActorRefExt};
 use crate::actor::actor_ref_factory::ActorRefFactory;
-use crate::actor::context::ActorContext;
-use crate::system::root_guardian::ChildGuardianStarted;
+use crate::actor::context::{ActorContext, Context};
+use crate::actor::root_guardian::ChildGuardianStarted;
 
 #[derive(Debug)]
 pub(crate) struct SystemGuardian;

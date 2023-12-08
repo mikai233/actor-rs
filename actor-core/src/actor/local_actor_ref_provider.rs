@@ -7,16 +7,17 @@ use crate::actor::actor_path::{ActorPath, RootActorPath, TActorPath};
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref::TActorRef;
 use crate::actor::actor_ref_provider::ActorRefProvider;
-use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
-use crate::actor_ref::local_ref::LocalActorRef;
-use crate::actor_ref::virtual_path_container::VirtualPathContainer;
+use crate::actor::actor_system::ActorSystem;
+use crate::actor::dead_letter_ref::DeadLetterActorRef;
+use crate::actor::local_ref::LocalActorRef;
+use crate::actor::root_guardian::RootGuardian;
+use crate::actor::system_guardian::SystemGuardian;
+use crate::actor::user_guardian::UserGuardian;
+use crate::actor::virtual_path_container::VirtualPathContainer;
 use crate::cell::ActorCell;
 use crate::ext::base64;
 use crate::props::Props;
-use crate::system::ActorSystem;
-use crate::system::root_guardian::RootGuardian;
-use crate::system::system_guardian::SystemGuardian;
-use crate::system::user_guardian::UserGuardian;
+
 
 #[derive(Debug)]
 pub struct LocalActorRefProvider {
@@ -36,7 +37,7 @@ impl LocalActorRefProvider {
         let root_path = RootActorPath::new(system.address().clone(), "/".to_string());
         let root_props = Props::create(|_| { RootGuardian::default() });
         let (sender, mailbox) = root_props.mailbox();
-        let inner = crate::actor_ref::local_ref::Inner {
+        let inner = crate::actor::local_ref::Inner {
             system: system.clone(),
             path: root_path.clone().into(),
             sender,
@@ -47,16 +48,16 @@ impl LocalActorRefProvider {
         };
         (root_props.spawner)(root_guardian.clone().into(), mailbox, system.clone());
         let system_guardian = root_guardian.attach_child(Props::create(|_| SystemGuardian), Some("system".to_string()))?;
-        let system_guardian = system_guardian.local_or_panic();
+        let system_guardian = system_guardian.local().unwrap();
         let user_guardian = root_guardian.attach_child(Props::create(|_| UserGuardian), Some("user".to_string()))?;
-        let user_guardian = user_guardian.local_or_panic();
-        let inner = crate::actor_ref::dead_letter_ref::Inner {
+        let user_guardian = user_guardian.local().unwrap();
+        let inner = crate::actor::dead_letter_ref::Inner {
             system: system.clone(),
             path: root_path.child("dead_letters"),
         };
         let dead_letters = DeadLetterActorRef { inner: inner.into() };
         let temp_node = root_path.child("temp");
-        let inner = crate::actor_ref::virtual_path_container::Inner {
+        let inner = crate::actor::virtual_path_container::Inner {
             system: system.clone(),
             path: temp_node.clone(),
             parent: root_guardian.clone().into(),
@@ -68,8 +69,8 @@ impl LocalActorRefProvider {
         let provider = LocalActorRefProvider {
             root_path: root_path.into(),
             root_guardian,
-            user_guardian: user_guardian.clone().into(),
-            system_guardian: system_guardian.clone().into(),
+            user_guardian: user_guardian.clone(),
+            system_guardian: system_guardian.clone(),
             extra_names: DashMap::new(),
             dead_letters: dead_letters.into(),
             temp_number: AtomicI64::new(0),
@@ -127,7 +128,7 @@ impl ActorRefProvider for LocalActorRefProvider {
     }
 
     fn actor_of(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
-        supervisor.local_or_panic().attach_child(props, None)
+        supervisor.local().unwrap().attach_child(props, None)
     }
 
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {
@@ -137,7 +138,7 @@ impl ActorRefProvider for LocalActorRefProvider {
                 Some(peek) if peek.as_str() == "temp" => {
                     let mut iter = elements.into_iter();
                     iter.next();
-                    TActorRef::get_child(&self.temp_container, iter).unwrap_or_else(|| self.dead_letters.clone())
+                    TActorRef::get_child(&self.temp_container, iter.collect()).unwrap_or_else(|| self.dead_letters.clone())
                 }
                 Some(peek) if peek.as_str() == "dead_letters" => {
                     self.dead_letters.clone()

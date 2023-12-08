@@ -8,9 +8,9 @@ use dashmap::mapref::one::Ref;
 use crate::{DynMessage, MessageType};
 use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
+use crate::actor::actor_system::ActorSystem;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::terminate::Terminate;
-use crate::system::ActorSystem;
 
 #[derive(Clone)]
 pub struct VirtualPathContainer {
@@ -66,7 +66,7 @@ impl TActorRef for VirtualPathContainer {
         Some(&self.parent)
     }
 
-    fn get_child<I>(&self, names: I) -> Option<ActorRef> where I: IntoIterator<Item=String> {
+    fn get_child(&self, names: Vec<String>) -> Option<ActorRef> {
         let mut names = names.into_iter();
         match names.next() {
             None => {
@@ -81,12 +81,18 @@ impl TActorRef for VirtualPathContainer {
                             None
                         }
                         Some(child) => {
-                            child.value().get_child(names)
+                            child.value().get_child(names.collect())
                         }
                     }
                 }
             }
         }
+    }
+}
+
+impl Into<ActorRef> for VirtualPathContainer {
+    fn into(self) -> ActorRef {
+        ActorRef::new(self)
     }
 }
 

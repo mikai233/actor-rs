@@ -10,7 +10,7 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
     let actor_attr = ast.attrs.into_iter().filter(|attr| attr.path.is_ident("actor")).next();
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     let codec_trait = with_crate(parse_str("CodecMessage").unwrap());
-    let decoder_trait = with_crate(parse_str("decoder::MessageDecoder").unwrap());
+    let decoder_trait = with_crate(parse_str("actor::decoder::MessageDecoder").unwrap());
     let ext_path = with_crate(parse_str("ext").unwrap());
     let dy_message = with_crate(parse_str("DynMessage").unwrap());
     let decoder = expand_decoder(actor_attr.as_ref(), &message_ty, &message_impl, &codec_type, &ext_path, &dy_message);
@@ -62,7 +62,7 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
 
 pub(crate) fn expand_decoder(actor_attr: Option<&Attribute>, message_ty: &Ident, message_impl: &MessageImpl, codec_type: &CodecType, ext_path: &TokenStream, dy_message: &TokenStream) -> TokenStream {
     let provider_trait = with_crate(parse_str("actor::actor_ref_provider::ActorRefProvider").unwrap());
-    let decoder_trait = with_crate(parse_str("decoder::MessageDecoder").unwrap());
+    let decoder_trait = with_crate(parse_str("actor::decoder::MessageDecoder").unwrap());
     match codec_type {
         CodecType::NoneSerde => {
             quote!(None)
@@ -121,7 +121,7 @@ pub(crate) fn decoder<F>(decoder_trait: &TokenStream, provider_trait: &TokenStre
         #[derive(Clone)]
         struct D;
         impl #decoder_trait for D {
-            fn decode(&self, provider: &Box<dyn #provider_trait>, bytes: &[u8]) -> anyhow::Result<#dy_message> {
+            fn decode(&self, provider: &std::sync::Arc<Box<dyn #provider_trait>>, bytes: &[u8]) -> anyhow::Result<#dy_message> {
                 #body
             }
         }

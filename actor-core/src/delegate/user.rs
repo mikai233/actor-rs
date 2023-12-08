@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use crate::{Actor, AsyncMessage, CodecMessage, DynMessage, Message, MessageType};
 use crate::actor::context::ActorContext;
-use crate::decoder::MessageDecoder;
+use crate::actor::decoder::MessageDecoder;
 
 pub struct UserDelegate<A> where A: Actor {
     pub(crate) name: &'static str,

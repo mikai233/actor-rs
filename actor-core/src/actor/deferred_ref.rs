@@ -12,7 +12,7 @@ use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref::{ActorRef, TActorRef};
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_ref_provider::ActorRefProvider;
-use crate::system::ActorSystem;
+use crate::actor::actor_system::ActorSystem;
 
 #[derive(Clone)]
 pub struct DeferredActorRef {
@@ -68,7 +68,7 @@ impl TActorRef for DeferredActorRef {
         Some(&self.parent)
     }
 
-    fn get_child<I>(&self, names: I) -> Option<ActorRef> where I: IntoIterator<Item=String> {
+    fn get_child(&self, names: Vec<String>) -> Option<ActorRef> {
         let mut names = names.into_iter();
         match names.next() {
             None => {
@@ -106,6 +106,12 @@ impl DeferredActorRef {
         let resp = tokio::time::timeout(timeout, rx.recv()).await;
         self.provider.unregister_temp_actor(&self.path);
         resp
+    }
+}
+
+impl Into<ActorRef> for DeferredActorRef {
+    fn into(self) -> ActorRef {
+        ActorRef::new(self)
     }
 }
 

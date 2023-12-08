@@ -3,9 +3,9 @@ use std::sync::Arc;
 use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_provider::ActorRefProvider;
-use crate::actor_ref::local_ref::LocalActorRef;
+use crate::actor::actor_system::ActorSystem;
+use crate::actor::local_ref::LocalActorRef;
 use crate::props::Props;
-use crate::system::ActorSystem;
 
 pub trait ActorRefFactory {
     fn system(&self) -> &ActorSystem;

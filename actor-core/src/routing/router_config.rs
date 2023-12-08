@@ -6,13 +6,13 @@ use enum_dispatch::enum_dispatch;
 use actor_derive::EmptyCodec;
 
 use crate::{DynMessage, Message, MessageType};
+use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
 use crate::props::Props;
 use crate::routing::group_router_config::GroupRouterConfig;
 use crate::routing::pool_router_config::PoolRouterConfig;
 use crate::routing::router::{Routee, Router};
 use crate::routing::router_actor::{RouterActor, WatchRouteeTerminated};
-use crate::system::ActorSystem;
 
 #[enum_dispatch(RouterConfig)]
 pub trait TRouterConfig: Send + Sync + DynClone + 'static {

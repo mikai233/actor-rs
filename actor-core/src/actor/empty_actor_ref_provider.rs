@@ -1,10 +1,11 @@
+use std::fmt::{Debug, Formatter};
 use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_provider::ActorRefProvider;
-use crate::actor_ref::local_ref::LocalActorRef;
+use crate::actor::local_ref::LocalActorRef;
 use crate::props::Props;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub(crate) struct EmptyActorRefProvider;
 
 impl ActorRefProvider for EmptyActorRefProvider {

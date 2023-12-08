@@ -1,24 +1,23 @@
 use std::any::Any;
+use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::{AsyncMessage, DynMessage, Message, SystemMessage, UntypedMessage};
 use crate::actor::actor_path::{ActorPath, TActorPath};
-use crate::actor_ref::local_ref::LocalActorRef;
+use crate::actor::actor_system::ActorSystem;
+use crate::actor::local_ref::LocalActorRef;
 use crate::ext::as_any::AsAny;
-use crate::system::ActorSystem;
 
-pub trait TActorRef: Debug + Send + Sync + Any + AsAny + Ord + PartialOrd + Eq + PartialOrd + Hash {
+pub trait TActorRef: Debug + Send + Sync + Any + AsAny {
     fn system(&self) -> ActorSystem;
     fn path(&self) -> &ActorPath;
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>);
     fn stop(&self);
     fn parent(&self) -> Option<&ActorRef>;
-    fn get_child<I>(&self, names: I) -> Option<ActorRef>
-        where
-            I: IntoIterator<Item=String>;
+    fn get_child(&self, names: Vec<String>) -> Option<ActorRef>;
 }
 
 impl<T: ?Sized> ActorRefExt for T where T: TActorRef {}
@@ -55,16 +54,16 @@ pub trait ActorRefSystemExt: TActorRef {
     }
 }
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Clone)]
 pub struct ActorRef {
     inner: Arc<Box<dyn TActorRef>>,
 }
 
-impl Deref for ActorRef {
-    type Target = Arc<Box<dyn TActorRef>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
+impl ActorRef {
+    pub fn new<R>(actor_ref: R) -> Self where R: TActorRef {
+        Self {
+            inner: Arc::new(Box::new(actor_ref))
+        }
     }
 }
 
@@ -79,6 +78,14 @@ impl ActorRef {
     }
 }
 
+impl Deref for ActorRef {
+    type Target = Arc<Box<dyn TActorRef>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
 impl Display for ActorRef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let path = self.path();
@@ -88,5 +95,37 @@ impl Display for ActorRef {
         } else {
             write!(f, "Actor[{}#{}]", path, uid)
         }
+    }
+}
+
+impl Hash for ActorRef {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        todo!()
+    }
+}
+
+impl PartialEq<Self> for ActorRef {
+    fn eq(&self, other: &Self) -> bool {
+        todo!()
+    }
+}
+
+impl Eq for ActorRef {}
+
+impl PartialOrd<Self> for ActorRef {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        todo!()
+    }
+}
+
+impl Ord for ActorRef {
+    fn cmp(&self, other: &Self) -> Ordering {
+        todo!()
+    }
+}
+
+impl Debug for ActorRef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
     }
 }

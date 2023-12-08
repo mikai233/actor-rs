@@ -13,6 +13,8 @@ use crate::actor::actor_path::{ActorPath, ChildActorPath};
 use crate::actor::actor_ref::{ActorRefSystemExt, TActorRef};
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_factory::ActorRefFactory;
+use crate::actor::actor_system::ActorSystem;
+use crate::actor::cell::Cell;
 use crate::actor::mailbox::MailboxSender;
 use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
@@ -22,9 +24,7 @@ use crate::props::Props;
 use crate::routing::router::Routee;
 use crate::routing::router_config::{Pool, RouterConfig};
 use crate::routing::router_config::TRouterConfig;
-use crate::system::ActorSystem;
 
-use super::Cell;
 
 #[derive(Clone)]
 pub struct LocalActorRef {
@@ -94,10 +94,11 @@ impl TActorRef for LocalActorRef {
         self.cell.parent()
     }
 
-    fn get_child<I>(&self, names: I) -> Option<ActorRef> where I: IntoIterator<Item=String> {
+    fn get_child(&self, names: Vec<String>) -> Option<ActorRef> {
         fn rec(actor: ActorRef, mut names: impl Iterator<Item=String>) -> Option<ActorRef> {
-            match &actor {
-                ActorRef::LocalActorRef(l) => {
+            match actor.local() {
+                None => actor.get_child(names.collect()),
+                Some(l) => {
                     let name = names.next();
                     let next = match name {
                         None => {
@@ -116,7 +117,6 @@ impl TActorRef for LocalActorRef {
                         Some(next) => { rec(next, names) }
                     }
                 }
-                _ => actor.get_child(names)
             }
         }
         rec(self.clone().into(), names.into_iter())
@@ -139,6 +139,12 @@ impl Cell for LocalActorRef {
             }
             Some(child) => { Some(child) }
         }
+    }
+}
+
+impl Into<ActorRef> for LocalActorRef {
+    fn into(self) -> ActorRef {
+        ActorRef::new(self)
     }
 }
 
@@ -217,7 +223,7 @@ impl LocalActorRef {
                 let router_actor = router_config.create_router_actor();
                 let router_actor = self.system.spawn_actor(Props::create(move |_| router_actor.clone()), name)?;
                 let router = router_config.create_router(self.system.clone());
-                let inner = crate::actor_ref::routed_actor_ref::Inner {
+                let inner = crate::actor::routed_actor_ref::Inner {
                     system: self.system.clone(),
                     path,
                     router_actor,

@@ -8,11 +8,11 @@ use actor_derive::EmptyCodec;
 use crate::{Actor, DynMessage, Message};
 use crate::actor::actor_ref::ActorRefExt;
 use crate::actor::actor_ref::ActorRef;
+use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ActorContext, Context};
 use crate::event::EventBus;
 use crate::message::terminated::WatchTerminated;
 use crate::props::Props;
-use crate::system::ActorSystem;
 
 #[derive(Debug, Clone)]
 pub struct SystemEventBus {

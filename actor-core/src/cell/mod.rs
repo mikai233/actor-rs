@@ -5,7 +5,7 @@ use dashmap::DashMap;
 
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref::ActorRef;
-use crate::actor_ref::function_ref::FunctionRef;
+use crate::actor::function_ref::FunctionRef;
 
 pub(crate) mod envelope;
 pub(crate) mod runtime;

@@ -1,11 +1,11 @@
 use std::ops::Deref;
+use crate::actor::actor_system::ActorSystem;
 
 use crate::actor::context::ActorContext;
 use crate::props::Props;
 use crate::routing::router::{Routee, Router};
 use crate::routing::router_actor::RouterActor;
 use crate::routing::router_config::{Group, TRouterConfig};
-use crate::system::ActorSystem;
 
 #[derive(Clone)]
 pub(crate) struct GroupRouterConfig {

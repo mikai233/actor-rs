@@ -12,10 +12,11 @@ use crate::actor::actor_path::{ActorPath, ChildActorPath, TActorPath};
 use crate::actor::actor_ref::{ActorRef, ActorRefSystemExt};
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_ref_provider::ActorRefProvider;
+use crate::actor::actor_system::ActorSystem;
+use crate::actor::cell::Cell;
+use crate::actor::function_ref::{FunctionRef, Inner};
+use crate::actor::local_ref::LocalActorRef;
 use crate::actor::state::ActorState;
-use crate::actor_ref::Cell;
-use crate::actor_ref::function_ref::{FunctionRef, Inner};
-use crate::actor_ref::local_ref::LocalActorRef;
 use crate::ext::random_name;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::terminate::Terminate;
@@ -23,7 +24,6 @@ use crate::message::terminated::WatchTerminated;
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
 use crate::props::Props;
-use crate::system::ActorSystem;
 
 pub trait Context: ActorRefFactory {
     fn myself(&self) -> &ActorRef;
@@ -84,7 +84,7 @@ impl ActorRefFactory for ActorContext {
                 self.myself
             ));
         }
-        self.myself.local_or_panic().attach_child(props, Some(name.into()))
+        self.myself.local().unwrap().attach_child(props, Some(name.into()))
     }
 
     fn spawn_anonymous_actor(&self, props: Props) -> anyhow::Result<ActorRef> {
@@ -94,7 +94,7 @@ impl ActorRefFactory for ActorContext {
                 self.myself
             ));
         }
-        self.myself.local_or_panic().attach_child(props, None)
+        self.myself.local().unwrap().attach_child(props, None)
     }
 
     fn stop(&self, actor: &ActorRef) {
@@ -112,12 +112,12 @@ impl Context for ActorContext {
     }
 
     fn children(&self) -> RwLockReadGuard<BTreeMap<String, ActorRef>> {
-        let myself = self.myself().local_or_panic();
+        let myself = self.myself().local().unwrap();
         myself.cell.children().read().unwrap()
     }
 
     fn children_mut(&self) -> RwLockWriteGuard<BTreeMap<String, ActorRef>> {
-        let myself = self.myself().local_or_panic();
+        let myself = self.myself().local().unwrap();
         myself.cell.children().write().unwrap()
     }
 
@@ -126,7 +126,7 @@ impl Context for ActorContext {
     }
 
     fn parent(&self) -> Option<&ActorRef> {
-        self.myself().local_or_panic().cell.parent()
+        self.myself().local().unwrap().cell.parent()
     }
 
     fn watch<T>(&mut self, terminate: T) where T: WatchTerminated {
@@ -324,11 +324,11 @@ impl ActorContext {
         let function_ref = FunctionRef {
             inner: inner.into(),
         };
-        self.myself.local_or_panic().underlying().add_function_ref(name, function_ref.clone());
+        self.myself.local().unwrap().underlying().add_function_ref(name, function_ref.clone());
         function_ref
     }
 
     pub(crate) fn remove_function_ref(&self, name: &str) -> bool {
-        self.myself.local_or_panic().underlying().remove_function_ref(name).is_some()
+        self.myself.local().unwrap().underlying().remove_function_ref(name).is_some()
     }
 }
