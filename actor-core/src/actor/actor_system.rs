@@ -4,6 +4,7 @@ use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 use arc_swap::{ArcSwap, ArcSwapOption};
+use dashmap::mapref::one::MappedRef;
 use futures::FutureExt;
 use rand::random;
 use tokio::runtime::Runtime;
@@ -11,17 +12,17 @@ use tokio::sync::oneshot::{channel, Receiver, Sender};
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref::{ActorRef, ActorRefExt};
 use crate::actor::actor_ref_factory::ActorRefFactory;
-use crate::actor::actor_ref_provider::ActorRefProvider;
+use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
 use crate::actor::empty_actor_ref_provider::EmptyActorRefProvider;
 use crate::actor::extension::{ActorSystemExtension, Extension};
 use crate::actor::local_ref::LocalActorRef;
 use crate::actor::root_guardian::{AddShutdownHook, Shutdown};
 use crate::actor::timer_scheduler::{TimerScheduler, TimerSchedulerActor};
 use crate::actor::{system_guardian, user_guardian};
-use crate::address::Address;
 use crate::event::event_bus::SystemEventBus;
-use crate::props::Props;
-use crate::system::config::ActorSystemConfig;
+use crate::actor::props::Props;
+use crate::actor::config::actor_system_config::ActorSystemConfig;
+use crate::actor::address::Address;
 
 #[derive(Clone)]
 pub struct ActorSystem {
@@ -32,7 +33,7 @@ pub struct SystemInner {
     name: String,
     uid: i64,
     start_time: u128,
-    pub provider: ArcSwap<Box<dyn ActorRefProvider>>,
+    provider: ArcSwap<ActorRefProvider>,
     runtime: Runtime,
     signal: RwLock<(Option<Sender<()>>, Option<Receiver<()>>)>,
     scheduler: ArcSwapOption<TimerScheduler>,
@@ -64,6 +65,7 @@ impl Deref for ActorSystem {
 
 impl ActorSystem {
     pub fn create(name: impl Into<String>, config: ActorSystemConfig) -> anyhow::Result<Self> {
+        let ActorSystemConfig { provider_fn } = config;
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .thread_name("actor-pool")
@@ -74,7 +76,7 @@ impl ActorSystem {
             name: name.into(),
             uid: random(),
             start_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
-            provider: ArcSwap::new(Arc::new(Box::new(EmptyActorRefProvider))),
+            provider: ArcSwap::new(Arc::new(EmptyActorRefProvider.into())),
             runtime,
             signal: RwLock::new((Some(tx), Some(rx))),
             scheduler: ArcSwapOption::new(None),
@@ -84,7 +86,11 @@ impl ActorSystem {
         let system = Self {
             inner: inner.into(),
         };
-        // RemoteActorRefProvider::init(&system)?;
+        let (provider, spawns) = provider_fn(&system)?;
+        system.provider.store(Arc::new(provider));
+        for s in spawns {
+            s.spawn(system.clone());
+        }
         system.init_event_bus()?;
         system.init_scheduler()?;
         Ok(system)
@@ -94,7 +100,7 @@ impl ActorSystem {
     }
 
     pub fn address(&self) -> Address {
-        todo!()
+        self.provider().get_default_address()
     }
 
     fn child(&self, child: &String) -> ActorPath {
@@ -144,7 +150,7 @@ impl ActorSystem {
         }
     }
 
-    pub(crate) fn system_guardian(&self) -> LocalActorRef {
+    pub fn system_guardian(&self) -> LocalActorRef {
         self.provider().system_guardian().clone()
     }
 
@@ -159,8 +165,8 @@ impl ActorSystem {
         self.runtime().spawn(future)
     }
 
-    pub(crate) fn system_actor_of(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
-        self.system_guardian().attach_child(props, name)
+    pub fn system_actor_of(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
+        self.system_guardian().attach_child(props, name, true).map(|(actor, _)| actor)
     }
 
     pub fn event_bus(&self) -> Arc<SystemEventBus> {
@@ -182,14 +188,19 @@ impl ActorSystem {
     }
 
     fn init_scheduler(&self) -> anyhow::Result<()> {
-        let timers = self.system_guardian().attach_child(Props::create(|context| TimerSchedulerActor::new(context.myself.clone())), Some("timers".to_string()))?;
+        let timers = self.system_actor_of(Props::create(|context| TimerSchedulerActor::new(context.myself.clone())), Some("timers".to_string()))?;
         let scheduler = TimerScheduler::with_actor(timers);
         self.scheduler.store(Some(scheduler.into()));
         Ok(())
     }
 
-    pub fn register_extension<E>(&self, extension: E) where E: Extension {
+    pub async fn register_extension<E, F, Fut>(&self, ext_fn: F) where E: Extension, F: Fn(ActorSystem) -> Fut, Fut: Future<Output=E> {
+        let extension = ext_fn(self.clone()).await;
         self.extensions.register(extension);
+    }
+
+    pub fn get_extension<E>(&self) -> Option<MappedRef<&'static str, Box<dyn Extension>, E>> where E: Extension {
+        self.extensions.get()
     }
 }
 
@@ -198,7 +209,7 @@ impl ActorRefFactory for ActorSystem {
         &self
     }
 
-    fn provider(&self) -> Arc<Box<dyn ActorRefProvider>> {
+    fn provider(&self) -> Arc<ActorRefProvider> {
         self.provider.load_full()
     }
 
@@ -211,11 +222,11 @@ impl ActorRefFactory for ActorSystem {
     }
 
     fn spawn_actor(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
-        self.guardian().attach_child(props, Some(name.into()))
+        self.guardian().attach_child(props, Some(name.into()), true).map(|(actor, _)| actor)
     }
 
     fn spawn_anonymous_actor(&self, props: Props) -> anyhow::Result<ActorRef> {
-        self.guardian().attach_child(props, None)
+        self.guardian().attach_child(props, None, true).map(|(actor, _)| actor)
     }
 
     fn stop(&self, actor: &ActorRef) {

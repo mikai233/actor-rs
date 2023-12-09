@@ -6,16 +6,19 @@ use tokio::net::TcpStream;
 use tokio_util::codec::Framed;
 use tracing::warn;
 
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::actor::address::Address;
 use actor_core::ext::encode_bytes;
-use actor_remote::::codec::{Packet, PacketCodec};
-use actor_remote::::message::{Disconnect, RemoteEnvelope, RemotePacket};
+
+use crate::net::codec::{Packet, PacketCodec};
+use crate::net::message::{Disconnect, RemoteEnvelope, RemotePacket};
 
 pub type ConnectionTx = tokio::sync::mpsc::Sender<RemoteEnvelope>;
 pub type ConnectionRx = tokio::sync::mpsc::Receiver<RemoteEnvelope>;
 
 pub struct Connection {
-    pub addr: SocketAddr,
+    pub peer: SocketAddr,
+    pub myself: Address,
     pub framed: Framed<StubbornIo<TcpStream, SocketAddr>, PacketCodec>,
     pub rx: ConnectionRx,
     pub transport: ActorRef,
@@ -24,8 +27,10 @@ pub struct Connection {
 impl Connection {
     pub fn new(addr: SocketAddr, framed: Framed<StubbornIo<TcpStream, SocketAddr, >, PacketCodec>, transport: ActorRef) -> (Self, ConnectionTx) {
         let (tx, rx) = tokio::sync::mpsc::channel(10000);
+        let myself = transport.system().address();
         let myself = Self {
-            addr,
+            peer: addr,
+            myself,
             framed,
             rx,
             transport,
@@ -44,7 +49,7 @@ impl Connection {
                     Some(envelope) => {
                         if let Some(err) = connection.send(envelope).await.err() {
                             connection.disconnect();
-                            let addr = &connection.addr;
+                            let addr = &connection.peer;
                             warn!("send message to {} error {:?}, drop current connection", addr, err);
                         }
                     }
@@ -53,7 +58,7 @@ impl Connection {
         });
     }
     fn disconnect(&self) {
-        self.transport.cast(Disconnect { addr: self.addr }, None);
+        self.transport.cast(Disconnect { addr: self.peer }, None);
     }
 
     async fn send(&mut self, envelope: RemoteEnvelope) -> anyhow::Result<()> {

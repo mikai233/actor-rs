@@ -3,7 +3,6 @@ use std::fmt::{Debug, Formatter};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use actor::decoder::MessageDecoder;
@@ -13,9 +12,6 @@ use crate::delegate::MessageDelegate;
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::{AsyncUserDelegate, UserDelegate};
 
-pub mod system;
-pub mod props;
-pub(crate) mod address;
 pub mod ext;
 mod cell;
 pub mod delegate;
@@ -75,9 +71,9 @@ pub enum MessageType {
 }
 
 pub struct DynMessage {
-    pub(crate) name: &'static str,
-    pub(crate) message_type: MessageType,
-    pub(crate) boxed: Box<dyn CodecMessage>,
+    pub name: &'static str,
+    pub message_type: MessageType,
+    pub boxed: Box<dyn CodecMessage>,
 }
 
 impl Debug for DynMessage {

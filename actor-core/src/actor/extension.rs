@@ -9,6 +9,8 @@ use crate::ext::as_any::AsAny;
 
 pub trait Extension: Any + AsAny + Send + Sync {}
 
+impl<T> Extension for T where T: Any + AsAny + Send + Sync {}
+
 #[derive(Default)]
 pub struct ActorSystemExtension {
     extensions: DashMap<&'static str, Box<dyn Extension>>,

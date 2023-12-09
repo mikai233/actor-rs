@@ -9,18 +9,19 @@ use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
 use crate::{DynMessage, MessageType};
-use crate::actor::actor_path::{ActorPath, ChildActorPath};
+use crate::actor::actor_path::ActorPath;
+use crate::actor::actor_path::child_actor_path::ChildActorPath;
 use crate::actor::actor_ref::{ActorRefSystemExt, TActorRef};
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::cell::Cell;
-use crate::actor::mailbox::MailboxSender;
+use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
 use crate::ext::{check_name, random_actor_name};
 use crate::message::poison_pill::PoisonPill;
-use crate::props::Props;
+use crate::actor::props::{DeferredSpawn, Props};
 use crate::routing::router::Routee;
 use crate::routing::router_config::{Pool, RouterConfig};
 use crate::routing::router_config::TRouterConfig;
@@ -189,17 +190,22 @@ impl LocalActorRef {
         }
     }
 
-    pub fn attach_child(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
+    pub fn attach_child(&self, props: Props, name: Option<String>, start: bool) -> anyhow::Result<(ActorRef, Option<DeferredSpawn>)> {
         if let Some(name) = &name {
             check_name(name)?;
         }
         let name = name.unwrap_or(random_actor_name());
-        self.make_child(props, name)
+        self.make_child(props, name, start)
     }
 
-    pub(crate) fn make_child(&self, props: Props, name: String) -> anyhow::Result<ActorRef> {
+    pub(crate) fn make_child(&self, props: Props, name: String, start: bool) -> anyhow::Result<(ActorRef, Option<DeferredSpawn>)> {
         let (sender, mailbox) = props.mailbox();
-        let path = ChildActorPath::new(self.path.clone(), name.clone(), ActorPath::new_uid()).into();
+        let uid = if name == "system" || name == "user" {
+            ActorPath::undefined_uid()
+        } else {
+            ActorPath::new_uid()
+        };
+        let path = ChildActorPath::new(self.path.clone(), name.clone(), uid).into();
         match props.router_config() {
             None => {
                 let inner = Inner {
@@ -216,8 +222,13 @@ impl LocalActorRef {
                     return Err(anyhow!("duplicate actor name {}", name));
                 }
                 children.insert(name, child_ref.clone().into());
-                (props.spawner)(child_ref.clone().into(), mailbox, self.system());
-                Ok(child_ref.into())
+                if start {
+                    (props.spawner)(child_ref.clone().into(), mailbox, self.system());
+                    Ok((child_ref.into(), None))
+                } else {
+                    let deferred_spawn = DeferredSpawn::new(props.spawner.clone(), child_ref.clone().into(), mailbox);
+                    Ok((child_ref.into(), Some(deferred_spawn)))
+                }
             }
             Some(router_config) => {
                 let router_actor = router_config.create_router_actor();

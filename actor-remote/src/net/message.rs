@@ -4,24 +4,24 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::time::Duration;
 
+use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use stubborn_io::{ReconnectOptions, StubbornTcpStream};
 use tokio::sync::mpsc::error::TrySendError;
 use tokio_util::codec::Framed;
 use tracing::{debug, error, info, warn};
 
+use actor_core::actor::actor_path::TActorPath;
+use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::serialized_ref::SerializedActorRef;
+use actor_core::Message;
 use actor_derive::EmptyCodec;
 
-use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::{ActorRef, ActorRefExt, SerializedActorRef};
-use actor_core::actor_ref::TActorRef;
-use actor_core::context::{ActorContext, Context};
-use actor_core::Message;
-use actor_core::message::IDPacket;
-use actor_remote::::codec::PacketCodec;
-use actor_remote::::connection::{Connection, ConnectionTx};
-use actor_remote::::tcp_transport::{ConnectionSender, TransportActor};
-use actor_core::system::ActorSystem;
+use crate::message_registration::IDPacket;
+use crate::net::codec::PacketCodec;
+use crate::net::connection::{Connection, ConnectionTx};
+use crate::net::tcp_transport::{ConnectionSender, TransportActor};
 
 pub struct RemoteEnvelope {
     pub packet: IDPacket,
@@ -56,7 +56,7 @@ impl Message for Connect {
     type A = TransportActor;
 
     fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-        let myself = context.myself.clone();
+        let myself = context.myself().clone();
         context.spawn(async move {
             match StubbornTcpStream::connect_with_options(self.addr, self.opts).await {
                 Ok(stream) => {
@@ -89,7 +89,7 @@ impl Message for Connected {
 
     fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.connections.insert(self.addr, ConnectionSender::Connected(self.tx));
-        info!("{} connect to {}", context.myself, self.addr);
+        info!("{} connect to {}", context.myself(), self.addr);
         context.unstash_all();
         Ok(())
     }
@@ -133,16 +133,15 @@ pub struct InboundMessage {
 impl Message for InboundMessage {
     type A = TransportActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let RemotePacket {
             packet,
             sender,
             target,
         } = self.packet;
-        let sender = sender.map(|s| actor.resolve_actor_ref(context, s));
-        let target = actor.resolve_actor_ref(context, target);
-        let system: ActorSystem = target.system();
-        let reg = system.registration();
+        let sender = sender.map(|s| actor.resolve_actor_ref(s));
+        let target = actor.resolve_actor_ref(target);
+        let reg = &actor.registration;
         let message = reg.decode(&actor.provider, packet)?;
         target.tell(message, sender);
         Ok(())
@@ -158,32 +157,32 @@ impl Message for OutboundMessage {
     type A = TransportActor;
 
     fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let addr: SocketAddr = self.envelope.target.path().address().addr.into();
+        let addr: SocketAddr = self.envelope.target.path().address().addr.map(|a| a.into()).ok_or(anyhow!("socket addr not set"))?;
         let sender = actor.connections.entry(addr).or_insert(ConnectionSender::NotConnected);
         match sender {
             ConnectionSender::NotConnected => {
                 let opts = ReconnectOptions::new()
                     .with_exit_if_first_connect_fails(false)
                     .with_retries_generator(|| repeat_with(|| Duration::from_secs(3)));
-                context.myself
+                context.myself()
                     .cast(Connect { addr, opts }, None);
                 context.stash(OutboundMessage { envelope: self.envelope });
-                debug!("message {} to {} not connected, stash current message and start connect", context.myself, addr);
+                debug!("message {} to {} not connected, stash current message and start connect", context.myself(), addr);
                 *sender = ConnectionSender::Connecting;
             }
             ConnectionSender::Connecting => {
                 context.stash(OutboundMessage { envelope: self.envelope });
-                debug!("message {} to {} is connecting, stash current message and wait", context.myself, addr);
+                debug!("message {} to {} is connecting, stash current message and wait", context.myself(), addr);
             }
             ConnectionSender::Connected(tx) => {
                 if let Some(err) = tx.try_send(self.envelope).err() {
                     match err {
                         TrySendError::Full(_) => {
-                            warn!("message {} to {} connection buffer full, current message dropped", context.myself, addr);
+                            warn!("message {} to {} connection buffer full, current message dropped", context.myself(), addr);
                         }
                         TrySendError::Closed(_) => {
-                            context.myself.cast(Disconnect { addr }, None);
-                            warn!( "message {} to {} connection closed", context.myself, addr );
+                            context.myself().cast(Disconnect { addr }, None);
+                            warn!( "message {} to {} connection closed", context.myself(), addr );
                         }
                     }
                 }

@@ -121,7 +121,7 @@ pub(crate) fn decoder<F>(decoder_trait: &TokenStream, provider_trait: &TokenStre
         #[derive(Clone)]
         struct D;
         impl #decoder_trait for D {
-            fn decode(&self, provider: &std::sync::Arc<Box<dyn #provider_trait>>, bytes: &[u8]) -> anyhow::Result<#dy_message> {
+            fn decode(&self, provider: &#provider_trait, bytes: &[u8]) -> anyhow::Result<#dy_message> {
                 #body
             }
         }

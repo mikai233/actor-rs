@@ -7,6 +7,18 @@ edition = "2021"
 
 [dependencies]
 actor-core = { path = "../actor-core" }
+actor-derive = { path = "../actor-derive" }
 tokio = { workspace = true }
+tokio-util = { workspace = true, features = ["codec"] }
+futures = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
+moka = { workspace = true, features = ["sync"] }
+stubborn-io = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["local-time"] }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+ctor = { workspace = true }

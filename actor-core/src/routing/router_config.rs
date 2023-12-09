@@ -8,7 +8,7 @@ use actor_derive::EmptyCodec;
 use crate::{DynMessage, Message, MessageType};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
-use crate::props::Props;
+use crate::actor::props::Props;
 use crate::routing::group_router_config::GroupRouterConfig;
 use crate::routing::pool_router_config::PoolRouterConfig;
 use crate::routing::router::{Routee, Router};

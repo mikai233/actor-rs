@@ -11,7 +11,7 @@ use crate::{DynMessage, Message, MessageType, UntypedMessage};
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref::{ActorRef, TActorRef};
 use crate::actor::actor_ref_factory::ActorRefFactory;
-use crate::actor::actor_ref_provider::ActorRefProvider;
+use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
 use crate::actor::actor_system::ActorSystem;
 
 #[derive(Clone)]
@@ -21,7 +21,7 @@ pub struct DeferredActorRef {
 
 pub struct Inner {
     system: ActorSystem,
-    provider: Arc<Box<dyn ActorRefProvider>>,
+    provider: Arc<ActorRefProvider>,
     path: ActorPath,
     parent: ActorRef,
     sender: Sender<DynMessage>,
@@ -83,7 +83,7 @@ impl TActorRef for DeferredActorRef {
 
 impl DeferredActorRef {
     pub(crate) fn new(system: ActorSystem, target_name: String, message_name: &'static str) -> (Self, Receiver<DynMessage>) {
-        let provider = system.provider();
+        let provider = system.provider().clone();
         let path = provider.temp_path_of_prefix(Some(target_name));
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         let parent = provider.temp_container().clone();

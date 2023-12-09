@@ -8,10 +8,11 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, warn};
 
 use crate::{DynMessage, Message, MessageType, UntypedMessage, UserDelegate};
-use crate::actor::actor_path::{ActorPath, ChildActorPath, TActorPath};
+use crate::actor::actor_path::child_actor_path::ChildActorPath;
+use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref::{ActorRef, ActorRefSystemExt};
 use crate::actor::actor_ref_factory::ActorRefFactory;
-use crate::actor::actor_ref_provider::ActorRefProvider;
+use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::cell::Cell;
 use crate::actor::function_ref::{FunctionRef, Inner};
@@ -23,7 +24,7 @@ use crate::message::terminate::Terminate;
 use crate::message::terminated::WatchTerminated;
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
-use crate::props::Props;
+use crate::actor::props::Props;
 
 pub trait Context: ActorRefFactory {
     fn myself(&self) -> &ActorRef;
@@ -65,7 +66,7 @@ impl ActorRefFactory for ActorContext {
         &self.system
     }
 
-    fn provider(&self) -> Arc<Box<dyn ActorRefProvider>> {
+    fn provider(&self) -> Arc<ActorRefProvider> {
         self.system.provider()
     }
 
@@ -84,7 +85,7 @@ impl ActorRefFactory for ActorContext {
                 self.myself
             ));
         }
-        self.myself.local().unwrap().attach_child(props, Some(name.into()))
+        self.myself.local().unwrap().attach_child(props, Some(name.into()), true).map(|(actor, _)| actor)
     }
 
     fn spawn_anonymous_actor(&self, props: Props) -> anyhow::Result<ActorRef> {
@@ -94,7 +95,7 @@ impl ActorRefFactory for ActorContext {
                 self.myself
             ));
         }
-        self.myself.local().unwrap().attach_child(props, None)
+        self.myself.local().unwrap().attach_child(props, None, true).map(|(actor, _)| actor)
     }
 
     fn stop(&self, actor: &ActorRef) {

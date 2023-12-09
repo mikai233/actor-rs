@@ -29,8 +29,6 @@ dependencies = [
  "moka",
  "rand",
  "serde",
- "stubborn-io",
- "thiserror",
  "tokio",
  "tokio-util",
  "tracing",
@@ -66,9 +64,19 @@ name = "actor-remote"
 version = "0.1.0"
 dependencies = [
  "actor-core",
+ "actor-derive",
  "anyhow",
+ "async-trait",
+ "ctor",
+ "futures",
+ "moka",
  "serde",
+ "stubborn-io",
+ "thiserror",
  "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

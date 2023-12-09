@@ -18,7 +18,7 @@ use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref::ActorRefExt;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
-use crate::props::Props;
+use crate::actor::props::Props;
 
 #[derive(Debug)]
 pub(crate) struct TimerSchedulerActor {

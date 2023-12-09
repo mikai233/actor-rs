@@ -1,5 +1,4 @@
 use std::any::Any;
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -7,7 +6,7 @@ use tracing::{debug, error};
 
 use crate::{CodecMessage, DynMessage, SystemMessage};
 use crate::actor::actor_ref::ActorRef;
-use crate::actor::actor_ref_provider::ActorRefProvider;
+use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
 use crate::actor::context::ActorContext;
 use crate::actor::decoder::MessageDecoder;
 use crate::actor::serialized_ref::SerializedActorRef;
@@ -15,7 +14,7 @@ use crate::delegate::system::SystemDelegate;
 use crate::ext::{decode_bytes, encode_bytes};
 
 #[derive(Debug)]
-pub(crate) struct Watch {
+pub struct Watch {
     pub(crate) watchee: ActorRef,
     pub(crate) watcher: ActorRef,
 }
@@ -39,7 +38,7 @@ impl CodecMessage for Watch {
         #[derive(Clone)]
         struct D;
         impl MessageDecoder for D {
-            fn decode(&self, provider: &Arc<Box<dyn ActorRefProvider>>, bytes: &[u8]) -> anyhow::Result<DynMessage> {
+            fn decode(&self, provider: &ActorRefProvider, bytes: &[u8]) -> anyhow::Result<DynMessage> {
                 let serialized: SerializedWatch = decode_bytes(bytes)?;
                 let watchee = provider.resolve_actor_ref(&serialized.watchee.path);
                 let watcher = provider.resolve_actor_ref(&serialized.watcher.path);

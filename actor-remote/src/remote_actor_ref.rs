@@ -1,12 +1,16 @@
+use actor_core::actor::actor_path::TActorPath;
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
+use tracing::error;
+use actor_core::actor::actor_path::ActorPath;
+use actor_core::actor::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
+use actor_core::actor::actor_system::ActorSystem;
 
-use actor_core::actor_path::ActorPath;
-use actor_core::actor_ref::{ActorRef, TActorRef};
 use actor_core::DynMessage;
 use actor_core::message::poison_pill::PoisonPill;
-use actor_core::system::ActorSystem;
+use crate::message_registration::MessageRegistration;
+use crate::net::message::{OutboundMessage, RemoteEnvelope};
 
 #[derive(Clone)]
 pub struct RemoteActorRef {
@@ -17,6 +21,7 @@ pub struct Inner {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) transport: Arc<ActorRef>,
+    pub(crate) registration: Arc<MessageRegistration>,
 }
 
 impl Deref for RemoteActorRef {
@@ -28,7 +33,7 @@ impl Deref for RemoteActorRef {
 }
 
 impl Debug for RemoteActorRef {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("RemoteActorRef")
             .field("system", &"..")
             .field("path", &self.path)
@@ -47,9 +52,8 @@ impl TActorRef for RemoteActorRef {
     }
 
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
-        let registration = self.system.registration();
-        let name = message.name;
-        match registration.encode_boxed(message) {
+        let name = message.name();
+        match self.registration.encode_boxed(message) {
             Ok(packet) => {
                 let envelope = RemoteEnvelope {
                     packet,
@@ -81,7 +85,7 @@ impl TActorRef for RemoteActorRef {
         None
     }
 
-    fn get_child<I>(&self, names: I) -> Option<ActorRef> where I: IntoIterator<Item=String> {
+    fn get_child(&self, names: Vec<String>) -> Option<ActorRef> {
         let mut names = names.into_iter().peekable();
         match names.peek().map(|n| n.as_str()) {
             None => {
@@ -93,6 +97,7 @@ impl TActorRef for RemoteActorRef {
                     system: self.system(),
                     path: self.path().descendant(names),
                     transport: self.transport.clone(),
+                    registration: self.registration.clone(),
                 };
                 let remote_ref = RemoteActorRef {
                     inner: inner.into(),
@@ -100,5 +105,11 @@ impl TActorRef for RemoteActorRef {
                 Some(remote_ref.into())
             }
         }
+    }
+}
+
+impl Into<ActorRef> for RemoteActorRef {
+    fn into(self) -> ActorRef {
+        ActorRef::new(self)
     }
 }

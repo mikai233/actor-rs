@@ -1,42 +1,64 @@
+use std::net::SocketAddrV4;
 use std::sync::Arc;
 
-use actor_core::actor_path::ActorPath;
-use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::ActorRef;
-use actor_core::actor_ref::local_ref::LocalActorRef;
-use actor_core::actor_ref::remote_ref::{Inner, RemoteActorRef};
-use actor_core::actor::actor_ref_provider::ActorRefProvider;
-use actor_core::local_actor_ref_provider::LocalActorRefProvider;
-use actor_core::props::Props;
-use actor_core::provider::{ActorRefFactory, ActorRefProvider};
-use actor_core::provider::local_provider::LocalActorRefProvider;
-use actor_core::system::ActorSystem;
+use actor_core::actor::actor_path::ActorPath;
+use actor_core::actor::actor_path::TActorPath;
+use actor_core::actor::actor_ref::ActorRef;
+use actor_core::actor::actor_ref_factory::ActorRefFactory;
+use actor_core::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
+use actor_core::actor::actor_system::ActorSystem;
+use actor_core::actor::address::Address;
+use actor_core::actor::local_actor_ref_provider::LocalActorRefProvider;
+use actor_core::actor::local_ref::LocalActorRef;
+use actor_core::actor::props::{DeferredSpawn, Props};
+use actor_core::ext::option_ext::OptionExt;
+
+use crate::message_registration::MessageRegistration;
+use crate::net::tcp_transport::TransportActor;
+use crate::remote_actor_ref::{Inner, RemoteActorRef};
 
 #[derive(Debug)]
 pub struct RemoteActorRefProvider {
     pub local: LocalActorRefProvider,
+    pub address: Address,
     pub transport: ActorRef,
+    pub registration: Arc<MessageRegistration>,
 }
 
 impl RemoteActorRefProvider {
-    pub fn init(system: &ActorSystem) -> anyhow::Result<()> {
-        let local = LocalActorRefProvider::new(&system)?;
-        let transport = local.start_tcp_transport()?;
-        let provider = Box::new(Self { local, transport });
-        system.provider.store(Arc::new(provider));
-        Ok(())
+    pub fn new(system: &ActorSystem, registration: MessageRegistration, addr: SocketAddrV4) -> anyhow::Result<(Self, Vec<DeferredSpawn>)> {
+        let address = Address {
+            protocol: "tcp".to_string(),
+            system: system.name().clone(),
+            addr: Some(addr),
+        };
+        let (local, mut deferred_vec) = LocalActorRefProvider::new(&system, Some(address.clone()))?;
+        let (transport, deferred) = RemoteActorRefProvider::spawn_transport(&local)?;
+        deferred.into_foreach(|d| deferred_vec.push(d));
+        let remote = Self {
+            local,
+            address,
+            transport,
+            registration: Arc::new(registration),
+        };
+        Ok((remote, deferred_vec))
     }
-    pub(crate) fn start_tcp_transport(&self) -> anyhow::Result<ActorRef> {
-        let transport_ref = self
-            .system_guardian()
-            .attach_child(Props::create(|context| TransportActor::new(context.provider())), Some("tcp_transport".to_string()))?;
-        Ok(transport_ref)
+    pub(crate) fn spawn_transport(provider: &LocalActorRefProvider) -> anyhow::Result<(ActorRef, Option<DeferredSpawn>)> {
+        provider.system_guardian().attach_child(
+            Props::create(|context| TransportActor::new(context.system().clone())),
+            Some("tcp_transport".to_string()),
+            false,
+        )
     }
 }
 
-impl ActorRefProvider for RemoteActorRefProvider {
+impl TActorRefProvider for RemoteActorRefProvider {
     fn root_guardian(&self) -> &LocalActorRef {
         self.local.root_guardian()
+    }
+
+    fn root_guardian_at(&self, address: &Address) -> ActorRef {
+        todo!()
     }
 
     fn guardian(&self) -> &LocalActorRef {
@@ -80,13 +102,11 @@ impl ActorRefProvider for RemoteActorRefProvider {
         if path.address() == self.root_path().address() {
             self.local.resolve_actor_ref_of_path(path)
         } else {
-            let system = self.system_guardian().system.clone();
-            let provider = system.provider();
-            let remote = provider.remote_or_panic();
             let inner = Inner {
-                system: self.system_guardian().system.clone(),
+                system: self.transport.system(),
                 path: path.clone(),
-                transport: Arc::new(remote.transport.clone()),
+                transport: Arc::new(self.transport.clone()),
+                registration: self.registration.clone(),
             };
             let remote = RemoteActorRef {
                 inner: inner.into()
@@ -97,5 +117,11 @@ impl ActorRefProvider for RemoteActorRefProvider {
 
     fn dead_letters(&self) -> &ActorRef {
         &self.local.dead_letters()
+    }
+}
+
+impl Into<ActorRefProvider> for RemoteActorRefProvider {
+    fn into(self) -> ActorRefProvider {
+        ActorRefProvider::new(self)
     }
 }

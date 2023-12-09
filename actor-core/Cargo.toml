@@ -8,21 +8,19 @@ edition = "2021"
 [dependencies]
 actor-derive = { path = "../actor-derive" }
 tokio = { workspace = true, features = ["full"] }
-tokio-util = { workspace = true, features = ["codec", "time"] }
+tokio-util = { workspace = true, features = ["time"] }
 enum_dispatch = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
-thiserror = { workspace = true }
 futures = { workspace = true }
 etcd-client = { workspace = true }
 tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["local-time"] }
 bincode = { workspace = true }
 bytes = { workspace = true }
-stubborn-io = { workspace = true }
 dashmap = { workspace = true }
 url = { workspace = true }
 rand = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["local-time"] }
 moka = { workspace = true, features = ["sync"] }
 async-trait = { workspace = true }
 arc-swap = { workspace = true }

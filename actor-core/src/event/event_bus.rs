@@ -12,7 +12,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ActorContext, Context};
 use crate::event::EventBus;
 use crate::message::terminated::WatchTerminated;
-use crate::props::Props;
+use crate::actor::props::Props;
 
 #[derive(Debug, Clone)]
 pub struct SystemEventBus {

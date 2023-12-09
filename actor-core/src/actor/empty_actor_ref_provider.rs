@@ -1,15 +1,21 @@
 use std::fmt::{Debug, Formatter};
 use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_ref::ActorRef;
-use crate::actor::actor_ref_provider::ActorRefProvider;
+use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
+use crate::actor::actor_system::ActorSystem;
+use crate::actor::address::Address;
 use crate::actor::local_ref::LocalActorRef;
-use crate::props::Props;
+use crate::actor::props::Props;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub(crate) struct EmptyActorRefProvider;
 
-impl ActorRefProvider for EmptyActorRefProvider {
+impl TActorRefProvider for EmptyActorRefProvider {
     fn root_guardian(&self) -> &LocalActorRef {
+        unimplemented!()
+    }
+
+    fn root_guardian_at(&self, _address: &Address) -> ActorRef {
         unimplemented!()
     }
 
@@ -29,7 +35,7 @@ impl ActorRefProvider for EmptyActorRefProvider {
         unimplemented!()
     }
 
-    fn temp_path_of_prefix(&self, prefix: Option<String>) -> ActorPath {
+    fn temp_path_of_prefix(&self, _prefix: Option<String>) -> ActorPath {
         unimplemented!()
     }
 
@@ -37,23 +43,29 @@ impl ActorRefProvider for EmptyActorRefProvider {
         unimplemented!()
     }
 
-    fn register_temp_actor(&self, actor: ActorRef, path: &ActorPath) {
+    fn register_temp_actor(&self, _actor: ActorRef, _path: &ActorPath) {
         unimplemented!()
     }
 
-    fn unregister_temp_actor(&self, path: &ActorPath) {
+    fn unregister_temp_actor(&self, _path: &ActorPath) {
         unimplemented!()
     }
 
-    fn actor_of(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
+    fn actor_of(&self, _props: Props, _supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
         unimplemented!()
     }
 
-    fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {
+    fn resolve_actor_ref_of_path(&self, _path: &ActorPath) -> ActorRef {
         unimplemented!()
     }
 
     fn dead_letters(&self) -> &ActorRef {
         unimplemented!()
+    }
+}
+
+impl Into<ActorRefProvider> for EmptyActorRefProvider {
+    fn into(self) -> ActorRefProvider {
+        ActorRefProvider::new(self)
     }
 }

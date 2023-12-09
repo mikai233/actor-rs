@@ -1,13 +1,19 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
+
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
-use actor_core::actor::decoder::MessageDecoder;
+
 use actor_core::{CodecMessage, DynMessage};
 use actor_core::actor::actor_ref_provider::ActorRefProvider;
+use actor_core::actor::decoder::MessageDecoder;
+use actor_core::message::death_watch_notification::DeathWatchNotification;
+use actor_core::message::terminate::Terminate;
+use actor_core::message::unwatch::Unwatch;
+use actor_core::message::watch::Watch;
 
 #[derive(Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub(crate) struct IDPacket {
+pub struct IDPacket {
     id: u32,
     bytes: Vec<u8>,
 }
@@ -64,16 +70,16 @@ impl MessageRegistration {
         Ok(packet)
     }
 
-    pub(crate) fn decode(&self, provider: &Box<dyn ActorRefProvider>, packet: IDPacket) -> anyhow::Result<DynMessage> {
+    pub(crate) fn decode(&self, provider: &ActorRefProvider, packet: IDPacket) -> anyhow::Result<DynMessage> {
         let id = packet.id;
         let decoder = self.decoder.get(&id).ok_or(anyhow!("message {} not register", id))?;
         decoder.decode(provider, &packet.bytes)
     }
 
     fn register_all_system_message(&mut self) {
-        // self.register::<DeathWatchNotification>();
-        // self.register::<Terminate>();
-        // self.register::<Watch>();
-        // self.register::<Unwatch>();
+        self.register::<DeathWatchNotification>();
+        self.register::<Terminate>();
+        self.register::<Watch>();
+        self.register::<Unwatch>();
     }
 }

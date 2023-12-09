@@ -7,7 +7,7 @@ use crate::SystemMessage;
 use crate::actor::context::ActorContext;
 
 #[derive(Serialize, Deserialize, SystemMessageCodec)]
-pub(crate) struct Terminate;
+pub struct Terminate;
 
 #[async_trait]
 impl SystemMessage for Terminate {

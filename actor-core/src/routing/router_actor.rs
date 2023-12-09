@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::{Actor, CodecMessage, DynMessage, Message};
 use crate::actor::actor_ref::ActorRef;
-use crate::actor::actor_ref_provider::ActorRefProvider;
+use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
 use crate::actor::context::ActorContext;
 use crate::actor::decoder::MessageDecoder;
 use crate::actor::serialized_ref::SerializedActorRef;
@@ -39,7 +39,7 @@ impl CodecMessage for WatchRouteeTerminated {
         #[derive(Clone)]
         struct D;
         impl MessageDecoder for D {
-            fn decode(&self, provider: &Arc<Box<dyn ActorRefProvider>>, bytes: &[u8]) -> anyhow::Result<DynMessage> {
+            fn decode(&self, provider: &ActorRefProvider, bytes: &[u8]) -> anyhow::Result<DynMessage> {
                 let serialized: SerializedActorRef = decode_bytes(bytes)?;
                 let terminated = provider.resolve_actor_ref(&serialized.path);
                 let message = UserDelegate::new(WatchRouteeTerminated(terminated));

@@ -1,3 +1,4 @@
+use crate::actor::actor_path::TActorPath;
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 use crate::actor::actor_path::ActorPath;
@@ -23,7 +24,7 @@ impl Display for SerializedActorRef {
 impl Into<SerializedActorRef> for ActorRef {
     fn into(self) -> SerializedActorRef {
         SerializedActorRef {
-            path: self.path().to_serialization(),
+            path: self.path().to_serialization_format(),
         }
     }
 }

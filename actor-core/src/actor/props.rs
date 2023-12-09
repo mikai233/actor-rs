@@ -10,9 +10,11 @@ use crate::cell::runtime::ActorRuntime;
 use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::routing::router_config::{RouterConfig, TRouterConfig};
 
+pub type Spawner = Arc<Box<dyn Fn(ActorRef, Mailbox, ActorSystem) + Send + Sync + 'static>>;
+
 #[derive(Clone)]
 pub struct Props {
-    pub(crate) spawner: Arc<Box<dyn Fn(ActorRef, Mailbox, ActorSystem) + Send + Sync + 'static>>,
+    pub(crate) spawner: Spawner,
     pub(crate) router_config: Option<Arc<RouterConfig>>,
     pub(crate) mailbox_size: usize,
     pub(crate) system_size: usize,
@@ -64,5 +66,25 @@ impl Props {
 
     pub fn router_config(&self) -> Option<&Arc<RouterConfig>> {
         self.router_config.as_ref()
+    }
+}
+
+pub struct DeferredSpawn {
+    pub spawner: Spawner,
+    pub actor_ref: ActorRef,
+    pub mailbox: Mailbox,
+}
+
+impl DeferredSpawn {
+    pub fn new(spawner: Spawner, actor_ref: ActorRef, mailbox: Mailbox) -> Self {
+        Self {
+            spawner,
+            actor_ref,
+            mailbox,
+        }
+    }
+    pub fn spawn(self, system: ActorSystem) {
+        let Self { spawner, actor_ref, mailbox } = self;
+        spawner(actor_ref, mailbox, system);
     }
 }

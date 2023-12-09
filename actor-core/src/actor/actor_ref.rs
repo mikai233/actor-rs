@@ -100,13 +100,13 @@ impl Display for ActorRef {
 
 impl Hash for ActorRef {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        todo!()
+        self.path().hash(state);
     }
 }
 
 impl PartialEq<Self> for ActorRef {
     fn eq(&self, other: &Self) -> bool {
-        todo!()
+        self.path().eq(other.path())
     }
 }
 
@@ -114,18 +114,20 @@ impl Eq for ActorRef {}
 
 impl PartialOrd<Self> for ActorRef {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        todo!()
+        self.path().partial_cmp(other.path())
     }
 }
 
 impl Ord for ActorRef {
     fn cmp(&self, other: &Self) -> Ordering {
-        todo!()
+        self.path().cmp(other.path())
     }
 }
 
 impl Debug for ActorRef {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        f.debug_struct("ActorRef")
+            .field("path", self.path())
+            .finish_non_exhaustive()
     }
 }

@@ -2,12 +2,14 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use dashmap::DashMap;
+use crate::actor::actor_path::{ActorPath, TActorPath};
+use crate::actor::actor_path::root_actor_path::RootActorPath;
 
-use crate::actor::actor_path::{ActorPath, RootActorPath, TActorPath};
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref::TActorRef;
-use crate::actor::actor_ref_provider::ActorRefProvider;
+use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
 use crate::actor::actor_system::ActorSystem;
+use crate::actor::address::Address;
 use crate::actor::dead_letter_ref::DeadLetterActorRef;
 use crate::actor::local_ref::LocalActorRef;
 use crate::actor::root_guardian::RootGuardian;
@@ -16,7 +18,8 @@ use crate::actor::user_guardian::UserGuardian;
 use crate::actor::virtual_path_container::VirtualPathContainer;
 use crate::cell::ActorCell;
 use crate::ext::base64;
-use crate::props::Props;
+use crate::actor::props::{DeferredSpawn, Props};
+use crate::ext::option_ext::OptionExt;
 
 
 #[derive(Debug)]
@@ -33,8 +36,16 @@ pub struct LocalActorRefProvider {
 }
 
 impl LocalActorRefProvider {
-    pub fn new(system: &ActorSystem) -> anyhow::Result<Self> {
-        let root_path = RootActorPath::new(system.address().clone(), "/".to_string());
+    pub fn new(system: &ActorSystem, address: Option<Address>) -> anyhow::Result<(Self, Vec<DeferredSpawn>)> {
+        let mut deferred_spawns = vec![];
+        let address = address.unwrap_or_else(|| {
+            Address {
+                protocol: "tcp".to_string(),
+                system: system.name().clone(),
+                addr: None,
+            }
+        });
+        let root_path = RootActorPath::new(address, "/");
         let root_props = Props::create(|_| { RootGuardian::default() });
         let (sender, mailbox) = root_props.mailbox();
         let inner = crate::actor::local_ref::Inner {
@@ -46,10 +57,12 @@ impl LocalActorRefProvider {
         let root_guardian = LocalActorRef {
             inner: inner.into(),
         };
-        (root_props.spawner)(root_guardian.clone().into(), mailbox, system.clone());
-        let system_guardian = root_guardian.attach_child(Props::create(|_| SystemGuardian), Some("system".to_string()))?;
+        deferred_spawns.push(DeferredSpawn::new(root_props.spawner.clone(), root_guardian.clone().into(), mailbox));
+        let (system_guardian, deferred) = root_guardian.attach_child(Props::create(|_| SystemGuardian), Some("system".to_string()), false)?;
+        deferred.into_foreach(|d| deferred_spawns.push(d));
         let system_guardian = system_guardian.local().unwrap();
-        let user_guardian = root_guardian.attach_child(Props::create(|_| UserGuardian), Some("user".to_string()))?;
+        let (user_guardian, deferred) = root_guardian.attach_child(Props::create(|_| UserGuardian), Some("user".to_string()), false)?;
+        deferred.into_foreach(|d| deferred_spawns.push(d));
         let user_guardian = user_guardian.local().unwrap();
         let inner = crate::actor::dead_letter_ref::Inner {
             system: system.clone(),
@@ -61,7 +74,7 @@ impl LocalActorRefProvider {
             system: system.clone(),
             path: temp_node.clone(),
             parent: root_guardian.clone().into(),
-            children: Arc::new(Default::default()),
+            children: Arc::new(DashMap::new()),
         };
         let temp_container = VirtualPathContainer {
             inner: inner.into(),
@@ -77,13 +90,21 @@ impl LocalActorRefProvider {
             temp_node,
             temp_container,
         };
-        Ok(provider)
+        Ok((provider, deferred_spawns))
     }
 }
 
-impl ActorRefProvider for LocalActorRefProvider {
+impl TActorRefProvider for LocalActorRefProvider {
     fn root_guardian(&self) -> &LocalActorRef {
         &self.root_guardian
+    }
+
+    fn root_guardian_at(&self, address: &Address) -> ActorRef {
+        if self.root_path.address() == *address {
+            self.root_guardian.clone().into()
+        } else {
+            self.dead_letters.clone()
+        }
     }
 
     fn guardian(&self) -> &LocalActorRef {
@@ -128,7 +149,7 @@ impl ActorRefProvider for LocalActorRefProvider {
     }
 
     fn actor_of(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
-        supervisor.local().unwrap().attach_child(props, None)
+        supervisor.local().unwrap().attach_child(props, None, true).map(|(actor, _)| actor)
     }
 
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {
@@ -159,6 +180,12 @@ impl ActorRefProvider for LocalActorRefProvider {
 
     fn dead_letters(&self) -> &ActorRef {
         &self.dead_letters
+    }
+}
+
+impl Into<ActorRefProvider> for LocalActorRefProvider {
+    fn into(self) -> ActorRefProvider {
+        ActorRefProvider::new(self)
     }
 }
 
