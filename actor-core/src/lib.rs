@@ -6,8 +6,10 @@ use async_trait::async_trait;
 use tracing::info;
 
 use actor::decoder::MessageDecoder;
+use crate::actor::actor_ref_factory::ActorRefFactory;
 
 use crate::actor::context::{ActorContext, Context};
+use crate::actor::fault_handing::{default_strategy, SupervisorStrategy};
 use crate::delegate::MessageDelegate;
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::{AsyncUserDelegate, UserDelegate};
@@ -31,6 +33,23 @@ pub trait Actor: Send + Sized + 'static {
     #[allow(unused_variables)]
     async fn post_stop(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         Ok(())
+    }
+
+    async fn pre_restart(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+        let children = context.children().values().map(|a| a.clone()).collect::<Vec<_>>();
+        for child in children {
+            context.unwatch(&child);
+            context.stop(&child);
+        }
+        self.post_stop(context).await
+    }
+
+    async fn post_restart(&mut self, context: &mut ActorContext, _error: anyhow::Error) -> anyhow::Result<()> {
+        self.pre_start(context).await
+    }
+
+    fn supervisor_strategy(&self) -> Box<dyn SupervisorStrategy> {
+        default_strategy()
     }
 }
 

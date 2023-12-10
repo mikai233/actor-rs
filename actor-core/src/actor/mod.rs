@@ -25,3 +25,4 @@ pub mod decoder;
 pub mod address;
 pub mod props;
 pub mod config;
+pub mod fault_handing;
