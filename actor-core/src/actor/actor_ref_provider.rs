@@ -1,16 +1,14 @@
-use crate::actor::actor_path::TActorPath;
 use std::any::Any;
 use std::fmt::Debug;
 use std::ops::Deref;
-use std::sync::Arc;
 
 use crate::actor::actor_path::ActorPath;
+use crate::actor::actor_path::TActorPath;
 use crate::actor::actor_ref::ActorRef;
-use crate::actor::actor_system::ActorSystem;
 use crate::actor::address::Address;
 use crate::actor::local_ref::LocalActorRef;
-use crate::ext::as_any::AsAny;
 use crate::actor::props::Props;
+use crate::ext::as_any::AsAny;
 
 pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
     fn root_guardian(&self) -> &LocalActorRef;

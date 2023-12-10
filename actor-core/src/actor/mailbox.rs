@@ -2,7 +2,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::cell::envelope::Envelope;
 
-pub(crate) struct Mailbox {
+pub struct Mailbox {
     pub(crate) message: Receiver<Envelope>,
     pub(crate) system: Receiver<Envelope>,
     pub(crate) throughput: usize,

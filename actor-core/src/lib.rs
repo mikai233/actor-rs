@@ -56,7 +56,7 @@ pub trait AsyncMessage: CodecMessage {
 }
 
 #[async_trait]
-pub(crate) trait SystemMessage: CodecMessage {
+pub trait SystemMessage: CodecMessage {
     async fn handle(self: Box<Self>, context: &mut ActorContext) -> anyhow::Result<()>;
 }
 

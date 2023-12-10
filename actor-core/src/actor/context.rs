@@ -8,15 +8,16 @@ use tokio::task::JoinHandle;
 use tracing::{debug, error, warn};
 
 use crate::{DynMessage, Message, MessageType, UntypedMessage, UserDelegate};
-use crate::actor::actor_path::child_actor_path::ChildActorPath;
 use crate::actor::actor_path::{ActorPath, TActorPath};
+use crate::actor::actor_path::child_actor_path::ChildActorPath;
 use crate::actor::actor_ref::{ActorRef, ActorRefSystemExt};
 use crate::actor::actor_ref_factory::ActorRefFactory;
-use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
+use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::cell::Cell;
 use crate::actor::function_ref::{FunctionRef, Inner};
 use crate::actor::local_ref::LocalActorRef;
+use crate::actor::props::Props;
 use crate::actor::state::ActorState;
 use crate::ext::random_name;
 use crate::message::death_watch_notification::DeathWatchNotification;
@@ -24,7 +25,6 @@ use crate::message::terminate::Terminate;
 use crate::message::terminated::WatchTerminated;
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
-use crate::actor::props::Props;
 
 pub trait Context: ActorRefFactory {
     fn myself(&self) -> &ActorRef;

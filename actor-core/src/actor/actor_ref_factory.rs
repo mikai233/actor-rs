@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_ref::ActorRef;
-use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
+use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::local_ref::LocalActorRef;
 use crate::actor::props::Props;

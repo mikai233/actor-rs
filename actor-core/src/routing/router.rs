@@ -38,7 +38,7 @@ impl Router {
         }
     }
 
-    fn send(&self, routee: &Box<dyn Routee>, message: DynMessage, sender: Option<ActorRef>) {}
+    fn send(&self, _routee: &Box<dyn Routee>, _message: DynMessage, _sender: Option<ActorRef>) {}
 }
 
 pub trait RoutingLogic: Send + Sync + 'static {

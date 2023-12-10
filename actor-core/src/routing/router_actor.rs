@@ -1,9 +1,8 @@
 use std::any::Any;
-use std::sync::Arc;
 
 use crate::{Actor, CodecMessage, DynMessage, Message};
 use crate::actor::actor_ref::ActorRef;
-use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
+use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::context::ActorContext;
 use crate::actor::decoder::MessageDecoder;
 use crate::actor::serialized_ref::SerializedActorRef;
@@ -21,7 +20,7 @@ pub(crate) struct WatchRouteeTerminated(ActorRef);
 impl Message for WatchRouteeTerminated {
     type A = RouterActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         todo!()
     }
 }

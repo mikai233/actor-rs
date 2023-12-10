@@ -150,6 +150,7 @@ impl Message for InboundMessage {
 
 #[derive(EmptyCodec)]
 pub struct OutboundMessage {
+    pub name: &'static str,
     pub envelope: RemoteEnvelope,
 }
 
@@ -166,23 +167,23 @@ impl Message for OutboundMessage {
                     .with_retries_generator(|| repeat_with(|| Duration::from_secs(3)));
                 context.myself()
                     .cast(Connect { addr, opts }, None);
-                context.stash(OutboundMessage { envelope: self.envelope });
-                debug!("message {} to {} not connected, stash current message and start connect", context.myself(), addr);
+                context.stash(OutboundMessage { name: self.name, envelope: self.envelope });
+                debug!("message {} to {} not connected, stash current message and start connect", self.name, addr);
                 *sender = ConnectionSender::Connecting;
             }
             ConnectionSender::Connecting => {
-                context.stash(OutboundMessage { envelope: self.envelope });
-                debug!("message {} to {} is connecting, stash current message and wait", context.myself(), addr);
+                context.stash(OutboundMessage { name: self.name, envelope: self.envelope });
+                debug!("message {} to {} is connecting, stash current message and wait", self.name, addr);
             }
             ConnectionSender::Connected(tx) => {
                 if let Some(err) = tx.try_send(self.envelope).err() {
                     match err {
                         TrySendError::Full(_) => {
-                            warn!("message {} to {} connection buffer full, current message dropped", context.myself(), addr);
+                            warn!("message {} to {} connection buffer full, current message dropped", self.name, addr);
                         }
                         TrySendError::Closed(_) => {
                             context.myself().cast(Disconnect { addr }, None);
-                            warn!( "message {} to {} connection closed", context.myself(), addr );
+                            warn!( "message {} to {} connection closed", self.name, addr );
                         }
                     }
                 }

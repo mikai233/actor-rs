@@ -6,7 +6,7 @@ use tracing::{debug, error};
 
 use crate::{CodecMessage, DynMessage, SystemMessage};
 use crate::actor::actor_ref::ActorRef;
-use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
+use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::decoder::MessageDecoder;
 use crate::actor::serialized_ref::SerializedActorRef;

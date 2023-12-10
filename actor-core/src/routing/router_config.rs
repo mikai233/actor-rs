@@ -78,7 +78,7 @@ impl Debug for RouterMessage {
 impl Message for RouterMessage {
     type A = RouterActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         todo!()
     }
 }

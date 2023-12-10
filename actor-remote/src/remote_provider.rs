@@ -57,7 +57,7 @@ impl TActorRefProvider for RemoteActorRefProvider {
         self.local.root_guardian()
     }
 
-    fn root_guardian_at(&self, address: &Address) -> ActorRef {
+    fn root_guardian_at(&self, _address: &Address) -> ActorRef {
         todo!()
     }
 

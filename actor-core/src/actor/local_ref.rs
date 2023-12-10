@@ -16,16 +16,15 @@ use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::cell::Cell;
-use crate::actor::mailbox::{Mailbox, MailboxSender};
+use crate::actor::mailbox::MailboxSender;
+use crate::actor::props::{DeferredSpawn, Props};
 use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
 use crate::ext::{check_name, random_actor_name};
 use crate::message::poison_pill::PoisonPill;
-use crate::actor::props::{DeferredSpawn, Props};
 use crate::routing::router::Routee;
 use crate::routing::router_config::{Pool, RouterConfig};
 use crate::routing::router_config::TRouterConfig;
-
 
 #[derive(Clone)]
 pub struct LocalActorRef {

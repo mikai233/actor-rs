@@ -60,7 +60,7 @@ impl TActorRef for RemoteActorRef {
                     sender,
                     target: self.clone().into(),
                 };
-                self.transport.cast(OutboundMessage { envelope }, None);
+                self.transport.cast(OutboundMessage { name, envelope }, None);
             }
             Err(err) => {
                 match sender {

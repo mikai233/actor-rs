@@ -118,6 +118,7 @@ impl Ord for ActorPath {
 
 impl Hash for ActorPath {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        self.address().hash(state);
         for e in self.elements() {
             e.hash(state);
         }

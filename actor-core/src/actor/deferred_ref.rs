@@ -11,7 +11,7 @@ use crate::{DynMessage, Message, MessageType, UntypedMessage};
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref::{ActorRef, TActorRef};
 use crate::actor::actor_ref_factory::ActorRefFactory;
-use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
+use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::actor_system::ActorSystem;
 
 #[derive(Clone)]
