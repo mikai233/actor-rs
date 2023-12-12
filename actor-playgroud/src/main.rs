@@ -1,4 +1,5 @@
 use std::time::Duration;
+use anyhow::anyhow;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -41,6 +42,17 @@ impl Message for RemoteMessage {
     fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         println!("handle RemoteMessage");
         Ok(())
+    }
+}
+
+#[derive(Debug, EmptyCodec)]
+struct TestError;
+
+impl Message for TestError {
+    type A = TestActor;
+
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        Err(anyhow!("test error"))
     }
 }
 
@@ -92,6 +104,10 @@ async fn main() -> anyhow::Result<()> {
         || info!("hello world"),
     );
     test_actor.cast_system(Recreate { error: None }, ActorRef::no_sender());
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        test_actor.cast(TestError, ActorRef::no_sender());
+    });
     system.wait_termination().await;
     Ok(())
 }

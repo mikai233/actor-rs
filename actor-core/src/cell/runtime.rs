@@ -91,15 +91,15 @@ impl<A> ActorRuntime<A> where A: Actor {
                         panic!("unexpected async user message {} in system handle", m.name);
                     }
                     MessageDelegate::System(system) => {
-                        if let Some(e) = system.message.handle(context, actor).await.err() {
-                            let actor_name = std::any::type_name::<A>();
-                            error!("{} {:?}", actor_name, e);
+                        if let Some(error) = system.message.handle(context, actor).await.err() {
+                            let myself = context.myself.clone();
+                            context.handle_invoke_failure(myself, error);
                         }
                     }
                 }
             }
-            Err(e) => {
-                error!("{:?}", e);
+            Err(error) => {
+                error!("{:?}", error);
             }
         }
         context.sender.take();
@@ -112,15 +112,15 @@ impl<A> ActorRuntime<A> where A: Actor {
             Ok(delegate) => {
                 match delegate {
                     MessageDelegate::User(user) => {
-                        if let Some(e) = user.handle(context, actor).err() {
-                            let actor_name = std::any::type_name::<A>();
-                            error!("{} {:?}", actor_name, e);
+                        if let Some(error) = user.handle(context, actor).err() {
+                            let myself = context.myself.clone();
+                            context.handle_invoke_failure(myself, error);
                         }
                     }
                     MessageDelegate::AsyncUser(user) => {
-                        if let Some(e) = user.handle(context, actor).await.err() {
-                            let actor_name = std::any::type_name::<A>();
-                            error!("{} {:?}", actor_name, e);
+                        if let Some(error) = user.handle(context, actor).await.err() {
+                            let myself = context.myself.clone();
+                            context.handle_invoke_failure(myself, error);
                         }
                     }
                     MessageDelegate::System(m) => {

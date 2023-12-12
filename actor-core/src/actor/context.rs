@@ -19,9 +19,11 @@ use crate::actor::function_ref::{FunctionRef, Inner};
 use crate::actor::local_ref::LocalActorRef;
 use crate::actor::props::Props;
 use crate::actor::state::ActorState;
+use crate::ext::option_ext::OptionExt;
 use crate::ext::random_name;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::execute::Execute;
+use crate::message::failed::Failed;
 use crate::message::terminate::Terminate;
 use crate::message::terminated::WatchTerminated;
 use crate::message::unwatch::Unwatch;
@@ -339,5 +341,12 @@ impl ActorContext {
             closure: Box::new(f),
         };
         self.myself.cast(execute, ActorRef::no_sender());
+    }
+
+    pub(crate) fn handle_invoke_failure(&mut self, child: ActorRef, error: anyhow::Error) {
+        self.state = ActorState::Suspend;
+        self.parent().foreach(move |p| {
+            p.cast_system(Failed { child, error: error.to_string() }, ActorRef::no_sender());
+        });
     }
 }

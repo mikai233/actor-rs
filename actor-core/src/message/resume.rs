@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use tracing::trace;
 
 use actor_derive::SystemMessageCodec;
 
@@ -14,6 +15,7 @@ pub struct Resume;
 impl SystemMessage for Resume {
     async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
         context.state = ActorState::Started;
+        trace!("{} resume", context.myself);
         Ok(())
     }
 }

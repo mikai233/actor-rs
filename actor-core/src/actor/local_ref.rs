@@ -3,7 +3,7 @@ use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Error};
 use arc_swap::ArcSwap;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
@@ -22,6 +22,9 @@ use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
 use crate::ext::{check_name, random_actor_name};
 use crate::message::poison_pill::PoisonPill;
+use crate::message::recreate::Recreate;
+use crate::message::resume::Resume;
+use crate::message::suspend::Suspend;
 use crate::routing::router::Routee;
 use crate::routing::router_config::{Pool, RouterConfig};
 use crate::routing::router_config::TRouterConfig;
@@ -120,6 +123,18 @@ impl TActorRef for LocalActorRef {
             }
         }
         rec(self.clone().into(), names.into_iter())
+    }
+
+    fn resume(&self, _error: Option<String>) {
+        self.cast_system(Resume, ActorRef::no_sender());
+    }
+
+    fn suspend(&self) {
+        self.cast_system(Suspend, ActorRef::no_sender());
+    }
+
+    fn restart(&self, error: Option<String>) {
+        self.cast_system(Recreate { error }, ActorRef::no_sender());
     }
 }
 
