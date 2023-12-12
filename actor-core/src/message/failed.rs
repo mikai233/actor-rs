@@ -1,6 +1,7 @@
 use std::any::Any;
 
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 
 use crate::{Actor, CodecMessage, DynMessage, SystemMessage};
 use crate::actor::actor_ref::ActorRef;
@@ -11,9 +12,19 @@ use crate::actor::serialized_ref::SerializedActorRef;
 use crate::delegate::system::SystemDelegate;
 use crate::ext::{decode_bytes, encode_bytes};
 
-pub struct DeathWatchNotification(pub(crate) ActorRef);
+#[derive(Debug)]
+pub struct Failed {
+    child: ActorRef,
+    error: String,
+}
 
-impl CodecMessage for DeathWatchNotification {
+#[derive(Debug, Serialize, Deserialize)]
+struct SerializedFailed {
+    child: SerializedActorRef,
+    error: String,
+}
+
+impl CodecMessage for Failed {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -27,9 +38,9 @@ impl CodecMessage for DeathWatchNotification {
         struct D;
         impl MessageDecoder for D {
             fn decode(&self, provider: &ActorRefProvider, bytes: &[u8]) -> anyhow::Result<DynMessage> {
-                let serialized: SerializedActorRef = decode_bytes(bytes)?;
-                let actor_ref = provider.resolve_actor_ref(&serialized.path);
-                let message = SystemDelegate::new(DeathWatchNotification(actor_ref));
+                let serialized: SerializedFailed = decode_bytes(bytes)?;
+                let child = provider.resolve_actor_ref(&serialized.child.path);
+                let message = SystemDelegate::new(Failed { child, error: serialized.error });
                 Ok(message.into())
             }
         }
@@ -37,7 +48,10 @@ impl CodecMessage for DeathWatchNotification {
     }
 
     fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
-        let serialized: SerializedActorRef = self.0.clone().into();
+        let serialized = SerializedFailed {
+            child: self.child.clone().into(),
+            error: self.error.clone(),
+        };
         Some(encode_bytes(&serialized))
     }
 
@@ -47,9 +61,8 @@ impl CodecMessage for DeathWatchNotification {
 }
 
 #[async_trait]
-impl SystemMessage for DeathWatchNotification {
+impl SystemMessage for Failed {
     async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
-        context.watched_actor_terminated(self.0);
-        Ok(())
+        todo!()
     }
 }

@@ -222,10 +222,10 @@ impl LocalActorRef {
                 }
                 children.insert(name, child_ref.clone().into());
                 if start {
-                    (props.spawner)(child_ref.clone().into(), mailbox, self.system());
+                    (props.spawner)(child_ref.clone().into(), mailbox, self.system(), props.clone());
                     Ok((child_ref.into(), None))
                 } else {
-                    let deferred_spawn = DeferredSpawn::new(props.spawner.clone(), child_ref.clone().into(), mailbox);
+                    let deferred_spawn = DeferredSpawn::new(child_ref.clone().into(), mailbox, props);
                     Ok((child_ref.into(), Some(deferred_spawn)))
                 }
             }

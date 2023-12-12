@@ -6,11 +6,11 @@ use crate::Actor;
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
-use crate::cell::runtime::ActorRuntime;
 use crate::actor::mailbox::{Mailbox, MailboxSender};
+use crate::cell::runtime::ActorRuntime;
 use crate::routing::router_config::{RouterConfig, TRouterConfig};
 
-pub type Spawner = Arc<Box<dyn Fn(ActorRef, Mailbox, ActorSystem) + Send + Sync + 'static>>;
+pub type Spawner = Arc<Box<dyn Fn(ActorRef, Mailbox, ActorSystem, Props) + Send + Sync + 'static>>;
 
 #[derive(Clone)]
 pub struct Props {
@@ -23,7 +23,7 @@ pub struct Props {
 
 impl Props {
     pub fn create<F, A>(f: F) -> Self where F: Fn(&mut ActorContext) -> A + 'static + Send + Sync + 'static, A: Actor {
-        let spawn_fn = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
+        let spawn_fn = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem, props: Props| {
             let mut context = ActorContext::new(myself, system);
             let system = context.system.clone();
             let actor = f(&mut context);
@@ -31,6 +31,7 @@ impl Props {
                 actor,
                 context,
                 mailbox,
+                props,
             };
             system.spawn(runtime.run());
         };
@@ -70,21 +71,22 @@ impl Props {
 }
 
 pub struct DeferredSpawn {
-    pub spawner: Spawner,
     pub actor_ref: ActorRef,
     pub mailbox: Mailbox,
+    pub props: Props,
 }
 
 impl DeferredSpawn {
-    pub fn new(spawner: Spawner, actor_ref: ActorRef, mailbox: Mailbox) -> Self {
+    pub fn new(actor_ref: ActorRef, mailbox: Mailbox, props: Props) -> Self {
         Self {
-            spawner,
             actor_ref,
             mailbox,
+            props,
         }
     }
     pub fn spawn(self, system: ActorSystem) {
-        let Self { spawner, actor_ref, mailbox } = self;
-        spawner(actor_ref, mailbox, system);
+        let Self { actor_ref, mailbox, props } = self;
+        let spawner = props.spawner.clone();
+        spawner(actor_ref, mailbox, system, props);
     }
 }

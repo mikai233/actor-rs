@@ -6,8 +6,8 @@ use async_trait::async_trait;
 use tracing::info;
 
 use actor::decoder::MessageDecoder;
-use crate::actor::actor_ref_factory::ActorRefFactory;
 
+use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::fault_handing::{default_strategy, SupervisorStrategy};
 use crate::delegate::MessageDelegate;
@@ -24,7 +24,7 @@ mod indirect_actor_producer;
 pub mod actor;
 
 #[async_trait]
-pub trait Actor: Send + Sized + 'static {
+pub trait Actor: Send + 'static {
     #[allow(unused_variables)]
     async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         Ok(())
@@ -42,10 +42,6 @@ pub trait Actor: Send + Sized + 'static {
             context.stop(&child);
         }
         self.post_stop(context).await
-    }
-
-    async fn post_restart(&mut self, context: &mut ActorContext, _error: anyhow::Error) -> anyhow::Result<()> {
-        self.pre_start(context).await
     }
 
     fn supervisor_strategy(&self) -> Box<dyn SupervisorStrategy> {
@@ -76,7 +72,7 @@ pub trait AsyncMessage: CodecMessage {
 
 #[async_trait]
 pub trait SystemMessage: CodecMessage {
-    async fn handle(self: Box<Self>, context: &mut ActorContext) -> anyhow::Result<()>;
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut dyn Actor) -> anyhow::Result<()>;
 }
 
 pub trait UntypedMessage: CodecMessage {}

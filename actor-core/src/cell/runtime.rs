@@ -5,25 +5,27 @@ use crate::{Actor, AsyncMessage, Message};
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::mailbox::Mailbox;
+use crate::actor::props::Props;
+use crate::actor::state::ActorState;
 use crate::cell::envelope::Envelope;
 use crate::delegate::MessageDelegate;
-use crate::actor::state::ActorState;
 
 pub struct ActorRuntime<A> where A: Actor {
     pub(crate) actor: A,
     pub(crate) context: ActorContext,
     pub(crate) mailbox: Mailbox,
+    pub(crate) props: Props,
 }
 
-impl<T> ActorRuntime<T> where T: Actor {
+impl<A> ActorRuntime<A> where A: Actor {
     pub(crate) async fn run(self) {
-        let Self { mut actor, mut context, mut mailbox } = self;
-        let actor_name = std::any::type_name::<T>();
+        let Self { mut actor, mut context, mut mailbox, props } = self;
+        let actor_name = std::any::type_name::<A>();
         if let Err(err) = actor.pre_start(&mut context).await {
             error!("actor {:?} pre start error {:?}", actor_name, err);
             context.stop(&context.myself());
             while let Some(message) = mailbox.system.recv().await {
-                Self::handle_system(&mut context, message).await;
+                Self::handle_system(&mut context, &mut actor, message).await;
                 if matches!(context.state, ActorState::CanTerminate) {
                     break;
                 }
@@ -36,8 +38,8 @@ impl<T> ActorRuntime<T> where T: Actor {
             tokio::select! {
                 biased;
                 Some(message) = mailbox.system.recv() => {
-                    Self::handle_system(&mut context, message).await;
-                    if matches!(context.state, ActorState::CanTerminate) {
+                    Self::handle_system(&mut context, &mut actor, message).await;
+                    if matches!(context.state, ActorState::CanTerminate | ActorState::Recreate) {
                         break;
                     }
                     context.remove_finished_tasks();
@@ -58,20 +60,28 @@ impl<T> ActorRuntime<T> where T: Actor {
                 }
             }
         }
-        if let Some(err) = actor.post_stop(&mut context).await.err() {
-            error!("actor {:?} post stop error {:?}", actor_name, err);
+        if matches!(context.state, ActorState::Recreate) {
+            if let Some(err) = actor.pre_restart(&mut context).await.err() {
+                error!("actor {:?} pre restart error {:?}", actor_name, err);
+            }
+            let spawner = props.spawner.clone();
+            spawner(context.myself, mailbox, context.system, props);
+        } else {
+            if let Some(err) = actor.post_stop(&mut context).await.err() {
+                error!("actor {:?} post stop error {:?}", actor_name, err);
+            }
+            mailbox.close();
+            context.state = ActorState::Terminated;
         }
         for task in context.async_tasks {
             task.abort();
         }
-        mailbox.close();
-        context.state = ActorState::Terminated;
     }
 
-    async fn handle_system(context: &mut ActorContext, envelope: Envelope) {
+    async fn handle_system(context: &mut ActorContext, actor: &mut A, envelope: Envelope) {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
-        match message.downcast_into_delegate::<T>() {
+        match message.downcast_into_delegate::<A>() {
             Ok(delegate) => {
                 match delegate {
                     MessageDelegate::User(m) => {
@@ -81,8 +91,8 @@ impl<T> ActorRuntime<T> where T: Actor {
                         panic!("unexpected async user message {} in system handle", m.name);
                     }
                     MessageDelegate::System(system) => {
-                        if let Some(e) = system.message.handle(context).await.err() {
-                            let actor_name = std::any::type_name::<T>();
+                        if let Some(e) = system.message.handle(context, actor).await.err() {
+                            let actor_name = std::any::type_name::<A>();
                             error!("{} {:?}", actor_name, e);
                         }
                     }
@@ -95,21 +105,21 @@ impl<T> ActorRuntime<T> where T: Actor {
         context.sender.take();
     }
 
-    async fn handle_message(context: &mut ActorContext, actor: &mut T, envelope: Envelope) -> bool {
+    async fn handle_message(context: &mut ActorContext, actor: &mut A, envelope: Envelope) -> bool {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
-        match message.downcast_into_delegate::<T>() {
+        match message.downcast_into_delegate::<A>() {
             Ok(delegate) => {
                 match delegate {
                     MessageDelegate::User(user) => {
                         if let Some(e) = user.handle(context, actor).err() {
-                            let actor_name = std::any::type_name::<T>();
+                            let actor_name = std::any::type_name::<A>();
                             error!("{} {:?}", actor_name, e);
                         }
                     }
                     MessageDelegate::AsyncUser(user) => {
                         if let Some(e) = user.handle(context, actor).await.err() {
-                            let actor_name = std::any::type_name::<T>();
+                            let actor_name = std::any::type_name::<A>();
                             error!("{} {:?}", actor_name, e);
                         }
                     }

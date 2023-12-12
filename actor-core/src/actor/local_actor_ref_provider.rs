@@ -2,9 +2,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use dashmap::DashMap;
+
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_path::root_actor_path::RootActorPath;
-
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref::TActorRef;
 use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
@@ -12,15 +12,14 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::address::Address;
 use crate::actor::dead_letter_ref::DeadLetterActorRef;
 use crate::actor::local_ref::LocalActorRef;
+use crate::actor::props::{DeferredSpawn, Props};
 use crate::actor::root_guardian::RootGuardian;
 use crate::actor::system_guardian::SystemGuardian;
 use crate::actor::user_guardian::UserGuardian;
 use crate::actor::virtual_path_container::VirtualPathContainer;
 use crate::cell::ActorCell;
 use crate::ext::base64;
-use crate::actor::props::{DeferredSpawn, Props};
 use crate::ext::option_ext::OptionExt;
-
 
 #[derive(Debug)]
 pub struct LocalActorRefProvider {
@@ -57,7 +56,7 @@ impl LocalActorRefProvider {
         let root_guardian = LocalActorRef {
             inner: inner.into(),
         };
-        deferred_spawns.push(DeferredSpawn::new(root_props.spawner.clone(), root_guardian.clone().into(), mailbox));
+        deferred_spawns.push(DeferredSpawn::new(root_guardian.clone().into(), mailbox, root_props));
         let (system_guardian, deferred) = root_guardian.attach_child(Props::create(|_| SystemGuardian), Some("system".to_string()), false)?;
         deferred.into_foreach(|d| deferred_spawns.push(d));
         let system_guardian = system_guardian.local().unwrap();

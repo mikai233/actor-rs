@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 
-use crate::{CodecMessage, DynMessage, SystemMessage};
+use crate::{Actor, CodecMessage, DynMessage, SystemMessage};
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::context::ActorContext;
@@ -64,7 +64,7 @@ impl CodecMessage for Watch {
 
 #[async_trait]
 impl SystemMessage for Watch {
-    async fn handle(self: Box<Self>, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
         let Watch { watchee, watcher } = *self;
         let watchee_self = watchee == context.myself;
         let watcher_self = watcher == context.myself;

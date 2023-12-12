@@ -4,4 +4,9 @@ pub mod terminate;
 pub mod watch;
 pub mod unwatch;
 pub mod poison_pill;
+pub mod execute;
+pub mod suspend;
+pub mod resume;
+pub mod recreate;
+pub mod failed;
 

@@ -2,7 +2,7 @@ use std::any::Any;
 
 use async_trait::async_trait;
 
-use crate::{CodecMessage, DynMessage, MessageType, SystemMessage};
+use crate::{Actor, CodecMessage, DynMessage, MessageType, SystemMessage};
 use crate::actor::context::ActorContext;
 use crate::actor::decoder::MessageDecoder;
 
@@ -44,8 +44,8 @@ impl CodecMessage for SystemDelegate {
 
 #[async_trait]
 impl SystemMessage for SystemDelegate {
-    async fn handle(self: Box<Self>, context: &mut ActorContext) -> anyhow::Result<()> {
-        self.message.handle(context).await
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut dyn Actor) -> anyhow::Result<()> {
+        self.message.handle(context, actor).await
     }
 }
 

@@ -1,21 +1,21 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use tracing::debug;
 
 use actor_derive::SystemMessageCodec;
 
 use crate::{Actor, SystemMessage};
-use crate::actor::actor_ref_factory::ActorRefFactory;
-use crate::actor::context::{ActorContext, Context};
+use crate::actor::context::ActorContext;
+use crate::actor::state::ActorState;
 
 #[derive(Debug, Serialize, Deserialize, SystemMessageCodec)]
-pub struct PoisonPill;
+pub struct Recreate {
+    pub error: Option<String>,
+}
 
 #[async_trait]
-impl SystemMessage for PoisonPill {
+impl SystemMessage for Recreate {
     async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
-        debug!("{} receive PoisonPill", context.myself());
-        context.stop(context.myself());
+        context.state = ActorState::Recreate;
         Ok(())
     }
 }

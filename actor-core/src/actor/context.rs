@@ -7,10 +7,10 @@ use anyhow::anyhow;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, warn};
 
-use crate::{DynMessage, Message, MessageType, UntypedMessage, UserDelegate};
+use crate::{Actor, DynMessage, Message, MessageType, UntypedMessage, UserDelegate};
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_path::child_actor_path::ChildActorPath;
-use crate::actor::actor_ref::{ActorRef, ActorRefSystemExt};
+use crate::actor::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt};
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::actor_system::ActorSystem;
@@ -21,6 +21,7 @@ use crate::actor::props::Props;
 use crate::actor::state::ActorState;
 use crate::ext::random_name;
 use crate::message::death_watch_notification::DeathWatchNotification;
+use crate::message::execute::Execute;
 use crate::message::terminate::Terminate;
 use crate::message::terminated::WatchTerminated;
 use crate::message::unwatch::Unwatch;
@@ -331,5 +332,12 @@ impl ActorContext {
 
     pub(crate) fn remove_function_ref(&self, name: &str) -> bool {
         self.myself.local().unwrap().underlying().remove_function_ref(name).is_some()
+    }
+
+    pub fn execute<F, A>(&self, f: F) where F: FnOnce(&mut ActorContext, &mut A) -> anyhow::Result<()> + Send + 'static, A: Actor {
+        let execute = Execute {
+            closure: Box::new(f),
+        };
+        self.myself.cast(execute, ActorRef::no_sender());
     }
 }
