@@ -12,7 +12,6 @@ use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::config::actor_system_config::ActorSystemConfig;
 use actor_core::actor::context::ActorContext;
 use actor_core::actor::props::Props;
-use actor_core::delegate::user::UserDelegate;
 use actor_core::ext::init_logger;
 use actor_core::message::recreate::Recreate;
 use actor_derive::{EmptyCodec, MessageCodec};
@@ -82,14 +81,17 @@ impl Actor for TestActor {
         Ok(())
     }
 
-    fn handle_message(&mut self, context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {
+    fn handle_message(&mut self, _context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {
         if message.name == std::any::type_name::<LocalMessage>() {
-            let local_message = message.boxed.into_any().downcast::<UserDelegate<TestActor>>().unwrap();
-            let local_message = local_message.message.into_any().downcast::<LocalMessage>().unwrap();
-            let fix = LocalMessageFix {
-                message: local_message
-            };
-            Some(DynMessage::user(fix))
+            match message.downcast_into_raw::<TestActor, LocalMessage>() {
+                Ok(message) => {
+                    let fix = LocalMessageFix { message };
+                    Some(DynMessage::user(fix))
+                }
+                Err(_) => {
+                    None
+                }
+            }
         } else {
             None
         }

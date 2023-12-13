@@ -171,10 +171,10 @@ impl DynMessage {
         }
     }
 
-    pub fn downcast_into_raw<A, M>(self) -> anyhow::Result<M> where A: Actor {
+    pub fn downcast_into_raw<A, M>(self) -> anyhow::Result<Box<M>> where A: Actor, M: Message {
+        let name = self.name();
         let delegate = self.downcast_into_delegate::<A>()?;
-        // delegate.into_raw().into_any().downcast::<M>()
-        todo!()
+        delegate.into_any().downcast::<M>().map_err(|_| anyhow!("incorrect downcast message {} to {}", name, std::any::type_name::<M>()))
     }
 }
 

@@ -17,13 +17,6 @@ use crate::ext::{decode_bytes, encode_bytes};
 #[derive(Debug)]
 pub struct Failed {
     pub child: ActorRef,
-    pub error: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct SerializedFailed {
-    child: SerializedActorRef,
-    error: String,
 }
 
 impl CodecMessage for Failed {
@@ -40,9 +33,9 @@ impl CodecMessage for Failed {
         struct D;
         impl MessageDecoder for D {
             fn decode(&self, provider: &ActorRefProvider, bytes: &[u8]) -> anyhow::Result<DynMessage> {
-                let serialized: SerializedFailed = decode_bytes(bytes)?;
-                let child = provider.resolve_actor_ref(&serialized.child.path);
-                let message = SystemDelegate::new(Failed { child, error: serialized.error });
+                let serialized: SerializedActorRef = decode_bytes(bytes)?;
+                let child = provider.resolve_actor_ref(&serialized.path);
+                let message = SystemDelegate::new(Failed { child });
                 Ok(message.into())
             }
         }
@@ -50,10 +43,7 @@ impl CodecMessage for Failed {
     }
 
     fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
-        let serialized = SerializedFailed {
-            child: self.child.clone().into(),
-            error: self.error.clone(),
-        };
+        let serialized: SerializedActorRef = self.child.clone().into();
         Some(encode_bytes(&serialized))
     }
 
@@ -65,7 +55,7 @@ impl CodecMessage for Failed {
 #[async_trait]
 impl SystemMessage for Failed {
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut dyn Actor) -> anyhow::Result<()> {
-        let Self { child, error } = *self;
+        let Self { child } = *self;
         let restart_stats = ChildRestartStats {
             child: child.clone(),
             max_nr_of_retries_count: 0,

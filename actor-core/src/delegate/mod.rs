@@ -1,3 +1,4 @@
+use std::any::Any;
 use crate::{Actor, Message};
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::{AsyncUserDelegate, UserDelegate};
@@ -21,11 +22,11 @@ impl<A> MessageDelegate<A> where A: Actor {
         }
     }
 
-    pub fn into_raw(self) -> Box<dyn Message<A=A>> {
+    pub fn into_any(self) -> Box<dyn Any> {
         match self {
-            MessageDelegate::User(m) => m.message,
-            MessageDelegate::AsyncUser(m) => m.message,
-            MessageDelegate::System(m) => m.message
+            MessageDelegate::User(m) => m.message.into_any(),
+            MessageDelegate::AsyncUser(m) => m.message.into_any(),
+            MessageDelegate::System(m) => m.message.into_any(),
         }
     }
 }
