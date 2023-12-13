@@ -108,28 +108,30 @@ impl<A> ActorRuntime<A> where A: Actor {
     async fn handle_message(context: &mut ActorContext, actor: &mut A, envelope: Envelope) -> bool {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
-        match message.downcast_into_delegate::<A>() {
-            Ok(delegate) => {
-                match delegate {
-                    MessageDelegate::User(user) => {
-                        if let Some(error) = user.handle(context, actor).err() {
-                            let myself = context.myself.clone();
-                            context.handle_invoke_failure(myself, error);
+        if let Some(message) = actor.handle_message(context, message) {
+            match message.downcast_into_delegate::<A>() {
+                Ok(delegate) => {
+                    match delegate {
+                        MessageDelegate::User(user) => {
+                            if let Some(error) = user.handle(context, actor).err() {
+                                let myself = context.myself.clone();
+                                context.handle_invoke_failure(myself, error);
+                            }
                         }
-                    }
-                    MessageDelegate::AsyncUser(user) => {
-                        if let Some(error) = user.handle(context, actor).await.err() {
-                            let myself = context.myself.clone();
-                            context.handle_invoke_failure(myself, error);
+                        MessageDelegate::AsyncUser(user) => {
+                            if let Some(error) = user.handle(context, actor).await.err() {
+                                let myself = context.myself.clone();
+                                context.handle_invoke_failure(myself, error);
+                            }
                         }
-                    }
-                    MessageDelegate::System(m) => {
-                        panic!("unexpected system message {} in user handle", m.name);
+                        MessageDelegate::System(m) => {
+                            panic!("unexpected system message {} in user handle", m.name);
+                        }
                     }
                 }
-            }
-            Err(e) => {
-                error!("{:?}", e);
+                Err(e) => {
+                    error!("{:?}", e);
+                }
             }
         }
         context.sender.take();

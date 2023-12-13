@@ -1,17 +1,18 @@
 use std::time::Duration;
-use anyhow::anyhow;
 
+use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tracing::{info, Level};
 
-use actor_core::{Actor, Message};
+use actor_core::{Actor, DynMessage, Message};
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::config::actor_system_config::ActorSystemConfig;
 use actor_core::actor::context::ActorContext;
 use actor_core::actor::props::Props;
+use actor_core::delegate::user::UserDelegate;
 use actor_core::ext::init_logger;
 use actor_core::message::recreate::Recreate;
 use actor_derive::{EmptyCodec, MessageCodec};
@@ -28,6 +29,20 @@ impl Message for LocalMessage {
             info!("world hello");
             Ok(())
         });
+        Ok(())
+    }
+}
+
+#[derive(EmptyCodec)]
+struct LocalMessageFix {
+    message: Box<LocalMessage>,
+}
+
+impl Message for LocalMessageFix {
+    type A = TestActor;
+
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        info!("fix logic");
         Ok(())
     }
 }
@@ -65,6 +80,19 @@ impl Actor for TestActor {
         info!("{:?} pre start", self);
         context.spawn_anonymous_actor(Props::create(|_| ChildActor))?;
         Ok(())
+    }
+
+    fn handle_message(&mut self, context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {
+        if message.name == std::any::type_name::<LocalMessage>() {
+            let local_message = message.boxed.into_any().downcast::<UserDelegate<TestActor>>().unwrap();
+            let local_message = local_message.message.into_any().downcast::<LocalMessage>().unwrap();
+            let fix = LocalMessageFix {
+                message: local_message
+            };
+            Some(DynMessage::user(fix))
+        } else {
+            None
+        }
     }
 }
 

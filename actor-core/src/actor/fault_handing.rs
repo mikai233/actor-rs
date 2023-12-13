@@ -1,5 +1,8 @@
-use std::time::Duration;
+use std::ops::Deref;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
 use anyhow::Error;
+
 use crate::actor::actor_path::TActorPath;
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_factory::ActorRefFactory;
@@ -68,12 +71,52 @@ pub enum Directive {
 pub struct ChildRestartStats {
     pub(crate) child: ActorRef,
     pub(crate) max_nr_of_retries_count: i32,
-    pub(crate) restart_time_window_start_nanos: i64,
+    pub(crate) restart_time_window_start_nanos: u128,
+}
+
+impl Deref for ChildRestartStats {
+    type Target = ActorRef;
+
+    fn deref(&self) -> &Self::Target {
+        &self.child
+    }
 }
 
 impl ChildRestartStats {
     pub fn uid(&self) -> i32 {
         self.child.path().uid()
+    }
+
+    pub fn request_restart_permission(&mut self, retries_window: (Option<i32>, Option<i32>)) -> bool {
+        match retries_window {
+            (Some(retries), _) if retries < 1 => false,
+            (Some(retries), None) => {
+                self.max_nr_of_retries_count += 1;
+                self.max_nr_of_retries_count <= retries
+            }
+            (x, Some(window)) => self.retries_in_window_okay(x.unwrap_or(1), window),
+            (None, _) => true,
+        }
+    }
+
+    pub fn retries_in_window_okay(&mut self, retries: i32, window: i32) -> bool {
+        let retries_done = self.max_nr_of_retries_count + 1;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let window_start = if self.restart_time_window_start_nanos == 0 {
+            self.restart_time_window_start_nanos = now;
+            now
+        } else {
+            self.restart_time_window_start_nanos
+        };
+        let inside_window = (now - window_start) <= Duration::from_millis(window as u64).as_nanos();
+        if inside_window {
+            self.max_nr_of_retries_count = retries_done;
+            retries_done <= retries
+        } else {
+            self.max_nr_of_retries_count = 1;
+            self.restart_time_window_start_nanos = now;
+            true
+        }
     }
 }
 

@@ -47,6 +47,10 @@ pub trait Actor: Send + 'static {
     fn supervisor_strategy(&self) -> Box<dyn SupervisorStrategy> {
         default_strategy()
     }
+
+    fn handle_message(&mut self, context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {
+        Some(message)
+    }
 }
 
 pub trait CodecMessage: Any + Send {
@@ -140,7 +144,7 @@ impl DynMessage {
         DynMessage::new(name, MessageType::Untyped, message)
     }
 
-    pub(crate) fn downcast_into_delegate<A>(self) -> anyhow::Result<MessageDelegate<A>> where A: Actor {
+    pub fn downcast_into_delegate<A>(self) -> anyhow::Result<MessageDelegate<A>> where A: Actor {
         let name = self.name();
         let message = self.boxed.into_any();
         let delegate = match self.message_type {
@@ -165,6 +169,12 @@ impl DynMessage {
                 Err(anyhow!("unexpected message {} to actor {}", name, std::any::type_name::<A>()))
             }
         }
+    }
+
+    pub fn downcast_into_raw<A, M>(self) -> anyhow::Result<M> where A: Actor {
+        let delegate = self.downcast_into_delegate::<A>()?;
+        // delegate.into_raw().into_any().downcast::<M>()
+        todo!()
     }
 }
 
