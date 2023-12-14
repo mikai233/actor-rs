@@ -92,8 +92,9 @@ impl<A> ActorRuntime<A> where A: Actor {
                     }
                     MessageDelegate::System(system) => {
                         if let Some(error) = system.message.handle(context, actor).await.err() {
+                            let name = std::any::type_name::<A>();
                             let myself = context.myself.clone();
-                            context.handle_invoke_failure(myself, error);
+                            context.handle_invoke_failure(myself, name, error);
                         }
                     }
                 }
@@ -114,14 +115,16 @@ impl<A> ActorRuntime<A> where A: Actor {
                     match delegate {
                         MessageDelegate::User(user) => {
                             if let Some(error) = user.handle(context, actor).err() {
+                                let name = std::any::type_name::<A>();
                                 let myself = context.myself.clone();
-                                context.handle_invoke_failure(myself, error);
+                                context.handle_invoke_failure(myself, name, error);
                             }
                         }
                         MessageDelegate::AsyncUser(user) => {
                             if let Some(error) = user.handle(context, actor).await.err() {
+                                let name = std::any::type_name::<A>();
                                 let myself = context.myself.clone();
-                                context.handle_invoke_failure(myself, error);
+                                context.handle_invoke_failure(myself, name, error);
                             }
                         }
                         MessageDelegate::System(m) => {

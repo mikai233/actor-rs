@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::future::Future;
 use std::ops::Not;
-use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use tokio::task::JoinHandle;
@@ -32,8 +32,7 @@ use crate::message::watch::Watch;
 pub trait Context: ActorRefFactory {
     fn myself(&self) -> &ActorRef;
     fn sender(&self) -> Option<&ActorRef>;
-    fn children(&self) -> RwLockReadGuard<BTreeMap<String, ActorRef>>;
-    fn children_mut(&self) -> RwLockWriteGuard<BTreeMap<String, ActorRef>>;
+    fn children(&self) -> BTreeMap<&String, &ActorRef>;
     fn child(&self, name: &String) -> Option<ActorRef>;
     fn parent(&self) -> Option<&ActorRef>;
     fn watch<T>(&mut self, terminate: T) where T: WatchTerminated;
@@ -115,18 +114,18 @@ impl Context for ActorContext {
         self.sender.as_ref()
     }
 
-    fn children(&self) -> RwLockReadGuard<BTreeMap<String, ActorRef>> {
+    fn children(&self) -> BTreeMap<&String, &ActorRef> {
+        let mut children = BTreeMap::new();
         let myself = self.myself().local().unwrap();
-        myself.cell.children().read().unwrap()
-    }
-
-    fn children_mut(&self) -> RwLockWriteGuard<BTreeMap<String, ActorRef>> {
-        let myself = self.myself().local().unwrap();
-        myself.cell.children().write().unwrap()
+        for kv in myself.underlying().children() {
+            children.insert(kv.key(), kv.value().child.clone());
+        }
+        children
     }
 
     fn child(&self, name: &String) -> Option<ActorRef> {
-        self.children().get(name).cloned()
+        let myself = self.myself().local().unwrap();
+        myself.underlying().children().get(name).map(|c| c.child.clone())
     }
 
     fn parent(&self) -> Option<&ActorRef> {
@@ -238,7 +237,7 @@ impl ActorContext {
 
     pub(crate) fn terminate(&mut self) {
         self.state = ActorState::Terminating;
-        let children: Vec<ActorRef> = self.children().values().cloned().collect();
+        let children = self.children().values().cloned().collect::<Vec<_>>();
         if children.is_empty().not() {
             for child in &children {
                 self.stop(child);
@@ -270,7 +269,7 @@ impl ActorContext {
     }
 
     pub(crate) fn handle_child_terminated(&mut self, actor: ActorRef) {
-        let mut children = self.children_mut();
+        let mut children = self.children()
         children.remove(actor.path().name());
         if matches!(self.state, ActorState::Terminating) && children.is_empty() {
             drop(children);
@@ -343,7 +342,8 @@ impl ActorContext {
         self.myself.cast(execute, ActorRef::no_sender());
     }
 
-    pub(crate) fn handle_invoke_failure(&mut self, child: ActorRef, error: anyhow::Error) {
+    pub(crate) fn handle_invoke_failure(&mut self, child: ActorRef, name: &str, error: anyhow::Error) {
+        error!("{} handle message error {:?}", name, error);
         self.state = ActorState::Suspend;
         self.parent().foreach(move |p| {
             p.cast_system(Failed { child }, ActorRef::no_sender());

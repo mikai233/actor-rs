@@ -133,7 +133,7 @@ async fn main() -> anyhow::Result<()> {
         Duration::from_secs(1),
         || info!("hello world"),
     );
-    test_actor.cast_system(Recreate { error: None }, ActorRef::no_sender());
+    test_actor.cast_system(Recreate, ActorRef::no_sender());
     tokio::spawn(async move {
         tokio::time::sleep(Duration::from_secs(3)).await;
         test_actor.cast(TestError, ActorRef::no_sender());

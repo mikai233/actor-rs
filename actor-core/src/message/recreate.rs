@@ -9,9 +9,7 @@ use crate::actor::context::ActorContext;
 use crate::actor::state::ActorState;
 
 #[derive(Debug, Serialize, Deserialize, SystemMessageCodec)]
-pub struct Recreate {
-    pub error: Option<String>,
-}
+pub struct Recreate;
 
 #[async_trait]
 impl SystemMessage for Recreate {

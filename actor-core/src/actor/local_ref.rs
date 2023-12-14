@@ -1,10 +1,10 @@
-use std::collections::BTreeMap;
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
+use dashmap::DashMap;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
@@ -16,6 +16,7 @@ use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::cell::Cell;
+use crate::actor::fault_handing::ChildRestartStats;
 use crate::actor::mailbox::MailboxSender;
 use crate::actor::props::{DeferredSpawn, Props};
 use crate::cell::ActorCell;
@@ -125,7 +126,7 @@ impl TActorRef for LocalActorRef {
         rec(self.clone().into(), names.into_iter())
     }
 
-    fn resume(&self, _error: Option<String>) {
+    fn resume(&self) {
         self.cast_system(Resume, ActorRef::no_sender());
     }
 
@@ -133,8 +134,8 @@ impl TActorRef for LocalActorRef {
         self.cast_system(Suspend, ActorRef::no_sender());
     }
 
-    fn restart(&self, error: Option<String>) {
-        self.cast_system(Recreate { error }, ActorRef::no_sender());
+    fn restart(&self) {
+        self.cast_system(Recreate, ActorRef::no_sender());
     }
 }
 
@@ -143,7 +144,7 @@ impl Cell for LocalActorRef {
         self.cell.clone()
     }
 
-    fn children(&self) -> &RwLock<BTreeMap<String, ActorRef>> {
+    fn children(&self) -> &DashMap<String, ChildRestartStats> {
         self.cell.children()
     }
 
@@ -235,7 +236,7 @@ impl LocalActorRef {
                 if children.contains_key(&name) {
                     return Err(anyhow!("duplicate actor name {}", name));
                 }
-                children.insert(name, child_ref.clone().into());
+                children.insert(name, ChildRestartStats::new(child_ref.clone()));
                 if start {
                     (props.spawner)(child_ref.clone().into(), mailbox, self.system(), props.clone());
                     Ok((child_ref.into(), None))

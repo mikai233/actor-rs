@@ -1,10 +1,10 @@
-use std::collections::BTreeMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use dashmap::DashMap;
 
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref::ActorRef;
+use crate::actor::fault_handing::ChildRestartStats;
 use crate::actor::function_ref::FunctionRef;
 
 pub(crate) mod envelope;
@@ -29,11 +29,11 @@ impl ActorCell {
     pub(crate) fn parent(&self) -> Option<&ActorRef> {
         self.inner.parent.as_ref()
     }
-    pub(crate) fn children(&self) -> &RwLock<BTreeMap<String, ActorRef>> {
+    pub(crate) fn children(&self) -> &DashMap<String, ChildRestartStats> {
         &self.inner.children
     }
     pub(crate) fn get_child_by_name(&self, name: &String) -> Option<ActorRef> {
-        self.children().read().unwrap().get(name).cloned()
+        self.children().get(name).map(|c| c.value().child.clone())
     }
     pub(crate) fn get_single_child(&self, name: &String) -> Option<ActorRef> {
         match name.find('#') {
@@ -67,6 +67,6 @@ impl ActorCell {
 #[derive(Debug)]
 pub(crate) struct Inner {
     parent: Option<ActorRef>,
-    children: RwLock<BTreeMap<String, ActorRef>>,
+    children: DashMap<String, ChildRestartStats>,
     function_refs: DashMap<String, FunctionRef>,
 }

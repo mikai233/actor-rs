@@ -18,9 +18,9 @@ pub trait TActorRef: Debug + Send + Sync + Any + AsAny {
     fn stop(&self);
     fn parent(&self) -> Option<&ActorRef>;
     fn get_child(&self, names: Vec<String>) -> Option<ActorRef>;
-    fn resume(&self, error: Option<String>) {}
+    fn resume(&self) {}
     fn suspend(&self) {}
-    fn restart(&self, error: Option<String>) {}
+    fn restart(&self) {}
 }
 
 impl<T: ?Sized> ActorRefExt for T where T: TActorRef {}

@@ -1,5 +1,6 @@
 use std::any::Any;
-use crate::{Actor, Message};
+
+use crate::Actor;
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::{AsyncUserDelegate, UserDelegate};
 
