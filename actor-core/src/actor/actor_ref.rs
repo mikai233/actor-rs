@@ -26,22 +26,23 @@ pub trait TActorRef: Debug + Send + Sync + Any + AsAny {
 impl<T: ?Sized> ActorRefExt for T where T: TActorRef {}
 
 pub trait ActorRefExt: TActorRef {
-    fn cast<M>(&self, message: M, sender: Option<ActorRef>)
-        where
-            M: Message,
-    {
+    fn cast<M>(&self, message: M, sender: Option<ActorRef>) where M: Message {
         self.tell(DynMessage::user(message), sender);
     }
-    fn cast_async<M>(&self, message: M, sender: Option<ActorRef>)
-        where
-            M: AsyncMessage,
-    {
+
+    fn cast_without_sender<M>(&self, message: M) where M: Message {
+        self.tell(DynMessage::user(message), ActorRef::no_sender());
+    }
+
+    fn cast_async<M>(&self, message: M, sender: Option<ActorRef>) where M: AsyncMessage {
         self.tell(DynMessage::async_user(message), sender);
     }
-    fn resp<M>(&self, message: M)
-        where
-            M: UntypedMessage,
-    {
+
+    fn cast_async_without_sender<M>(&self, message: M) where M: AsyncMessage {
+        self.tell(DynMessage::async_user(message), ActorRef::no_sender());
+    }
+
+    fn resp<M>(&self, message: M) where M: UntypedMessage {
         self.tell(DynMessage::untyped(message), ActorRef::no_sender());
     }
 }
@@ -49,10 +50,7 @@ pub trait ActorRefExt: TActorRef {
 impl<T: ?Sized> ActorRefSystemExt for T where T: TActorRef {}
 
 pub trait ActorRefSystemExt: TActorRef {
-    fn cast_system<M>(&self, message: M, sender: Option<ActorRef>)
-        where
-            M: SystemMessage,
-    {
+    fn cast_system<M>(&self, message: M, sender: Option<ActorRef>) where M: SystemMessage {
         self.tell(DynMessage::system(message), sender);
     }
 }
