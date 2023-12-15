@@ -20,21 +20,26 @@ impl ActorCell {
         let inner = Inner {
             parent,
             children: Default::default(),
+            restart_stats: Default::default(),
             function_refs: Default::default(),
         };
         Self {
             inner: inner.into(),
         }
     }
+
     pub(crate) fn parent(&self) -> Option<&ActorRef> {
         self.inner.parent.as_ref()
     }
-    pub(crate) fn children(&self) -> &DashMap<String, ChildRestartStats> {
+
+    pub(crate) fn children(&self) -> &DashMap<String, ActorRef> {
         &self.inner.children
     }
+
     pub(crate) fn get_child_by_name(&self, name: &String) -> Option<ActorRef> {
-        self.children().get(name).map(|c| c.value().child.clone())
+        self.children().get(name).map(|c| c.value().clone())
     }
+
     pub(crate) fn get_single_child(&self, name: &String) -> Option<ActorRef> {
         match name.find('#') {
             Some(_) => {
@@ -53,20 +58,46 @@ impl ActorCell {
             None => self.get_child_by_name(name),
         }
     }
+
     pub(crate) fn add_function_ref(&self, name: String, function_ref: FunctionRef) {
         self.inner.function_refs.insert(name, function_ref);
     }
+
     pub(crate) fn remove_function_ref(&self, name: &str) -> Option<(String, FunctionRef)> {
         self.inner.function_refs.remove(name)
     }
+
     pub(crate) fn get_function_ref(&self, name: &str) -> Option<FunctionRef> {
         self.inner.function_refs.get(name).map(|v| v.value().clone())
+    }
+
+    pub(crate) fn restart_stats(&self) -> &DashMap<ActorRef, ChildRestartStats> {
+        &self.inner.restart_stats
+    }
+
+    pub(crate) fn insert_child(&self, name: String, child: impl Into<ActorRef>) {
+        let child = child.into();
+        self.inner.children.insert(name, child.clone());
+        self.inner.restart_stats.insert(child, ChildRestartStats::default());
+    }
+
+    pub(crate) fn remove_child(&self, name: &String) -> Option<ActorRef> {
+        match self.inner.children.remove(name) {
+            None => {
+                None
+            }
+            Some((_, child)) => {
+                self.inner.restart_stats.remove(&child);
+                Some(child)
+            }
+        }
     }
 }
 
 #[derive(Debug)]
 pub(crate) struct Inner {
     parent: Option<ActorRef>,
-    children: DashMap<String, ChildRestartStats>,
+    children: DashMap<String, ActorRef>,
+    restart_stats: DashMap<ActorRef, ChildRestartStats>,
     function_refs: DashMap<String, FunctionRef>,
 }

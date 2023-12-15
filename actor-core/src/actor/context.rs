@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::future::Future;
 use std::ops::Not;
 use std::sync::Arc;
@@ -32,8 +32,8 @@ use crate::message::watch::Watch;
 pub trait Context: ActorRefFactory {
     fn myself(&self) -> &ActorRef;
     fn sender(&self) -> Option<&ActorRef>;
-    fn children(&self) -> BTreeMap<&String, &ActorRef>;
-    fn child(&self, name: &String) -> Option<ActorRef>;
+    fn children(&self) -> Vec<ActorRef>;
+    fn child(&self, name: &str) -> Option<ActorRef>;
     fn parent(&self) -> Option<&ActorRef>;
     fn watch<T>(&mut self, terminate: T) where T: WatchTerminated;
     fn unwatch(&mut self, subject: &ActorRef);
@@ -114,18 +114,14 @@ impl Context for ActorContext {
         self.sender.as_ref()
     }
 
-    fn children(&self) -> BTreeMap<&String, &ActorRef> {
-        let mut children = BTreeMap::new();
+    fn children(&self) -> Vec<ActorRef> {
         let myself = self.myself().local().unwrap();
-        for kv in myself.underlying().children() {
-            children.insert(kv.key(), kv.value().child.clone());
-        }
-        children
+        myself.underlying().children().iter().map(|c| c.value().clone()).collect()
     }
 
-    fn child(&self, name: &String) -> Option<ActorRef> {
+    fn child(&self, name: &str) -> Option<ActorRef> {
         let myself = self.myself().local().unwrap();
-        myself.underlying().children().get(name).map(|c| c.child.clone())
+        myself.underlying().children().get(name).map(|c| c.value().clone())
     }
 
     fn parent(&self) -> Option<&ActorRef> {
@@ -237,7 +233,7 @@ impl ActorContext {
 
     pub(crate) fn terminate(&mut self) {
         self.state = ActorState::Terminating;
-        let children = self.children().values().cloned().collect::<Vec<_>>();
+        let children = self.children();
         if children.is_empty().not() {
             for child in &children {
                 self.stop(child);
@@ -263,16 +259,15 @@ impl ActorContext {
                 self.myself.tell(watch_terminated, None);
             }
         }
-        if self.children().get(watching_actor.path().name()).is_some() {
+        if self.myself.local().unwrap().children().get(watching_actor.path().name()).is_some() {
             self.handle_child_terminated(watching_actor);
         }
     }
 
     pub(crate) fn handle_child_terminated(&mut self, actor: ActorRef) {
-        let mut children = self.children()
-        children.remove(actor.path().name());
-        if matches!(self.state, ActorState::Terminating) && children.is_empty() {
-            drop(children);
+        let myself = self.myself.local().unwrap();
+        myself.cell.remove_child(actor.path().name());
+        if matches!(self.state, ActorState::Terminating) && myself.cell.children().is_empty() {
             self.finish_terminate();
         }
     }

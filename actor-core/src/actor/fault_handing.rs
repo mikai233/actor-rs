@@ -1,11 +1,8 @@
-use std::ops::Deref;
-use std::sync::atomic::{AtomicI32, AtomicI64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::actor::actor_path::TActorPath;
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_factory::ActorRefFactory;
-use crate::actor::context::ActorContext;
+use crate::actor::context::{ActorContext, Context};
 
 pub trait SupervisorStrategy: Send + Sync + 'static {
     fn directive(&self) -> &Directive;
@@ -50,69 +47,50 @@ pub enum Directive {
     Escalate,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ChildRestartStats {
-    pub(crate) child: ActorRef,
-    pub(crate) max_nr_of_retries_count: AtomicI32,
-    pub(crate) restart_time_window_start_nanos: AtomicI64,
-}
-
-impl Deref for ChildRestartStats {
-    type Target = ActorRef;
-
-    fn deref(&self) -> &Self::Target {
-        &self.child
-    }
+    pub(crate) max_nr_of_retries_count: i32,
+    pub(crate) restart_time_window_start_nanos: i64,
 }
 
 impl ChildRestartStats {
-    pub fn new(child: impl Into<ActorRef>) -> Self {
-        Self {
-            child: child.into(),
-            max_nr_of_retries_count: AtomicI32::default(),
-            restart_time_window_start_nanos: AtomicI64::default(),
-        }
-    }
-    pub fn uid(&self) -> i32 {
-        self.child.path().uid()
-    }
-
-    pub fn request_restart_permission(&self, retries_window: (Option<i32>, Option<i32>)) -> bool {
+    pub fn request_restart_permission(&mut self, retries_window: (Option<i32>, Option<i32>)) -> bool {
         match retries_window {
             (Some(retries), _) if retries < 1 => false,
             (Some(retries), None) => {
-                self.max_nr_of_retries_count.fetch_add(1, Ordering::Relaxed) + 1 <= retries
+                self.max_nr_of_retries_count += 1;
+                self.max_nr_of_retries_count <= retries
             }
             (x, Some(window)) => self.retries_in_window_okay(x.unwrap_or(1), window),
             (None, _) => true,
         }
     }
 
-    pub fn retries_in_window_okay(&self, retries: i32, window: i32) -> bool {
-        let retries_done = self.max_nr_of_retries_count.load(Ordering::Relaxed) + 1;
+    pub fn retries_in_window_okay(&mut self, retries: i32, window: i32) -> bool {
+        let retries_done = self.max_nr_of_retries_count + 1;
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() as i64;
-        let window_start = if self.restart_time_window_start_nanos.load(Ordering::Relaxed) == 0 {
-            self.restart_time_window_start_nanos.store(now, Ordering::Relaxed);
+        let window_start = if self.restart_time_window_start_nanos == 0 {
+            self.restart_time_window_start_nanos = now;
             now
         } else {
-            self.restart_time_window_start_nanos.load(Ordering::Relaxed)
+            self.restart_time_window_start_nanos
         };
         let inside_window = (now - window_start) <= Duration::from_millis(window as u64).as_nanos() as i64;
         if inside_window {
-            self.max_nr_of_retries_count.store(retries_done, Ordering::Relaxed);
+            self.max_nr_of_retries_count = retries_done;
             retries_done <= retries
         } else {
-            self.max_nr_of_retries_count.store(1, Ordering::Relaxed);
-            self.restart_time_window_start_nanos.store(now, Ordering::Relaxed);
+            self.max_nr_of_retries_count = 1;
+            self.restart_time_window_start_nanos = now;
             true
         }
     }
 }
 
-struct AllForOneStrategy {
-    max_nr_of_retries: i32,
-    within_time_range: Duration,
-    directive: Directive,
+pub struct AllForOneStrategy {
+    pub max_nr_of_retries: i32,
+    pub within_time_range: Option<Duration>,
+    pub directive: Directive,
 }
 
 impl SupervisorStrategy for AllForOneStrategy {
@@ -121,23 +99,33 @@ impl SupervisorStrategy for AllForOneStrategy {
     }
 
     fn process_failure(&self, context: &mut ActorContext, restart: bool, child: &ActorRef) {
-        // if restart {
-        //     for child_stats in children {
-        //         // self.restart_child(&child_stats.child, error)
-        //     }
-        // } else {
-        //     for child_stats in children {
-        //         context.stop(&child_stats.child);
-        //     }
-        // }
+        let children = context.children();
+        let myself = context.myself.local().unwrap().cell.restart_stats();
+        if !children.is_empty() {
+            if restart && children.iter().all(|child| myself.get_mut(child).unwrap().value_mut().request_restart_permission(self.retries_window())) {
+                for child in children {
+                    self.restart_child(&child);
+                }
+            } else {
+                for child in children {
+                    context.stop(&child);
+                }
+            }
+        }
+    }
+}
+
+impl AllForOneStrategy {
+    fn retries_window(&self) -> (Option<i32>, Option<i32>) {
+        (max_nr_or_retries_option(self.max_nr_of_retries), within_time_range_option(self.within_time_range).map(|r| r.as_millis() as i32))
     }
 }
 
 #[derive(Debug, Copy, Clone)]
-struct OneForOneStrategy {
-    max_nr_of_retries: i32,
-    within_time_range: Option<Duration>,
-    directive: Directive,
+pub struct OneForOneStrategy {
+    pub max_nr_of_retries: i32,
+    pub within_time_range: Option<Duration>,
+    pub directive: Directive,
 }
 
 impl Default for OneForOneStrategy {
@@ -156,7 +144,10 @@ impl SupervisorStrategy for OneForOneStrategy {
     }
 
     fn process_failure(&self, context: &mut ActorContext, restart: bool, child: &ActorRef) {
-        if restart && child.request_restart_permission(self.retries_window()) {
+        let myself = context.myself.local().unwrap();
+        let restart_stats = myself.cell.restart_stats();
+        let mut stats = restart_stats.get_mut(child).unwrap();
+        if restart && stats.value_mut().request_restart_permission(self.retries_window()) {
             self.restart_child(child);
         } else {
             context.stop(child);

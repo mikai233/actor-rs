@@ -36,7 +36,7 @@ pub trait Actor: Send + 'static {
     }
 
     async fn pre_restart(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        let children = context.children().values().map(|a| a.clone()).collect::<Vec<_>>();
+        let children = context.children();
         for child in children {
             context.unwatch(&child);
             context.stop(&child);

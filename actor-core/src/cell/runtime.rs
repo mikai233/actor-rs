@@ -1,3 +1,7 @@
+use std::any::Any;
+use std::panic::AssertUnwindSafe;
+use anyhow::{anyhow, Error};
+use futures::FutureExt;
 use tokio::task::yield_now;
 use tracing::error;
 
@@ -45,8 +49,15 @@ impl<A> ActorRuntime<A> where A: Actor {
                     context.remove_finished_tasks();
                 }
                 Some(message) = mailbox.message.recv(), if matches!(context.state, ActorState::Started) => {
-                    if Self::handle_message(&mut context, &mut actor, message).await {
-                        break;
+                    match AssertUnwindSafe(Self::handle_message(&mut context, &mut actor, message)).catch_unwind().await {
+                        Ok(should_break) => {
+                            if should_break {
+                                break;
+                            }
+                        }
+                        Err(_) => {
+                            Self::handle_failure(&mut context, anyhow!("{} panic", std::any::type_name::<A>()));
+                        }
                     }
                     context.remove_finished_tasks();
                     throughput += 1;
@@ -91,11 +102,8 @@ impl<A> ActorRuntime<A> where A: Actor {
                         panic!("unexpected async user message {} in system handle", m.name);
                     }
                     MessageDelegate::System(system) => {
-                        if let Some(error) = system.message.handle(context, actor).await.err() {
-                            let name = std::any::type_name::<A>();
-                            let myself = context.myself.clone();
-                            context.handle_invoke_failure(myself, name, error);
-                        }
+                        let catch_unwind_result = AssertUnwindSafe(system.message.handle(context, actor)).catch_unwind().await;
+                        Self::catch_handle_error(context, catch_unwind_result);
                     }
                 }
             }
@@ -104,6 +112,22 @@ impl<A> ActorRuntime<A> where A: Actor {
             }
         }
         context.sender.take();
+    }
+
+    fn catch_handle_error(context: &mut ActorContext, catch_unwind_result: Result<anyhow::Result<()>, Box<dyn Any + Send>>) {
+        match catch_unwind_result {
+            Ok(Err(logic_error)) => {
+                let name = std::any::type_name::<A>();
+                let myself = context.myself.clone();
+                context.handle_invoke_failure(myself, name, logic_error);
+            }
+            Err(_) => {
+                let name = std::any::type_name::<A>();
+                let myself = context.myself.clone();
+                context.handle_invoke_failure(myself, name, anyhow!("{} panic", name));
+            }
+            _ => {}
+        }
     }
 
     async fn handle_message(context: &mut ActorContext, actor: &mut A, envelope: Envelope) -> bool {
@@ -115,16 +139,12 @@ impl<A> ActorRuntime<A> where A: Actor {
                     match delegate {
                         MessageDelegate::User(user) => {
                             if let Some(error) = user.handle(context, actor).err() {
-                                let name = std::any::type_name::<A>();
-                                let myself = context.myself.clone();
-                                context.handle_invoke_failure(myself, name, error);
+                                Self::handle_failure(context, error);
                             }
                         }
                         MessageDelegate::AsyncUser(user) => {
                             if let Some(error) = user.handle(context, actor).await.err() {
-                                let name = std::any::type_name::<A>();
-                                let myself = context.myself.clone();
-                                context.handle_invoke_failure(myself, name, error);
+                                Self::handle_failure(context, error);
                             }
                         }
                         MessageDelegate::System(m) => {
@@ -139,5 +159,11 @@ impl<A> ActorRuntime<A> where A: Actor {
         }
         context.sender.take();
         return false;
+    }
+
+    fn handle_failure(context: &mut ActorContext, error: Error) {
+        let name = std::any::type_name::<A>();
+        let myself = context.myself.clone();
+        context.handle_invoke_failure(myself, name, error);
     }
 }

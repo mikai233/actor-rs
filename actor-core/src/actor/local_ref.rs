@@ -16,7 +16,6 @@ use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::cell::Cell;
-use crate::actor::fault_handing::ChildRestartStats;
 use crate::actor::mailbox::MailboxSender;
 use crate::actor::props::{DeferredSpawn, Props};
 use crate::cell::ActorCell;
@@ -144,7 +143,7 @@ impl Cell for LocalActorRef {
         self.cell.clone()
     }
 
-    fn children(&self) -> &DashMap<String, ChildRestartStats> {
+    fn children(&self) -> &DashMap<String, ActorRef> {
         self.cell.children()
     }
 
@@ -232,11 +231,11 @@ impl LocalActorRef {
                 let child_ref = LocalActorRef {
                     inner: inner.into(),
                 };
-                let mut children = self.children().write().unwrap();
+                let children = self.children();
                 if children.contains_key(&name) {
                     return Err(anyhow!("duplicate actor name {}", name));
                 }
-                children.insert(name, ChildRestartStats::new(child_ref.clone()));
+                self.cell.insert_child(name, child_ref.clone());
                 if start {
                     (props.spawner)(child_ref.clone().into(), mailbox, self.system(), props.clone());
                     Ok((child_ref.into(), None))

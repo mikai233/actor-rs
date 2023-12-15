@@ -84,7 +84,7 @@ impl Message for WatchGuardianTerminated {
         if self.guardian == context.system.guardian().into() {
             actor.user_stopped = true;
             debug!("user guardian stopped");
-            match context.children().get("system") {
+            match context.child("system") {
                 None => {
                     actor.system_stopped = true;
                 }

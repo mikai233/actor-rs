@@ -44,7 +44,7 @@ pub struct SystemInner {
 }
 
 impl Debug for ActorSystem {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("ActorSystem")
             .field("name", &self.name)
             .field("start_time", &self.start_time)
