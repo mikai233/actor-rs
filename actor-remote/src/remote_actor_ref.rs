@@ -1,18 +1,19 @@
-use actor_core::actor::actor_path::TActorPath;
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
-use anyhow::Error;
+
 use tracing::error;
+
 use actor_core::actor::actor_path::ActorPath;
+use actor_core::actor::actor_path::TActorPath;
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
 use actor_core::actor::actor_system::ActorSystem;
-
 use actor_core::DynMessage;
 use actor_core::message::poison_pill::PoisonPill;
 use actor_core::message::recreate::Recreate;
 use actor_core::message::resume::Resume;
 use actor_core::message::suspend::Suspend;
+
 use crate::message_registration::MessageRegistration;
 use crate::net::message::{OutboundMessage, RemoteEnvelope};
 
@@ -111,7 +112,7 @@ impl TActorRef for RemoteActorRef {
         }
     }
 
-    fn resume(&self, _error: Error) {
+    fn resume(&self) {
         self.cast_system(Resume, ActorRef::no_sender());
     }
 
@@ -119,8 +120,8 @@ impl TActorRef for RemoteActorRef {
         self.cast_system(Suspend, ActorRef::no_sender());
     }
 
-    fn restart(&self, error: Error) {
-        self.cast_system(Recreate { error: Some(error.to_string()) }, ActorRef::no_sender());
+    fn restart(&self) {
+        self.cast_system(Recreate, ActorRef::no_sender());
     }
 }
 
