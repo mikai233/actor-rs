@@ -1,15 +1,24 @@
 use std::ops::Deref;
-use crate::actor::actor_system::ActorSystem;
 
+use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
+use crate::actor::fault_handing::SupervisorStrategy;
 use crate::actor::props::Props;
 use crate::routing::router::{Routee, Router};
 use crate::routing::router_actor::RouterActor;
 use crate::routing::router_config::{Pool, TRouterConfig};
 
 #[derive(Clone)]
-pub(crate) struct PoolRouterConfig {
+pub struct PoolRouterConfig {
     config: Box<dyn Pool>,
+}
+
+impl PoolRouterConfig {
+    pub fn new<C>(config: C) -> Self where C: Pool {
+        Self {
+            config: Box::new(config)
+        }
+    }
 }
 
 impl Deref for PoolRouterConfig {
@@ -35,11 +44,15 @@ impl Pool for PoolRouterConfig {
         self.config.nr_of_instances(sys)
     }
 
-    fn new_routee(&self, routee_props: Props, context: &mut ActorContext) -> Box<dyn Routee> {
+    fn new_routee(&self, routee_props: Props, context: &mut ActorContext) -> anyhow::Result<Box<dyn Routee>> {
         self.config.new_routee(routee_props, context)
     }
 
     fn props(&self, routee_props: Props) -> Props {
         self.config.props(routee_props)
+    }
+
+    fn supervisor_strategy(&self) -> &Box<dyn SupervisorStrategy> {
+        self.config.supervisor_strategy()
     }
 }

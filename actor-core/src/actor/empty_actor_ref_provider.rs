@@ -51,7 +51,7 @@ impl TActorRefProvider for EmptyActorRefProvider {
         unimplemented!()
     }
 
-    fn actor_of(&self, _props: Props, _supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
+    fn spawn_actor(&self, _props: Props, _supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
         unimplemented!()
     }
 

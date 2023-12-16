@@ -1,16 +1,38 @@
+use std::any::Any;
 use std::ops::Deref;
 use std::sync::Arc;
 
+use dyn_clone::DynClone;
 use tracing::error;
 
 use actor_derive::EmptyCodec;
 
 use crate::actor::actor_ref::ActorRef;
+use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::DynMessage;
+use crate::ext::as_any::AsAny;
+use crate::ext::option_ext::OptionExt;
 
+pub enum MaybeRef<'a, T> {
+    Ref(&'a T),
+    Own(T),
+}
+
+impl<'a, T> Deref for MaybeRef<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            MaybeRef::Ref(value) => value,
+            MaybeRef::Own(value) => value,
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct Router {
-    logic: Box<dyn RoutingLogic>,
-    routees: Vec<Arc<Box<dyn Routee>>>,
+    pub logic: Box<dyn RoutingLogic>,
+    pub routees: Vec<Arc<Box<dyn Routee>>>,
 }
 
 impl Router {
@@ -38,19 +60,59 @@ impl Router {
         }
     }
 
-    fn send(&self, _routee: &Box<dyn Routee>, _message: DynMessage, _sender: Option<ActorRef>) {}
+    fn send(&self, routee: &Box<dyn Routee>, message: DynMessage, sender: Option<ActorRef>) {
+        if (&*routee).as_any_ref().is::<NoRoutee>() {
+            sender.into_foreach(|sender| {
+                let provider = sender.system().provider();
+                let dead_letters = provider.dead_letters();
+                dead_letters.tell(message, Some(sender.clone()));
+            });
+        } else {
+            routee.send(message, sender);
+        }
+    }
+
+    pub fn with_routees(&self, routees: Vec<Arc<Box<dyn Routee>>>) -> Self {
+        let Self { logic, .. } = self;
+        Self {
+            logic: logic.clone(),
+            routees,
+        }
+    }
+
+    pub fn add_routee(&self, routee: Arc<Box<dyn Routee>>) -> Self {
+        let Self { logic, routees } = self;
+        let mut routees = routees.clone();
+        routees.push(routee);
+        Self {
+            logic: logic.clone(),
+            routees,
+        }
+    }
+
+    pub fn remove_routee(&self, routee: Arc<Box<dyn Routee>>) -> Self {
+        let Self { logic, routees } = self;
+        let mut routees = routees.clone();
+        routees.retain(|r| !Arc::ptr_eq(r, &routee));
+        Self {
+            logic: logic.clone(),
+            routees,
+        }
+    }
 }
 
-pub trait RoutingLogic: Send + Sync + 'static {
-    fn select(&self, message: &DynMessage, routees: &Vec<Arc<Box<dyn Routee>>>) -> Arc<Box<dyn Routee>>;
+pub trait RoutingLogic: Send + Sync + DynClone + 'static {
+    fn select<'a>(&self, message: &DynMessage, routees: &'a Vec<Arc<Box<dyn Routee>>>) -> MaybeRef<'a, Box<dyn Routee>>;
 }
 
-pub trait Routee: Send + Sync + 'static {
+dyn_clone::clone_trait_object!(RoutingLogic);
+
+pub trait Routee: Send + Sync + Any {
     fn send(&self, message: DynMessage, sender: Option<ActorRef>);
 }
 
 #[derive(Debug, Clone)]
-pub struct ActorRefRoutee(ActorRef);
+pub struct ActorRefRoutee(pub ActorRef);
 
 impl Deref for ActorRefRoutee {
     type Target = ActorRef;
@@ -76,6 +138,7 @@ impl Routee for NoRoutee {
     fn send(&self, _message: DynMessage, _sender: Option<ActorRef>) {}
 }
 
+#[derive(Clone)]
 pub struct SeveralRoutees {
     pub routees: Vec<Arc<Box<dyn Routee>>>,
 }

@@ -64,10 +64,22 @@ pub fn untyped_message_codec_derive(input: TokenStream) -> TokenStream {
     message::expand(ast, MessageImpl::UntypedMessage, CodecType::Serde, false).into()
 }
 
+#[proc_macro_derive(UntypedMessageEmptyCodec)]
+pub fn untyped_message_empty_codec_derive(input: TokenStream) -> TokenStream {
+    let ast: DeriveInput = syn::parse(input).unwrap();
+    message::expand(ast, MessageImpl::UntypedMessage, CodecType::NoneSerde, false).into()
+}
+
 #[proc_macro_derive(CloneableUntypedMessageCodec, attributes(actor))]
 pub fn cloneable_untyped_message_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::UntypedMessage, CodecType::Serde, true).into()
+}
+
+#[proc_macro_derive(CloneableUntypedMessageEmptyCodec, attributes(actor))]
+pub fn cloneable_untyped_message_empty_codec_derive(input: TokenStream) -> TokenStream {
+    let ast: DeriveInput = syn::parse(input).unwrap();
+    message::expand(ast, MessageImpl::UntypedMessage, CodecType::NoneSerde, true).into()
 }
 
 pub(crate) fn with_crate(path: syn::Path) -> proc_macro2::TokenStream {

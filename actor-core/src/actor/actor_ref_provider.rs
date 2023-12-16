@@ -21,7 +21,7 @@ pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
     fn temp_container(&self) -> ActorRef;
     fn register_temp_actor(&self, actor: ActorRef, path: &ActorPath);
     fn unregister_temp_actor(&self, path: &ActorPath);
-    fn actor_of(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef>;
+    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef>;
     fn resolve_actor_ref(&self, path: &str) -> ActorRef {
         match path.parse::<ActorPath>() {
             Ok(actor_path) => self.resolve_actor_ref_of_path(&actor_path),

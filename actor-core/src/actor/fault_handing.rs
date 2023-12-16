@@ -1,13 +1,18 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use dyn_clone::DynClone;
+
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
 
-pub trait SupervisorStrategy: Send + Sync + 'static {
+pub trait SupervisorStrategy: Send + Sync + DynClone + 'static {
     fn directive(&self) -> &Directive;
+
     fn handle_child_terminated(&self, context: &mut ActorContext, child: &ActorRef, children: Vec<ActorRef>) {}
+
     fn process_failure(&self, context: &mut ActorContext, restart: bool, child: &ActorRef);
+
     fn handle_failure(&self, context: &mut ActorContext, child: &ActorRef) -> bool {
         let directive = self.directive();
         match directive {
@@ -37,6 +42,8 @@ pub trait SupervisorStrategy: Send + Sync + 'static {
         child.restart();
     }
 }
+
+dyn_clone::clone_trait_object!(SupervisorStrategy);
 
 #[derive(Debug, Copy, Clone, Default)]
 pub enum Directive {
@@ -87,6 +94,7 @@ impl ChildRestartStats {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct AllForOneStrategy {
     pub max_nr_of_retries: i32,
     pub within_time_range: Option<Duration>,

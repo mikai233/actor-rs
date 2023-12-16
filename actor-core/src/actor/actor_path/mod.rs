@@ -1,6 +1,3 @@
-pub mod child_actor_path;
-pub mod root_actor_path;
-
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::format;
@@ -8,13 +5,18 @@ use std::hash::{Hash, Hasher};
 use std::net::SocketAddrV4;
 use std::str::FromStr;
 use std::sync::Arc;
+
 use anyhow::{anyhow, Context};
 use enum_dispatch::enum_dispatch;
 use rand::random;
 use url::Url;
+
 use crate::actor::actor_path::child_actor_path::{ChildActorPath, ChildInner};
 use crate::actor::actor_path::root_actor_path::RootActorPath;
 use crate::actor::address::Address;
+
+pub mod child_actor_path;
+pub mod root_actor_path;
 
 #[enum_dispatch(ActorPath)]
 pub trait TActorPath {
@@ -199,10 +201,11 @@ impl FromStr for ActorPath {
 #[cfg(test)]
 mod test {
     use std::hash::{DefaultHasher, Hash, Hasher};
+
     use anyhow::Ok;
+
     use crate::actor::actor_path::{ActorPath, ChildActorPath, RootActorPath, TActorPath};
     use crate::actor::address::Address;
-
 
     fn build_address() -> Address {
         Address {
@@ -277,7 +280,7 @@ mod test {
     #[test]
     fn test_actor_path_serde() -> anyhow::Result<()> {
         let actor_path = build_actor_path();
-        let url = actor_path.to_serialization();
+        let url = actor_path.to_serialization_format();
         let parse_path: ActorPath = url.parse()?;
         assert_eq!(actor_path, parse_path);
         Ok(())
@@ -300,13 +303,13 @@ mod test {
             system: "mikai".to_string(),
             addr: None,
         };
-        assert_eq!(actor_path.to_string_with_address(address), "tcp://mikai/user/$a/$a/$aa");
+        assert_eq!(actor_path.to_string_with_address(&address), "tcp://mikai/user/$a/$a/$aa");
         let address = Address {
             protocol: "tcp".to_string(),
             system: "mikai".to_string(),
             addr: Some("127.0.0.1:9988".parse().unwrap()),
         };
-        assert_eq!(actor_path.to_string_with_address(address), "tcp://mikai@127.0.0.1:9988/user/$a/$a/$aa");
+        assert_eq!(actor_path.to_string_with_address(&address), "tcp://mikai@127.0.0.1:9988/user/$a/$a/$aa");
     }
 
     #[test]

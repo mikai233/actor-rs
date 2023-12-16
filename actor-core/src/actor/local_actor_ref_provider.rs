@@ -57,10 +57,12 @@ impl LocalActorRefProvider {
             inner: inner.into(),
         };
         deferred_spawns.push(DeferredSpawn::new(root_guardian.clone().into(), mailbox, root_props));
-        let (system_guardian, deferred) = root_guardian.attach_child(Props::create(|_| SystemGuardian), Some("system".to_string()), false)?;
+        let (system_guardian, deferred) = root_guardian
+            .attach_child(Props::create(|_| SystemGuardian), Some("system".to_string()), false)?;
         deferred.into_foreach(|d| deferred_spawns.push(d));
         let system_guardian = system_guardian.local().unwrap();
-        let (user_guardian, deferred) = root_guardian.attach_child(Props::create(|_| UserGuardian), Some("user".to_string()), false)?;
+        let (user_guardian, deferred) = root_guardian
+            .attach_child(Props::create(|_| UserGuardian), Some("user".to_string()), false)?;
         deferred.into_foreach(|d| deferred_spawns.push(d));
         let user_guardian = user_guardian.local().unwrap();
         let inner = crate::actor::dead_letter_ref::Inner {
@@ -147,7 +149,7 @@ impl TActorRefProvider for LocalActorRefProvider {
         self.temp_container.remove_child(path.name());
     }
 
-    fn actor_of(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
+    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
         supervisor.local().unwrap().attach_child(props, None, true).map(|(actor, _)| actor)
     }
 

@@ -8,7 +8,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
 use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::cell::runtime::ActorRuntime;
-use crate::routing::router_config::{RouterConfig, TRouterConfig};
+use crate::routing::router_config::RouterConfig;
 
 pub type Spawner = Arc<Box<dyn Fn(ActorRef, Mailbox, ActorSystem, Props) + Send + Sync + 'static>>;
 
@@ -58,11 +58,10 @@ impl Props {
         (sender, mailbox)
     }
 
-    pub fn with_router<R>(&self, r: R) -> Props where R: TRouterConfig {
-        todo!()
-        // let mut props = Clone::clone(self);
-        // props.router_config = Some(Box::new(r));
-        // props
+    pub fn with_router(&self, r: Option<RouterConfig>) -> Props {
+        let mut props = self.clone();
+        props.router_config = r.map(|r| Arc::new(r));
+        props
     }
 
     pub fn router_config(&self) -> Option<&Arc<RouterConfig>> {

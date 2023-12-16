@@ -75,7 +75,7 @@ impl ActorRef {
 
     pub(crate) fn local(&self) -> Option<&LocalActorRef> {
         let actor_ref = &****self;
-        actor_ref.as_any_ref().downcast_ref::<LocalActorRef>()
+        actor_ref.as_any_ref().downcast_ref()
     }
 }
 

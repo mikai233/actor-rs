@@ -11,13 +11,14 @@ use tracing::warn;
 use crate::{DynMessage, MessageType};
 use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_path::child_actor_path::ChildActorPath;
-use crate::actor::actor_ref::{ActorRefSystemExt, TActorRef};
+use crate::actor::actor_ref::{ActorRefExt, ActorRefSystemExt, TActorRef};
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::cell::Cell;
 use crate::actor::mailbox::MailboxSender;
 use crate::actor::props::{DeferredSpawn, Props};
+use crate::actor::routed_actor_ref::RoutedActorRef;
 use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
 use crate::ext::{check_name, random_actor_name};
@@ -25,8 +26,7 @@ use crate::message::poison_pill::PoisonPill;
 use crate::message::recreate::Recreate;
 use crate::message::resume::Resume;
 use crate::message::suspend::Suspend;
-use crate::routing::router::Routee;
-use crate::routing::router_config::{Pool, RouterConfig};
+use crate::routing::router_actor::InitRoutedRef;
 use crate::routing::router_config::TRouterConfig;
 
 #[derive(Clone)]
@@ -208,11 +208,12 @@ impl LocalActorRef {
         if let Some(name) = &name {
             check_name(name)?;
         }
-        let name = name.unwrap_or(random_actor_name());
         self.make_child(props, name, start)
     }
 
-    pub(crate) fn make_child(&self, props: Props, name: String, start: bool) -> anyhow::Result<(ActorRef, Option<DeferredSpawn>)> {
+    pub(crate) fn make_child(&self, props: Props, name: Option<String>, start: bool) -> anyhow::Result<(ActorRef, Option<DeferredSpawn>)> {
+        let name_is_none = name.is_none();
+        let name = name.unwrap_or(random_actor_name());
         let (sender, mailbox) = props.mailbox();
         let uid = if name == "system" || name == "user" {
             ActorPath::undefined_uid()
@@ -245,27 +246,26 @@ impl LocalActorRef {
                 }
             }
             Some(router_config) => {
-                let router_actor = router_config.create_router_actor();
-                let router_actor = self.system.spawn_actor(Props::create(move |_| router_actor.clone()), name)?;
+                let router_config_clone = router_config.clone();
+                let router_actor = if name_is_none {
+                    self.system.spawn_anonymous_actor(Props::create(move |_| router_config_clone.create_router_actor()))?
+                } else {
+                    self.system.spawn_actor(Props::create(move |_| router_config_clone.create_router_actor()), name)?
+                };
                 let router = router_config.create_router(self.system.clone());
                 let inner = crate::actor::routed_actor_ref::Inner {
                     system: self.system.clone(),
                     path,
-                    router_actor,
+                    router_actor: router_actor.clone(),
                     router: ArcSwap::new(router.into()),
-                    router_props: props.clone(),
+                    router_props: props,
                     parent: self.clone().into(),
                 };
-                match &**router_config {
-                    RouterConfig::PoolRouterConfig(pool) => {
-                        let nr_of_routees = pool.nr_of_instances(&self.system);
-                        let mut routess: Vec<Box<dyn Routee>> = vec![];
-                        todo!()
-                    }
-                    RouterConfig::GroupRouterConfig(group) => {
-                        todo!()
-                    }
-                }
+                let routed_ref = RoutedActorRef {
+                    inner: Arc::new(inner),
+                };
+                router_actor.cast_without_sender(InitRoutedRef(routed_ref.clone()));
+                Ok((routed_ref.into(), None))
             }
         }
     }

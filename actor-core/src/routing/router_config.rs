@@ -1,17 +1,22 @@
 use std::fmt::{Debug, Formatter};
+use std::sync::Arc;
 
 use dyn_clone::DynClone;
 use enum_dispatch::enum_dispatch;
 
-use actor_derive::EmptyCodec;
+use actor_derive::{EmptyCodec, UntypedMessageEmptyCodec};
 
 use crate::{DynMessage, Message, MessageType};
+use crate::actor::actor_ref::ActorRefExt;
+use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::ActorContext;
+use crate::actor::context::{ActorContext, Context};
+use crate::actor::fault_handing::SupervisorStrategy;
 use crate::actor::props::Props;
+use crate::ext::option_ext::OptionExt;
 use crate::routing::group_router_config::GroupRouterConfig;
 use crate::routing::pool_router_config::PoolRouterConfig;
-use crate::routing::router::{Routee, Router};
+use crate::routing::router::{ActorRefRoutee, Routee, Router};
 use crate::routing::router_actor::{RouterActor, WatchRouteeTerminated};
 
 #[enum_dispatch(RouterConfig)]
@@ -34,8 +39,16 @@ pub trait TRouterConfig: Send + Sync + DynClone + 'static {
 
 pub trait Pool: TRouterConfig {
     fn nr_of_instances(&self, sys: &ActorSystem) -> usize;
-    fn new_routee(&self, routee_props: Props, context: &mut ActorContext) -> Box<dyn Routee>;
+
+    fn new_routee(&self, routee_props: Props, context: &mut ActorContext) -> anyhow::Result<Box<dyn Routee>> {
+        let routee = context.spawn_anonymous_actor(routee_props)?;
+        let routee = ActorRefRoutee(routee);
+        Ok(Box::new(routee))
+    }
+
     fn props(&self, routee_props: Props) -> Props;
+
+    fn supervisor_strategy(&self) -> &Box<dyn SupervisorStrategy>;
 }
 
 dyn_clone::clone_trait_object!(Pool);
@@ -58,8 +71,8 @@ pub enum RouterConfig {
 #[derive(EmptyCodec)]
 pub enum RouterMessage {
     GetRoutees,
-    AddRoutee(Box<dyn Routee>),
-    RemoveRoutee(Box<dyn Routee>),
+    AddRoutee(Arc<Box<dyn Routee>>),
+    RemoveRoutee(Arc<Box<dyn Routee>>),
 }
 
 impl Debug for RouterMessage {
@@ -67,10 +80,10 @@ impl Debug for RouterMessage {
         match &self {
             RouterMessage::GetRoutees => f.debug_struct("GetRoutees")
                 .finish(),
-            RouterMessage::AddRoutee(_) => f.debug_struct("AddRoutee")
-                .finish_non_exhaustive(),
-            RouterMessage::RemoveRoutee(_) => f.debug_struct("RemoveRoutee")
-                .finish_non_exhaustive(),
+            RouterMessage::AddRoutee(_) => f.debug_tuple("AddRoutee")
+                .finish(),
+            RouterMessage::RemoveRoutee(_) => f.debug_tuple("RemoveRoutee")
+                .finish(),
         }
     }
 }
@@ -78,7 +91,28 @@ impl Debug for RouterMessage {
 impl Message for RouterMessage {
     type A = RouterActor;
 
-    fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-        todo!()
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        let routed_ref = unsafe { actor.routed_ref.assume_init_ref() };
+        match *self {
+            RouterMessage::GetRoutees => {
+                let routees = routed_ref.router.load().routees.clone();
+                let resp = GetRouteesResp { routees };
+                context.sender().foreach(|sender| {
+                    sender.resp(resp);
+                })
+            }
+            RouterMessage::AddRoutee(routee) => {
+                routed_ref.add_routees(vec![routee]);
+            }
+            RouterMessage::RemoveRoutee(routee) => {
+                routed_ref.remove_routee(routee);
+            }
+        }
+        Ok(())
     }
+}
+
+#[derive(UntypedMessageEmptyCodec)]
+pub struct GetRouteesResp {
+    pub routees: Vec<Arc<Box<dyn Routee>>>,
 }
