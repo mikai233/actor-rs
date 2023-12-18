@@ -17,7 +17,7 @@ pub trait TActorRef: Debug + Send + Sync + Any + AsAny {
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>);
     fn stop(&self);
     fn parent(&self) -> Option<&ActorRef>;
-    fn get_child(&self, names: Vec<String>) -> Option<ActorRef>;
+    fn get_child(&self, names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef>;
     fn resume(&self) {}
     fn suspend(&self) {}
     fn restart(&self) {}

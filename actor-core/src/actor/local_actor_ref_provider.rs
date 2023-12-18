@@ -157,22 +157,22 @@ impl TActorRefProvider for LocalActorRefProvider {
 
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {
         if path.address() == self.root_path().address() {
-            let elements = path.elements();
-            match elements.iter().peekable().peek() {
+            //TODO opt
+            let mut elements = path.elements().into_iter().peekable();
+            match elements.peek() {
                 Some(peek) if peek.as_str() == "temp" => {
-                    let mut iter = elements.into_iter();
-                    iter.next();
-                    TActorRef::get_child(&self.temp_container, iter.collect()).unwrap_or_else(|| self.dead_letters().clone())
+                    elements.next();
+                    TActorRef::get_child(&self.temp_container, Box::new(elements)).unwrap_or_else(|| self.dead_letters().clone())
                 }
                 Some(peek) if peek.as_str() == "dead_letters" => {
                     self.dead_letters.clone()
                 }
-                Some(peek) if self.extra_names.contains_key(*peek) => {
-                    self.extra_names.get(*peek).map(|r| r.value().clone()).unwrap_or_else(|| self.dead_letters().clone())
+                Some(peek) if self.extra_names.contains_key(peek) => {
+                    self.extra_names.get(peek).map(|r| r.value().clone()).unwrap_or_else(|| self.dead_letters().clone())
                 }
                 _ => {
                     self.root_guardian()
-                        .get_child(elements)
+                        .get_child(Box::new(elements))
                         .unwrap_or_else(|| self.dead_letters().clone())
                 }
             }

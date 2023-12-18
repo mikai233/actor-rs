@@ -70,8 +70,7 @@ impl TActorRef for DeferredActorRef {
         Some(&self.parent)
     }
 
-    fn get_child(&self, names: Vec<String>) -> Option<ActorRef> {
-        let mut names = names.into_iter();
+    fn get_child(&self, mut names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef> {
         match names.next() {
             None => {
                 Some(self.clone().into())

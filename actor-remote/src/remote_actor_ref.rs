@@ -13,11 +13,12 @@ use actor_core::message::poison_pill::PoisonPill;
 use actor_core::message::recreate::Recreate;
 use actor_core::message::resume::Resume;
 use actor_core::message::suspend::Suspend;
+use actor_derive::AsAny;
 
 use crate::message_registration::MessageRegistration;
 use crate::net::message::{OutboundMessage, RemoteEnvelope};
 
-#[derive(Clone)]
+#[derive(Clone, AsAny)]
 pub struct RemoteActorRef {
     pub(crate) inner: Arc<Inner>,
 }
@@ -90,7 +91,7 @@ impl TActorRef for RemoteActorRef {
         None
     }
 
-    fn get_child(&self, names: Vec<String>) -> Option<ActorRef> {
+    fn get_child(&self, names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef> {
         let mut names = names.into_iter().peekable();
         match names.peek().map(|n| n.as_str()) {
             None => {

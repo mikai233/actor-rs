@@ -12,12 +12,13 @@ use actor_core::actor::local_actor_ref_provider::LocalActorRefProvider;
 use actor_core::actor::local_ref::LocalActorRef;
 use actor_core::actor::props::{DeferredSpawn, Props};
 use actor_core::ext::option_ext::OptionExt;
+use actor_derive::AsAny;
 
 use crate::message_registration::MessageRegistration;
 use crate::net::tcp_transport::TransportActor;
 use crate::remote_actor_ref::{Inner, RemoteActorRef};
 
-#[derive(Debug)]
+#[derive(Debug, AsAny)]
 pub struct RemoteActorRefProvider {
     pub local: LocalActorRefProvider,
     pub address: Address,

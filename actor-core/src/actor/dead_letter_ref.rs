@@ -65,7 +65,7 @@ impl TActorRef for DeadLetterActorRef {
         None
     }
 
-    fn get_child(&self, _names: Vec<String>) -> Option<ActorRef> {
+    fn get_child(&self, _names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef> {
         None
     }
 }

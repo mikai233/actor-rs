@@ -95,10 +95,10 @@ impl TActorRef for LocalActorRef {
         self.cell.parent()
     }
 
-    fn get_child(&self, names: Vec<String>) -> Option<ActorRef> {
-        fn rec(actor: ActorRef, mut names: impl Iterator<Item=String>) -> Option<ActorRef> {
+    fn get_child(&self, names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef> {
+        fn rec(actor: ActorRef, mut names: impl Iterator<Item=String> + 'static) -> Option<ActorRef> {
             match actor.local() {
-                None => actor.get_child(names.collect()),
+                None => actor.get_child(Box::new(names)),
                 Some(l) => {
                     let name = names.next();
                     let next = match name {
