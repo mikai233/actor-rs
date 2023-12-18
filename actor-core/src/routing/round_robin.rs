@@ -1,4 +1,3 @@
-use std::mem::MaybeUninit;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -8,7 +7,7 @@ use crate::actor::props::Props;
 use crate::DynMessage;
 use crate::routing::pool_router_config::PoolRouterConfig;
 use crate::routing::router::{MaybeRef, NoRoutee, Routee, Router, RoutingLogic};
-use crate::routing::router_actor::RouterActor;
+use crate::routing::router_actor::{RouterActor, TRouterActor};
 use crate::routing::router_config::{Pool, TRouterConfig};
 
 #[derive(Debug, Default)]
@@ -52,19 +51,22 @@ impl RoundRobinPool {
 }
 
 impl TRouterConfig for RoundRobinPool {
-    fn create_router(&self, _system: ActorSystem) -> Router {
+    fn create_router(&self) -> Router {
         Router::new(RoundRobinRoutingLogic::default())
     }
 
-    fn create_router_actor(&self) -> RouterActor {
-        RouterActor {
-            routed_ref: MaybeUninit::uninit(),
-        }
+    fn create_router_actor(&self, routee_props: Props) -> Box<dyn TRouterActor> {
+        let router = self.create_router();
+        let router_actor = RouterActor {
+            router,
+            props: routee_props,
+        };
+        Box::new(router_actor)
     }
 }
 
 impl Pool for RoundRobinPool {
-    fn nr_of_instances(&self, sys: &ActorSystem) -> usize {
+    fn nr_of_instances(&self, _sys: &ActorSystem) -> usize {
         self.nr_of_instances
     }
 
@@ -80,6 +82,7 @@ impl Pool for RoundRobinPool {
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
     use std::time::Duration;
 
     use tracing::{info, Level};
@@ -96,7 +99,8 @@ mod test {
     use crate::actor::props::Props;
     use crate::ext::init_logger;
     use crate::routing::round_robin::RoundRobinPool;
-    use crate::routing::router_config::Pool;
+    use crate::routing::router::ActorRefRoutee;
+    use crate::routing::router_config::{AddRoutee, Pool};
 
     #[derive(Debug)]
     struct TestActor;
@@ -125,6 +129,8 @@ mod test {
         for _ in 0..10 {
             round_robin_router.cast_without_sender(TestMessage);
         }
+        let another_routee = system.spawn_anonymous_actor(Props::create(|_| TestActor))?;
+        round_robin_router.cast_without_sender(AddRoutee { routee: Arc::new(Box::new(ActorRefRoutee(another_routee))) });
         tokio::time::sleep(Duration::from_secs(2)).await;
         Ok(())
     }

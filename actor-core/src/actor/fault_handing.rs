@@ -9,6 +9,7 @@ use crate::actor::context::{ActorContext, Context};
 pub trait SupervisorStrategy: Send + Sync + DynClone + 'static {
     fn directive(&self) -> &Directive;
 
+    #[allow(unused_variables)]
     fn handle_child_terminated(&self, context: &mut ActorContext, child: &ActorRef, children: Vec<ActorRef>) {}
 
     fn process_failure(&self, context: &mut ActorContext, restart: bool, child: &ActorRef);
@@ -106,11 +107,17 @@ impl SupervisorStrategy for AllForOneStrategy {
         &self.directive
     }
 
-    fn process_failure(&self, context: &mut ActorContext, restart: bool, child: &ActorRef) {
+    fn process_failure(&self, context: &mut ActorContext, restart: bool, _child: &ActorRef) {
         let children = context.children();
         let myself = context.myself.local().unwrap().cell.restart_stats();
         if !children.is_empty() {
-            if restart && children.iter().all(|child| myself.get_mut(child).unwrap().value_mut().request_restart_permission(self.retries_window())) {
+            if restart && children.iter().all(|child| {
+                myself
+                    .get_mut(child)
+                    .unwrap()
+                    .value_mut()
+                    .request_restart_permission(self.retries_window())
+            }) {
                 for child in children {
                     self.restart_child(&child);
                 }

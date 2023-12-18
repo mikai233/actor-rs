@@ -3,22 +3,21 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use arc_swap::ArcSwap;
 use dashmap::DashMap;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
+use actor_derive::AsAny;
+
 use crate::{DynMessage, MessageType};
 use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_path::child_actor_path::ChildActorPath;
-use crate::actor::actor_ref::{ActorRefExt, ActorRefSystemExt, TActorRef};
+use crate::actor::actor_ref::{ActorRefSystemExt, TActorRef};
 use crate::actor::actor_ref::ActorRef;
-use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::cell::Cell;
 use crate::actor::mailbox::MailboxSender;
 use crate::actor::props::{DeferredSpawn, Props};
-use crate::actor::routed_actor_ref::RoutedActorRef;
 use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
 use crate::ext::{check_name, random_actor_name};
@@ -26,10 +25,9 @@ use crate::message::poison_pill::PoisonPill;
 use crate::message::recreate::Recreate;
 use crate::message::resume::Resume;
 use crate::message::suspend::Suspend;
-use crate::routing::router_actor::InitRoutedRef;
 use crate::routing::router_config::TRouterConfig;
 
-#[derive(Clone)]
+#[derive(Clone, AsAny)]
 pub struct LocalActorRef {
     pub(crate) inner: Arc<Inner>,
 }
@@ -221,6 +219,10 @@ impl LocalActorRef {
             ActorPath::new_uid()
         };
         let path = ChildActorPath::new(self.path.clone(), name.clone(), uid).into();
+        let children = self.children();
+        if children.contains_key(&name) {
+            return Err(anyhow!("duplicate actor name {}", name));
+        }
         match props.router_config() {
             None => {
                 let inner = Inner {
@@ -232,10 +234,6 @@ impl LocalActorRef {
                 let child_ref = LocalActorRef {
                     inner: inner.into(),
                 };
-                let children = self.children();
-                if children.contains_key(&name) {
-                    return Err(anyhow!("duplicate actor name {}", name));
-                }
                 self.cell.insert_child(name, child_ref.clone());
                 if start {
                     (props.spawner)(child_ref.clone().into(), mailbox, self.system(), props.clone());
@@ -246,26 +244,13 @@ impl LocalActorRef {
                 }
             }
             Some(router_config) => {
-                let router_config_clone = router_config.clone();
-                let router_actor = if name_is_none {
-                    self.system.spawn_anonymous_actor(Props::create(move |_| router_config_clone.create_router_actor()))?
+                let router_config = router_config.clone();
+                let router_actor_props = Props::create(move |_| router_config.create_router_actor(props.clone()));
+                if name_is_none {
+                    self.attach_child(router_actor_props, None, start)
                 } else {
-                    self.system.spawn_actor(Props::create(move |_| router_config_clone.create_router_actor()), name)?
-                };
-                let router = router_config.create_router(self.system.clone());
-                let inner = crate::actor::routed_actor_ref::Inner {
-                    system: self.system.clone(),
-                    path,
-                    router_actor: router_actor.clone(),
-                    router: ArcSwap::new(router.into()),
-                    router_props: props,
-                    parent: self.clone().into(),
-                };
-                let routed_ref = RoutedActorRef {
-                    inner: Arc::new(inner),
-                };
-                router_actor.cast_without_sender(InitRoutedRef(routed_ref.clone()));
-                Ok((routed_ref.into(), None))
+                    self.attach_child(router_actor_props, Some(name), start)
+                }
             }
         }
     }

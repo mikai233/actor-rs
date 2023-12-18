@@ -24,7 +24,7 @@ mod indirect_actor_producer;
 pub mod actor;
 
 #[async_trait]
-pub trait Actor: Send + 'static {
+pub trait Actor: Send + Any {
     #[allow(unused_variables)]
     async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         Ok(())
@@ -48,6 +48,7 @@ pub trait Actor: Send + 'static {
         default_strategy()
     }
 
+    #[allow(unused_variables)]
     fn handle_message(&mut self, context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {
         Some(message)
     }

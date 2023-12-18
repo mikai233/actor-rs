@@ -5,6 +5,8 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use dashmap::mapref::one::Ref;
 
+use actor_derive::AsAny;
+
 use crate::{DynMessage, MessageType};
 use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
@@ -12,7 +14,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::terminate::Terminate;
 
-#[derive(Clone)]
+#[derive(Clone, AsAny)]
 pub struct VirtualPathContainer {
     pub(crate) inner: Arc<Inner>,
 }

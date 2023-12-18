@@ -5,13 +5,13 @@ use std::sync::Arc;
 use dyn_clone::DynClone;
 use tracing::error;
 
-use actor_derive::EmptyCodec;
+use actor_derive::{AsAny, EmptyCodec};
 
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_factory::ActorRefFactory;
+use crate::actor::actor_system::ActorSystem;
 use crate::DynMessage;
 use crate::ext::as_any::AsAny;
-use crate::ext::option_ext::OptionExt;
 
 pub enum MaybeRef<'a, T> {
     Ref(&'a T),
@@ -50,23 +50,21 @@ impl Router {
         }
     }
 
-    pub fn route(&self, message: DynMessage, sender: Option<ActorRef>) {
+    pub fn route(&self, system: &ActorSystem, message: DynMessage, sender: Option<ActorRef>) {
         if message.boxed.as_any().is::<Broadcast>() {
             let broadcast = message.boxed.into_any().downcast::<Broadcast>().unwrap();
             let message = broadcast.message;
             SeveralRoutees { routees: self.routees.clone() }.send(message, sender);
         } else {
-            self.send(&self.logic.select(&message, &self.routees), message, sender);
+            self.send(&system, &self.logic.select(&message, &self.routees), message, sender);
         }
     }
 
-    fn send(&self, routee: &Box<dyn Routee>, message: DynMessage, sender: Option<ActorRef>) {
-        if (&*routee).as_any_ref().is::<NoRoutee>() {
-            sender.into_foreach(|sender| {
-                let provider = sender.system().provider();
-                let dead_letters = provider.dead_letters();
-                dead_letters.tell(message, Some(sender.clone()));
-            });
+    fn send(&self, system: &ActorSystem, routee: &Box<dyn Routee>, message: DynMessage, sender: Option<ActorRef>) {
+        if routee.as_any().is::<NoRoutee>() {
+            let provider = system.provider();
+            let dead_letters = provider.dead_letters();
+            dead_letters.tell(message, sender);
         } else {
             routee.send(message, sender);
         }
@@ -107,11 +105,11 @@ pub trait RoutingLogic: Send + Sync + DynClone + 'static {
 
 dyn_clone::clone_trait_object!(RoutingLogic);
 
-pub trait Routee: Send + Sync + Any {
+pub trait Routee: Send + Sync + Any + AsAny {
     fn send(&self, message: DynMessage, sender: Option<ActorRef>);
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, AsAny)]
 pub struct ActorRefRoutee(pub ActorRef);
 
 impl Deref for ActorRefRoutee {
@@ -131,14 +129,14 @@ impl Routee for ActorRefRoutee {
 #[derive(Debug, Clone)]
 pub struct ActorSelectionRoutee;//TODO
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, AsAny)]
 pub struct NoRoutee;
 
 impl Routee for NoRoutee {
     fn send(&self, _message: DynMessage, _sender: Option<ActorRef>) {}
 }
 
-#[derive(Clone)]
+#[derive(Clone, AsAny)]
 pub struct SeveralRoutees {
     pub routees: Vec<Arc<Box<dyn Routee>>>,
 }

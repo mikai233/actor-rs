@@ -1,8 +1,9 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use dyn_clone::DynClone;
 use enum_dispatch::enum_dispatch;
+use tracing::trace;
 
 use actor_derive::{EmptyCodec, UntypedMessageEmptyCodec};
 
@@ -10,23 +11,25 @@ use crate::{DynMessage, Message, MessageType};
 use crate::actor::actor_ref::ActorRefExt;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::{ActorContext, Context};
+use crate::actor::context::ActorContext;
 use crate::actor::fault_handing::SupervisorStrategy;
 use crate::actor::props::Props;
 use crate::ext::option_ext::OptionExt;
 use crate::routing::group_router_config::GroupRouterConfig;
 use crate::routing::pool_router_config::PoolRouterConfig;
 use crate::routing::router::{ActorRefRoutee, Routee, Router};
-use crate::routing::router_actor::{RouterActor, WatchRouteeTerminated};
+use crate::routing::router_actor::{TRouterActor, WatchRouteeTerminated};
 
 #[enum_dispatch(RouterConfig)]
 pub trait TRouterConfig: Send + Sync + DynClone + 'static {
-    fn create_router(&self, system: ActorSystem) -> Router;
-    fn create_router_actor(&self) -> RouterActor;
+    fn create_router(&self) -> Router;
+    fn create_router_actor(&self, routee_props: Props) -> Box<dyn TRouterActor>;
     fn is_management_message(&self, message: &DynMessage) -> bool {
         if matches!(message.message_type, MessageType::System)
             || message.name == std::any::type_name::<WatchRouteeTerminated>()
-            || message.name == std::any::type_name::<RouterMessage>() {
+            || message.name == std::any::type_name::<GetRoutees>()
+            || message.name == std::any::type_name::<AddRoutee>()
+            || message.name == std::any::type_name::<RemoveRoutee>() {
             true
         } else {
             false
@@ -68,46 +71,17 @@ pub enum RouterConfig {
     GroupRouterConfig,
 }
 
-#[derive(EmptyCodec)]
-pub enum RouterMessage {
-    GetRoutees,
-    AddRoutee(Arc<Box<dyn Routee>>),
-    RemoveRoutee(Arc<Box<dyn Routee>>),
-}
+#[derive(Debug, EmptyCodec)]
+pub struct GetRoutees;
 
-impl Debug for RouterMessage {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match &self {
-            RouterMessage::GetRoutees => f.debug_struct("GetRoutees")
-                .finish(),
-            RouterMessage::AddRoutee(_) => f.debug_tuple("AddRoutee")
-                .finish(),
-            RouterMessage::RemoveRoutee(_) => f.debug_tuple("RemoveRoutee")
-                .finish(),
-        }
-    }
-}
-
-impl Message for RouterMessage {
-    type A = RouterActor;
+impl Message for GetRoutees {
+    type A = Box<dyn TRouterActor>;
 
     fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let routed_ref = unsafe { actor.routed_ref.assume_init_ref() };
-        match *self {
-            RouterMessage::GetRoutees => {
-                let routees = routed_ref.router.load().routees.clone();
-                let resp = GetRouteesResp { routees };
-                context.sender().foreach(|sender| {
-                    sender.resp(resp);
-                })
-            }
-            RouterMessage::AddRoutee(routee) => {
-                routed_ref.add_routees(vec![routee]);
-            }
-            RouterMessage::RemoveRoutee(routee) => {
-                routed_ref.remove_routee(routee);
-            }
-        }
+        let routees = actor.router().routees.clone();
+        context.sender.foreach(move |sender| {
+            sender.resp(GetRouteesResp { routees });
+        });
         Ok(())
     }
 }
@@ -115,4 +89,35 @@ impl Message for RouterMessage {
 #[derive(UntypedMessageEmptyCodec)]
 pub struct GetRouteesResp {
     pub routees: Vec<Arc<Box<dyn Routee>>>,
+}
+
+#[derive(EmptyCodec)]
+pub struct AddRoutee {
+    pub routee: Arc<Box<dyn Routee>>,
+}
+
+impl Message for AddRoutee {
+    type A = Box<dyn TRouterActor>;
+
+    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        let Self { routee } = *self;
+        actor.router().routees.push(routee);
+        trace!("{} add routee", context.myself);
+        Ok(())
+    }
+}
+
+#[derive(EmptyCodec)]
+pub struct RemoveRoutee {
+    pub routee: Arc<Box<dyn Routee>>,
+}
+
+impl Message for RemoveRoutee {
+    type A = Box<dyn TRouterActor>;
+
+    fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        let Self { routee: remove_routee } = *self;
+        actor.router().routees.retain(|routee| !Arc::ptr_eq(&routee, &remove_routee));
+        Ok(())
+    }
 }

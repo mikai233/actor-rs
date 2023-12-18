@@ -9,6 +9,7 @@ use crate::metadata::{CodecType, MessageImpl};
 
 mod message;
 mod metadata;
+mod as_any;
 
 #[proc_macro_derive(EmptyCodec)]
 pub fn empty_codec_derive(input: TokenStream) -> TokenStream {
@@ -80,6 +81,12 @@ pub fn cloneable_untyped_message_codec_derive(input: TokenStream) -> TokenStream
 pub fn cloneable_untyped_message_empty_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::UntypedMessage, CodecType::NoneSerde, true).into()
+}
+
+#[proc_macro_derive(AsAny)]
+pub fn as_any(input: TokenStream) -> TokenStream {
+    let ast: DeriveInput = syn::parse(input).unwrap();
+    as_any::expand(ast).into()
 }
 
 pub(crate) fn with_crate(path: syn::Path) -> proc_macro2::TokenStream {

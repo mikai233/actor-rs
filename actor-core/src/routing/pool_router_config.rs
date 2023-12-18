@@ -5,7 +5,7 @@ use crate::actor::context::ActorContext;
 use crate::actor::fault_handing::SupervisorStrategy;
 use crate::actor::props::Props;
 use crate::routing::router::{Routee, Router};
-use crate::routing::router_actor::RouterActor;
+use crate::routing::router_actor::TRouterActor;
 use crate::routing::router_config::{Pool, TRouterConfig};
 
 #[derive(Clone)]
@@ -30,12 +30,12 @@ impl Deref for PoolRouterConfig {
 }
 
 impl TRouterConfig for PoolRouterConfig {
-    fn create_router(&self, system: ActorSystem) -> Router {
-        self.config.create_router(system)
+    fn create_router(&self) -> Router {
+        self.config.create_router()
     }
 
-    fn create_router_actor(&self) -> RouterActor {
-        self.config.create_router_actor()
+    fn create_router_actor(&self, routee_props: Props) -> Box<dyn TRouterActor> {
+        self.config.create_router_actor(routee_props)
     }
 }
 

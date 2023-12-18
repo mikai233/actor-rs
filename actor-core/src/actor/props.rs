@@ -15,7 +15,7 @@ pub type Spawner = Arc<Box<dyn Fn(ActorRef, Mailbox, ActorSystem, Props) + Send 
 #[derive(Clone)]
 pub struct Props {
     pub(crate) spawner: Spawner,
-    pub(crate) router_config: Option<Arc<RouterConfig>>,
+    pub(crate) router_config: Option<RouterConfig>,
     pub(crate) mailbox_size: usize,
     pub(crate) system_size: usize,
     pub(crate) throughput: usize,
@@ -60,11 +60,11 @@ impl Props {
 
     pub fn with_router(&self, r: Option<RouterConfig>) -> Props {
         let mut props = self.clone();
-        props.router_config = r.map(|r| Arc::new(r));
+        props.router_config = r;
         props
     }
 
-    pub fn router_config(&self) -> Option<&Arc<RouterConfig>> {
+    pub fn router_config(&self) -> Option<&RouterConfig> {
         self.router_config.as_ref()
     }
 }

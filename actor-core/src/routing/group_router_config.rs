@@ -1,14 +1,14 @@
 use std::ops::Deref;
-use crate::actor::actor_system::ActorSystem;
 
+use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
 use crate::actor::props::Props;
 use crate::routing::router::{Routee, Router};
-use crate::routing::router_actor::RouterActor;
+use crate::routing::router_actor::TRouterActor;
 use crate::routing::router_config::{Group, TRouterConfig};
 
 #[derive(Clone)]
-pub(crate) struct GroupRouterConfig {
+pub struct GroupRouterConfig {
     config: Box<dyn Group>,
 }
 
@@ -21,12 +21,12 @@ impl Deref for GroupRouterConfig {
 }
 
 impl TRouterConfig for GroupRouterConfig {
-    fn create_router(&self, system: ActorSystem) -> Router {
-        self.config.create_router(system)
+    fn create_router(&self) -> Router {
+        self.config.create_router()
     }
 
-    fn create_router_actor(&self) -> RouterActor {
-        self.config.create_router_actor()
+    fn create_router_actor(&self, routee_props: Props) -> Box<dyn TRouterActor> {
+        self.config.create_router_actor(routee_props)
     }
 }
 

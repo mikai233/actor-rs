@@ -7,6 +7,8 @@ use anyhow::anyhow;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::error::Elapsed;
 
+use actor_derive::AsAny;
+
 use crate::{DynMessage, Message, MessageType, UntypedMessage};
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref::{ActorRef, TActorRef};
@@ -14,7 +16,7 @@ use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::actor_system::ActorSystem;
 
-#[derive(Clone)]
+#[derive(Clone, AsAny)]
 pub struct DeferredActorRef {
     pub(crate) inner: Arc<Inner>,
 }

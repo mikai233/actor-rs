@@ -21,7 +21,7 @@ pub struct SystemEventBus {
 
 impl SystemEventBus {
     pub(crate) fn new(system: &ActorSystem) -> anyhow::Result<Self> {
-        let event_bus = system.system_actor_of(Props::create(|_| EventBusActor::default()), Some("system_event_bus".to_string()))?;
+        let event_bus = system.spawn_system_actor(Props::create(|_| EventBusActor::default()), Some("system_event_bus".to_string()))?;
         Ok(Self {
             event_bus,
         })

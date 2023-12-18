@@ -4,12 +4,14 @@ use std::sync::Arc;
 
 use tracing::info;
 
+use actor_derive::AsAny;
+
 use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_ref::{ActorRef, TActorRef};
 use crate::actor::actor_system::ActorSystem;
 use crate::DynMessage;
 
-#[derive(Clone)]
+#[derive(Clone, AsAny)]
 pub struct DeadLetterActorRef {
     pub(crate) inner: Arc<Inner>,
 }

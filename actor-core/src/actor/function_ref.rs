@@ -2,12 +2,14 @@ use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
 
+use actor_derive::AsAny;
+
 use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_ref::{ActorRef, TActorRef};
 use crate::actor::actor_system::ActorSystem;
 use crate::DynMessage;
 
-#[derive(Clone)]
+#[derive(Clone, AsAny)]
 pub struct FunctionRef {
     pub(crate) inner: Arc<Inner>,
 }

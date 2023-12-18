@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use actor_derive::AsAny;
+
 use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
@@ -7,7 +9,7 @@ use crate::actor::address::Address;
 use crate::actor::local_ref::LocalActorRef;
 use crate::actor::props::Props;
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, AsAny)]
 pub(crate) struct EmptyActorRefProvider;
 
 impl TActorRefProvider for EmptyActorRefProvider {

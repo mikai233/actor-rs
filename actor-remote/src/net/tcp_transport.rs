@@ -78,7 +78,7 @@ impl TransportActor {
     pub fn new(system: ActorSystem) -> Self {
         let provider = system.provider();
         let registration = (&***provider)
-            .as_any_ref()
+            .as_any()
             .downcast_ref::<RemoteActorRefProvider>()
             .unwrap()
             .registration

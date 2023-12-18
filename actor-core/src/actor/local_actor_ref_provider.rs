@@ -3,6 +3,8 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use dashmap::DashMap;
 
+use actor_derive::AsAny;
+
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_path::root_actor_path::RootActorPath;
 use crate::actor::actor_ref::ActorRef;
@@ -21,7 +23,7 @@ use crate::cell::ActorCell;
 use crate::ext::base64;
 use crate::ext::option_ext::OptionExt;
 
-#[derive(Debug)]
+#[derive(Debug, AsAny)]
 pub struct LocalActorRefProvider {
     root_path: ActorPath,
     root_guardian: LocalActorRef,
@@ -160,13 +162,13 @@ impl TActorRefProvider for LocalActorRefProvider {
                 Some(peek) if peek.as_str() == "temp" => {
                     let mut iter = elements.into_iter();
                     iter.next();
-                    TActorRef::get_child(&self.temp_container, iter.collect()).unwrap_or_else(|| self.dead_letters.clone())
+                    TActorRef::get_child(&self.temp_container, iter.collect()).unwrap_or_else(|| self.dead_letters().clone())
                 }
                 Some(peek) if peek.as_str() == "dead_letters" => {
                     self.dead_letters.clone()
                 }
                 Some(peek) if self.extra_names.contains_key(*peek) => {
-                    self.extra_names.get(*peek).map(|r| r.value().clone()).unwrap_or_else(|| self.dead_letters.clone())
+                    self.extra_names.get(*peek).map(|r| r.value().clone()).unwrap_or_else(|| self.dead_letters().clone())
                 }
                 _ => {
                     self.root_guardian()

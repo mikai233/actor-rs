@@ -30,7 +30,7 @@ impl ActorSystemExtension {
             .get(name)
             .and_then(|e| {
                 let e = e.try_map::<_, E>(|e| {
-                    e.deref().as_any_ref().downcast_ref::<E>()
+                    e.deref().as_any().downcast_ref::<E>()
                 });
                 match e {
                     Ok(r) => Some(r),
@@ -82,10 +82,14 @@ impl Debug for ActorSystemExtension {
 
 #[cfg(test)]
 mod test {
+    use actor_derive::AsAny;
+
     use crate::actor::extension::ActorSystemExtension;
 
+    #[derive(AsAny)]
     struct ExtensionA;
 
+    #[derive(AsAny)]
     struct ExtensionB;
 
     #[test]

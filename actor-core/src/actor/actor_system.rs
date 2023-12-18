@@ -167,7 +167,7 @@ impl ActorSystem {
         self.runtime().spawn(future)
     }
 
-    pub fn system_actor_of(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
+    pub fn spawn_system_actor(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
         self.system_guardian().attach_child(props, name, true).map(|(actor, _)| actor)
     }
 
@@ -190,7 +190,7 @@ impl ActorSystem {
     }
 
     fn init_scheduler(&self) -> anyhow::Result<()> {
-        let timers = self.system_actor_of(Props::create(|context| TimerSchedulerActor::new(context.myself.clone())), Some("timers".to_string()))?;
+        let timers = self.spawn_system_actor(Props::create(|context| TimerSchedulerActor::new(context.myself.clone())), Some("timers".to_string()))?;
         let scheduler = TimerScheduler::with_actor(timers);
         self.scheduler.store(Some(scheduler.into()));
         Ok(())
