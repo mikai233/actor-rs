@@ -1,10 +1,10 @@
+use bincode::error::DecodeError;
 use dyn_clone::DynClone;
 
-use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::DynMessage;
 
 pub trait MessageDecoder: Send + Sync + DynClone + 'static {
-    fn decode(&self, provider: &ActorRefProvider, bytes: &[u8]) -> anyhow::Result<DynMessage>;
+    fn decode(&self, bytes: &[u8]) -> Result<DynMessage, DecodeError>;
 }
 
 dyn_clone::clone_trait_object!(MessageDecoder);

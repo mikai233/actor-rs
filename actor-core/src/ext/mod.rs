@@ -1,8 +1,9 @@
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use anyhow::{anyhow, Ok};
+use bincode::{BorrowDecode, Decode, Encode};
+use bincode::error::{DecodeError, EncodeError};
 use bytes::BytesMut;
-use serde::{Deserialize, Serialize};
 use tracing_subscriber::fmt::time::LocalTime;
 
 pub mod option_ext;
@@ -25,20 +26,12 @@ pub fn read_u32(src: &BytesMut, offset: usize) -> anyhow::Result<u32> {
     Ok(num_u32)
 }
 
-pub fn encode_bytes<T>(value: &T) -> anyhow::Result<Vec<u8>>
-    where
-        T: Serialize,
-{
-    let bytes = bincode::serialize(value)?;
-    Ok(bytes)
+pub fn encode_bytes<T>(value: &T) -> Result<Vec<u8>, EncodeError> where T: Encode {
+    bincode::encode_to_vec(value, bincode::config::standard())
 }
 
-pub fn decode_bytes<'a, T>(bytes: &'a [u8]) -> anyhow::Result<T>
-    where
-        T: Deserialize<'a>,
-{
-    let value = bincode::deserialize(bytes)?;
-    Ok(value)
+pub fn decode_bytes<T>(bytes: &[u8]) -> Result<T, DecodeError> where T: Decode {
+    bincode::decode_from_slice(bytes, bincode::config::standard()).map(|(t, _)| t)
 }
 
 pub fn init_logger(level: tracing::Level) {

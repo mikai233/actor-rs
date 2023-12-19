@@ -1,9 +1,9 @@
 use std::fmt::{Display, Formatter};
 use std::net::SocketAddrV4;
 
-use serde::{Deserialize, Serialize};
+use bincode::{Decode, Encode};
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Encode, Decode, )]
 pub struct Address {
     pub protocol: String,
     pub system: String,

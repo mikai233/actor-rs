@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use bincode::{Decode, Encode};
 use tracing::debug;
 
 use actor_derive::SystemMessageCodec;
@@ -8,7 +8,7 @@ use crate::{Actor, SystemMessage};
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
 
-#[derive(Debug, Serialize, Deserialize, SystemMessageCodec)]
+#[derive(Debug, Encode, Decode, SystemMessageCodec)]
 pub struct PoisonPill;
 
 #[async_trait]

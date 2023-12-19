@@ -1,12 +1,12 @@
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use bincode::{Decode, Encode};
 
 use actor_derive::SystemMessageCodec;
 
 use crate::{Actor, SystemMessage};
 use crate::actor::context::ActorContext;
 
-#[derive(Serialize, Deserialize, SystemMessageCodec)]
+#[derive(Encode, Decode, SystemMessageCodec)]
 pub struct Terminate;
 
 #[async_trait]

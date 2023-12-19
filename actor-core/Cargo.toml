@@ -10,7 +10,6 @@ actor-derive = { path = "../actor-derive" }
 tokio = { workspace = true, features = ["full"] }
 tokio-util = { workspace = true, features = ["time"] }
 enum_dispatch = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
 futures = { workspace = true }
 etcd-client = { workspace = true }

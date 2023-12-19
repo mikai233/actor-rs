@@ -2,6 +2,7 @@ use std::any::Any;
 use std::fmt::{Debug, Formatter};
 
 use async_trait::async_trait;
+use bincode::error::EncodeError;
 
 use crate::{Actor, AsyncMessage, CodecMessage, DynMessage, Message, MessageType};
 use crate::actor::context::ActorContext;
@@ -43,7 +44,7 @@ impl<A> CodecMessage for UserDelegate<A> where A: 'static + Actor + Send {
         None
     }
 
-    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         self.message.encode()
     }
 
@@ -106,7 +107,7 @@ impl<A> CodecMessage for AsyncUserDelegate<A> where A: 'static + Actor + Send {
         None
     }
 
-    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         self.message.encode()
     }
 

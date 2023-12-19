@@ -133,7 +133,7 @@ mod test {
     use std::time::Duration;
 
     use async_trait::async_trait;
-    use serde::{Deserialize, Serialize};
+    use bincode::{Decode, Encode};
     use tracing::info;
 
     use actor_core::{Actor, Message};
@@ -150,7 +150,7 @@ mod test {
 
     struct PingPongActor;
 
-    #[derive(Serialize, Deserialize, MessageCodec)]
+    #[derive(Encode, Decode, MessageCodec)]
     #[actor(PingPongActor)]
     struct Ping;
 
@@ -168,7 +168,7 @@ mod test {
         }
     }
 
-    #[derive(Serialize, Deserialize, MessageCodec)]
+    #[derive(Encode, Decode, MessageCodec)]
     #[actor(PingPongActor)]
     struct Pong;
 

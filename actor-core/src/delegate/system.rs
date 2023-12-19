@@ -1,6 +1,7 @@
 use std::any::Any;
 
 use async_trait::async_trait;
+use bincode::error::EncodeError;
 
 use crate::{Actor, CodecMessage, DynMessage, MessageType, SystemMessage};
 use crate::actor::context::ActorContext;
@@ -33,7 +34,7 @@ impl CodecMessage for SystemDelegate {
         None
     }
 
-    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         self.message.encode()
     }
 

@@ -3,6 +3,10 @@ use std::fmt::{Debug, Formatter};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
+use bincode::{Decode, Encode};
+use bincode::de::Decoder;
+use bincode::enc::Encoder;
+use bincode::error::EncodeError;
 use tracing::info;
 
 use actor::decoder::MessageDecoder;
@@ -58,7 +62,7 @@ pub trait CodecMessage: Any + Send {
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
     fn as_any(&self) -> &dyn Any;
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized;
-    fn encode(&self) -> Option<anyhow::Result<Vec<u8>>>;
+    fn encode(&self) -> Result<Vec<u8>, EncodeError>;
     fn dyn_clone(&self) -> Option<DynMessage>;
 }
 
@@ -82,7 +86,7 @@ pub trait SystemMessage: CodecMessage {
 
 pub trait UntypedMessage: CodecMessage {}
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Encode, Decode)]
 pub enum MessageType {
     User,
     AsyncUser,

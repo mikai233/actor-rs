@@ -10,6 +10,5 @@ actor-core = { path = "../actor-core" }
 actor-derive = { path = "../actor-derive" }
 tokio = { workspace = true, features = ["full"] }
 anyhow = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
 async-trait = { workspace = true }
 tracing = { workspace = true }

@@ -5,11 +5,22 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::Arc;
 
+use bincode::{BorrowDecode, Decode, Encode};
+use bincode::de::{BorrowDecoder, Decoder};
+use bincode::enc::Encoder;
+use bincode::error::{DecodeError, EncodeError};
+use tokio::task_local;
+
 use crate::{AsyncMessage, DynMessage, Message, SystemMessage, UntypedMessage};
 use crate::actor::actor_path::{ActorPath, TActorPath};
+use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::local_ref::LocalActorRef;
 use crate::ext::as_any::AsAny;
+
+task_local! {
+    pub static PROVIDER: Arc<ActorRefProvider>;
+}
 
 pub trait TActorRef: Debug + Send + Sync + Any + AsAny {
     fn system(&self) -> &ActorSystem;
@@ -129,6 +140,33 @@ impl Debug for ActorRef {
         f.debug_struct("ActorRef")
             .field("path", self.path())
             .finish_non_exhaustive()
+    }
+}
+
+impl Encode for ActorRef {
+    fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
+        let path = self.path().to_serialization_format();
+        Encode::encode(&path, encoder)
+    }
+}
+
+impl Decode for ActorRef {
+    fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
+        let path: String = Decode::decode(decoder)?;
+        let actor_ref = PROVIDER.with(|provider| {
+            provider.resolve_actor_ref(&path)
+        });
+        Ok(actor_ref)
+    }
+}
+
+impl<'de> BorrowDecode<'de> for ActorRef {
+    fn borrow_decode<D: BorrowDecoder<'de>>(decoder: &mut D) -> Result<Self, DecodeError> {
+        let path: String = Decode::decode(decoder)?;
+        let actor_ref = PROVIDER.with(|provider| {
+            provider.resolve_actor_ref(&path)
+        });
+        Ok(actor_ref)
     }
 }
 

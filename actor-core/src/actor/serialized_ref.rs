@@ -1,10 +1,12 @@
-use crate::actor::actor_path::TActorPath;
 use std::fmt::{Display, Formatter};
-use serde::{Deserialize, Serialize};
+
+use bincode::{Decode, Encode};
+
 use crate::actor::actor_path::ActorPath;
+use crate::actor::actor_path::TActorPath;
 use crate::actor::actor_ref::ActorRef;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Encode, Decode, )]
 pub struct SerializedActorRef {
     pub path: String,
 }

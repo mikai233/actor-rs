@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use bincode::{Decode, Encode};
 use tracing::trace;
 
 use actor_derive::SystemMessageCodec;
@@ -8,7 +8,7 @@ use crate::{Actor, SystemMessage};
 use crate::actor::context::ActorContext;
 use crate::actor::state::ActorState;
 
-#[derive(Debug, Serialize, Deserialize, SystemMessageCodec)]
+#[derive(Debug, Encode, Decode, SystemMessageCodec)]
 pub struct Recreate;
 
 #[async_trait]

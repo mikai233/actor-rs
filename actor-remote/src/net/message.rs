@@ -5,14 +5,14 @@ use std::pin::Pin;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use serde::{Deserialize, Serialize};
+use bincode::{Decode, Encode};
 use stubborn_io::{ReconnectOptions, StubbornTcpStream};
 use tokio::sync::mpsc::error::TrySendError;
 use tokio_util::codec::Framed;
 use tracing::{debug, error, info, warn};
 
 use actor_core::actor::actor_path::TActorPath;
-use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::actor::actor_ref::{ActorRef, ActorRefExt, PROVIDER};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::serialized_ref::SerializedActorRef;
 use actor_core::Message;
@@ -29,7 +29,7 @@ pub struct RemoteEnvelope {
     pub target: ActorRef,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Encode, Decode)]
 pub struct RemotePacket {
     pub packet: IDPacket,
     pub sender: Option<SerializedActorRef>,
@@ -142,8 +142,10 @@ impl Message for InboundMessage {
         let sender = sender.map(|s| actor.resolve_actor_ref(s));
         let target = actor.resolve_actor_ref(target);
         let reg = &actor.registration;
-        let message = reg.decode(&actor.provider, packet)?;
-        target.tell(message, sender);
+        let message = PROVIDER.sync_scope(actor.provider.clone(), || {
+            reg.decode(packet)
+        });
+        target.tell(message?, sender);
         Ok(())
     }
 }

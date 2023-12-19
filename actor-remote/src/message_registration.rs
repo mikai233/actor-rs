@@ -2,17 +2,16 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 
 use anyhow::anyhow;
-use serde::{Deserialize, Serialize};
+use bincode::{Decode, Encode};
 
 use actor_core::{CodecMessage, DynMessage};
-use actor_core::actor::actor_ref_provider::ActorRefProvider;
 use actor_core::actor::decoder::MessageDecoder;
 use actor_core::message::death_watch_notification::DeathWatchNotification;
 use actor_core::message::terminate::Terminate;
 use actor_core::message::unwatch::Unwatch;
 use actor_core::message::watch::Watch;
 
-#[derive(Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Hash, Encode, Decode)]
 pub struct IDPacket {
     id: u32,
     bytes: Vec<u8>,
@@ -62,7 +61,7 @@ impl MessageRegistration {
 
     pub(crate) fn encode(&self, name: &'static str, message: &dyn CodecMessage) -> anyhow::Result<IDPacket> {
         let id = *self.name_id.get(name).ok_or(anyhow!("message {} not register", name))?;
-        let bytes = message.encode().ok_or(anyhow!("{} encoder is empty", name))??;
+        let bytes = message.encode()?;
         let packet = IDPacket {
             id,
             bytes,
@@ -70,10 +69,11 @@ impl MessageRegistration {
         Ok(packet)
     }
 
-    pub(crate) fn decode(&self, provider: &ActorRefProvider, packet: IDPacket) -> anyhow::Result<DynMessage> {
+    pub(crate) fn decode(&self, packet: IDPacket) -> anyhow::Result<DynMessage> {
         let id = packet.id;
         let decoder = self.decoder.get(&id).ok_or(anyhow!("message {} not register", id))?;
-        decoder.decode(provider, &packet.bytes)
+        let message = decoder.decode(&packet.bytes)?;
+        Ok(message)
     }
 
     fn register_all_system_message(&mut self) {
