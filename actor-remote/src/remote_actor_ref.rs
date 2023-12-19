@@ -49,8 +49,8 @@ impl Debug for RemoteActorRef {
 }
 
 impl TActorRef for RemoteActorRef {
-    fn system(&self) -> ActorSystem {
-        self.system.clone()
+    fn system(&self) -> &ActorSystem {
+        &self.system
     }
 
     fn path(&self) -> &ActorPath {
@@ -100,7 +100,7 @@ impl TActorRef for RemoteActorRef {
             Some("..") => None,
             Some(_) => {
                 let inner = Inner {
-                    system: self.system(),
+                    system: self.system().clone(),
                     path: self.path().descendant(names),
                     transport: self.transport.clone(),
                     registration: self.registration.clone(),

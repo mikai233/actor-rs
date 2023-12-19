@@ -39,8 +39,8 @@ impl Debug for FunctionRef {
 }
 
 impl TActorRef for FunctionRef {
-    fn system(&self) -> ActorSystem {
-        self.system.clone()
+    fn system(&self) -> &ActorSystem {
+        &self.system
     }
 
     fn path(&self) -> &ActorPath {

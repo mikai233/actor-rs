@@ -46,8 +46,8 @@ impl Debug for VirtualPathContainer {
 }
 
 impl TActorRef for VirtualPathContainer {
-    fn system(&self) -> ActorSystem {
-        self.system.clone()
+    fn system(&self) -> &ActorSystem {
+        &self.system
     }
 
     fn path(&self) -> &ActorPath {

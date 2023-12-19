@@ -104,7 +104,7 @@ impl TActorRefProvider for RemoteActorRefProvider {
             self.local.resolve_actor_ref_of_path(path)
         } else {
             let inner = Inner {
-                system: self.transport.system(),
+                system: self.transport.system().clone(),
                 path: path.clone(),
                 transport: Arc::new(self.transport.clone()),
                 registration: self.registration.clone(),

@@ -1,4 +1,5 @@
 use std::time::Duration;
+
 use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -107,8 +108,8 @@ impl Actor for TestActor {
     }
 
     fn handle_message(&mut self, _context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {
-        if message.name == std::any::type_name::<LocalMessage>() {
-            match message.downcast_into_raw::<TestActor, LocalMessage>() {
+        if message.is::<LocalMessage>() {
+            match message.downcast_into_message::<TestActor, LocalMessage>() {
                 Ok(message) => {
                     let fix = LocalMessageFix { message };
                     Some(DynMessage::user(fix))

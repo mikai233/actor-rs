@@ -122,9 +122,7 @@ impl DynMessage {
     pub fn clone(&self) -> Option<DynMessage> {
         self.boxed.dyn_clone()
     }
-}
 
-impl DynMessage {
     pub fn user<M>(message: M) -> Self where M: Message {
         let delegate = UserDelegate::new(message);
         DynMessage::new(delegate.name, MessageType::User, delegate)
@@ -145,10 +143,17 @@ impl DynMessage {
         DynMessage::new(name, MessageType::Untyped, message)
     }
 
+    /// 判断[`DynMessage`]的实际消息类型，大部分消息都会包装一层代理层，用于downcast到具体的类型，因为Rust不允许从一个trait object
+    /// downcast到另外一个trait object，所以要包装一层具体的类型，这里直接取[`DynMessage::name`]进行比较，这里存放的是原始的消息名称
+    pub fn is<M>(&self) -> bool where M: CodecMessage {
+        let name = std::any::type_name::<M>();
+        self.name() == name
+    }
+
     pub fn downcast_into_delegate<A>(self) -> anyhow::Result<MessageDelegate<A>> where A: Actor {
-        let name = self.name();
-        let message = self.boxed.into_any();
-        let delegate = match self.message_type {
+        let Self { name, message_type, boxed } = self;
+        let message = boxed.into_any();
+        let delegate = match message_type {
             MessageType::User => {
                 message.downcast::<UserDelegate<A>>().map(|m| MessageDelegate::User(m))
             }
@@ -172,7 +177,7 @@ impl DynMessage {
         }
     }
 
-    pub fn downcast_into_raw<A, M>(self) -> anyhow::Result<Box<M>> where A: Actor, M: Message {
+    pub fn downcast_into_message<A, M>(self) -> anyhow::Result<Box<M>> where A: Actor, M: Message {
         let name = self.name();
         let delegate = self.downcast_into_delegate::<A>()?;
         delegate.into_any().downcast::<M>().map_err(|_| anyhow!("incorrect downcast message {} to {}", name, std::any::type_name::<M>()))

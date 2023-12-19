@@ -30,4 +30,12 @@ impl<A> MessageDelegate<A> where A: Actor {
             MessageDelegate::System(m) => m.message.into_any(),
         }
     }
+
+    pub fn as_any(&self) -> &dyn Any {
+        match self {
+            MessageDelegate::User(m) => m.message.as_any(),
+            MessageDelegate::AsyncUser(m) => m.message.as_any(),
+            MessageDelegate::System(m) => m.message.as_any(),
+        }
+    }
 }

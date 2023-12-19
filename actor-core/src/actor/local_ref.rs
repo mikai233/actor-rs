@@ -59,8 +59,8 @@ impl Debug for LocalActorRef {
 }
 
 impl TActorRef for LocalActorRef {
-    fn system(&self) -> ActorSystem {
-        self.system.clone()
+    fn system(&self) -> &ActorSystem {
+        &self.system
     }
 
     fn path(&self) -> &ActorPath {
@@ -226,7 +226,7 @@ impl LocalActorRef {
         match props.router_config() {
             None => {
                 let inner = Inner {
-                    system: self.system(),
+                    system: self.system().clone(),
                     path,
                     sender,
                     cell: ActorCell::new(Some(self.clone().into())),
@@ -236,7 +236,7 @@ impl LocalActorRef {
                 };
                 self.cell.insert_child(name, child_ref.clone());
                 if start {
-                    (props.spawner)(child_ref.clone().into(), mailbox, self.system(), props.clone());
+                    (props.spawner)(child_ref.clone().into(), mailbox, self.system().clone(), props.clone());
                     Ok((child_ref.into(), None))
                 } else {
                     let deferred_spawn = DeferredSpawn::new(child_ref.clone().into(), mailbox, props);

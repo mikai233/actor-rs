@@ -12,7 +12,7 @@ use crate::actor::local_ref::LocalActorRef;
 use crate::ext::as_any::AsAny;
 
 pub trait TActorRef: Debug + Send + Sync + Any + AsAny {
-    fn system(&self) -> ActorSystem;
+    fn system(&self) -> &ActorSystem;
     fn path(&self) -> &ActorPath;
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>);
     fn stop(&self);
@@ -129,5 +129,16 @@ impl Debug for ActorRef {
         f.debug_struct("ActorRef")
             .field("path", self.path())
             .finish_non_exhaustive()
+    }
+}
+
+pub(crate) fn get_child_default(actor_ref: impl Into<ActorRef>, mut names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef> {
+    match names.next() {
+        None => {
+            Some(actor_ref.into())
+        }
+        Some(_) => {
+            None
+        }
     }
 }

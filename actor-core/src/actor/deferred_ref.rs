@@ -11,7 +11,7 @@ use actor_derive::AsAny;
 
 use crate::{DynMessage, Message, MessageType, UntypedMessage};
 use crate::actor::actor_path::{ActorPath, TActorPath};
-use crate::actor::actor_ref::{ActorRef, TActorRef};
+use crate::actor::actor_ref::{ActorRef, get_child_default, TActorRef};
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::actor_system::ActorSystem;
@@ -52,8 +52,8 @@ impl Debug for DeferredActorRef {
 }
 
 impl TActorRef for DeferredActorRef {
-    fn system(&self) -> ActorSystem {
-        self.system.clone()
+    fn system(&self) -> &ActorSystem {
+        &self.system
     }
 
     fn path(&self) -> &ActorPath {
@@ -70,15 +70,8 @@ impl TActorRef for DeferredActorRef {
         Some(&self.parent)
     }
 
-    fn get_child(&self, mut names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef> {
-        match names.next() {
-            None => {
-                Some(self.clone().into())
-            }
-            Some(_) => {
-                None
-            }
-        }
+    fn get_child(&self, names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef> {
+        get_child_default(self.clone(), names)
     }
 }
 
@@ -121,7 +114,7 @@ pub struct Patterns;
 impl Patterns {
     pub async fn ask<Req, Resp>(actor: &ActorRef, message: Req, timeout: Duration) -> anyhow::Result<Resp> where Req: Message, Resp: UntypedMessage {
         let req_name = std::any::type_name::<Req>();
-        let (deferred, rx) = DeferredActorRef::new(actor.system(), actor.path().name().to_string(), req_name);
+        let (deferred, rx) = DeferredActorRef::new(actor.system().clone(), actor.path().name().to_string(), req_name);
         match deferred.ask(actor, rx, DynMessage::user(message), timeout).await {
             Ok(Some(resp)) => {
                 let message = resp.boxed.into_any();

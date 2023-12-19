@@ -39,8 +39,8 @@ impl Debug for DeadLetterActorRef {
 }
 
 impl TActorRef for DeadLetterActorRef {
-    fn system(&self) -> ActorSystem {
-        self.system.clone()
+    fn system(&self) -> &ActorSystem {
+        &self.system
     }
 
     fn path(&self) -> &ActorPath {
