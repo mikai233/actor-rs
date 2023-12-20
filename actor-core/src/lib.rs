@@ -10,6 +10,7 @@ use bincode::error::EncodeError;
 use tracing::info;
 
 use actor::decoder::MessageDecoder;
+use actor_derive::MessageCodec;
 
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
@@ -189,7 +190,7 @@ impl DynMessage {
 }
 
 #[derive(Debug)]
-pub(crate) struct EmptyTestActor;
+pub struct EmptyTestActor;
 
 #[async_trait]
 impl Actor for EmptyTestActor {
@@ -204,41 +205,39 @@ impl Actor for EmptyTestActor {
     }
 }
 
+#[derive(Debug, Encode, Decode, MessageCodec)]
+#[actor(EmptyTestActor)]
+pub struct EmptyTestMessage;
 
-// #[derive(Debug, Serialize, Deserialize, MessageCodec)]
-// #[actor(EmptyTestActor)]
-// pub(crate) struct EmptyTestMessage;
-//
-// impl Message for EmptyTestMessage {
-//     type A = EmptyTestActor;
-//
-//     fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-//         info!("{} handle {:?}", context.myself(), self);
-//         Ok(())
-//     }
-// }
+impl Message for EmptyTestMessage {
+    type A = EmptyTestActor;
+
+    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+        info!("{} handle {:?}", context.myself(), self);
+        Ok(())
+    }
+}
 
 // #[cfg(test)]
 // mod actor_test {
 //     use std::net::SocketAddrV4;
-//     use std::time::{Duration, SystemTime};
+//     use std::time::Duration;
 //
 //     use anyhow::Ok;
 //     use async_trait::async_trait;
-//     use serde::{Deserialize, Serialize};
 //     use tracing::{info, Level};
 //
 //     use actor_derive::{EmptyCodec, MessageCodec, UntypedMessageCodec};
 //
 //     use crate::{Actor, DynMessage, EmptyTestActor, Message};
-//     use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
-//     use crate::actor_ref::deferred_ref::Patterns;
+//     use crate::actor::actor_ref::ActorRef;
+//     use crate::actor::actor_ref_factory::ActorRefFactory;
+//     use crate::actor::actor_system::ActorSystem;
+//     use crate::actor::config::actor_system_config::ActorSystemConfig;
 //     use crate::actor::context::{ActorContext, Context};
+//     use crate::actor::props::Props;
 //     use crate::ext::init_logger;
 //     use crate::message::terminated::WatchTerminated;
-//     use crate::props::Props;
-//     use crate::system::ActorSystem;
-//     use crate::system::config::ActorSystemConfig;
 //
 //     #[ctor::ctor]
 //     fn init() {
@@ -271,7 +270,7 @@ impl Actor for EmptyTestActor {
 //             }
 //         }
 //
-//         let system = ActorSystem::create(ActorSystemConfig::default()).await?;
+//         let system = ActorSystem::create("mikai233", ActorSystemConfig::default()).await?;
 //         let actor = system.spawn_anonymous_actor(Props::create(|_| DeathWatchActor { depth: 3 }))?;
 //         tokio::time::sleep(Duration::from_secs(1)).await;
 //         system.stop(&actor);
@@ -336,7 +335,12 @@ impl Actor for EmptyTestActor {
 //
 //         fn build_config(addr: SocketAddrV4) -> ActorSystemConfig {
 //             let mut config = ActorSystemConfig::default();
-//             config.addr = addr;
+//             config.with_provider(move |system| {
+//                 let mut registration = MessageRegistration::new();
+//                 registration.register::<Ping>();
+//                 registration.register::<Pong>();
+//                 RemoteActorRefProvider::new(system, registration, addr).map(|(r, d)| (r.into(), d))
+//             });
 //             config
 //         }
 //
@@ -369,50 +373,6 @@ impl Actor for EmptyTestActor {
 //                 Ok(())
 //             }
 //         }
-//     }
-//
-//     #[tokio::test]
-//     async fn test_ask() -> anyhow::Result<()> {
-//         #[derive(Serialize, Deserialize, MessageCodec)]
-//         #[actor(EmptyTestActor)]
-//         struct MessageToAsk;
-//
-//         impl Message for MessageToAsk {
-//             type A = EmptyTestActor;
-//
-//             fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-//                 context.sender().unwrap().resp(MessageToAns {
-//                     content: "hello world".to_string(),
-//                 });
-//                 Ok(())
-//             }
-//         }
-//
-//         #[derive(Serialize, Deserialize, UntypedMessageCodec)]
-//         struct MessageToAns {
-//             content: String,
-//         }
-//
-//         fn build_config(addr: SocketAddrV4) -> ActorSystemConfig {
-//             let mut config = ActorSystemConfig::default();
-//             config.addr = addr;
-//             config.registration.register::<MessageToAsk>();
-//             config.registration.register::<MessageToAns>();
-//             config
-//         }
-//
-//         let system1 = ActorSystem::create(build_config("127.0.0.1:12121".parse()?)).await?;
-//         let system2 = ActorSystem::create(build_config("127.0.0.1:12123".parse()?)).await?;
-//         let actor_a = system1.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
-//         let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
-//         let start = SystemTime::now();
-//         for _ in 0..10000 {
-//             let _: MessageToAns = Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await.unwrap();
-//         }
-//         let end = SystemTime::now();
-//         let cost = end.duration_since(start)?;
-//         info!("cost {:?}", cost);
-//         Ok(())
 //     }
 //
 //     #[tokio::test]

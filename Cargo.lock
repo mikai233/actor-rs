@@ -53,6 +53,7 @@ dependencies = [
  "actor-derive",
  "anyhow",
  "async-trait",
+ "bincode",
  "tokio",
  "tracing",
 ]

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use bincode::{Decode, Encode};
 use tracing::{info, Level};
 
 use actor_core::{Actor, DynMessage, Message};
@@ -41,13 +41,13 @@ struct LocalMessageFix {
 impl Message for LocalMessageFix {
     type A = TestActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         info!("fix logic");
         Ok(())
     }
 }
 
-#[derive(Serialize, Deserialize, MessageCodec)]
+#[derive(Encode, Decode, MessageCodec)]
 #[actor(TestActor)]
 struct RemoteMessage;
 
@@ -66,7 +66,7 @@ struct TestError;
 impl Message for TestError {
     type A = TestActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         context.children().first().foreach(|child| {
             child.cast(TestChildError, ActorRef::no_sender());
         });
@@ -80,7 +80,7 @@ struct TestPanic;
 impl Message for TestPanic {
     type A = TestActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         todo!()
     }
 }
@@ -146,7 +146,7 @@ struct TestChildError;
 impl Message for TestChildError {
     type A = ChildActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         info!("{} handle {:?}", context.myself(), self);
         Err(anyhow!("test child error"))
     }

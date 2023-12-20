@@ -130,20 +130,21 @@ impl TransportActor {
 #[cfg(test)]
 mod test {
     use std::net::SocketAddrV4;
-    use std::time::Duration;
+    use std::time::{Duration, SystemTime};
 
     use async_trait::async_trait;
     use bincode::{Decode, Encode};
     use tracing::info;
 
-    use actor_core::{Actor, Message};
+    use actor_core::{Actor, EmptyTestActor, Message};
     use actor_core::actor::actor_ref::ActorRefExt;
     use actor_core::actor::actor_ref_factory::ActorRefFactory;
     use actor_core::actor::actor_system::ActorSystem;
     use actor_core::actor::config::actor_system_config::ActorSystemConfig;
     use actor_core::actor::context::{ActorContext, Context};
+    use actor_core::actor::deferred_ref::Patterns;
     use actor_core::actor::props::Props;
-    use actor_derive::{EmptyCodec, MessageCodec};
+    use actor_derive::{EmptyCodec, MessageCodec, UntypedMessageCodec};
 
     use crate::message_registration::MessageRegistration;
     use crate::remote_provider::RemoteActorRefProvider;
@@ -210,6 +211,8 @@ mod test {
             let mut registration = MessageRegistration::new();
             registration.register::<Ping>();
             registration.register::<Pong>();
+            registration.register::<MessageToAsk>();
+            registration.register::<MessageToAns>();
             RemoteActorRefProvider::new(system, registration, addr).map(|(r, d)| (r.into(), d))
         });
         config
@@ -226,5 +229,44 @@ mod test {
             actor_a.cast(PingTo { to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string() }, None);
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
+    }
+
+    #[derive(Encode, Decode, MessageCodec)]
+    #[actor(EmptyTestActor)]
+    struct MessageToAsk;
+
+    impl Message for MessageToAsk {
+        type A = EmptyTestActor;
+
+        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+            context.sender().unwrap().resp(MessageToAns {
+                content: "hello world".to_string(),
+            });
+            anyhow::Ok(())
+        }
+    }
+
+    #[derive(Encode, Decode, UntypedMessageCodec)]
+    struct MessageToAns {
+        content: String,
+    }
+
+    #[tokio::test]
+    async fn test_remote_ask() -> anyhow::Result<()> {
+        let system1 = ActorSystem::create("mikai233", build_config("127.0.0.1:12121".parse()?))?;
+        let system2 = ActorSystem::create("mikai233", build_config("127.0.0.1:12123".parse()?))?;
+        let actor_a = system1.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
+        // let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
+        let start = SystemTime::now();
+        let range = 0..1000000;
+        for _ in range {
+            let _: MessageToAns = Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;
+        }
+        let end = SystemTime::now();
+        let cost = end.duration_since(start)?;
+        info!("cost {:?}", cost);
+        let qps = 1000000.0 / cost.as_millis() as f64;
+        info!("{} per/millis",qps);
+        Ok(())
     }
 }

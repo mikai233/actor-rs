@@ -12,7 +12,7 @@ mod cell;
 pub(crate) mod dead_letter_ref;
 pub mod local_ref;
 pub(crate) mod virtual_path_container;
-pub(crate) mod deferred_ref;
+pub mod deferred_ref;
 pub(crate) mod function_ref;
 pub mod serialized_ref;
 pub mod root_guardian;
