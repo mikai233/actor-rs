@@ -3,7 +3,7 @@ use bincode::{Decode, Encode};
 
 use actor_derive::SystemMessageCodec;
 
-use crate::{Actor, CodecMessage, SystemMessage};
+use crate::{Actor, SystemMessage};
 use crate::actor::actor_ref::{ActorRef, ActorRefSystemExt};
 use crate::actor::context::{ActorContext, Context};
 use crate::ext::option_ext::OptionExt;
@@ -13,7 +13,7 @@ pub(crate) struct Identify;
 
 #[async_trait]
 impl SystemMessage for Identify {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
         let myself = context.myself().clone();
         let actor_identify = ActorIdentify {
             actor_ref: myself,
@@ -32,7 +32,7 @@ pub(crate) struct ActorIdentify {
 
 #[async_trait]
 impl SystemMessage for ActorIdentify {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
         todo!()
     }
 }

@@ -5,7 +5,7 @@ use bincode::{Decode, Encode};
 
 use actor_derive::{AsAny, MessageCodec};
 
-use crate::{Actor, CodecMessage, DynMessage, Message};
+use crate::{Actor, DynMessage, Message};
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::ActorContext;

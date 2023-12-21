@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use anyhow::{anyhow, Ok};
-use bincode::{BorrowDecode, Decode, Encode};
+use bincode::{Decode, Encode};
 use bincode::error::{DecodeError, EncodeError};
 use bytes::BytesMut;
 use tracing_subscriber::fmt::time::LocalTime;

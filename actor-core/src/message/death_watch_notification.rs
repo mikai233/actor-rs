@@ -3,7 +3,7 @@ use bincode::{Decode, Encode};
 
 use actor_derive::SystemMessageCodec;
 
-use crate::{Actor, CodecMessage, SystemMessage};
+use crate::{Actor, SystemMessage};
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::context::ActorContext;
 

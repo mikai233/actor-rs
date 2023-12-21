@@ -14,7 +14,6 @@ pub mod local_ref;
 pub(crate) mod virtual_path_container;
 pub mod deferred_ref;
 pub(crate) mod function_ref;
-pub mod serialized_ref;
 pub mod root_guardian;
 pub(crate) mod system_guardian;
 pub(crate) mod user_guardian;

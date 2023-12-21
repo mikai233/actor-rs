@@ -6,7 +6,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use futures::StreamExt;
-use moka::sync::Cache;
+use quick_cache::unsync::Cache;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpListener;
 use tokio_util::codec::Framed;
@@ -18,7 +18,6 @@ use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_ref_provider::ActorRefProvider;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor::serialized_ref::SerializedActorRef;
 use actor_core::ext::decode_bytes;
 
 use crate::message_registration::MessageRegistration;
@@ -30,7 +29,7 @@ use crate::remote_provider::RemoteActorRefProvider;
 #[derive(Debug)]
 pub struct TransportActor {
     pub connections: HashMap<SocketAddr, ConnectionSender>,
-    pub actor_ref_cache: Cache<SerializedActorRef, ActorRef>,
+    pub actor_ref_cache: Cache<String, ActorRef>,
     pub provider: Arc<ActorRefProvider>,
     pub registration: MessageRegistration,
 }
@@ -120,10 +119,17 @@ impl TransportActor {
         }
     }
 
-    pub fn resolve_actor_ref(&mut self, serialized_ref: SerializedActorRef) -> ActorRef {
-        self.actor_ref_cache.get_with_by_ref(&serialized_ref, || {
-            self.provider.resolve_actor_ref(&serialized_ref.path)
-        })
+    pub fn resolve_actor_ref(&mut self, path: String) -> ActorRef {
+        match self.actor_ref_cache.get(&path) {
+            None => {
+                let actor_ref = self.provider.resolve_actor_ref(&path);
+                self.actor_ref_cache.insert(path, actor_ref.clone());
+                actor_ref
+            }
+            Some(actor_ref) => {
+                actor_ref.clone()
+            }
+        }
     }
 }
 
@@ -256,9 +262,9 @@ mod test {
         let system1 = ActorSystem::create("mikai233", build_config("127.0.0.1:12121".parse()?))?;
         let system2 = ActorSystem::create("mikai233", build_config("127.0.0.1:12123".parse()?))?;
         let actor_a = system1.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
-        // let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
+        let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
         let start = SystemTime::now();
-        let range = 0..1000000;
+        let range = 0..100000;
         for _ in range {
             let _: MessageToAns = Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;
         }

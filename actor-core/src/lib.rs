@@ -4,8 +4,6 @@ use std::fmt::{Debug, Formatter};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
-use bincode::de::Decoder;
-use bincode::enc::Encoder;
 use bincode::error::EncodeError;
 use tracing::info;
 

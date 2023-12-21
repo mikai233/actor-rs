@@ -14,7 +14,6 @@ use tracing::{debug, error, info, warn};
 use actor_core::actor::actor_path::TActorPath;
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt, PROVIDER};
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor::serialized_ref::SerializedActorRef;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 
@@ -32,16 +31,16 @@ pub struct RemoteEnvelope {
 #[derive(Debug, Encode, Decode)]
 pub struct RemotePacket {
     pub packet: IDPacket,
-    pub sender: Option<SerializedActorRef>,
-    pub target: SerializedActorRef,
+    pub sender: Option<String>,
+    pub target: String,
 }
 
 impl Into<RemotePacket> for RemoteEnvelope {
     fn into(self) -> RemotePacket {
         RemotePacket {
             packet: self.packet,
-            sender: self.sender.map(|s| s.into()),
-            target: self.target.into(),
+            sender: self.sender.map(|s| s.path().to_serialization_format()),
+            target: self.target.path().to_serialization_format(),
         }
     }
 }

@@ -12,7 +12,7 @@ tokio = { workspace = true }
 tokio-util = { workspace = true, features = ["codec"] }
 futures = { workspace = true }
 anyhow = { workspace = true }
-moka = { workspace = true, features = ["sync"] }
+quick_cache = { workspace = true }
 stubborn-io = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["local-time"] }

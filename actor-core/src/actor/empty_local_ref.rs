@@ -45,7 +45,7 @@ impl TActorRef for EmptyLocalActorRef {
         todo!()
     }
 
-    fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
+    fn tell(&self, _message: DynMessage, _sender: Option<ActorRef>) {
         todo!()
     }
 

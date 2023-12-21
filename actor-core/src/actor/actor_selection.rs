@@ -10,7 +10,7 @@ pub struct ActorSelection {
 }
 
 impl ActorSelection {
-    pub(crate) fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {}
+    pub(crate) fn tell(&self, _message: DynMessage, _sender: Option<ActorRef>) {}
 
     fn deliver_selection(anchor: ActorRef, sender: Option<ActorRef>, sel: ActorSelectionMessage) {
         if sel.elements.is_empty() {
