@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use std::iter::Peekable;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
@@ -70,7 +71,7 @@ impl TActorRef for DeferredActorRef {
         Some(&self.parent)
     }
 
-    fn get_child(&self, names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
         get_child_default(self.clone(), names)
     }
 }

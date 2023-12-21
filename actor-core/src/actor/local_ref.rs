@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use std::iter::Peekable;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -95,10 +96,10 @@ impl TActorRef for LocalActorRef {
         self.cell.parent()
     }
 
-    fn get_child(&self, names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef> {
-        fn rec(actor: ActorRef, mut names: impl Iterator<Item=String> + 'static) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+        fn rec(actor: ActorRef, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
             match actor.local() {
-                None => actor.get_child(Box::new(names)),
+                None => actor.get_child(names),
                 Some(l) => {
                     let name = names.next();
                     let next = match name {
@@ -106,10 +107,10 @@ impl TActorRef for LocalActorRef {
                             return Some(actor);
                         }
                         Some(name) => {
-                            match name.as_str() {
+                            match name {
                                 ".." => l.parent().cloned(),
                                 "" => Some(actor),
-                                _ => { l.get_single_child(&name) }
+                                _ => { l.get_single_child(name) }
                             }
                         }
                     };
@@ -120,7 +121,7 @@ impl TActorRef for LocalActorRef {
                 }
             }
         }
-        rec(self.clone().into(), names.into_iter())
+        rec(self.clone().into(), names)
     }
 
     fn resume(&self) {
@@ -141,11 +142,11 @@ impl Cell for LocalActorRef {
         self.cell.clone()
     }
 
-    fn children(&self) -> &DashMap<String, ActorRef> {
+    fn children(&self) -> &DashMap<String, ActorRef, ahash::RandomState> {
         self.cell.children()
     }
 
-    fn get_single_child(&self, name: &String) -> Option<ActorRef> {
+    fn get_single_child(&self, name: &str) -> Option<ActorRef> {
         match self.cell.get_single_child(name) {
             None => {
                 self.cell.get_function_ref(name).map(|r| r.into())

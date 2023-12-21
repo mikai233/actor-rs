@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
+
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_path::root_actor_path::RootActorPath;
 use crate::actor::address::Address;
@@ -35,7 +36,7 @@ impl Display for ChildActorPath {
 #[derive(Debug, Clone)]
 pub struct ChildInner {
     pub(crate) parent: ActorPath,
-    pub(crate) name: String,
+    pub(crate) name: Arc<String>,
     pub(crate) uid: i32,
 }
 
@@ -56,8 +57,8 @@ impl TActorPath for ChildActorPath {
         self.parent.clone()
     }
 
-    fn elements(&self) -> Vec<String> {
-        fn rec(p: ActorPath, mut acc: VecDeque<String>) -> VecDeque<String> {
+    fn elements(&self) -> VecDeque<Arc<String>> {
+        fn rec(p: ActorPath, mut acc: VecDeque<Arc<String>>) -> VecDeque<Arc<String>> {
             match &p {
                 ActorPath::RootActorPath(_) => acc,
                 ActorPath::ChildActorPath(c) => {
@@ -66,9 +67,7 @@ impl TActorPath for ChildActorPath {
                 }
             }
         }
-        rec(self.clone().into(), VecDeque::new())
-            .into_iter()
-            .collect()
+        rec(self.clone().into(), VecDeque::with_capacity(10))
     }
 
     fn root(&self) -> RootActorPath {
@@ -97,7 +96,7 @@ impl TActorPath for ChildActorPath {
     }
 
     fn to_string_with_address(&self, address: &Address) -> String {
-        let path = self.elements().join("/");
+        let path = self.elements().iter().map(|e| e.as_str()).collect::<Vec<_>>().join("/");
         format!("{}/{}", address, path)
     }
 
@@ -112,7 +111,7 @@ impl TActorPath for ChildActorPath {
 }
 
 impl ChildActorPath {
-    pub(crate) fn new(parent: ActorPath, name: impl Into<String>, uid: i32) -> Self {
+    pub(crate) fn new(parent: ActorPath, name: impl Into<Arc<String>>, uid: i32) -> Self {
         let name = name.into();
         assert!(
             name.find('/').is_none(),

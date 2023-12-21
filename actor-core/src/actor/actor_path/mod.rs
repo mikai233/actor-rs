@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::format;
 use std::hash::{Hash, Hasher};
@@ -29,31 +30,31 @@ pub trait TActorPath {
         ChildActorPath {
             inner: Arc::new(ChildInner {
                 parent: self.myself(),
-                name: child_name,
+                name: child_name.into(),
                 uid,
             }),
         }
             .into()
     }
-    fn descendant<I>(&self, names: I) -> ActorPath
+    fn descendant<'a, I>(&self, names: I) -> ActorPath
         where
-            I: IntoIterator<Item=String>,
+            I: IntoIterator<Item=&'a str>,
     {
         let init: ActorPath = self.myself();
         names.into_iter().fold(init, |path, elem| {
             if elem.is_empty() {
                 path
             } else {
-                path.child(&elem)
+                path.child(elem)
             }
         })
     }
-    fn elements(&self) -> Vec<String>;
+    fn elements(&self) -> VecDeque<Arc<String>>;
     fn root(&self) -> RootActorPath;
     fn uid(&self) -> i32;
     fn with_uid(&self, uid: i32) -> ActorPath;
     fn to_string_without_address(&self) -> String {
-        self.elements().join("/")
+        self.elements().iter().map(|e| e.as_str()).collect::<Vec<_>>().join("/")
     }
     fn to_string_with_address(&self, address: &Address) -> String;
     fn to_serialization_format(&self) -> String;

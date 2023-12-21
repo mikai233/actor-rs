@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use std::iter::Peekable;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -91,13 +92,12 @@ impl TActorRef for RemoteActorRef {
         None
     }
 
-    fn get_child(&self, names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef> {
-        let mut names = names.into_iter().peekable();
-        match names.peek().map(|n| n.as_str()) {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+        match names.peek() {
             None => {
                 Some(self.clone().into())
             }
-            Some("..") => None,
+            Some(&"..") => None,
             Some(_) => {
                 let inner = Inner {
                     system: self.system().clone(),

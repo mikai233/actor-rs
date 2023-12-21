@@ -29,7 +29,7 @@ pub struct LocalActorRefProvider {
     root_guardian: LocalActorRef,
     user_guardian: LocalActorRef,
     system_guardian: LocalActorRef,
-    extra_names: DashMap<String, ActorRef>,
+    extra_names: DashMap<String, ActorRef, ahash::RandomState>,
     dead_letters: ActorRef,
     temp_number: AtomicI64,
     temp_node: ActorPath,
@@ -77,7 +77,7 @@ impl LocalActorRefProvider {
             system: system.clone(),
             path: temp_node.clone(),
             parent: root_guardian.clone().into(),
-            children: Arc::new(DashMap::new()),
+            children: Arc::new(DashMap::with_hasher(ahash::RandomState::new())),
         };
         let temp_container = VirtualPathContainer {
             inner: inner.into(),
@@ -87,7 +87,7 @@ impl LocalActorRefProvider {
             root_guardian,
             user_guardian: user_guardian.clone(),
             system_guardian: system_guardian.clone(),
-            extra_names: DashMap::new(),
+            extra_names: DashMap::with_hasher(ahash::RandomState::new()),
             dead_letters: dead_letters.into(),
             temp_number: AtomicI64::new(0),
             temp_node,
@@ -158,21 +158,23 @@ impl TActorRefProvider for LocalActorRefProvider {
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {
         if path.address() == self.root_path().address() {
             //TODO opt
-            let mut elements = path.elements().into_iter().peekable();
-            match elements.peek() {
-                Some(peek) if peek.as_str() == "temp" => {
-                    elements.next();
-                    TActorRef::get_child(&self.temp_container, Box::new(elements)).unwrap_or_else(|| self.dead_letters().clone())
+            let elements = path.elements();
+            let iter = &mut elements.iter().map(|e| e.as_str()) as &mut dyn Iterator<Item=&str>;
+            let mut iter = iter.peekable();
+            match iter.peek() {
+                Some(peek) if *peek == "temp" => {
+                    iter.next();
+                    TActorRef::get_child(&self.temp_container, &mut iter).unwrap_or_else(|| self.dead_letters().clone())
                 }
-                Some(peek) if peek.as_str() == "dead_letters" => {
+                Some(peek) if *peek == "dead_letters" => {
                     self.dead_letters.clone()
                 }
-                Some(peek) if self.extra_names.contains_key(peek) => {
-                    self.extra_names.get(peek).map(|r| r.value().clone()).unwrap_or_else(|| self.dead_letters().clone())
+                Some(peek) if self.extra_names.contains_key(&**peek) => {
+                    self.extra_names.get(&**peek).map(|r| r.value().clone()).unwrap_or_else(|| self.dead_letters().clone())
                 }
                 _ => {
                     self.root_guardian()
-                        .get_child(Box::new(elements))
+                        .get_child(&mut iter)
                         .unwrap_or_else(|| self.dead_letters().clone())
                 }
             }

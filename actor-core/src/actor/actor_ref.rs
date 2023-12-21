@@ -2,6 +2,7 @@ use std::any::Any;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
+use std::iter::Peekable;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -28,7 +29,7 @@ pub trait TActorRef: Debug + Send + Sync + Any + AsAny {
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>);
     fn stop(&self);
     fn parent(&self) -> Option<&ActorRef>;
-    fn get_child(&self, names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef>;
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef>;
     fn resume(&self) {}
     fn suspend(&self) {}
     fn restart(&self) {}
@@ -170,7 +171,7 @@ impl<'de> BorrowDecode<'de> for ActorRef {
     }
 }
 
-pub(crate) fn get_child_default(actor_ref: impl Into<ActorRef>, mut names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef> {
+pub(crate) fn get_child_default(actor_ref: impl Into<ActorRef>, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
     match names.next() {
         None => {
             Some(actor_ref.into())

@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use std::iter::Peekable;
 use std::ops::{Deref, Not};
 use std::sync::Arc;
 
@@ -23,7 +24,7 @@ pub struct Inner {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) parent: ActorRef,
-    pub(crate) children: Arc<DashMap<String, ActorRef>>,
+    pub(crate) children: Arc<DashMap<String, ActorRef, ahash::RandomState>>,
 }
 
 impl Deref for VirtualPathContainer {
@@ -68,7 +69,7 @@ impl TActorRef for VirtualPathContainer {
         Some(&self.parent)
     }
 
-    fn get_child(&self, mut names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
         match names.next() {
             None => {
                 Some(self.clone().into())
@@ -77,7 +78,7 @@ impl TActorRef for VirtualPathContainer {
                 if name.is_empty() {
                     Some(self.clone().into())
                 } else {
-                    match self.children.get(&name) {
+                    match self.children.get(name) {
                         None => {
                             None
                         }
@@ -112,7 +113,7 @@ impl VirtualPathContainer {
         self.children.remove_if(name, |_, c| { c == child })
     }
 
-    pub(crate) fn get_child(&self, name: &String) -> Option<Ref<String, ActorRef>> {
+    pub(crate) fn get_child(&self, name: &String) -> Option<Ref<String, ActorRef, ahash::RandomState>> {
         self.children.get(name)
     }
 

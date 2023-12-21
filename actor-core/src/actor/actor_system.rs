@@ -109,7 +109,7 @@ impl ActorSystem {
         self.guardian().path.child(child)
     }
 
-    fn descendant(&self, names: Vec<String>) -> ActorPath {
+    fn descendant<'a>(&self, names: impl IntoIterator<Item=&'a str>) -> ActorPath {
         self.guardian().path.descendant(names)
     }
 

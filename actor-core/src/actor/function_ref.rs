@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use std::iter::Peekable;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -59,7 +60,7 @@ impl TActorRef for FunctionRef {
         None
     }
 
-    fn get_child(&self, mut names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
         match names.next() {
             None => {
                 Some(self.clone().into())

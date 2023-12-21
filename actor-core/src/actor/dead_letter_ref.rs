@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use std::iter::Peekable;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -65,7 +66,7 @@ impl TActorRef for DeadLetterActorRef {
         None
     }
 
-    fn get_child(&self, _names: Box<dyn Iterator<Item=String>>) -> Option<ActorRef> {
+    fn get_child(&self, _names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
         None
     }
 }

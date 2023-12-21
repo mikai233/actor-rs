@@ -19,9 +19,9 @@ impl ActorCell {
     pub(crate) fn new(parent: Option<ActorRef>) -> Self {
         let inner = Inner {
             parent,
-            children: Default::default(),
-            restart_stats: Default::default(),
-            function_refs: Default::default(),
+            children: DashMap::with_hasher(ahash::RandomState::new()),
+            restart_stats: DashMap::with_hasher(ahash::RandomState::new()),
+            function_refs: DashMap::with_hasher(ahash::RandomState::new()),
         };
         Self {
             inner: inner.into(),
@@ -32,15 +32,15 @@ impl ActorCell {
         self.inner.parent.as_ref()
     }
 
-    pub(crate) fn children(&self) -> &DashMap<String, ActorRef> {
+    pub(crate) fn children(&self) -> &DashMap<String, ActorRef, ahash::RandomState> {
         &self.inner.children
     }
 
-    pub(crate) fn get_child_by_name(&self, name: &String) -> Option<ActorRef> {
+    pub(crate) fn get_child_by_name(&self, name: &str) -> Option<ActorRef> {
         self.children().get(name).map(|c| c.value().clone())
     }
 
-    pub(crate) fn get_single_child(&self, name: &String) -> Option<ActorRef> {
+    pub(crate) fn get_single_child(&self, name: &str) -> Option<ActorRef> {
         match name.find('#') {
             Some(_) => {
                 let (child_name, uid) = ActorPath::split_name_and_uid(name);
@@ -71,7 +71,7 @@ impl ActorCell {
         self.inner.function_refs.get(name).map(|v| v.value().clone())
     }
 
-    pub(crate) fn restart_stats(&self) -> &DashMap<ActorRef, ChildRestartStats> {
+    pub(crate) fn restart_stats(&self) -> &DashMap<ActorRef, ChildRestartStats, ahash::RandomState> {
         &self.inner.restart_stats
     }
 
@@ -97,7 +97,7 @@ impl ActorCell {
 #[derive(Debug)]
 pub(crate) struct Inner {
     parent: Option<ActorRef>,
-    children: DashMap<String, ActorRef>,
-    restart_stats: DashMap<ActorRef, ChildRestartStats>,
-    function_refs: DashMap<String, FunctionRef>,
+    children: DashMap<String, ActorRef, ahash::RandomState>,
+    restart_stats: DashMap<ActorRef, ChildRestartStats, ahash::RandomState>,
+    function_refs: DashMap<String, FunctionRef, ahash::RandomState>,
 }

@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
@@ -46,8 +47,10 @@ impl TActorPath for RootActorPath {
         self.clone().into()
     }
 
-    fn elements(&self) -> Vec<String> {
-        vec!["".to_string()]
+    fn elements(&self) -> VecDeque<Arc<String>> {
+        let mut v = VecDeque::with_capacity(1);
+        v.push_back("".to_string().into());
+        v
     }
 
     fn root(&self) -> RootActorPath {

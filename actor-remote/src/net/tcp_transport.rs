@@ -262,9 +262,9 @@ mod test {
         let system1 = ActorSystem::create("mikai233", build_config("127.0.0.1:12121".parse()?))?;
         let system2 = ActorSystem::create("mikai233", build_config("127.0.0.1:12123".parse()?))?;
         let actor_a = system1.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
-        let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
+        // let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
         let start = SystemTime::now();
-        let range = 0..100000;
+        let range = 0..1000000;
         for _ in range {
             let _: MessageToAns = Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;
         }
