@@ -103,7 +103,7 @@ impl TActorRefProvider for LocalActorRefProvider {
     }
 
     fn root_guardian_at(&self, address: &Address) -> ActorRef {
-        if self.root_path.address() == *address {
+        if self.root_path.address() == address {
             self.root_guardian.clone().into()
         } else {
             self.dead_letters.clone()

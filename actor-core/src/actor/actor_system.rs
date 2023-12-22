@@ -102,7 +102,7 @@ impl ActorSystem {
     }
 
     pub fn address(&self) -> Address {
-        self.provider().get_default_address()
+        self.provider().get_default_address().clone()
     }
 
     fn child(&self, child: &String) -> ActorPath {

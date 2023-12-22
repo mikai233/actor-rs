@@ -46,12 +46,11 @@ pub fn init_logger(level: tracing::Level) {
 }
 
 pub(crate) fn base64(l: i64, mut s: String) -> String {
-    let index = l & 63;
-    let (_, c) = BASE64_CHARS
-        .char_indices()
-        .find(|x| x.0 == index as usize)
+    let index = (l & 63) as usize;
+    let c = BASE64_CHARS
+        .get(index..index + 1)
         .unwrap();
-    s.push(c);
+    s.push_str(c);
     let next = (l >> 6).abs();
     if next == 0 {
         s

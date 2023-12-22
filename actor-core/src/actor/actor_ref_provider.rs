@@ -30,7 +30,7 @@ pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
     }
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef;
     fn dead_letters(&self) -> &ActorRef;
-    fn get_default_address(&self) -> Address {
+    fn get_default_address(&self) -> &Address {
         self.root_path().address()
     }
 }

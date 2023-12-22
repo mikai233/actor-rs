@@ -1,6 +1,8 @@
+use std::io::Write;
 use std::net::SocketAddrV4;
 use std::time::{Duration, SystemTime};
 use bincode::{Decode, Encode};
+use pprof::protos::Message as PBMessage;
 use tracing::{info, Level};
 use actor_core::{EmptyTestActor, Message};
 use actor_core::actor::actor_ref::ActorRefExt;
@@ -52,7 +54,7 @@ async fn main() -> anyhow::Result<()> {
     let system1 = ActorSystem::create("mikai233", build_config("127.0.0.1:12121".parse()?))?;
     let system2 = ActorSystem::create("mikai233", build_config("127.0.0.1:12123".parse()?))?;
     let actor_a = system1.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
-    let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
+    // let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
     let guard = pprof::ProfilerGuard::new(10000).unwrap();
     let start = SystemTime::now();
     for _ in 0..1000000 {
@@ -61,11 +63,18 @@ async fn main() -> anyhow::Result<()> {
     let end = SystemTime::now();
     let cost = end.duration_since(start)?;
     info!("cost {:?}", cost);
-    if let Ok(report) = guard.report().build() {
-        let file = std::fs::File::create("flamegraph.svg").unwrap();
-        report.flamegraph(file).unwrap();
+    match guard.report().build() {
+        Ok(report) => {
+            let mut file = std::fs::File::create("profile.pb").unwrap();
+            let profile = report.pprof().unwrap();
 
-        println!("report: {:?}", &report);
+            let mut content = Vec::new();
+            profile.write_to_vec(&mut content).unwrap();
+            file.write_all(&content).unwrap();
+        }
+        Err(e) => {
+            println!("{:?}", e);
+        }
     };
     Ok(())
 }

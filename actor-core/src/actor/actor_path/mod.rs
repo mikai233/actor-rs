@@ -22,9 +22,13 @@ pub mod root_actor_path;
 #[enum_dispatch(ActorPath)]
 pub trait TActorPath {
     fn myself(&self) -> ActorPath;
-    fn address(&self) -> Address;
+
+    fn address(&self) -> &Address;
+
     fn name(&self) -> &String;
+
     fn parent(&self) -> ActorPath;
+
     fn child(&self, child: &str) -> ActorPath {
         let (child_name, uid) = ActorPath::split_name_and_uid(&child);
         ChildActorPath {
@@ -33,9 +37,9 @@ pub trait TActorPath {
                 name: child_name.into(),
                 uid,
             }),
-        }
-            .into()
+        }.into()
     }
+
     fn descendant<'a, I>(&self, names: I) -> ActorPath
         where
             I: IntoIterator<Item=&'a str>,
@@ -49,15 +53,23 @@ pub trait TActorPath {
             }
         })
     }
+
     fn elements(&self) -> VecDeque<Arc<String>>;
-    fn root(&self) -> RootActorPath;
+
+    fn root(&self) -> &RootActorPath;
+
     fn uid(&self) -> i32;
+
     fn with_uid(&self, uid: i32) -> ActorPath;
+
     fn to_string_without_address(&self) -> String {
         self.elements().iter().map(|e| e.as_str()).collect::<Vec<_>>().join("/")
     }
+
     fn to_string_with_address(&self, address: &Address) -> String;
+
     fn to_serialization_format(&self) -> String;
+
     fn to_serialization_format_with_address(&self, address: &Address) -> String {
         let uid = self.uid();
         if uid == ActorPath::undefined_uid() {
@@ -224,7 +236,7 @@ mod test {
             "$a".to_string(),
             "$a".to_string(),
             format!("$aa#{}", ActorPath::new_uid()),
-        ]);
+        ].iter().map(|e| e.as_str()));
         actor_path
     }
 
@@ -255,7 +267,7 @@ mod test {
     fn test_child_actor_panic() {
         let addr = build_address();
         let root = RootActorPath::new(addr, "a").into();
-        ChildActorPath::new(root, "b#", 11233);
+        ChildActorPath::new(root, "b#".to_string(), 11233);
     }
 
     #[test]
@@ -263,13 +275,13 @@ mod test {
     fn test_child_actor_panic2() {
         let addr = build_address();
         let root = RootActorPath::new(addr, "a").into();
-        ChildActorPath::new(root, "b/", 11233);
+        ChildActorPath::new(root, "b/".to_string(), 11233);
     }
 
     #[test]
     fn test_actor_path() {
         let addr = build_address();
-        let root: ActorPath = RootActorPath::new(addr, "/").into();
+        let root: ActorPath = RootActorPath::new(addr, "/".to_string()).into();
         let child = root.child(&"b121#112223289");
         assert_eq!(child.to_string(), format!("{}/b121", build_address()));
         let c1 = child.child(&"child1#-12324");
@@ -329,7 +341,7 @@ mod test {
             "$a".to_string(),
             "$a".to_string(),
             format!("$aa#{}", ActorPath::new_uid()),
-        ]);
+        ].iter().map(|e| e.as_str()));
         assert_ne!(actor_path, actor_path2);
     }
 
@@ -353,7 +365,7 @@ mod test {
             "$a".to_string(),
             "$a".to_string(),
             format!("$aa#{}", ActorPath::new_uid()),
-        ]);
+        ].iter().map(|e| e.as_str()));
         assert!(actor_path < actor_path4);
     }
 

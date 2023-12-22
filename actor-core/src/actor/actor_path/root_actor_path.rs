@@ -35,8 +35,8 @@ impl TActorPath for RootActorPath {
         self.clone().into()
     }
 
-    fn address(&self) -> Address {
-        self.address.clone()
+    fn address(&self) -> &Address {
+        &self.address
     }
 
     fn name(&self) -> &String {
@@ -53,8 +53,8 @@ impl TActorPath for RootActorPath {
         v
     }
 
-    fn root(&self) -> RootActorPath {
-        self.clone()
+    fn root(&self) -> &RootActorPath {
+        &self
     }
 
     fn uid(&self) -> i32 {

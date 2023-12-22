@@ -45,7 +45,7 @@ impl TActorPath for ChildActorPath {
         self.clone().into()
     }
 
-    fn address(&self) -> Address {
+    fn address(&self) -> &Address {
         self.root().address()
     }
 
@@ -58,29 +58,30 @@ impl TActorPath for ChildActorPath {
     }
 
     fn elements(&self) -> VecDeque<Arc<String>> {
-        fn rec(p: ActorPath, mut acc: VecDeque<Arc<String>>) -> VecDeque<Arc<String>> {
-            match &p {
-                ActorPath::RootActorPath(_) => acc,
+        let mut queue = VecDeque::with_capacity(10);
+        queue.push_front(self.name.clone());
+        let mut parent = &self.parent;
+        loop {
+            match parent {
+                ActorPath::RootActorPath(_) => break queue,
                 ActorPath::ChildActorPath(c) => {
-                    acc.push_front(c.name.clone());
-                    rec(p.parent(), acc)
+                    queue.push_front(c.name.clone());
+                    parent = &c.parent;
                 }
             }
         }
-        rec(self.clone().into(), VecDeque::with_capacity(10))
     }
 
-    fn root(&self) -> RootActorPath {
-        fn rec(p: ActorPath) -> RootActorPath {
-            match &p {
-                ActorPath::RootActorPath(r) => r.clone(),
+    fn root(&self) -> &RootActorPath {
+        let mut parent = &self.parent;
+        loop {
+            match parent {
+                ActorPath::RootActorPath(r) => break r,
                 ActorPath::ChildActorPath(c) => {
-                    let a: ActorPath = c.clone().into();
-                    rec(a.parent())
+                    parent = &c.parent;
                 }
             }
         }
-        rec(self.clone().into())
     }
 
     fn uid(&self) -> i32 {
