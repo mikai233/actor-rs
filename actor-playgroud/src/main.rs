@@ -65,6 +65,8 @@ async fn main() -> anyhow::Result<()> {
     info!("cost {:?}", cost);
     match guard.report().build() {
         Ok(report) => {
+            let file = std::fs::File::create("flamegraph.svg").unwrap();
+            report.flamegraph(file).unwrap();
             let mut file = std::fs::File::create("profile.pb").unwrap();
             let profile = report.pprof().unwrap();
 

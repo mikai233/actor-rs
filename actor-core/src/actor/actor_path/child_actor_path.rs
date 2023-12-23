@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_path::root_actor_path::RootActorPath;
@@ -33,11 +34,12 @@ impl Display for ChildActorPath {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ChildInner {
     pub(crate) parent: ActorPath,
     pub(crate) name: Arc<String>,
     pub(crate) uid: i32,
+    pub(crate) cached_hash: AtomicU64,
 }
 
 impl TActorPath for ChildActorPath {
@@ -125,7 +127,11 @@ impl ChildActorPath {
             name
         );
         Self {
-            inner: Arc::new(ChildInner { parent, name, uid }),
+            inner: Arc::new(ChildInner { parent, name, uid, cached_hash: AtomicU64::default() }),
         }
+    }
+
+    pub(crate) fn cached_hash(&self) -> &AtomicU64 {
+        &self.cached_hash
     }
 }

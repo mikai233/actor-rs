@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::address::Address;
 
@@ -24,10 +25,11 @@ impl Display for RootActorPath {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct RootInner {
     address: Address,
     name: String,
+    cached_hash: AtomicU64,
 }
 
 impl TActorPath for RootActorPath {
@@ -99,7 +101,11 @@ impl RootActorPath {
             name
         );
         Self {
-            inner: Arc::new(RootInner { address, name }),
+            inner: Arc::new(RootInner { address, name, cached_hash: AtomicU64::default() }),
         }
+    }
+
+    pub(crate) fn cached_hash(&self) -> &AtomicU64 {
+        &self.cached_hash
     }
 }

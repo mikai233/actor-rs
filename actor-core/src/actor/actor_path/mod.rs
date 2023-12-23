@@ -6,6 +6,7 @@ use std::hash::{Hash, Hasher};
 use std::net::SocketAddrV4;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 
 use anyhow::{anyhow, Context};
 use enum_dispatch::enum_dispatch;
@@ -36,6 +37,7 @@ pub trait TActorPath {
                 parent: self.myself(),
                 name: child_name.into(),
                 uid,
+                cached_hash: AtomicU64::default(),
             }),
         }.into()
     }
@@ -89,11 +91,14 @@ pub enum ActorPath {
 
 impl PartialEq for ActorPath {
     fn eq(&self, other: &Self) -> bool {
-        let self_elements = self.elements();
         let self_address = self.address();
-        let other_elements = other.elements();
         let other_address = other.address();
-        self_address == other_address && self_elements == other_elements
+        if self_address != other_address {
+            return false;
+        }
+        let self_elements = self.elements();
+        let other_elements = other.elements();
+        self_elements == other_elements
     }
 }
 
@@ -133,9 +138,22 @@ impl Ord for ActorPath {
 
 impl Hash for ActorPath {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.address().hash(state);
-        for e in self.elements() {
-            e.hash(state);
+        let cached_hash = match self {
+            ActorPath::RootActorPath(r) => { r.cached_hash() }
+            ActorPath::ChildActorPath(c) => { c.cached_hash() }
+        };
+        let hash = cached_hash.load(std::sync::atomic::Ordering::Relaxed);
+        if hash != 0 {
+            state.write_u64(hash);
+        } else {
+            let mut hasher = ahash::AHasher::default();
+            self.address().hash(&mut hasher);
+            for e in self.elements() {
+                e.hash(&mut hasher);
+            }
+            let hash = hasher.finish();
+            cached_hash.store(hash, std::sync::atomic::Ordering::Relaxed);
+            state.write_u64(hash);
         }
     }
 }
