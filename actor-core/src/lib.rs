@@ -5,6 +5,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use bincode::error::EncodeError;
+use futures::TryFutureExt;
 use tracing::info;
 
 use actor::decoder::MessageDecoder;
@@ -13,9 +14,10 @@ use actor_derive::MessageCodec;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::fault_handing::{default_strategy, SupervisorStrategy};
-use crate::delegate::MessageDelegate;
+use crate::delegate::{MessageDelegate, MessageDelegateRef};
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::{AsyncUserDelegate, UserDelegate};
+use crate::ext::option_ext::OptionExt;
 
 pub mod ext;
 mod cell;
@@ -180,12 +182,51 @@ impl DynMessage {
         }
     }
 
-    pub fn downcast_into_message<A, M>(self) -> anyhow::Result<Box<M>> where A: Actor, M: Message {
+    pub fn downcast_as_delegate<A>(&self) -> anyhow::Result<MessageDelegateRef<A>> where A: Actor {
+        let Self { name, message_type, boxed } = self;
+        let message = boxed.as_any();
+        let delegate = match message_type {
+            MessageType::User => {
+                message.downcast_ref::<UserDelegate<A>>().map(|m| MessageDelegateRef::User(m))
+            }
+            MessageType::AsyncUser => {
+                message.downcast_ref::<AsyncUserDelegate<A>>().map(|m| MessageDelegateRef::AsyncUser(m))
+            }
+            MessageType::System => {
+                message.downcast_ref::<SystemDelegate>().map(|m| MessageDelegateRef::System(m))
+            }
+            MessageType::Untyped => {
+                panic!("unexpected Untyped message {}", name);
+            }
+        };
+        delegate.ok_or(anyhow!("unexpected message {} to actor {}", name, std::any::type_name::<A>()))
+    }
+
+    pub fn downcast_into_message<A, M>(self) -> anyhow::Result<Box<M>> where A: Actor, M: CodecMessage {
         let name = self.name();
         let delegate = self.downcast_into_delegate::<A>()?;
-        delegate.into_any().downcast::<M>().map_err(|_| anyhow!("incorrect downcast message {} to {}", name, std::any::type_name::<M>()))
+        delegate
+            .into_any()
+            .downcast::<M>()
+            .map_err(|_| anyhow!("incorrect downcast message {} to {}", name, std::any::type_name::<M>()))
+    }
+
+    pub fn downcast_as_message<A, M>(&self) -> anyhow::Result<&M> where A: Actor, M: CodecMessage {
+        let name = self.name();
+        let delegate = self.downcast_as_delegate::<A>()?;
+        delegate
+            .into_any()
+            .downcast_ref::<M>()
+            .ok_or(anyhow!("incorrect downcast message {} to {}", name, std::any::type_name::<M>()))
     }
 }
+
+/// [DynMessage::downcast_into_delegate]、[DynMessage::downcast_as_message]、[DynMessage::downcast_into_message]
+/// 需要泛型参数，当消息类型是[MessageType::System]时，不需要这个泛型参数，用于占位
+#[derive(Debug)]
+pub struct FakeActor;
+
+impl Actor for FakeActor {}
 
 #[derive(Debug)]
 pub struct EmptyTestActor;
