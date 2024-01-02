@@ -9,7 +9,6 @@ use actor_core::context::ActorContext;
 use actor_core::Message;
 
 #[derive(Debug, Serialize, Deserialize, MessageCodec)]
-#[actor(ClusterDaemon)]
 pub struct MemberLeave {
     pub addr: SocketAddr,
 }

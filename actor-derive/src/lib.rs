@@ -19,31 +19,31 @@ pub fn empty_codec_derive(input: TokenStream) -> TokenStream {
     message::expand(ast, MessageImpl::Message, CodecType::NoneSerde, false).into()
 }
 
-#[proc_macro_derive(CloneableEmptyCodec, attributes(actor))]
+#[proc_macro_derive(CloneableEmptyCodec)]
 pub fn cloneable_empty_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::Message, CodecType::NoneSerde, true).into()
 }
 
-#[proc_macro_derive(MessageCodec, attributes(actor))]
+#[proc_macro_derive(MessageCodec)]
 pub fn message_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::Message, CodecType::Serde, false).into()
 }
 
-#[proc_macro_derive(CloneableMessageCodec, attributes(actor))]
+#[proc_macro_derive(CloneableMessageCodec)]
 pub fn cloneable_message_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::Message, CodecType::Serde, true).into()
 }
 
-#[proc_macro_derive(AsyncMessageCodec, attributes(actor))]
+#[proc_macro_derive(AsyncMessageCodec)]
 pub fn async_message_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::AsyncMessage, CodecType::Serde, false).into()
 }
 
-#[proc_macro_derive(CloneableAsyncMessageCodec, attributes(actor))]
+#[proc_macro_derive(CloneableAsyncMessageCodec)]
 pub fn cloneable_async_message_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::AsyncMessage, CodecType::Serde, true).into()
@@ -61,7 +61,7 @@ pub fn clonealbe_system_message_codec_derive(input: TokenStream) -> TokenStream 
     message::expand(ast, MessageImpl::SystemMessage, CodecType::Serde, true).into()
 }
 
-#[proc_macro_derive(UntypedMessageCodec, attributes(actor))]
+#[proc_macro_derive(UntypedMessageCodec)]
 pub fn untyped_message_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::UntypedMessage, CodecType::Serde, false).into()
@@ -73,13 +73,13 @@ pub fn untyped_message_empty_codec_derive(input: TokenStream) -> TokenStream {
     message::expand(ast, MessageImpl::UntypedMessage, CodecType::NoneSerde, false).into()
 }
 
-#[proc_macro_derive(CloneableUntypedMessageCodec, attributes(actor))]
+#[proc_macro_derive(CloneableUntypedMessageCodec)]
 pub fn cloneable_untyped_message_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::UntypedMessage, CodecType::Serde, true).into()
 }
 
-#[proc_macro_derive(CloneableUntypedMessageEmptyCodec, attributes(actor))]
+#[proc_macro_derive(CloneableUntypedMessageEmptyCodec)]
 pub fn cloneable_untyped_message_empty_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::UntypedMessage, CodecType::NoneSerde, true).into()

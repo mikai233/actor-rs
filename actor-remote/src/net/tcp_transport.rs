@@ -150,15 +150,14 @@ mod test {
     use actor_core::actor::context::{ActorContext, Context};
     use actor_core::actor::deferred_ref::Patterns;
     use actor_core::actor::props::Props;
+    use actor_core::message::message_registration::MessageRegistration;
     use actor_derive::{EmptyCodec, MessageCodec, UntypedMessageCodec};
 
-    use crate::message_registration::MessageRegistration;
     use crate::remote_provider::RemoteActorRefProvider;
 
     struct PingPongActor;
 
     #[derive(Encode, Decode, MessageCodec)]
-    #[actor(PingPongActor)]
     struct Ping;
 
     impl Message for Ping {
@@ -176,7 +175,6 @@ mod test {
     }
 
     #[derive(Encode, Decode, MessageCodec)]
-    #[actor(PingPongActor)]
     struct Pong;
 
     impl Message for Pong {
@@ -238,7 +236,6 @@ mod test {
     }
 
     #[derive(Encode, Decode, MessageCodec)]
-    #[actor(EmptyTestActor)]
     struct MessageToAsk;
 
     impl Message for MessageToAsk {

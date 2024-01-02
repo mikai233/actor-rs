@@ -1,22 +1,21 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
-use syn::{Attribute, ImplGenerics, parse_str, Type, TypeGenerics, WhereClause};
+use syn::{ImplGenerics, parse_str, TypeGenerics, WhereClause};
 
 use crate::metadata::{CodecType, MessageImpl};
 use crate::with_crate;
 
 pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: CodecType, cloneable: bool) -> TokenStream {
     let message_ty = ast.ident;
-    let actor_attr = ast.attrs.into_iter().filter(|attr| attr.path.is_ident("actor")).next();
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     let codec_trait = with_crate(parse_str("CodecMessage").unwrap());
     let decoder_trait = with_crate(parse_str("actor::decoder::MessageDecoder").unwrap());
     let ext_path = with_crate(parse_str("ext").unwrap());
     let dy_message = with_crate(parse_str("DynMessage").unwrap());
     let reg = with_crate(parse_str("message::message_registration::MessageRegistration").unwrap());
-    let decoder = expand_decoder(actor_attr.as_ref(), &message_ty, &message_impl, &codec_type, &ext_path, &dy_message, &reg);
+    let decoder = expand_decoder(&message_ty, &message_impl, &codec_type, &ext_path, &dy_message, &reg);
     let encode = expand_encode(&codec_type, &ext_path);
-    let dyn_clone = expand_dyn_clone(&dy_message, actor_attr.as_ref(), &message_impl, cloneable);
+    let dyn_clone = expand_dyn_clone(&dy_message, &message_impl, cloneable);
     let codec_impl = quote! {
         impl #impl_generics #codec_trait for #message_ty #ty_generics #where_clause {
             fn into_any(self: Box<Self>) -> Box<dyn std::any::Any> {
@@ -27,7 +26,7 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
                 self
             }
 
-            fn decoder() -> Option<Box<dyn #decoder_trait >> where Self: Sized {
+            fn decoder() -> Option<Box<dyn #decoder_trait>> where Self: Sized {
                 #decoder
             }
 
@@ -61,7 +60,7 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
     }
 }
 
-pub(crate) fn expand_decoder(actor_attr: Option<&Attribute>, message_ty: &Ident, message_impl: &MessageImpl, codec_type: &CodecType, ext_path: &TokenStream, dy_message: &TokenStream, reg: &TokenStream) -> TokenStream {
+pub(crate) fn expand_decoder(message_ty: &Ident, message_impl: &MessageImpl, codec_type: &CodecType, ext_path: &TokenStream, dy_message: &TokenStream, reg: &TokenStream) -> TokenStream {
     let decoder_trait = with_crate(parse_str("actor::decoder::MessageDecoder").unwrap());
     match codec_type {
         CodecType::NoneSerde => {
@@ -70,34 +69,29 @@ pub(crate) fn expand_decoder(actor_attr: Option<&Attribute>, message_ty: &Ident,
         CodecType::Serde => {
             match message_impl {
                 MessageImpl::Message => {
-                    let actor_ty = actor_attr.expect("actor attribute not found").parse_args::<Type>().expect("expect a type");
-                    let user_delegate = with_crate(parse_str("delegate::user::UserDelegate").unwrap());
                     decoder(&decoder_trait, &dy_message, &reg, || {
                         quote! {
                             let message: #message_ty = #ext_path::decode_bytes(bytes)?;
-                            let message = #user_delegate::<#actor_ty>::new(message);
-                            Ok(message.into())
+                            let message = #dy_message::user(message);
+                            Ok(message)
                         }
                     })
                 }
                 MessageImpl::AsyncMessage => {
-                    let actor_ty = actor_attr.expect("actor attribute not found").parse_args::<Type>().expect("expect a type");
-                    let async_delegate = with_crate(parse_str("delegate::user::AsyncUserDelegate").unwrap());
                     decoder(&decoder_trait, &dy_message, &reg, || {
                         quote! {
                             let message: #message_ty = #ext_path::decode_bytes(bytes)?;
-                            let message = #async_delegate::<#actor_ty>::new(message);
-                            Ok(message.into())
+                            let message = #dy_message::async(message);
+                            Ok(message)
                         }
                     })
                 }
                 MessageImpl::SystemMessage => {
-                    let system_delegate = with_crate(parse_str("delegate::system::SystemDelegate").unwrap());
                     decoder(&decoder_trait, &dy_message, &reg, || {
                         quote! {
                             let message: #message_ty = #ext_path::decode_bytes(bytes)?;
-                            let message = #system_delegate::new(message);
-                            Ok(message.into())
+                            let message = #dy_message::system(message);
+                            Ok(message)
                         }
                     })
                 }
@@ -144,7 +138,7 @@ pub(crate) fn expand_encode(codec_type: &CodecType, ext_path: &TokenStream) -> T
     }
 }
 
-pub(crate) fn expand_dyn_clone(dy_message: &TokenStream, actor_attr: Option<&Attribute>, message_impl: &MessageImpl, cloneable: bool) -> TokenStream {
+pub(crate) fn expand_dyn_clone(dy_message: &TokenStream, message_impl: &MessageImpl, cloneable: bool) -> TokenStream {
     if !cloneable {
         quote! {
             None
@@ -152,26 +146,21 @@ pub(crate) fn expand_dyn_clone(dy_message: &TokenStream, actor_attr: Option<&Att
     } else {
         match message_impl {
             MessageImpl::Message => {
-                let user_delegate = with_crate(parse_str("delegate::user::UserDelegate").unwrap());
-                let actor_ty = actor_attr.expect("actor attribute not found").parse_args::<Type>().expect("expect a type");
                 quote! {
-                    let message = #user_delegate::<#actor_ty>::new(Clone::clone(self));
-                    Some(message.into())
+                    let message = #dy_message::user(Clone::clone(self));
+                    Some(message)
                 }
             }
             MessageImpl::AsyncMessage => {
-                let async_delegate = with_crate(parse_str("delegate::user::AsyncUserDelegate").unwrap());
-                let actor_ty = actor_attr.expect("actor attribute not found").parse_args::<Type>().expect("expect a type");
                 quote! {
-                    let message = #async_delegate::<#actor_ty>::new(Clone::clone(self));
-                    Some(message.into())
+                    let message = #dy_message::async(Clone::clone(self));
+                    Some(message)
                 }
             }
             MessageImpl::SystemMessage => {
-                let system_delegate = with_crate(parse_str("delegate::system::SystemDelegate").unwrap());
                 quote! {
-                    let message = #system_delegate::new(Clone::clone(self));
-                    Some(message.into())
+                    let message = #dy_message::new(Clone::clone(self));
+                    Some(message)
                 }
             }
             MessageImpl::UntypedMessage => {

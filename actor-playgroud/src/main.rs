@@ -18,7 +18,6 @@ use actor_derive::{MessageCodec, UntypedMessageCodec};
 use actor_remote::remote_provider::RemoteActorRefProvider;
 
 #[derive(Encode, Decode, MessageCodec)]
-#[actor(EmptyTestActor)]
 struct MessageToAsk;
 
 impl Message for MessageToAsk {

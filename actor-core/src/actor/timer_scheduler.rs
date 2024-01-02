@@ -427,7 +427,6 @@ impl TimerScheduler {
 //     }
 //
 //     #[derive(Debug, Clone, CloneableEmptyCodec)]
-//     #[actor(EmptyTestActor)]
 //     struct OnFixedSchedule;
 //
 //     impl Message for OnFixedSchedule {

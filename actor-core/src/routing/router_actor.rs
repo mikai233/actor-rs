@@ -94,7 +94,6 @@ impl TRouterActor for RouterActor {
 }
 
 #[derive(Decode, Encode, MessageCodec)]
-#[actor(RouterActor)]
 pub(crate) struct WatchRouteeTerminated(ActorRef);
 
 impl Message for WatchRouteeTerminated {

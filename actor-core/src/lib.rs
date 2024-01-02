@@ -16,7 +16,6 @@ use crate::actor::fault_handing::{default_strategy, SupervisorStrategy};
 use crate::delegate::{MessageDelegate, MessageDelegateRef};
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::{AsyncUserDelegate, UserDelegate};
-use crate::ext::option_ext::OptionExt;
 use crate::message::message_registration::MessageRegistration;
 
 pub mod ext;
@@ -186,7 +185,7 @@ impl DynMessage {
         }
     }
 
-    pub fn downcast_as_delegate<A>(&self) -> anyhow::Result<MessageDelegateRef<A>> where A: Actor {
+    pub fn downcast_delegate_ref<A>(&self) -> anyhow::Result<MessageDelegateRef<A>> where A: Actor {
         let Self { name, message_type, boxed } = self;
         let message = boxed.as_any();
         let delegate = match message_type {
@@ -217,7 +216,7 @@ impl DynMessage {
 
     pub fn downcast_as_message<A, M>(&self) -> anyhow::Result<&M> where A: Actor, M: CodecMessage {
         let name = self.name();
-        let delegate = self.downcast_as_delegate::<A>()?;
+        let delegate = self.downcast_delegate_ref::<A>()?;
         delegate
             .into_any()
             .downcast_ref::<M>()
@@ -249,7 +248,6 @@ impl Actor for EmptyTestActor {
 }
 
 #[derive(Debug, Encode, Decode, MessageCodec)]
-#[actor(EmptyTestActor)]
 pub struct EmptyTestMessage;
 
 impl Message for EmptyTestMessage {
@@ -424,7 +422,6 @@ impl Message for EmptyTestMessage {
 //         struct TestUntyped;
 //
 //         #[derive(Serialize, Deserialize, MessageCodec)]
-//         #[actor(AdapterActor)]
 //         struct TestMessage;
 //
 //         impl Message for TestMessage {

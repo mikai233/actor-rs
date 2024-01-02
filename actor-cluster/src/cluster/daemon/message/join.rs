@@ -9,7 +9,6 @@ use actor_cluster::::daemon::cluster_daemon::ClusterDaemon;
 use actor_core::context::ActorContext;
 
 #[derive(Debug, Serialize, Deserialize, MessageCodec)]
-#[actor(ClusterDaemon)]
 pub struct MemberJoin {
     pub addr: SocketAddr,
 }
