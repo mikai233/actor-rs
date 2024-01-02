@@ -5,7 +5,6 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use bincode::error::EncodeError;
-use futures::TryFutureExt;
 use tracing::info;
 
 use actor::decoder::MessageDecoder;
@@ -18,6 +17,7 @@ use crate::delegate::{MessageDelegate, MessageDelegateRef};
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::{AsyncUserDelegate, UserDelegate};
 use crate::ext::option_ext::OptionExt;
+use crate::message::message_registration::MessageRegistration;
 
 pub mod ext;
 mod cell;
@@ -61,9 +61,13 @@ pub trait Actor: Send + Any {
 
 pub trait CodecMessage: Any + Send {
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
+
     fn as_any(&self) -> &dyn Any;
+
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized;
-    fn encode(&self) -> Result<Vec<u8>, EncodeError>;
+
+    fn encode(&self, reg: &MessageRegistration) -> Result<Vec<u8>, EncodeError>;
+
     fn dyn_clone(&self) -> Option<DynMessage>;
 }
 
@@ -124,7 +128,7 @@ impl DynMessage {
         }
     }
 
-    pub fn clone(&self) -> Option<DynMessage> {
+    pub fn dyn_clone(&self) -> Option<DynMessage> {
         self.boxed.dyn_clone()
     }
 

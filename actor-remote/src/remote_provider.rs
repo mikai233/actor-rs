@@ -12,9 +12,9 @@ use actor_core::actor::local_actor_ref_provider::LocalActorRefProvider;
 use actor_core::actor::local_ref::LocalActorRef;
 use actor_core::actor::props::{DeferredSpawn, Props};
 use actor_core::ext::option_ext::OptionExt;
+use actor_core::message::message_registration::MessageRegistration;
 use actor_derive::AsAny;
 
-use crate::message_registration::MessageRegistration;
 use crate::net::tcp_transport::TransportActor;
 use crate::remote_actor_ref::{Inner, RemoteActorRef};
 

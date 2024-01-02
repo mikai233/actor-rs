@@ -6,6 +6,7 @@ use bincode::error::EncodeError;
 use crate::{Actor, CodecMessage, DynMessage, MessageType, SystemMessage};
 use crate::actor::context::ActorContext;
 use crate::actor::decoder::MessageDecoder;
+use crate::message::message_registration::MessageRegistration;
 
 pub(crate) struct SystemDelegate {
     pub(crate) name: &'static str,
@@ -34,8 +35,8 @@ impl CodecMessage for SystemDelegate {
         None
     }
 
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        self.message.encode()
+    fn encode(&self, message_registration: &MessageRegistration) -> Result<Vec<u8>, EncodeError> {
+        self.message.encode(message_registration)
     }
 
     fn dyn_clone(&self) -> Option<DynMessage> {

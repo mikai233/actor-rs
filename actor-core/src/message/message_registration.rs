@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 
-use anyhow::anyhow;
 use bincode::{Decode, Encode};
+use bincode::error::{DecodeError, EncodeError};
 
-use actor_core::{CodecMessage, DynMessage};
-use actor_core::actor::decoder::MessageDecoder;
-use actor_core::message::death_watch_notification::DeathWatchNotification;
-use actor_core::message::terminate::Terminate;
-use actor_core::message::unwatch::Unwatch;
-use actor_core::message::watch::Watch;
+use crate::{CodecMessage, DynMessage};
+use crate::actor::decoder::MessageDecoder;
+use crate::message::death_watch_notification::DeathWatchNotification;
+use crate::message::terminate::Terminate;
+use crate::message::unwatch::Unwatch;
+use crate::message::watch::Watch;
 
 #[derive(Debug, Eq, PartialEq, Hash, Encode, Decode)]
 pub struct IDPacket {
@@ -54,14 +54,14 @@ impl MessageRegistration {
         self.next_id += 1;
     }
 
-    pub(crate) fn encode_boxed(&self, message: DynMessage) -> anyhow::Result<IDPacket> {
+    pub fn encode_boxed(&self, message: &DynMessage) -> Result<IDPacket, EncodeError> {
         let DynMessage { name, boxed: boxed_message, .. } = message;
-        self.encode(name, &*boxed_message)
+        self.encode(name, &**boxed_message)
     }
 
-    pub(crate) fn encode(&self, name: &'static str, message: &dyn CodecMessage) -> anyhow::Result<IDPacket> {
-        let id = *self.name_id.get(name).ok_or(anyhow!("message {} not register", name))?;
-        let bytes = message.encode()?;
+    pub fn encode(&self, name: &'static str, message: &dyn CodecMessage) -> Result<IDPacket, EncodeError> {
+        let id = *self.name_id.get(name).ok_or(EncodeError::OtherString(format!("message {} not register", name)))?;
+        let bytes = message.encode(self)?;
         let packet = IDPacket {
             id,
             bytes,
@@ -69,10 +69,10 @@ impl MessageRegistration {
         Ok(packet)
     }
 
-    pub(crate) fn decode(&self, packet: IDPacket) -> anyhow::Result<DynMessage> {
+    pub fn decode(&self, packet: IDPacket) -> Result<DynMessage, DecodeError> {
         let id = packet.id;
-        let decoder = self.decoder.get(&id).ok_or(anyhow!("message {} not register", id))?;
-        let message = decoder.decode(&packet.bytes)?;
+        let decoder = self.decoder.get(&id).ok_or(DecodeError::OtherString(format!("message {} not register", id)))?;
+        let message = decoder.decode(&packet.bytes, self)?;
         Ok(message)
     }
 

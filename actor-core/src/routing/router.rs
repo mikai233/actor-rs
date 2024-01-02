@@ -144,7 +144,7 @@ pub struct SeveralRoutees {
 impl Routee for SeveralRoutees {
     fn send(&self, message: DynMessage, sender: Option<ActorRef>) {
         for routee in &self.routees {
-            match message.clone() {
+            match message.dyn_clone() {
                 None => {
                     error!("route message {} not impl dyn_clone", message.name())
                 }

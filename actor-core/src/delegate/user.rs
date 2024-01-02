@@ -7,6 +7,7 @@ use bincode::error::EncodeError;
 use crate::{Actor, AsyncMessage, CodecMessage, DynMessage, Message, MessageType};
 use crate::actor::context::ActorContext;
 use crate::actor::decoder::MessageDecoder;
+use crate::message::message_registration::MessageRegistration;
 
 pub struct UserDelegate<A> where A: Actor {
     pub(crate) name: &'static str,
@@ -44,8 +45,8 @@ impl<A> CodecMessage for UserDelegate<A> where A: 'static + Actor + Send {
         None
     }
 
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        self.message.encode()
+    fn encode(&self, message_registration: &MessageRegistration) -> Result<Vec<u8>, EncodeError> {
+        self.message.encode(message_registration)
     }
 
     fn dyn_clone(&self) -> Option<DynMessage> {
@@ -107,8 +108,8 @@ impl<A> CodecMessage for AsyncUserDelegate<A> where A: 'static + Actor + Send {
         None
     }
 
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        self.message.encode()
+    fn encode(&self, message_registration: &MessageRegistration) -> Result<Vec<u8>, EncodeError> {
+        self.message.encode(message_registration)
     }
 
     fn dyn_clone(&self) -> Option<DynMessage> {

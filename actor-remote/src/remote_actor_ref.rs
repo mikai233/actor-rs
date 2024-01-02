@@ -10,13 +10,13 @@ use actor_core::actor::actor_path::TActorPath;
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::DynMessage;
+use actor_core::message::message_registration::MessageRegistration;
 use actor_core::message::poison_pill::PoisonPill;
 use actor_core::message::recreate::Recreate;
 use actor_core::message::resume::Resume;
 use actor_core::message::suspend::Suspend;
 use actor_derive::AsAny;
 
-use crate::message_registration::MessageRegistration;
 use crate::net::message::{OutboundMessage, RemoteEnvelope};
 
 #[derive(Clone, AsAny)]
@@ -60,7 +60,7 @@ impl TActorRef for RemoteActorRef {
 
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
         let name = message.name();
-        match self.registration.encode_boxed(message) {
+        match self.registration.encode_boxed(&message) {
             Ok(packet) => {
                 let envelope = RemoteEnvelope {
                     packet,

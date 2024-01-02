@@ -15,9 +15,9 @@ use actor_core::actor::actor_path::TActorPath;
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt, PROVIDER};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::Message;
+use actor_core::message::message_registration::IDPacket;
 use actor_derive::EmptyCodec;
 
-use crate::message_registration::IDPacket;
 use crate::net::codec::PacketCodec;
 use crate::net::connection::{Connection, ConnectionTx};
 use crate::net::tcp_transport::{ConnectionSender, TransportActor};

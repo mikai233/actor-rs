@@ -1,7 +1,6 @@
 pub mod remote_provider;
 pub mod net;
 pub mod remote_actor_ref;
-pub mod message_registration;
 
 #[cfg(test)]
 mod test {
