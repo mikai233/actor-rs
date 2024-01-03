@@ -28,6 +28,7 @@ dependencies = [
  "etcd-client",
  "futures",
  "rand",
+ "regex",
  "tokio",
  "tokio-util",
  "tracing",

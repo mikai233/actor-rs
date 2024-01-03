@@ -7,6 +7,7 @@ use enum_dispatch::enum_dispatch;
 
 use crate::{CodecMessage, DynMessage, FakeActor, Message};
 use crate::actor::actor_ref::ActorRef;
+use crate::actor::cell::Cell;
 use crate::actor::context::ActorContext;
 use crate::actor::decoder::MessageDecoder;
 use crate::ext::{decode_bytes, encode_bytes};
@@ -25,12 +26,38 @@ impl ActorSelection {
         if sel.elements.is_empty() {
             anchor.tell(sel.message, sender);
         } else {
-            fn rec(actor_ref: ActorRef, sel: ActorSelectionMessage, mut iter: impl Iterator<Item=SelectionPathElement>) {
+            fn rec(actor_ref: ActorRef, sel: ActorSelectionMessage, sender: Option<ActorRef>, mut iter: impl Iterator<Item=SelectionPathElement>) {
                 match actor_ref.local() {
                     None => {
                         sel.copy_with_elements(iter.collect());
                     }
-                    Some(local) => {}
+                    Some(local) => {
+                        // TODO EmptyLocalActorRef
+                        match iter.next() {
+                            None => {
+                                actor_ref.tell(sel.message, sender)
+                            }
+                            Some(element) => {
+                                match element {
+                                    SelectionPathElement::SelectChildName(child_name) => {
+                                        match local.get_single_child(&child_name.name) {
+                                            None => {
+                                                // TODO tell empty ref
+                                            }
+                                            Some(child) => {
+                                                rec(child, sel, sender, iter);
+                                            }
+                                        }
+                                    }
+                                    SelectionPathElement::SelectChildPattern(pattern) => {
+                                        let children = local.children().iter().map(|r| r.value().clone()).collect::<Vec<_>>();
+
+                                    }
+                                    SelectionPathElement::SelectParent(_) => {}
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
