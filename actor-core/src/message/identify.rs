@@ -15,8 +15,8 @@ pub(crate) struct Identify;
 impl SystemMessage for Identify {
     async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
         let myself = context.myself().clone();
-        let actor_identify = ActorIdentify {
-            actor_ref: myself,
+        let actor_identify = ActorIdentity {
+            actor_ref: Some(myself),
         };
         context.sender().foreach(|sender| {
             sender.cast_system(actor_identify, None);
@@ -26,12 +26,12 @@ impl SystemMessage for Identify {
 }
 
 #[derive(Debug, Encode, Decode, SystemMessageCodec)]
-pub(crate) struct ActorIdentify {
-    pub(crate) actor_ref: ActorRef,
+pub(crate) struct ActorIdentity {
+    pub(crate) actor_ref: Option<ActorRef>,
 }
 
 #[async_trait]
-impl SystemMessage for ActorIdentify {
+impl SystemMessage for ActorIdentity {
     async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
         todo!()
     }

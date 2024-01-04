@@ -1,13 +1,18 @@
 use std::any::Any;
+use std::ops::Deref;
 
 use anyhow::anyhow;
-use bincode::{Decode, Encode};
+use async_trait::async_trait;
+use bincode::{BorrowDecode, Decode, Encode};
+use bincode::de::{BorrowDecoder, Decoder};
+use bincode::enc::Encoder;
 use bincode::error::{DecodeError, EncodeError};
 use enum_dispatch::enum_dispatch;
+use regex::Regex;
 
-use crate::{CodecMessage, DynMessage, FakeActor, Message};
+use crate::{Actor, CodecMessage, DynMessage, FakeActor, SystemMessage};
+use crate::actor::actor_path::TActorPath;
 use crate::actor::actor_ref::ActorRef;
-use crate::actor::cell::Cell;
 use crate::actor::context::ActorContext;
 use crate::actor::decoder::MessageDecoder;
 use crate::ext::{decode_bytes, encode_bytes};
@@ -25,42 +30,7 @@ impl ActorSelection {
     fn deliver_selection(anchor: ActorRef, sender: Option<ActorRef>, sel: ActorSelectionMessage) {
         if sel.elements.is_empty() {
             anchor.tell(sel.message, sender);
-        } else {
-            fn rec(actor_ref: ActorRef, sel: ActorSelectionMessage, sender: Option<ActorRef>, mut iter: impl Iterator<Item=SelectionPathElement>) {
-                match actor_ref.local() {
-                    None => {
-                        sel.copy_with_elements(iter.collect());
-                    }
-                    Some(local) => {
-                        // TODO EmptyLocalActorRef
-                        match iter.next() {
-                            None => {
-                                actor_ref.tell(sel.message, sender)
-                            }
-                            Some(element) => {
-                                match element {
-                                    SelectionPathElement::SelectChildName(child_name) => {
-                                        match local.get_single_child(&child_name.name) {
-                                            None => {
-                                                // TODO tell empty ref
-                                            }
-                                            Some(child) => {
-                                                rec(child, sel, sender, iter);
-                                            }
-                                        }
-                                    }
-                                    SelectionPathElement::SelectChildPattern(pattern) => {
-                                        let children = local.children().iter().map(|r| r.value().clone()).collect::<Vec<_>>();
-
-                                    }
-                                    SelectionPathElement::SelectParent(_) => {}
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        } else {}
     }
 }
 
@@ -82,9 +52,53 @@ pub(crate) struct SelectChildName {
 
 impl TSelectionPathElement for SelectChildName {}
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone)]
 pub(crate) struct SelectChildPattern {
-    pattern_str: String,
+    pattern: Regex,
+}
+
+impl SelectChildPattern {
+    fn new(pattern_str: impl Into<String>) -> anyhow::Result<Self> {
+        let pattern_str = pattern_str.into();
+        let regex = Regex::new(&pattern_str)?;
+        Ok(Self {
+            pattern: regex,
+        })
+    }
+}
+
+impl Encode for SelectChildPattern {
+    fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
+        Encode::encode(self.pattern.as_str(), encoder)
+    }
+}
+
+impl Decode for SelectChildPattern {
+    fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
+        let pattern_str: String = Decode::decode(decoder)?;
+        let pattern = Regex::new(&pattern_str).map_err(|e| DecodeError::OtherString(e.to_string()))?;
+        Ok(Self {
+            pattern,
+        })
+    }
+}
+
+impl<'de> BorrowDecode<'de> for SelectChildPattern {
+    fn borrow_decode<D: BorrowDecoder<'de>>(decoder: &mut D) -> Result<Self, DecodeError> {
+        let pattern_str: String = Decode::decode(decoder)?;
+        let pattern = Regex::new(&pattern_str).map_err(|e| DecodeError::OtherString(e.to_string()))?;
+        Ok(Self {
+            pattern,
+        })
+    }
+}
+
+impl Deref for SelectChildPattern {
+    type Target = Regex;
+
+    fn deref(&self) -> &Self::Target {
+        &self.pattern
+    }
 }
 
 impl TSelectionPathElement for SelectChildPattern {}
@@ -96,9 +110,9 @@ impl TSelectionPathElement for SelectParent {}
 
 #[derive(Debug)]
 pub(crate) struct ActorSelectionMessage {
-    message: DynMessage,
-    elements: Vec<SelectionPathElement>,
-    wildcard_fan_out: bool,
+    pub(crate) message: DynMessage,
+    pub(crate) elements: Vec<SelectionPathElement>,
+    pub(crate) wildcard_fan_out: bool,
 }
 
 impl ActorSelectionMessage {
@@ -156,7 +170,7 @@ impl CodecMessage for ActorSelectionMessage {
                     elements,
                     wildcard_fan_out,
                 };
-                Ok(DynMessage::user(message))
+                Ok(DynMessage::system(message))
             }
         }
 
@@ -181,15 +195,14 @@ impl CodecMessage for ActorSelectionMessage {
                 elements: self.elements.clone(),
                 wildcard_fan_out: self.wildcard_fan_out,
             };
-            DynMessage::user(message)
+            DynMessage::system(message)
         })
     }
 }
 
-impl Message for ActorSelectionMessage {
-    type A = FakeActor;
-
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        todo!()
+#[async_trait]
+impl SystemMessage for ActorSelectionMessage {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
+        Ok(())
     }
 }

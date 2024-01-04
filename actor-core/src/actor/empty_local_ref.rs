@@ -5,10 +5,16 @@ use std::sync::Arc;
 
 use actor_derive::AsAny;
 
+use crate::{DynMessage, FakeActor};
 use crate::actor::actor_path::ActorPath;
-use crate::actor::actor_ref::{ActorRef, get_child_default, TActorRef};
+use crate::actor::actor_ref::{ActorRef, ActorRefSystemExt, get_child_default, TActorRef};
+use crate::actor::actor_selection::ActorSelectionMessage;
 use crate::actor::actor_system::ActorSystem;
-use crate::DynMessage;
+use crate::ext::option_ext::OptionExt;
+use crate::message::death_watch_notification::DeathWatchNotification;
+use crate::message::identify::{ActorIdentity, Identify};
+use crate::message::unwatch::Unwatch;
+use crate::message::watch::Watch;
 
 #[derive(Clone, AsAny)]
 pub struct EmptyLocalActorRef {
@@ -43,11 +49,11 @@ impl TActorRef for EmptyLocalActorRef {
     }
 
     fn path(&self) -> &ActorPath {
-        todo!()
+        &self.path
     }
 
-    fn tell(&self, _message: DynMessage, _sender: Option<ActorRef>) {
-        todo!()
+    fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
+        self.special_handle(message, sender)
     }
 
     fn stop(&self) {}
@@ -58,6 +64,41 @@ impl TActorRef for EmptyLocalActorRef {
 
     fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
         get_child_default(self.clone(), names)
+    }
+}
+
+impl EmptyLocalActorRef {
+    pub(crate) fn new(system: ActorSystem, path: ActorPath) -> Self {
+        Self {
+            inner: Arc::new(Inner { system, path }),
+        }
+    }
+
+    fn special_handle(&self, message: DynMessage, sender: Option<ActorRef>) {
+        let watch = std::any::type_name::<Watch>();
+        let unwatch = std::any::type_name::<Unwatch>();
+        let identify = std::any::type_name::<Identify>();
+        let actor_selection = std::any::type_name::<ActorSelectionMessage>();
+        if message.name == watch {
+            let watch = message.downcast_into_message::<FakeActor, Watch>().unwrap();
+            if watch.watchee.path() == self.path() && watch.watcher.path() != self.path() {
+                watch.watcher.cast_system(DeathWatchNotification(watch.watchee), ActorRef::no_sender());
+            }
+        } else if message.name == unwatch {
+            // just ignore
+        } else if message.name == identify {
+            sender.foreach(|s| s.cast_system(ActorIdentity { actor_ref: None }, ActorRef::no_sender()));
+        } else if message.name == actor_selection {
+            let actor_selection = message.downcast_into_message::<FakeActor, ActorSelectionMessage>().unwrap();
+            match actor_selection.identify_request() {
+                Ok(_) => {
+                    if !actor_selection.wildcard_fan_out {
+                        sender.foreach(|s| s.cast_system(ActorIdentity { actor_ref: None }, ActorRef::no_sender()));
+                    }
+                }
+                Err(_) => {}
+            }
+        }
     }
 }
 
