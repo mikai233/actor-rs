@@ -1,12 +1,12 @@
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 
-use actor_derive::SystemMessageCodec;
+use actor_derive::SystemCodec;
 
 use crate::{Actor, SystemMessage};
 use crate::actor::context::ActorContext;
 
-#[derive(Encode, Decode, SystemMessageCodec)]
+#[derive(Encode, Decode, SystemCodec)]
 pub struct Terminate;
 
 #[async_trait]

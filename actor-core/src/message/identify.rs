@@ -1,14 +1,14 @@
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 
-use actor_derive::SystemMessageCodec;
+use actor_derive::SystemCodec;
 
 use crate::{Actor, SystemMessage};
 use crate::actor::actor_ref::{ActorRef, ActorRefSystemExt};
 use crate::actor::context::{ActorContext, Context};
 use crate::ext::option_ext::OptionExt;
 
-#[derive(Debug, Encode, Decode, SystemMessageCodec)]
+#[derive(Debug, Encode, Decode, SystemCodec)]
 pub(crate) struct Identify;
 
 #[async_trait]
@@ -25,7 +25,7 @@ impl SystemMessage for Identify {
     }
 }
 
-#[derive(Debug, Encode, Decode, SystemMessageCodec)]
+#[derive(Debug, Encode, Decode, SystemCodec)]
 pub(crate) struct ActorIdentity {
     pub(crate) actor_ref: Option<ActorRef>,
 }

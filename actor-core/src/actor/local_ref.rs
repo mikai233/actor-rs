@@ -71,7 +71,7 @@ impl TActorRef for LocalActorRef {
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
         let envelop = Envelope { message, sender };
         match &envelop.message.message_type {
-            MessageType::User | MessageType::AsyncUser => {
+            MessageType::User => {
                 if let Some(error) = self.sender.message.try_send(envelop).err() {
                     self.log_send_error(error);
                 }
@@ -81,7 +81,7 @@ impl TActorRef for LocalActorRef {
                     self.log_send_error(error);
                 }
             }
-            MessageType::Untyped => {
+            MessageType::Orphan => {
                 let myself: ActorRef = self.clone().into();
                 warn!("unexpected Untyped message {} to {}", envelop.message.name, myself);
             }

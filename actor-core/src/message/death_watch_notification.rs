@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 
-use actor_derive::SystemMessageCodec;
+use actor_derive::SystemCodec;
 
 use crate::{Actor, SystemMessage};
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::context::ActorContext;
 
-#[derive(Debug, Encode, Decode, SystemMessageCodec)]
+#[derive(Debug, Encode, Decode, SystemCodec)]
 pub struct DeathWatchNotification(pub(crate) ActorRef);
 
 #[async_trait]

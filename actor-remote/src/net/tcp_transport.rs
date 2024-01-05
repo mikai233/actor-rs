@@ -151,7 +151,7 @@ mod test {
     use actor_core::actor::deferred_ref::Patterns;
     use actor_core::actor::props::Props;
     use actor_core::message::message_registration::MessageRegistration;
-    use actor_derive::{EmptyCodec, MessageCodec, UntypedMessageCodec};
+    use actor_derive::{EmptyCodec, MessageCodec, OrphanCodec};
 
     use crate::remote_provider::RemoteActorRefProvider;
 
@@ -160,10 +160,11 @@ mod test {
     #[derive(Encode, Decode, MessageCodec)]
     struct Ping;
 
+    #[async_trait]
     impl Message for Ping {
         type A = PingPongActor;
 
-        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             let myself = context.myself().clone();
             let sender = context.sender().unwrap().clone();
             context.spawn(async move {
@@ -177,10 +178,11 @@ mod test {
     #[derive(Encode, Decode, MessageCodec)]
     struct Pong;
 
+    #[async_trait]
     impl Message for Pong {
         type A = PingPongActor;
 
-        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             info!("{} pong", context.myself());
             Ok(())
         }
@@ -191,10 +193,11 @@ mod test {
         to: String,
     }
 
+    #[async_trait]
     impl Message for PingTo {
         type A = PingPongActor;
 
-        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             let to = context.system().provider().resolve_actor_ref(&self.to);
             to.cast(Ping, Some(context.myself().clone()));
             Ok(())
@@ -238,10 +241,11 @@ mod test {
     #[derive(Encode, Decode, MessageCodec)]
     struct MessageToAsk;
 
+    #[async_trait]
     impl Message for MessageToAsk {
         type A = EmptyTestActor;
 
-        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             context.sender().unwrap().resp(MessageToAns {
                 content: "hello world".to_string(),
             });
@@ -249,7 +253,7 @@ mod test {
         }
     }
 
-    #[derive(Encode, Decode, UntypedMessageCodec)]
+    #[derive(Encode, Decode, OrphanCodec)]
     struct MessageToAns {
         content: String,
     }
@@ -259,9 +263,9 @@ mod test {
         let system1 = ActorSystem::create("mikai233", build_config("127.0.0.1:12121".parse()?))?;
         let system2 = ActorSystem::create("mikai233", build_config("127.0.0.1:12123".parse()?))?;
         let actor_a = system1.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
-        // let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
+        let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
         let start = SystemTime::now();
-        let range = 0..1000000;
+        let range = 0..1000;
         for _ in range {
             let _: MessageToAns = Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;
         }

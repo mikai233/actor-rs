@@ -19,7 +19,7 @@ pub fn empty_codec_derive(input: TokenStream) -> TokenStream {
     message::expand(ast, MessageImpl::Message, CodecType::NoneSerde, false).into()
 }
 
-#[proc_macro_derive(CloneableEmptyCodec)]
+#[proc_macro_derive(CEmptyCodec)]
 pub fn cloneable_empty_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::Message, CodecType::NoneSerde, true).into()
@@ -31,58 +31,46 @@ pub fn message_codec_derive(input: TokenStream) -> TokenStream {
     message::expand(ast, MessageImpl::Message, CodecType::Serde, false).into()
 }
 
-#[proc_macro_derive(CloneableMessageCodec)]
+#[proc_macro_derive(CMessageCodec)]
 pub fn cloneable_message_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::Message, CodecType::Serde, true).into()
 }
 
-#[proc_macro_derive(AsyncMessageCodec)]
-pub fn async_message_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::AsyncMessage, CodecType::Serde, false).into()
-}
-
-#[proc_macro_derive(CloneableAsyncMessageCodec)]
-pub fn cloneable_async_message_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::AsyncMessage, CodecType::Serde, true).into()
-}
-
-#[proc_macro_derive(SystemMessageCodec)]
-pub fn system_message_codec_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(SystemCodec)]
+pub fn system_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::SystemMessage, CodecType::Serde, false).into()
 }
 
-#[proc_macro_derive(CloneableSystemMessageCodec)]
-pub fn clonealbe_system_message_codec_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(CSystemCodec)]
+pub fn clonealbe_system_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::SystemMessage, CodecType::Serde, true).into()
 }
 
-#[proc_macro_derive(UntypedMessageCodec)]
-pub fn untyped_message_codec_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(OrphanCodec)]
+pub fn orphan_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::UntypedMessage, CodecType::Serde, false).into()
+    message::expand(ast, MessageImpl::OrphanMessage, CodecType::Serde, false).into()
 }
 
-#[proc_macro_derive(UntypedMessageEmptyCodec)]
-pub fn untyped_message_empty_codec_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(OrphanEmptyCodec)]
+pub fn orphan_empty_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::UntypedMessage, CodecType::NoneSerde, false).into()
+    message::expand(ast, MessageImpl::OrphanMessage, CodecType::NoneSerde, false).into()
 }
 
-#[proc_macro_derive(CloneableUntypedMessageCodec)]
-pub fn cloneable_untyped_message_codec_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(COrphanCodec)]
+pub fn cloneable_orphan_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::UntypedMessage, CodecType::Serde, true).into()
+    message::expand(ast, MessageImpl::OrphanMessage, CodecType::Serde, true).into()
 }
 
-#[proc_macro_derive(CloneableUntypedMessageEmptyCodec)]
-pub fn cloneable_untyped_message_empty_codec_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(COrphanEmptyCodec)]
+pub fn cloneable_orphan_empty_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::UntypedMessage, CodecType::NoneSerde, true).into()
+    message::expand(ast, MessageImpl::OrphanMessage, CodecType::NoneSerde, true).into()
 }
 
 #[proc_macro_derive(AsAny)]

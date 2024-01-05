@@ -96,10 +96,11 @@ impl TRouterActor for RouterActor {
 #[derive(Decode, Encode, MessageCodec)]
 pub(crate) struct WatchRouteeTerminated(ActorRef);
 
+#[async_trait]
 impl Message for WatchRouteeTerminated {
     type A = RouterActor;
 
-    fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         todo!()
     }
 }

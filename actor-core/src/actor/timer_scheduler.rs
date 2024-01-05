@@ -86,11 +86,12 @@ enum Schedule {
     },
 }
 
+#[async_trait]
 impl Message for Schedule {
     type A = TimerSchedulerActor;
 
     #[instrument(skip_all)]
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match &*self {
             Schedule::Once { index, delay, .. } => {
                 let index = *index;
@@ -187,10 +188,11 @@ struct CancelSchedule {
     index: u64,
 }
 
+#[async_trait]
 impl Message for CancelSchedule {
     type A = TimerSchedulerActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match actor.index.remove(&self.index) {
             None => {
                 warn!("{} not found in TimerScheduler", self.index);
@@ -208,10 +210,11 @@ impl Message for CancelSchedule {
 #[derive(Debug, EmptyCodec)]
 struct CancelAllSchedule;
 
+#[async_trait]
 impl Message for CancelAllSchedule {
     type A = TimerSchedulerActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.index.clear();
         actor.queue.clear();
         debug!("{} {:?}", context.myself(), self);
@@ -222,10 +225,11 @@ impl Message for CancelAllSchedule {
 #[derive(Debug, EmptyCodec)]
 struct PollExpired;
 
+#[async_trait]
 impl Message for PollExpired {
     type A = TimerSchedulerActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let waker = &actor.waker;
         let queue = &mut actor.queue;
         let index_map = &mut actor.index;

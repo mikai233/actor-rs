@@ -13,9 +13,9 @@ use actor_derive::MessageCodec;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::fault_handing::{default_strategy, SupervisorStrategy};
-use crate::delegate::{MessageDelegate, MessageDelegateRef};
+use crate::delegate::downcast_box_message;
 use crate::delegate::system::SystemDelegate;
-use crate::delegate::user::{AsyncUserDelegate, UserDelegate};
+use crate::delegate::user::UserDelegate;
 use crate::message::message_registration::MessageRegistration;
 
 pub mod ext;
@@ -70,14 +70,8 @@ pub trait CodecMessage: Any + Send {
     fn dyn_clone(&self) -> Option<DynMessage>;
 }
 
-pub trait Message: CodecMessage {
-    type A: Actor;
-
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()>;
-}
-
 #[async_trait]
-pub trait AsyncMessage: CodecMessage {
+pub trait Message: CodecMessage {
     type A: Actor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()>;
@@ -88,14 +82,13 @@ pub trait SystemMessage: CodecMessage {
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut dyn Actor) -> anyhow::Result<()>;
 }
 
-pub trait UntypedMessage: CodecMessage {}
+pub trait OrphanMessage: CodecMessage {}
 
 #[derive(Debug, Copy, Clone, Encode, Decode)]
 pub enum MessageType {
     User,
-    AsyncUser,
     System,
-    Untyped,
+    Orphan,
 }
 
 pub struct DynMessage {
@@ -136,19 +129,14 @@ impl DynMessage {
         DynMessage::new(delegate.name, MessageType::User, delegate)
     }
 
-    pub fn async_user<M>(message: M) -> Self where M: AsyncMessage {
-        let delegate = AsyncUserDelegate::new(message);
-        DynMessage::new(delegate.name, MessageType::AsyncUser, delegate)
-    }
-
     pub(crate) fn system<M>(message: M) -> Self where M: SystemMessage {
         let delegate = SystemDelegate::new(message);
         DynMessage::new(delegate.name, MessageType::System, delegate)
     }
 
-    pub fn untyped<M>(message: M) -> Self where M: UntypedMessage {
+    pub fn orphan<M>(message: M) -> Self where M: OrphanMessage {
         let name = std::any::type_name::<M>();
-        DynMessage::new(name, MessageType::Untyped, message)
+        DynMessage::new(name, MessageType::Orphan, message)
     }
 
     /// 判断[`DynMessage`]的实际消息类型，大部分消息都会包装一层代理层，用于downcast到具体的类型，因为Rust不允许从一个trait object
@@ -158,78 +146,78 @@ impl DynMessage {
         self.name() == name
     }
 
-    pub fn downcast_into_delegate<A>(self) -> anyhow::Result<MessageDelegate<A>> where A: Actor {
+    pub fn downcast_user_delegate<A>(self) -> anyhow::Result<Box<UserDelegate<A>>> where A: Actor {
         let Self { name, message_type, boxed } = self;
         let message = boxed.into_any();
-        let delegate = match message_type {
-            MessageType::User => {
-                message.downcast::<UserDelegate<A>>().map(|m| MessageDelegate::User(m))
-            }
-            MessageType::AsyncUser => {
-                message.downcast::<AsyncUserDelegate<A>>().map(|m| MessageDelegate::AsyncUser(m))
-            }
-            MessageType::System => {
-                message.downcast::<SystemDelegate>().map(|m| MessageDelegate::System(m))
-            }
-            MessageType::Untyped => {
-                panic!("unexpected Untyped message {}", name);
-            }
+        let user_delegate = if matches!(message_type, MessageType::User) {
+            message.downcast::<UserDelegate<A>>()
+                .map_err(|_| anyhow!("message {} cannot downcast to UserDelegate<{}>", name, std::any::type_name::<A>()))
+        } else {
+            Err(anyhow!("message {} is not a user message", name))
         };
-        match delegate {
-            Ok(delegate) => {
-                Ok(delegate)
-            }
-            Err(_) => {
-                Err(anyhow!("unexpected message {} to actor {}", name, std::any::type_name::<A>()))
-            }
+        user_delegate
+    }
+
+    pub fn downcast_system_delegate(self) -> anyhow::Result<Box<SystemDelegate>> {
+        let Self { name, message_type, boxed } = self;
+        let message = boxed.into_any();
+        let system_delegate = if matches!(message_type, MessageType::System) {
+            message.downcast::<SystemDelegate>()
+                .map_err(|_| anyhow!("message {} cannot downcast to SystemDelegate", name))
+        } else {
+            Err(anyhow!("message {} is not a user message", name))
+        };
+        system_delegate
+    }
+
+    pub fn downcast_user_delegate_ref<A>(&self) -> Option<&UserDelegate<A>> where A: Actor {
+        let Self { message_type, boxed, .. } = self;
+        let message = boxed.as_any();
+        if matches!(message_type, MessageType::User) {
+            message.downcast_ref::<UserDelegate<A>>()
+        } else {
+            None
         }
     }
 
-    pub fn downcast_delegate_ref<A>(&self) -> anyhow::Result<MessageDelegateRef<A>> where A: Actor {
-        let Self { name, message_type, boxed } = self;
+    pub fn downcast_system_delegate_ref(&self) -> Option<&SystemDelegate> {
+        let Self { message_type, boxed, .. } = self;
         let message = boxed.as_any();
-        let delegate = match message_type {
-            MessageType::User => {
-                message.downcast_ref::<UserDelegate<A>>().map(|m| MessageDelegateRef::User(m))
-            }
-            MessageType::AsyncUser => {
-                message.downcast_ref::<AsyncUserDelegate<A>>().map(|m| MessageDelegateRef::AsyncUser(m))
-            }
-            MessageType::System => {
-                message.downcast_ref::<SystemDelegate>().map(|m| MessageDelegateRef::System(m))
-            }
-            MessageType::Untyped => {
-                panic!("unexpected Untyped message {}", name);
-            }
-        };
-        delegate.ok_or(anyhow!("unexpected message {} to actor {}", name, std::any::type_name::<A>()))
+        if matches!(message_type, MessageType::System) {
+            message.downcast_ref::<SystemDelegate>()
+        } else {
+            None
+        }
     }
 
-    pub fn downcast_into_message<A, M>(self) -> anyhow::Result<Box<M>> where A: Actor, M: CodecMessage {
-        let name = self.name();
-        let delegate = self.downcast_into_delegate::<A>()?;
-        delegate
-            .into_any()
-            .downcast::<M>()
-            .map_err(|_| anyhow!("incorrect downcast message {} to {}", name, std::any::type_name::<M>()))
+    pub fn downcast_user<A, M>(self) -> anyhow::Result<M> where A: Actor, M: Message {
+        let message: M = self.downcast_user_delegate::<A>().map(|d| d.downcast())??;
+        Ok(message)
     }
 
-    pub fn downcast_as_message<A, M>(&self) -> anyhow::Result<&M> where A: Actor, M: CodecMessage {
-        let name = self.name();
-        let delegate = self.downcast_delegate_ref::<A>()?;
-        delegate
-            .into_any()
-            .downcast_ref::<M>()
-            .ok_or(anyhow!("incorrect downcast message {} to {}", name, std::any::type_name::<M>()))
+    pub fn downcast_user_ref<A, M>(&self) -> Option<&M> where A: Actor, M: Message {
+        self.downcast_user_delegate_ref::<A>().map(|d| d.downcast_ref()).unwrap_or_default()
+    }
+
+    pub fn downcast_system<M>(self) -> anyhow::Result<M> where M: SystemMessage {
+        let message: M = self.downcast_system_delegate().map(|d| d.downcast())??;
+        Ok(message)
+    }
+
+    pub fn downcast_system_ref<M>(&self) -> Option<&M> where M: SystemMessage {
+        self.downcast_system_delegate_ref().map(|d| d.downcast_ref()).unwrap_or_default()
+    }
+
+    pub fn downcast_orphan<M>(self) -> anyhow::Result<M> where M: OrphanMessage {
+        let Self { name, boxed, .. } = self;
+        downcast_box_message(name, boxed.into_any())
+    }
+
+    pub fn downcast_orphan_ref<M>(&self) -> Option<&M> where M: OrphanMessage {
+        let Self { boxed, .. } = self;
+        boxed.as_any().downcast_ref()
     }
 }
-
-/// [DynMessage::downcast_into_delegate]、[DynMessage::downcast_as_message]、[DynMessage::downcast_into_message]
-/// 需要泛型参数，当消息类型是[MessageType::System]时，不需要这个泛型参数，用于占位
-#[derive(Debug)]
-pub struct FakeActor;
-
-impl Actor for FakeActor {}
 
 #[derive(Debug)]
 pub struct EmptyTestActor;
@@ -250,10 +238,11 @@ impl Actor for EmptyTestActor {
 #[derive(Debug, Encode, Decode, MessageCodec)]
 pub struct EmptyTestMessage;
 
+#[async_trait]
 impl Message for EmptyTestMessage {
     type A = EmptyTestActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         info!("{} handle {:?}", context.myself(), self);
         Ok(())
     }

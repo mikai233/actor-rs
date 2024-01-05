@@ -1,18 +1,18 @@
 use std::any::Any;
 use std::panic::AssertUnwindSafe;
+
 use anyhow::{anyhow, Error};
 use futures::FutureExt;
 use tokio::task::yield_now;
 use tracing::error;
 
-use crate::{Actor, AsyncMessage, Message};
+use crate::{Actor, Message};
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::mailbox::Mailbox;
 use crate::actor::props::Props;
 use crate::actor::state::ActorState;
 use crate::cell::envelope::Envelope;
-use crate::delegate::MessageDelegate;
 
 pub struct ActorRuntime<A> where A: Actor {
     pub(crate) actor: A,
@@ -92,20 +92,10 @@ impl<A> ActorRuntime<A> where A: Actor {
     async fn handle_system(context: &mut ActorContext, actor: &mut A, envelope: Envelope) {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
-        match message.downcast_into_delegate::<A>() {
-            Ok(delegate) => {
-                match delegate {
-                    MessageDelegate::User(m) => {
-                        panic!("unexpected user message {} in system handle", m.name);
-                    }
-                    MessageDelegate::AsyncUser(m) => {
-                        panic!("unexpected async user message {} in system handle", m.name);
-                    }
-                    MessageDelegate::System(system) => {
-                        let catch_unwind_result = AssertUnwindSafe(system.message.handle(context, actor)).catch_unwind().await;
-                        Self::catch_handle_error(context, catch_unwind_result);
-                    }
-                }
+        match message.downcast_system_delegate() {
+            Ok(system) => {
+                let catch_unwind_result = AssertUnwindSafe(system.message.handle(context, actor)).catch_unwind().await;
+                Self::catch_handle_error(context, catch_unwind_result);
             }
             Err(error) => {
                 error!("{:?}", error);
@@ -134,26 +124,14 @@ impl<A> ActorRuntime<A> where A: Actor {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
         if let Some(message) = actor.handle_message(context, message) {
-            match message.downcast_into_delegate::<A>() {
-                Ok(delegate) => {
-                    match delegate {
-                        MessageDelegate::User(user) => {
-                            if let Some(error) = user.handle(context, actor).err() {
-                                Self::handle_failure(context, error);
-                            }
-                        }
-                        MessageDelegate::AsyncUser(user) => {
-                            if let Some(error) = user.handle(context, actor).await.err() {
-                                Self::handle_failure(context, error);
-                            }
-                        }
-                        MessageDelegate::System(m) => {
-                            panic!("unexpected system message {} in user handle", m.name);
-                        }
+            match message.downcast_user_delegate::<A>() {
+                Ok(message) => {
+                    if let Some(error) = message.handle(context, actor).await.err() {
+                        Self::handle_failure(context, error);
                     }
                 }
-                Err(e) => {
-                    error!("{:?}", e);
+                Err(error) => {
+                    error!("{:?}", error);
                 }
             }
         }

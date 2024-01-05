@@ -17,10 +17,11 @@ pub(crate) struct StopChild {
     pub(crate) child: ActorRef,
 }
 
+#[async_trait]
 impl Message for StopChild {
     type A = SystemGuardian;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         context.stop(&self.child);
         Ok(())
     }

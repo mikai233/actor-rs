@@ -4,7 +4,7 @@ use tracing::debug;
 
 use actor_derive::EmptyCodec;
 
-use crate::{Actor, AsyncMessage, Message};
+use crate::{Actor, Message};
 use crate::actor::actor_ref::{ActorRef, TActorRef};
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
@@ -40,7 +40,7 @@ pub(crate) struct Shutdown {
 }
 
 #[async_trait]
-impl AsyncMessage for Shutdown {
+impl Message for Shutdown {
     type A = RootGuardian;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
@@ -57,10 +57,11 @@ pub(crate) struct ChildGuardianStarted {
     pub(crate) guardian: ActorRef,
 }
 
+#[async_trait]
 impl Message for ChildGuardianStarted {
     type A = RootGuardian;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         context.watch(WatchGuardianTerminated { guardian: self.guardian });
         Ok(())
     }
@@ -77,10 +78,11 @@ impl WatchTerminated for WatchGuardianTerminated {
     }
 }
 
+#[async_trait]
 impl Message for WatchGuardianTerminated {
     type A = RootGuardian;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if self.guardian == context.system.guardian().into() {
             actor.user_stopped = true;
             debug!("user guardian stopped");
@@ -109,10 +111,11 @@ pub(crate) struct AddShutdownHook {
     pub(crate) fut: BoxFuture<'static, ()>,
 }
 
+#[async_trait]
 impl Message for AddShutdownHook {
     type A = RootGuardian;
 
-    fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.shutdown_hooks.push(self.fut);
         Ok(())
     }

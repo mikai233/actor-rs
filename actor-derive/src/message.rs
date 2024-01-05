@@ -39,8 +39,8 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
             }
         }
     };
-    let impl_message = if matches!(message_impl, MessageImpl::UntypedMessage) {
-        let message_trait = with_crate(parse_str("UntypedMessage").unwrap());
+    let impl_message = if matches!(message_impl, MessageImpl::OrphanMessage) {
+        let message_trait = with_crate(parse_str("OrphanMessage").unwrap());
         Some(expand_message_impl(&message_ty, message_trait, &impl_generics, &ty_generics, where_clause))
     } else {
         None
@@ -77,15 +77,6 @@ pub(crate) fn expand_decoder(message_ty: &Ident, message_impl: &MessageImpl, cod
                         }
                     })
                 }
-                MessageImpl::AsyncMessage => {
-                    decoder(&decoder_trait, &dy_message, &reg, || {
-                        quote! {
-                            let message: #message_ty = #ext_path::decode_bytes(bytes)?;
-                            let message = #dy_message::async(message);
-                            Ok(message)
-                        }
-                    })
-                }
                 MessageImpl::SystemMessage => {
                     decoder(&decoder_trait, &dy_message, &reg, || {
                         quote! {
@@ -95,11 +86,11 @@ pub(crate) fn expand_decoder(message_ty: &Ident, message_impl: &MessageImpl, cod
                         }
                     })
                 }
-                MessageImpl::UntypedMessage => {
+                MessageImpl::OrphanMessage => {
                     decoder(&decoder_trait, &dy_message, &reg, || {
                         quote! {
                             let message: #message_ty = #ext_path::decode_bytes(bytes)?;
-                            let message = #dy_message::untyped(message);
+                            let message = #dy_message::orphan(message);
                             Ok(message)
                         }
                     })
@@ -151,21 +142,15 @@ pub(crate) fn expand_dyn_clone(dy_message: &TokenStream, message_impl: &MessageI
                     Some(message)
                 }
             }
-            MessageImpl::AsyncMessage => {
-                quote! {
-                    let message = #dy_message::async(Clone::clone(self));
-                    Some(message)
-                }
-            }
             MessageImpl::SystemMessage => {
                 quote! {
                     let message = #dy_message::new(Clone::clone(self));
                     Some(message)
                 }
             }
-            MessageImpl::UntypedMessage => {
+            MessageImpl::OrphanMessage => {
                 quote! {
-                    let message = #dy_message::untyped(Clone::clone(self));
+                    let message = #dy_message::orphan(Clone::clone(self));
                     Some(message)
                 }
             }

@@ -128,7 +128,7 @@ impl ActorSystem {
         let guardian = self.provider().root_guardian().clone();
         async fn stop(guardian: LocalActorRef) {
             let (tx, rx) = channel();
-            guardian.cast_async(Shutdown { signal: tx }, ActorRef::no_sender());
+            guardian.cast(Shutdown { signal: tx }, ActorRef::no_sender());
             let _ = rx.await;
         }
         match rx {

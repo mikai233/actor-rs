@@ -2,7 +2,6 @@ use std::any::Any;
 use std::ops::Deref;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use bincode::{BorrowDecode, Decode, Encode};
 use bincode::de::{BorrowDecoder, Decoder};
 use bincode::enc::Encoder;
@@ -10,10 +9,8 @@ use bincode::error::{DecodeError, EncodeError};
 use enum_dispatch::enum_dispatch;
 use regex::Regex;
 
-use crate::{Actor, CodecMessage, DynMessage, FakeActor, SystemMessage};
-use crate::actor::actor_path::TActorPath;
+use crate::{CodecMessage, DynMessage, OrphanMessage};
 use crate::actor::actor_ref::ActorRef;
-use crate::actor::context::ActorContext;
 use crate::actor::decoder::MessageDecoder;
 use crate::ext::{decode_bytes, encode_bytes};
 use crate::message::identify::Identify;
@@ -128,8 +125,8 @@ impl ActorSelectionMessage {
             Ok(myself)
         }
     }
-    pub(crate) fn identify_request(&self) -> anyhow::Result<&Identify> {
-        self.message.downcast_as_message::<FakeActor, _>()
+    pub(crate) fn identify_request(&self) -> Option<&Identify> {
+        self.message.downcast_system_ref()
     }
 
     pub(crate) fn copy_with_elements(&self, elements: Vec<SelectionPathElement>) -> Self {
@@ -170,7 +167,7 @@ impl CodecMessage for ActorSelectionMessage {
                     elements,
                     wildcard_fan_out,
                 };
-                Ok(DynMessage::system(message))
+                Ok(DynMessage::orphan(message))
             }
         }
 
@@ -195,14 +192,9 @@ impl CodecMessage for ActorSelectionMessage {
                 elements: self.elements.clone(),
                 wildcard_fan_out: self.wildcard_fan_out,
             };
-            DynMessage::system(message)
+            DynMessage::orphan(message)
         })
     }
 }
 
-#[async_trait]
-impl SystemMessage for ActorSelectionMessage {
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
+impl OrphanMessage for ActorSelectionMessage {}

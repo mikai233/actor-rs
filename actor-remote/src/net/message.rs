@@ -5,6 +5,7 @@ use std::pin::Pin;
 use std::time::Duration;
 
 use anyhow::anyhow;
+use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use stubborn_io::{ReconnectOptions, StubbornTcpStream};
 use tokio::sync::mpsc::error::TrySendError;
@@ -51,10 +52,11 @@ pub struct Connect {
     pub opts: ReconnectOptions,
 }
 
+#[async_trait]
 impl Message for Connect {
     type A = TransportActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         let myself = context.myself().clone();
         context.spawn(async move {
             match StubbornTcpStream::connect_with_options(self.addr, self.opts).await {
@@ -83,10 +85,11 @@ pub struct Connected {
     pub tx: ConnectionTx,
 }
 
+#[async_trait]
 impl Message for Connected {
     type A = TransportActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.connections.insert(self.addr, ConnectionSender::Connected(self.tx));
         info!("{} connect to {}", context.myself(), self.addr);
         context.unstash_all();
@@ -99,10 +102,11 @@ pub struct Disconnect {
     pub addr: SocketAddr,
 }
 
+#[async_trait]
 impl Message for Disconnect {
     type A = TransportActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.connections.remove(&self.addr);
         let myself = context.myself();
         info!("{} disconnect to {}", myself, self.addr);
@@ -115,10 +119,11 @@ pub struct SpawnInbound {
     pub fut: Pin<Box<dyn Future<Output=()> + Send + 'static>>,
 }
 
+#[async_trait]
 impl Message for SpawnInbound {
     type A = TransportActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         context.spawn(self.fut);
         Ok(())
     }
@@ -129,10 +134,11 @@ pub struct InboundMessage {
     pub packet: RemotePacket,
 }
 
+#[async_trait]
 impl Message for InboundMessage {
     type A = TransportActor;
 
-    fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let RemotePacket {
             packet,
             sender,
@@ -155,10 +161,11 @@ pub struct OutboundMessage {
     pub envelope: RemoteEnvelope,
 }
 
+#[async_trait]
 impl Message for OutboundMessage {
     type A = TransportActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let addr: SocketAddr = self.envelope.target.path().address().addr.map(|a| a.into()).ok_or(anyhow!("socket addr not set"))?;
         let sender = actor.connections.entry(addr).or_insert(ConnectionSender::NotConnected);
         match sender {

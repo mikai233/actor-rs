@@ -1,18 +1,19 @@
 use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 
+use async_trait::async_trait;
 use tracing::{debug, trace};
 
 use actor_derive::EmptyCodec;
 
 use crate::{Actor, DynMessage, Message};
-use crate::actor::actor_ref::ActorRefExt;
 use crate::actor::actor_ref::ActorRef;
+use crate::actor::actor_ref::ActorRefExt;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ActorContext, Context};
+use crate::actor::props::Props;
 use crate::event::EventBus;
 use crate::message::terminated::WatchTerminated;
-use crate::actor::props::Props;
 
 #[derive(Debug, Clone)]
 pub struct SystemEventBus {
@@ -68,10 +69,11 @@ impl WatchTerminated for WatchSubscriberTerminated {
     }
 }
 
+#[async_trait]
 impl Message for WatchSubscriberTerminated {
     type A = EventBusActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         debug!("{} watch subscriber {} terminate, unsubscribe all events", context.myself, self.watch);
         context.myself().cast(UnsubscribeAll { subscriber: self.watch }, ActorRef::no_sender());
         Ok(())
@@ -84,10 +86,11 @@ struct Subscribe {
     to: &'static str,
 }
 
+#[async_trait]
 impl Message for Subscribe {
     type A = EventBusActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Subscribe { subscriber, to } = *self;
         debug!("subscriber {} subscribe event {}", subscriber, to);
         if context.is_watching(&subscriber).not() {
@@ -109,10 +112,11 @@ struct Unsubscribe {
     from: &'static str,
 }
 
+#[async_trait]
 impl Message for Unsubscribe {
     type A = EventBusActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Unsubscribe { subscriber, from } = *self;
         if let Some(subscribers) = actor.subscribers.get_mut(from) {
             subscribers.remove(&subscriber);
@@ -132,10 +136,11 @@ struct UnsubscribeAll {
     subscriber: ActorRef,
 }
 
+#[async_trait]
 impl Message for UnsubscribeAll {
     type A = EventBusActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         for subscribers in actor.subscribers.values_mut() {
             subscribers.retain(|s| s != &self.subscriber);
         }
@@ -150,10 +155,11 @@ struct Publish {
     event_factory: Box<dyn Fn() -> DynMessage + Send>,
 }
 
+#[async_trait]
 impl Message for Publish {
     type A = EventBusActor;
 
-    fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let event = (self.event_factory)();
         let name = event.name();
         if let Some(subscribers) = actor.subscribers.get(name) {

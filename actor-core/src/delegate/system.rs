@@ -6,6 +6,7 @@ use bincode::error::EncodeError;
 use crate::{Actor, CodecMessage, DynMessage, MessageType, SystemMessage};
 use crate::actor::context::ActorContext;
 use crate::actor::decoder::MessageDecoder;
+use crate::delegate::downcast_box_message;
 use crate::message::message_registration::MessageRegistration;
 
 pub(crate) struct SystemDelegate {
@@ -19,6 +20,16 @@ impl SystemDelegate where {
             name: std::any::type_name::<M>(),
             message: Box::new(message),
         }
+    }
+
+    pub fn downcast<M>(self) -> anyhow::Result<M> where M: CodecMessage {
+        let Self { name, message } = self;
+        downcast_box_message(name, message)
+    }
+
+    pub fn downcast_ref<M>(&self) -> Option<&M> where M: CodecMessage {
+        let Self { message, .. } = self;
+        message.as_any().downcast_ref()
     }
 }
 
@@ -35,8 +46,8 @@ impl CodecMessage for SystemDelegate {
         None
     }
 
-    fn encode(&self, message_registration: &MessageRegistration) -> Result<Vec<u8>, EncodeError> {
-        self.message.encode(message_registration)
+    fn encode(&self, reg: &MessageRegistration) -> Result<Vec<u8>, EncodeError> {
+        self.message.encode(reg)
     }
 
     fn dyn_clone(&self) -> Option<DynMessage> {

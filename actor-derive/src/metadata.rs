@@ -7,7 +7,6 @@ pub enum CodecType {
 #[derive(Debug)]
 pub enum MessageImpl {
     Message,
-    AsyncMessage,
     SystemMessage,
-    UntypedMessage,
+    OrphanMessage,
 }

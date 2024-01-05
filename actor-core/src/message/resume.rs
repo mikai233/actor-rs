@@ -2,13 +2,13 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::trace;
 
-use actor_derive::SystemMessageCodec;
+use actor_derive::SystemCodec;
 
 use crate::{Actor, SystemMessage};
 use crate::actor::context::ActorContext;
 use crate::actor::state::ActorState;
 
-#[derive(Debug, Encode, Decode, SystemMessageCodec)]
+#[derive(Debug, Encode, Decode, SystemCodec)]
 pub struct Resume;
 
 #[async_trait]

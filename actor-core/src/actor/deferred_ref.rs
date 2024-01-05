@@ -10,7 +10,7 @@ use tokio::time::error::Elapsed;
 
 use actor_derive::AsAny;
 
-use crate::{DynMessage, Message, MessageType, UntypedMessage};
+use crate::{DynMessage, Message, MessageType, OrphanMessage};
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref::{ActorRef, get_child_default, TActorRef};
 use crate::actor::actor_ref_factory::ActorRefFactory;
@@ -113,14 +113,14 @@ impl Into<ActorRef> for DeferredActorRef {
 pub struct Patterns;
 
 impl Patterns {
-    pub async fn ask<Req, Resp>(actor: &ActorRef, message: Req, timeout: Duration) -> anyhow::Result<Resp> where Req: Message, Resp: UntypedMessage {
+    pub async fn ask<Req, Resp>(actor: &ActorRef, message: Req, timeout: Duration) -> anyhow::Result<Resp> where Req: Message, Resp: OrphanMessage {
         let req_name = std::any::type_name::<Req>();
         let (deferred, rx) = DeferredActorRef::new(actor.system().clone(), actor.path().name().to_string(), req_name);
         match deferred.ask(actor, rx, DynMessage::user(message), timeout).await {
             Ok(Some(resp)) => {
                 let message = resp.boxed.into_any();
                 let message_type = resp.message_type;
-                if matches!(message_type, MessageType::Untyped) {
+                if matches!(message_type, MessageType::Orphan) {
                     match message.downcast::<Resp>() {
                         Ok(resp) => {
                             Ok(*resp)

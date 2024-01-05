@@ -12,7 +12,7 @@ use bincode::enc::Encoder;
 use bincode::error::{DecodeError, EncodeError};
 use tokio::task_local;
 
-use crate::{AsyncMessage, DynMessage, Message, SystemMessage, UntypedMessage};
+use crate::{DynMessage, Message, OrphanMessage, SystemMessage};
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::actor_system::ActorSystem;
@@ -46,16 +46,8 @@ pub trait ActorRefExt: TActorRef {
         self.tell(DynMessage::user(message), ActorRef::no_sender());
     }
 
-    fn cast_async<M>(&self, message: M, sender: Option<ActorRef>) where M: AsyncMessage {
-        self.tell(DynMessage::async_user(message), sender);
-    }
-
-    fn cast_async_without_sender<M>(&self, message: M) where M: AsyncMessage {
-        self.tell(DynMessage::async_user(message), ActorRef::no_sender());
-    }
-
-    fn resp<M>(&self, message: M) where M: UntypedMessage {
-        self.tell(DynMessage::untyped(message), ActorRef::no_sender());
+    fn resp<M>(&self, message: M) where M: OrphanMessage {
+        self.tell(DynMessage::orphan(message), ActorRef::no_sender());
     }
 }
 

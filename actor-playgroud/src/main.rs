@@ -1,6 +1,7 @@
 use std::net::SocketAddrV4;
 use std::time::{Duration, SystemTime};
 
+use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::{info, Level};
 
@@ -14,16 +15,17 @@ use actor_core::actor::deferred_ref::Patterns;
 use actor_core::actor::props::Props;
 use actor_core::ext::init_logger;
 use actor_core::message::message_registration::MessageRegistration;
-use actor_derive::{MessageCodec, UntypedMessageCodec};
+use actor_derive::{MessageCodec, OrphanCodec};
 use actor_remote::remote_provider::RemoteActorRefProvider;
 
 #[derive(Encode, Decode, MessageCodec)]
 struct MessageToAsk;
 
+#[async_trait]
 impl Message for MessageToAsk {
     type A = EmptyTestActor;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         context.sender().unwrap().resp(MessageToAns {
             content: "hello world".to_string(),
         });
@@ -31,7 +33,7 @@ impl Message for MessageToAsk {
     }
 }
 
-#[derive(Encode, Decode, UntypedMessageCodec)]
+#[derive(Encode, Decode, OrphanCodec)]
 struct MessageToAns {
     content: String,
 }

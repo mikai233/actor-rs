@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+
 use actor_derive::EmptyCodec;
 
 use crate::{Actor, Message};
@@ -8,10 +10,11 @@ pub struct Execute<A> where A: Actor {
     pub closure: Box<dyn FnOnce(&mut ActorContext, &mut A) -> anyhow::Result<()> + Send>,
 }
 
+#[async_trait]
 impl<A> Message for Execute<A> where A: Actor {
     type A = A;
 
-    fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         (self.closure)(context, actor)
     }
 }

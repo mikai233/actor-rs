@@ -2,13 +2,13 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::{debug, error};
 
-use actor_derive::SystemMessageCodec;
+use actor_derive::SystemCodec;
 
 use crate::{Actor, SystemMessage};
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::context::{ActorContext, Context};
 
-#[derive(Debug, Encode, Decode, SystemMessageCodec)]
+#[derive(Debug, Encode, Decode, SystemCodec)]
 pub struct Unwatch {
     pub(crate) watchee: ActorRef,
     pub(crate) watcher: ActorRef,

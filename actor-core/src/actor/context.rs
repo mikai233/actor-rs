@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, warn};
 
-use crate::{Actor, DynMessage, Message, MessageType, UntypedMessage, UserDelegate};
+use crate::{Actor, DynMessage, Message, MessageType, OrphanMessage, UserDelegate};
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_path::child_actor_path::ChildActorPath;
 use crate::actor::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt};
@@ -40,7 +40,7 @@ pub trait Context: ActorRefFactory {
     fn is_watching(&self, subject: &ActorRef) -> bool;
     fn message_adapter<M>(&mut self, f: impl Fn(M) -> anyhow::Result<DynMessage> + Send + Sync + 'static) -> ActorRef
         where
-            M: UntypedMessage;
+            M: OrphanMessage;
 }
 
 impl<T: ?Sized> ContextExt for T where T: Context {}
@@ -168,12 +168,12 @@ impl Context for ActorContext {
 
     fn message_adapter<M>(&mut self, f: impl Fn(M) -> anyhow::Result<DynMessage> + Send + Sync + 'static) -> ActorRef
         where
-            M: UntypedMessage {
+            M: OrphanMessage {
         let myself = self.myself.clone();
         self.add_function_ref(move |message, sender| {
             let DynMessage { name, message_type, boxed } = message;
             let downcast_name = std::any::type_name::<M>();
-            if matches!(message_type, MessageType::Untyped) {
+            if matches!(message_type, MessageType::Orphan) {
                 match boxed.into_any().downcast::<M>() {
                     Ok(message) => {
                         match f(*message) {
