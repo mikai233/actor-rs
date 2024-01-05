@@ -42,7 +42,7 @@ pub trait ActorRefExt: TActorRef {
         self.tell(DynMessage::user(message), sender);
     }
 
-    fn cast_without_sender<M>(&self, message: M) where M: Message {
+    fn cast_ns<M>(&self, message: M) where M: Message {
         self.tell(DynMessage::user(message), ActorRef::no_sender());
     }
 
