@@ -17,7 +17,7 @@ pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
     fn system_guardian(&self) -> &LocalActorRef;
     fn root_path(&self) -> &ActorPath;
     fn temp_path(&self) -> ActorPath;
-    fn temp_path_of_prefix(&self, prefix: Option<String>) -> ActorPath;
+    fn temp_path_of_prefix(&self, prefix: Option<&String>) -> ActorPath;
     fn temp_container(&self) -> ActorRef;
     fn register_temp_actor(&self, actor: ActorRef, path: &ActorPath);
     fn unregister_temp_actor(&self, path: &ActorPath);

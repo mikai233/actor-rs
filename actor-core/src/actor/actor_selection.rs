@@ -13,24 +13,47 @@ use regex::Regex;
 use tracing::error;
 
 use crate::{CodecMessage, DynMessage, OrphanMessage};
-use crate::actor::actor_path::TActorPath;
+use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref::{ActorRef, TActorRef};
 use crate::actor::cell::Cell;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::decoder::MessageDecoder;
+use crate::actor::deferred_ref::Patterns;
 use crate::actor::empty_local_ref::EmptyLocalActorRef;
 use crate::ext::{decode_bytes, encode_bytes};
-use crate::message::identify::Identify;
+use crate::message::identify::{ActorIdentity, Identify};
 use crate::message::message_registration::{IDPacket, MessageRegistration};
 
+#[derive(Debug)]
 pub struct ActorSelection {
     pub(crate) anchor: ActorRef,
     pub(crate) path: Vec<SelectionPathElement>,
 }
 
 impl ActorSelection {
-    pub(crate) fn new(anchor_ref: ActorRef, elements: impl IntoIterator<Item=String>) -> Self {
-        todo!()
+    pub(crate) fn new<'a>(anchor: ActorRef, elements: impl IntoIterator<Item=&'a str>) -> anyhow::Result<Self> {
+        let mut path: Vec<SelectionPathElement> = vec![];
+        for e in elements.into_iter() {
+            if !e.is_empty() {
+                match e {
+                    x if x.find('?').is_some() || x.find('*').is_some() => {
+                        let pattern = SelectChildPattern::new(x)?;
+                        path.push(pattern.into())
+                    }
+                    x if x == ".." => {
+                        path.push(SelectParent.into());
+                    }
+                    x => {
+                        path.push(SelectChildName::new(x.to_string()).into())
+                    }
+                }
+            }
+        }
+        let sel = Self {
+            anchor,
+            path,
+        };
+        Ok(sel)
     }
 
     pub fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
@@ -49,7 +72,19 @@ impl ActorSelection {
     }
 
     pub async fn resolve_one(&self, timeout: Duration) -> anyhow::Result<ActorRef> {
-        todo!()
+        let actor_identity: ActorIdentity = Patterns::ask_selection_sys(self, Identify, timeout).await?;
+        match actor_identity.actor_ref {
+            None => {
+                Err(anyhow!("actor not found of selection {}", self))
+            }
+            Some(actor_ref) => {
+                Ok(actor_ref)
+            }
+        }
+    }
+
+    pub(crate) fn path_str(&self) -> String {
+        self.path.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("/")
     }
 
     pub(crate) fn deliver_selection(anchor: ActorRef, sender: Option<ActorRef>, sel: ActorSelectionMessage) {
@@ -112,7 +147,7 @@ impl ActorSelection {
                                         }
                                         break;
                                     }
-                                    SelectionPathElement::SelectParent(p) => {
+                                    SelectionPathElement::SelectParent(_) => {
                                         match local.parent() {
                                             Some(parent) => {
                                                 if iter.peek().is_none() {
@@ -142,6 +177,12 @@ impl ActorSelection {
                 }
             }
         }
+    }
+}
+
+impl Display for ActorSelection {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "{}[P{}]", self.anchor, self.path_str())
     }
 }
 
@@ -175,6 +216,14 @@ impl Display for SelectionPathElement {
 #[derive(Debug, Clone, Encode, Decode)]
 pub(crate) struct SelectChildName {
     name: String,
+}
+
+impl SelectChildName {
+    pub(crate) fn new(name: String) -> Self {
+        Self {
+            name,
+        }
+    }
 }
 
 impl Display for SelectChildName {
@@ -252,6 +301,12 @@ impl Display for SelectParent {
 }
 
 impl TSelectionPathElement for SelectParent {}
+
+#[derive(Debug, Clone)]
+pub enum ActorSelectionPath {
+    RelativePath(String),
+    FullPath(ActorPath),
+}
 
 #[derive(Debug)]
 pub(crate) struct ActorSelectionMessage {

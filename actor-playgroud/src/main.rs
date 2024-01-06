@@ -1,5 +1,5 @@
 use std::net::SocketAddrV4;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
@@ -8,14 +8,14 @@ use tracing::{info, Level};
 use actor_core::{EmptyTestActor, Message};
 use actor_core::actor::actor_ref::ActorRefExt;
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
+use actor_core::actor::actor_selection::ActorSelectionPath;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::config::actor_system_config::ActorSystemConfig;
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor::deferred_ref::Patterns;
 use actor_core::actor::props::Props;
 use actor_core::ext::init_logger;
 use actor_core::message::message_registration::MessageRegistration;
-use actor_derive::{MessageCodec, OrphanCodec};
+use actor_derive::{CMessageCodec, MessageCodec, OrphanCodec};
 use actor_remote::remote_provider::RemoteActorRefProvider;
 
 #[derive(Encode, Decode, MessageCodec)]
@@ -38,6 +38,19 @@ struct MessageToAns {
     content: String,
 }
 
+#[derive(Debug, Clone, Encode, Decode, CMessageCodec)]
+struct TestMessage;
+
+#[async_trait]
+impl Message for TestMessage {
+    type A = EmptyTestActor;
+
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        info!("{} recv {:?}", context.myself(), self);
+        Ok(())
+    }
+}
+
 fn build_config(addr: SocketAddrV4) -> ActorSystemConfig {
     let mut config = ActorSystemConfig::default();
     config.with_provider(move |system| {
@@ -54,14 +67,13 @@ async fn main() -> anyhow::Result<()> {
     init_logger(Level::DEBUG);
     let system1 = ActorSystem::create("mikai233", build_config("127.0.0.1:12121".parse()?))?;
     let system2 = ActorSystem::create("mikai233", build_config("127.0.0.1:12123".parse()?))?;
-    let actor_a = system1.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
-    let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
-    let start = SystemTime::now();
-    for _ in 0..1000000 {
-        let _: MessageToAns = Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await.unwrap();
+    for i in 0..10 {
+        system1.spawn_actor(Props::create(|_| EmptyTestActor), format!("test_actor_{}", i))?;
     }
-    let end = SystemTime::now();
-    let cost = end.duration_since(start)?;
-    info!("cost {:?}", cost);
+    let sel = system1.actor_selection(ActorSelectionPath::RelativePath("/user/../user/test_actor_*".to_string()))?;
+    let which = sel.resolve_one(Duration::from_secs(3)).await?;
+    info!("{}", which);
+    // sel.tell(DynMessage::user(TestMessage), ActorRef::no_sender());
+    system1.wait_termination().await;
     Ok(())
 }

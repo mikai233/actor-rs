@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::iter::Peekable;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -10,11 +11,12 @@ use tokio::time::error::Elapsed;
 
 use actor_derive::AsAny;
 
-use crate::{DynMessage, Message, MessageType, OrphanMessage};
+use crate::{CodecMessage, DynMessage, Message, MessageType, OrphanMessage, SystemMessage};
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref::{ActorRef, get_child_default, TActorRef};
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_ref_provider::ActorRefProvider;
+use crate::actor::actor_selection::ActorSelection;
 use crate::actor::actor_system::ActorSystem;
 
 #[derive(Clone, AsAny)]
@@ -77,9 +79,9 @@ impl TActorRef for DeferredActorRef {
 }
 
 impl DeferredActorRef {
-    pub(crate) fn new(system: ActorSystem, target_name: String, message_name: &'static str) -> (Self, Receiver<DynMessage>) {
+    pub(crate) fn new(system: ActorSystem, ref_path_prefix: &String, message_name: &'static str) -> (Self, Receiver<DynMessage>) {
         let provider = system.provider();
-        let path = provider.temp_path_of_prefix(Some(target_name));
+        let path = provider.temp_path_of_prefix(Some(ref_path_prefix));
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         let parent = provider.temp_container();
         let inner = Inner {
@@ -102,6 +104,13 @@ impl DeferredActorRef {
         self.provider.unregister_temp_actor(&self.path);
         resp
     }
+
+    pub(crate) async fn ask_selection(&self, actor_sel: &ActorSelection, mut rx: Receiver<DynMessage>, message: DynMessage, timeout: Duration) -> Result<Option<DynMessage>, Elapsed> {
+        actor_sel.tell(message, Some(self.clone().into()));
+        let resp = tokio::time::timeout(timeout, rx.recv()).await;
+        self.provider.unregister_temp_actor(&self.path);
+        resp
+    }
 }
 
 impl Into<ActorRef> for DeferredActorRef {
@@ -114,9 +123,44 @@ pub struct Patterns;
 
 impl Patterns {
     pub async fn ask<Req, Resp>(actor: &ActorRef, message: Req, timeout: Duration) -> anyhow::Result<Resp> where Req: Message, Resp: OrphanMessage {
+        let message = DynMessage::user(message);
+        Self::internal_ask::<Req, Resp>(actor, timeout, message).await
+    }
+
+    pub async fn ask_sys<Req, Resp>(actor: &ActorRef, message: Req, timeout: Duration) -> anyhow::Result<Resp> where Req: SystemMessage, Resp: OrphanMessage {
+        let message = DynMessage::system(message);
+        Self::internal_ask::<Req, Resp>(actor, timeout, message).await
+    }
+
+    async fn internal_ask<Req, Resp>(actor: &ActorRef, timeout: Duration, message: DynMessage) -> anyhow::Result<Resp> where Req: CodecMessage, Resp: OrphanMessage {
+        let req = std::any::type_name::<Req>();
+        let (deferred, rx) = DeferredActorRef::new(actor.system().clone(), actor.path().name(), req);
+        let resp = deferred.ask(actor, rx, message, timeout).await;
+        Self::handle_resp::<Req, Resp>(actor.to_string(), resp, timeout)
+    }
+
+    pub async fn ask_selection<Req, Resp>(sel: &ActorSelection, message: Req, timeout: Duration) -> anyhow::Result<Resp> where Req: Message, Resp: OrphanMessage {
+        let message = DynMessage::user(message);
+        Self::internal_ask_selection::<Req, Resp>(sel, timeout, message).await
+    }
+
+    pub async fn ask_selection_sys<Req, Resp>(sel: &ActorSelection, message: Req, timeout: Duration) -> anyhow::Result<Resp> where Req: SystemMessage, Resp: OrphanMessage {
+        let message = DynMessage::system(message);
+        Self::internal_ask_selection::<Req, Resp>(sel, timeout, message).await
+    }
+
+    async fn internal_ask_selection<Req, Resp>(sel: &ActorSelection, timeout: Duration, message: DynMessage) -> anyhow::Result<Resp> where Req: CodecMessage, Resp: OrphanMessage {
         let req_name = std::any::type_name::<Req>();
-        let (deferred, rx) = DeferredActorRef::new(actor.system().clone(), actor.path().name().to_string(), req_name);
-        match deferred.ask(actor, rx, DynMessage::user(message), timeout).await {
+        let mut hasher = ahash::AHasher::default();
+        sel.path_str().hash(&mut hasher);
+        let path_hash = hasher.finish();
+        let (deferred, rx) = DeferredActorRef::new(sel.anchor.system().clone(), &format!("{}", path_hash), req_name);
+        let resp = deferred.ask_selection(sel, rx, message, timeout).await;
+        Self::handle_resp::<Req, Resp>(sel.anchor.to_string(), resp, timeout)
+    }
+
+    fn handle_resp<Req, Resp>(target: String, resp: Result<Option<DynMessage>, Elapsed>, timeout: Duration) -> anyhow::Result<Resp> where Req: CodecMessage, Resp: OrphanMessage {
+        match resp {
             Ok(Some(resp)) => {
                 let message = resp.boxed.into_any();
                 let message_type = resp.message_type;
@@ -126,19 +170,23 @@ impl Patterns {
                             Ok(*resp)
                         }
                         Err(_) => {
-                            let resp_name = std::any::type_name::<Resp>();
-                            Err(anyhow!("{} ask {} expect {} resp, but found other type resp", actor, req_name, resp_name))
+                            let req = std::any::type_name::<Req>();
+                            let resp = std::any::type_name::<Resp>();
+                            Err(anyhow!("ask {} with {} expect {} resp, but found other resp", target, req, resp))
                         }
                     }
                 } else {
-                    Err(anyhow!("{} ask {} expect Deferred resp, but found other type message", actor, req_name))
+                    let req = std::any::type_name::<Req>();
+                    Err(anyhow!("ask {} with {} expect OrphanMessage resp, but found other type message", target, req))
                 }
             }
             Ok(None) => {
-                Err(anyhow!("{} ask {} got empty resp, because DeferredActorRef is dropped", actor, req_name))
+                let req = std::any::type_name::<Req>();
+                Err(anyhow!("ask {} with {} got empty resp, because DeferredActorRef is dropped", target, req))
             }
             Err(_) => {
-                Err(anyhow!("{} ask {} timeout after {:?}, a typical reason is that the recipient actor didn't send a reply", actor, req_name, timeout))
+                let req = std::any::type_name::<Req>();
+                Err(anyhow!("ask {} with {} timeout after {:?}, a typical reason is that the recipient actor didn't send a reply", target, req, timeout))
             }
         }
     }

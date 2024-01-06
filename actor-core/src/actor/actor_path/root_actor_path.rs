@@ -91,7 +91,7 @@ impl TActorPath for RootActorPath {
 }
 
 impl RootActorPath {
-    pub(crate) fn new(address: Address, name: impl Into<String>) -> Self {
+    pub fn new(address: Address, name: impl Into<String>) -> Self {
         let name = name.into();
         assert!(name.len() == 1 || name.rfind('/').unwrap_or_default() == 0,
                 "/ may only exist at the beginning of the root actors name, it is a path separator and is not legal in ActorPath names: {}", name);

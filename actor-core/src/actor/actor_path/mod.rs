@@ -219,7 +219,7 @@ impl FromStr for ActorPath {
             system: username,
             addr: Some(addr),
         };
-        let mut path: ActorPath = RootActorPath::new(address, "/".to_string()).into();
+        let mut path: ActorPath = RootActorPath::new(address, "/").into();
         for p in path_str {
             path = path.child(&p);
         }

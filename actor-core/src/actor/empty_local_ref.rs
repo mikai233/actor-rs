@@ -6,7 +6,7 @@ use std::sync::Arc;
 use actor_derive::AsAny;
 
 use crate::actor::actor_path::ActorPath;
-use crate::actor::actor_ref::{ActorRef, ActorRefSystemExt, get_child_default, TActorRef};
+use crate::actor::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, get_child_default, TActorRef};
 use crate::actor::actor_selection::ActorSelectionMessage;
 use crate::actor::actor_system::ActorSystem;
 use crate::DynMessage;
@@ -87,12 +87,12 @@ impl EmptyLocalActorRef {
         } else if message.name == unwatch {
             // just ignore
         } else if message.name == identify {
-            sender.foreach(|s| s.cast_system(ActorIdentity { actor_ref: None }, ActorRef::no_sender()));
+            sender.foreach(|s| s.resp(ActorIdentity { actor_ref: None }));
         } else if message.name == actor_selection {
             let actor_selection = message.downcast_orphan::<ActorSelectionMessage>().unwrap();
             if actor_selection.identify_request().is_some() {
                 if !actor_selection.wildcard_fan_out {
-                    sender.foreach(|s| s.cast_system(ActorIdentity { actor_ref: None }, ActorRef::no_sender()));
+                    sender.foreach(|s| s.resp(ActorIdentity { actor_ref: None }));
                 }
             }
         }

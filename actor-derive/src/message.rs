@@ -144,7 +144,7 @@ pub(crate) fn expand_dyn_clone(dy_message: &TokenStream, message_impl: &MessageI
             }
             MessageImpl::SystemMessage => {
                 quote! {
-                    let message = #dy_message::new(Clone::clone(self));
+                    let message = #dy_message::system(Clone::clone(self));
                     Some(message)
                 }
             }

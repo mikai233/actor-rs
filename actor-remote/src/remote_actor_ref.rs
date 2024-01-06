@@ -27,8 +27,21 @@ pub struct RemoteActorRef {
 pub struct Inner {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
-    pub(crate) transport: Arc<ActorRef>,
+    pub(crate) transport: ActorRef,
     pub(crate) registration: Arc<MessageRegistration>,
+}
+
+impl RemoteActorRef {
+    pub(crate) fn new(system: ActorSystem, path: ActorPath, transport: ActorRef, registration: Arc<MessageRegistration>) -> Self {
+        Self {
+            inner: Arc::new(Inner {
+                system,
+                path,
+                transport,
+                registration,
+            }),
+        }
+    }
 }
 
 impl Deref for RemoteActorRef {

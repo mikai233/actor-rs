@@ -2,8 +2,9 @@ use std::net::SocketAddrV4;
 use std::sync::Arc;
 
 use actor_core::actor::actor_path::ActorPath;
+use actor_core::actor::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor::actor_path::TActorPath;
-use actor_core::actor::actor_ref::ActorRef;
+use actor_core::actor::actor_ref::{ActorRef, TActorRef};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::actor::actor_system::ActorSystem;
@@ -16,7 +17,7 @@ use actor_core::message::message_registration::MessageRegistration;
 use actor_derive::AsAny;
 
 use crate::net::tcp_transport::TransportActor;
-use crate::remote_actor_ref::{Inner, RemoteActorRef};
+use crate::remote_actor_ref::RemoteActorRef;
 
 #[derive(Debug, AsAny)]
 pub struct RemoteActorRefProvider {
@@ -51,6 +52,10 @@ impl RemoteActorRefProvider {
             false,
         )
     }
+
+    fn has_address(&self, address: &Address) -> bool {
+        address == self.local.root_path().address() || address == self.root_path().address() || address == &self.address
+    }
 }
 
 impl TActorRefProvider for RemoteActorRefProvider {
@@ -58,8 +63,18 @@ impl TActorRefProvider for RemoteActorRefProvider {
         self.local.root_guardian()
     }
 
-    fn root_guardian_at(&self, _address: &Address) -> ActorRef {
-        todo!()
+    fn root_guardian_at(&self, address: &Address) -> ActorRef {
+        if self.has_address(address) {
+            self.root_guardian().clone().into()
+        } else {
+            let remote = RemoteActorRef::new(
+                self.guardian().system().clone(),
+                RootActorPath::new(address.clone(), "/").into(),
+                self.transport.clone(),
+                self.registration.clone(),
+            );
+            remote.into()
+        }
     }
 
     fn guardian(&self) -> &LocalActorRef {
@@ -78,7 +93,7 @@ impl TActorRefProvider for RemoteActorRefProvider {
         self.local.temp_path()
     }
 
-    fn temp_path_of_prefix(&self, prefix: Option<String>) -> ActorPath {
+    fn temp_path_of_prefix(&self, prefix: Option<&String>) -> ActorPath {
         self.local.temp_path_of_prefix(prefix)
     }
 
@@ -103,15 +118,12 @@ impl TActorRefProvider for RemoteActorRefProvider {
         if path.address() == self.root_path().address() {
             self.local.resolve_actor_ref_of_path(path)
         } else {
-            let inner = Inner {
-                system: self.transport.system().clone(),
-                path: path.clone(),
-                transport: Arc::new(self.transport.clone()),
-                registration: self.registration.clone(),
-            };
-            let remote = RemoteActorRef {
-                inner: inner.into()
-            };
+            let remote = RemoteActorRef::new(
+                self.transport.system().clone(),
+                path.clone(),
+                self.transport.clone(),
+                self.registration.clone(),
+            );
             remote.into()
         }
     }

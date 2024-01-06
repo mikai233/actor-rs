@@ -37,7 +37,7 @@ impl TActorRefProvider for EmptyActorRefProvider {
         unimplemented!()
     }
 
-    fn temp_path_of_prefix(&self, _prefix: Option<String>) -> ActorPath {
+    fn temp_path_of_prefix(&self, _prefix: Option<&String>) -> ActorPath {
         unimplemented!()
     }
 

@@ -126,9 +126,9 @@ impl TActorRefProvider for LocalActorRefProvider {
         self.temp_path_of_prefix(None)
     }
 
-    fn temp_path_of_prefix(&self, prefix: Option<String>) -> ActorPath {
+    fn temp_path_of_prefix(&self, prefix: Option<&String>) -> ActorPath {
         let mut builder = String::new();
-        let prefix_is_none_or_empty = prefix.as_ref().map(|p| p.is_empty()).unwrap_or(true);
+        let prefix_is_none_or_empty = prefix.map(|p| p.is_empty()).unwrap_or(true);
         if !prefix_is_none_or_empty {
             builder.push_str(prefix.unwrap().as_str());
         }

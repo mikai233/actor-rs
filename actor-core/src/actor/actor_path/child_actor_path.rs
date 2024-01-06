@@ -114,7 +114,7 @@ impl TActorPath for ChildActorPath {
 }
 
 impl ChildActorPath {
-    pub(crate) fn new(parent: ActorPath, name: impl Into<Arc<String>>, uid: i32) -> Self {
+    pub fn new(parent: ActorPath, name: impl Into<Arc<String>>, uid: i32) -> Self {
         let name = name.into();
         assert!(
             name.find('/').is_none(),
