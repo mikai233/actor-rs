@@ -34,7 +34,7 @@ impl<A> UserDelegate<A> where A: Actor {
 
     pub fn downcast<M>(self) -> anyhow::Result<M> where M: Message {
         let Self { name, message } = self;
-        downcast_box_message(name, message)
+        downcast_box_message(name, message.into_any())
     }
 
     pub fn downcast_ref<M>(&self) -> Option<&M> where M: Message {

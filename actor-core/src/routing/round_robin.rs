@@ -84,6 +84,7 @@ impl Pool for RoundRobinPool {
 mod test {
     use std::sync::Arc;
     use std::time::Duration;
+    use async_trait::async_trait;
 
     use tracing::{info, Level};
 
@@ -110,10 +111,11 @@ mod test {
     #[derive(Debug, EmptyCodec)]
     struct TestMessage;
 
+    #[async_trait]
     impl Message for TestMessage {
         type A = TestActor;
 
-        fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             let myself = context.myself();
             info!("{} handle round robin message {:?}", myself, self);
             Ok(())

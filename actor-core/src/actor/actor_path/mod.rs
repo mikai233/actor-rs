@@ -231,7 +231,8 @@ impl FromStr for ActorPath {
 
 #[cfg(test)]
 mod test {
-    use std::hash::{DefaultHasher, Hash, Hasher};
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
 
     use anyhow::Ok;
 

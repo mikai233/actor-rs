@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use bincode::{BorrowDecode, Decode, Encode};
@@ -9,13 +10,15 @@ use bincode::enc::Encoder;
 use bincode::error::{DecodeError, EncodeError};
 use enum_dispatch::enum_dispatch;
 use regex::Regex;
+use tracing::error;
 
 use crate::{CodecMessage, DynMessage, OrphanMessage};
+use crate::actor::actor_path::TActorPath;
 use crate::actor::actor_ref::{ActorRef, TActorRef};
+use crate::actor::cell::Cell;
+use crate::actor::context::{ActorContext, Context};
 use crate::actor::decoder::MessageDecoder;
 use crate::actor::empty_local_ref::EmptyLocalActorRef;
-use crate::actor::actor_path::TActorPath;
-use crate::actor::cell::Cell;
 use crate::ext::{decode_bytes, encode_bytes};
 use crate::message::identify::Identify;
 use crate::message::message_registration::{IDPacket, MessageRegistration};
@@ -26,9 +29,30 @@ pub struct ActorSelection {
 }
 
 impl ActorSelection {
-    pub(crate) fn tell(&self, _message: DynMessage, _sender: Option<ActorRef>) {}
+    pub(crate) fn new(anchor_ref: ActorRef, elements: impl IntoIterator<Item=String>) -> Self {
+        todo!()
+    }
 
-    fn deliver_selection(anchor: ActorRef, sender: Option<ActorRef>, sel: ActorSelectionMessage) {
+    pub fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
+        match ActorSelectionMessage::new(message, self.path.clone(), false) {
+            Ok(sel) => {
+                Self::deliver_selection(self.anchor.clone(), sender, sel);
+            }
+            Err(error) => {
+                error!("{}", error);
+            }
+        };
+    }
+
+    pub fn forward(&self, message: DynMessage, context: &ActorContext) {
+        self.tell(message, context.sender().cloned());
+    }
+
+    pub async fn resolve_one(&self, timeout: Duration) -> anyhow::Result<ActorRef> {
+        todo!()
+    }
+
+    pub(crate) fn deliver_selection(anchor: ActorRef, sender: Option<ActorRef>, sel: ActorSelectionMessage) {
         if sel.elements.is_empty() {
             anchor.tell(sel.message, sender);
         } else {
@@ -38,14 +62,31 @@ impl ActorSelection {
                 anchor.path().descendant(elements.iter().map(|e| e.as_str())),
             );
             let mut iter = sel.elements.iter().peekable();
-            let mut actor = &anchor;
+            let mut actor = anchor;
             loop {
                 match actor.local() {
                     Some(local) => {
                         match iter.next() {
                             Some(element) => {
                                 match element {
-                                    SelectionPathElement::SelectChildName(c) => {}
+                                    SelectionPathElement::SelectChildName(c) => {
+                                        match local.get_single_child(&c.name) {
+                                            Some(child) => {
+                                                if iter.peek().is_none() {
+                                                    child.tell(sel.message, sender);
+                                                    break;
+                                                } else {
+                                                    actor = child;
+                                                }
+                                            }
+                                            None => {
+                                                if !sel.wildcard_fan_out {
+                                                    empty_ref.tell(DynMessage::orphan(sel), sender);
+                                                }
+                                                break;
+                                            }
+                                        }
+                                    }
                                     SelectionPathElement::SelectChildPattern(p) => {
                                         let matching_children = local.children().iter().filter(|c| {
                                             p.is_match(c.value().path().name())
@@ -63,7 +104,7 @@ impl ActorSelection {
                                                 empty_ref.tell(DynMessage::orphan(sel.clone()), sender.clone())
                                             } else {
                                                 let wildcard_fan_out = sel.wildcard_fan_out || matching_children.len() > 1;
-                                                let m = sel.copy_with_elements(iter.map(|e|e.clone()).collect(), wildcard_fan_out);
+                                                let m = sel.copy_with_elements(iter.map(|e| e.clone()).collect(), wildcard_fan_out);
                                                 for child in matching_children {
                                                     Self::deliver_selection(child.value().clone(), sender.clone(), m.clone());
                                                 }
@@ -76,19 +117,28 @@ impl ActorSelection {
                                             Some(parent) => {
                                                 if iter.peek().is_none() {
                                                     parent.tell(sel.message.dyn_clone().unwrap(), sender.clone());
+                                                    break;
                                                 } else {
-                                                    actor = parent;
+                                                    actor = parent.clone();
                                                 }
                                             }
-                                            None => {}
+                                            None => {
+                                                break;
+                                            }
                                         }
                                     }
                                 }
                             }
-                            None => {}
+                            None => {
+                                break;
+                            }
                         }
                     }
-                    None => {}
+                    None => {
+                        let sel = sel.copy_with_elements(iter.map(|e| e.clone()).collect(), sel.wildcard_fan_out);
+                        actor.tell(DynMessage::orphan(sel), sender);
+                        break;
+                    }
                 }
             }
         }

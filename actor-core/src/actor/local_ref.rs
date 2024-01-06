@@ -15,6 +15,7 @@ use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_path::child_actor_path::ChildActorPath;
 use crate::actor::actor_ref::{ActorRefSystemExt, TActorRef};
 use crate::actor::actor_ref::ActorRef;
+use crate::actor::actor_selection::{ActorSelection, ActorSelectionMessage};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::cell::Cell;
 use crate::actor::mailbox::MailboxSender;
@@ -69,21 +70,31 @@ impl TActorRef for LocalActorRef {
     }
 
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
-        let envelop = Envelope { message, sender };
-        match &envelop.message.message_type {
+        match &message.message_type {
             MessageType::User => {
+                let envelop = Envelope { message, sender };
                 if let Some(error) = self.sender.message.try_send(envelop).err() {
                     self.log_send_error(error);
                 }
             }
             MessageType::System => {
+                let envelop = Envelope { message, sender };
                 if let Some(error) = self.sender.system.try_send(envelop).err() {
                     self.log_send_error(error);
                 }
             }
             MessageType::Orphan => {
-                let myself: ActorRef = self.clone().into();
-                warn!("unexpected Untyped message {} to {}", envelop.message.name, myself);
+                if message.is::<ActorSelectionMessage>() {
+                    let sel = message.downcast_orphan::<ActorSelectionMessage>().unwrap();
+                    if sel.elements.is_empty() {
+                        self.tell(sel.message, sender);
+                    } else {
+                        ActorSelection::deliver_selection(self.clone().into(), sender, sel);
+                    }
+                } else {
+                    let myself: ActorRef = self.clone().into();
+                    warn!("unexpected Orphan message {} to {}", message.name, myself);
+                }
             }
         }
     }
