@@ -5,3 +5,4 @@ mod daemon;
 mod cluster;
 mod cluster_provider;
 mod unique_address;
+pub mod cluster_setting;

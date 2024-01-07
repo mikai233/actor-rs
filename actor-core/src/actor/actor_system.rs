@@ -196,8 +196,8 @@ impl ActorSystem {
         Ok(())
     }
 
-    pub async fn register_extension<E, F, Fut>(&self, ext_fn: F) where E: Extension, F: Fn(ActorSystem) -> Fut, Fut: Future<Output=E> {
-        let extension = ext_fn(self.clone()).await;
+    pub fn register_extension<E, F>(&self, ext_fn: F) where E: Extension, F: Fn(ActorSystem) -> E {
+        let extension = ext_fn(self.clone());
         self.extensions.register(extension);
     }
 

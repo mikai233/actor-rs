@@ -1,4 +1,3 @@
-use std::net::SocketAddrV4;
 use std::sync::Arc;
 
 use actor_core::actor::actor_path::ActorPath;
@@ -7,17 +6,17 @@ use actor_core::actor::actor_path::TActorPath;
 use actor_core::actor::actor_ref::{ActorRef, TActorRef};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
-use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
 use actor_core::actor::local_actor_ref_provider::LocalActorRefProvider;
 use actor_core::actor::local_ref::LocalActorRef;
-use actor_core::actor::props::{DeferredSpawn, Props};
+use actor_core::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_derive::AsAny;
 
 use crate::net::tcp_transport::TransportActor;
 use crate::remote_actor_ref::RemoteActorRef;
+use crate::remote_setting::RemoteSetting;
 
 #[derive(Debug, AsAny)]
 pub struct RemoteActorRefProvider {
@@ -28,24 +27,25 @@ pub struct RemoteActorRefProvider {
 }
 
 impl RemoteActorRefProvider {
-    pub fn new(system: &ActorSystem, registration: MessageRegistration, addr: SocketAddrV4) -> anyhow::Result<(Self, Vec<DeferredSpawn>)> {
+    pub fn new(setting: RemoteSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+        let RemoteSetting { system, addr, reg } = setting;
         let address = Address {
             protocol: "tcp".to_string(),
             system: system.name().clone(),
             addr: Some(addr),
         };
-        let (local, mut deferred_vec) = LocalActorRefProvider::new(&system, Some(address.clone()))?;
+        let (local, mut spawns) = LocalActorRefProvider::new(&system, Some(address.clone()))?;
         let (transport, deferred) = RemoteActorRefProvider::spawn_transport(&local)?;
-        deferred.into_foreach(|d| deferred_vec.push(d));
+        deferred.into_foreach(|d| spawns.push(Box::new(d)));
         let remote = Self {
             local,
             address,
             transport,
-            registration: Arc::new(registration),
+            registration: Arc::new(reg),
         };
-        Ok((remote, deferred_vec))
+        Ok((remote, spawns))
     }
-    pub(crate) fn spawn_transport(provider: &LocalActorRefProvider) -> anyhow::Result<(ActorRef, Option<DeferredSpawn>)> {
+    pub(crate) fn spawn_transport(provider: &LocalActorRefProvider) -> anyhow::Result<(ActorRef, Option<ActorDeferredSpawn>)> {
         provider.system_guardian().attach_child(
             Props::create(|context| TransportActor::new(context.system().clone())),
             Some("tcp_transport".to_string()),

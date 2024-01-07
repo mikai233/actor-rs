@@ -22,6 +22,14 @@ pub struct Inner {
     pub(crate) path: ActorPath,
 }
 
+impl DeadLetterActorRef {
+    pub(crate) fn new(system: ActorSystem, path: ActorPath) -> Self {
+        Self {
+            inner: Arc::new(Inner { system, path }),
+        }
+    }
+}
+
 impl Deref for DeadLetterActorRef {
     type Target = Arc<Inner>;
 

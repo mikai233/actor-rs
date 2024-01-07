@@ -19,7 +19,7 @@ use crate::actor::actor_selection::{ActorSelection, ActorSelectionMessage};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::cell::Cell;
 use crate::actor::mailbox::MailboxSender;
-use crate::actor::props::{DeferredSpawn, Props};
+use crate::actor::props::{ActorDeferredSpawn, Props};
 use crate::cell::ActorCell;
 use crate::cell::envelope::Envelope;
 use crate::ext::{check_name, random_actor_name};
@@ -174,6 +174,17 @@ impl Into<ActorRef> for LocalActorRef {
 }
 
 impl LocalActorRef {
+    pub(crate) fn new(system: ActorSystem, path: ActorPath, sender: MailboxSender, cell: ActorCell) -> Self {
+        Self {
+            inner: Arc::new(Inner {
+                system,
+                path,
+                sender,
+                cell,
+            }),
+        }
+    }
+
     fn log_send_error(&self, error: TrySendError<Envelope>) {
         let actor: ActorRef = self.clone().into();
         match error {
@@ -214,14 +225,14 @@ impl LocalActorRef {
         }
     }
 
-    pub fn attach_child(&self, props: Props, name: Option<String>, start: bool) -> anyhow::Result<(ActorRef, Option<DeferredSpawn>)> {
+    pub fn attach_child(&self, props: Props, name: Option<String>, start: bool) -> anyhow::Result<(ActorRef, Option<ActorDeferredSpawn>)> {
         if let Some(name) = &name {
             check_name(name)?;
         }
         self.make_child(props, name, start)
     }
 
-    pub(crate) fn make_child(&self, props: Props, name: Option<String>, start: bool) -> anyhow::Result<(ActorRef, Option<DeferredSpawn>)> {
+    pub(crate) fn make_child(&self, props: Props, name: Option<String>, start: bool) -> anyhow::Result<(ActorRef, Option<ActorDeferredSpawn>)> {
         let name_is_none = name.is_none();
         let name = name.unwrap_or(random_actor_name());
         let (sender, mailbox) = props.mailbox();
@@ -251,7 +262,7 @@ impl LocalActorRef {
                     (props.spawner)(child_ref.clone().into(), mailbox, self.system().clone(), props.clone());
                     Ok((child_ref.into(), None))
                 } else {
-                    let deferred_spawn = DeferredSpawn::new(child_ref.clone().into(), mailbox, props);
+                    let deferred_spawn = ActorDeferredSpawn::new(child_ref.clone().into(), mailbox, props);
                     Ok((child_ref.into(), Some(deferred_spawn)))
                 }
             }

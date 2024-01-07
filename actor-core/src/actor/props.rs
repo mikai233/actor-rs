@@ -69,13 +69,17 @@ impl Props {
     }
 }
 
-pub struct DeferredSpawn {
+pub trait DeferredSpawn {
+    fn spawn(self: Box<Self>, system: ActorSystem);
+}
+
+pub struct ActorDeferredSpawn {
     pub actor_ref: ActorRef,
     pub mailbox: Mailbox,
     pub props: Props,
 }
 
-impl DeferredSpawn {
+impl ActorDeferredSpawn {
     pub fn new(actor_ref: ActorRef, mailbox: Mailbox, props: Props) -> Self {
         Self {
             actor_ref,
@@ -83,9 +87,31 @@ impl DeferredSpawn {
             props,
         }
     }
-    pub fn spawn(self, system: ActorSystem) {
-        let Self { actor_ref, mailbox, props } = self;
+}
+
+impl DeferredSpawn for ActorDeferredSpawn {
+    fn spawn(self: Box<Self>, system: ActorSystem) {
+        let Self { actor_ref, mailbox, props } = *self;
         let spawner = props.spawner.clone();
         spawner(actor_ref, mailbox, system, props);
+    }
+}
+
+pub struct FuncDeferredSpawn {
+    func: Box<dyn FnOnce(ActorSystem)>,
+}
+
+impl FuncDeferredSpawn {
+    pub fn new<F>(f: F) -> Self where F: FnOnce(ActorSystem) + 'static {
+        Self {
+            func: Box::new(f),
+        }
+    }
+}
+
+impl DeferredSpawn for FuncDeferredSpawn {
+    fn spawn(self: Box<Self>, system: ActorSystem) {
+        let Self { func } = *self;
+        func(system);
     }
 }

@@ -7,7 +7,7 @@ use crate::actor::props::DeferredSpawn;
 
 #[derive(Clone)]
 pub struct ActorSystemConfig {
-    pub provider_fn: Arc<Box<dyn Fn(&ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<DeferredSpawn>)>>>,
+    pub provider_fn: Arc<Box<dyn Fn(&ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)>>>,
 }
 
 impl Default for ActorSystemConfig {
@@ -19,7 +19,7 @@ impl Default for ActorSystemConfig {
 }
 
 impl ActorSystemConfig {
-    pub fn with_provider<F>(&mut self, provider_fn: F) -> &mut Self where F: Fn(&ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<DeferredSpawn>)> + 'static {
+    pub fn with_provider<F>(&mut self, provider_fn: F) -> &mut Self where F: Fn(&ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> + 'static {
         self.provider_fn = Arc::new(Box::new(provider_fn));
         self
     }

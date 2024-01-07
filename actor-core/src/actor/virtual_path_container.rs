@@ -99,6 +99,17 @@ impl Into<ActorRef> for VirtualPathContainer {
 }
 
 impl VirtualPathContainer {
+    pub(crate) fn new(system: ActorSystem, path: ActorPath, parent: ActorRef) -> Self {
+        Self {
+            inner: Arc::new(Inner {
+                system,
+                path,
+                parent,
+                children: Arc::new(Default::default()),
+            }),
+        }
+    }
+
     pub(crate) fn add_child(&self, name: String, child: ActorRef) {
         if let Some(old) = self.children.insert(name, child) {
             old.stop();

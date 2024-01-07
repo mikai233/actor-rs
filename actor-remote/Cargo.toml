@@ -19,6 +19,7 @@ tracing-subscriber = { workspace = true, features = ["local-time"] }
 thiserror = { workspace = true }
 async-trait = { workspace = true }
 bincode = { workspace = true }
+typed-builder = { workspace = true }
 
 [dev-dependencies]
 ctor = { workspace = true }

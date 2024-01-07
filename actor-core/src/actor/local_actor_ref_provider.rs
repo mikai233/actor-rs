@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use dashmap::DashMap;
@@ -14,7 +13,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::address::Address;
 use crate::actor::dead_letter_ref::DeadLetterActorRef;
 use crate::actor::local_ref::LocalActorRef;
-use crate::actor::props::{DeferredSpawn, Props};
+use crate::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
 use crate::actor::root_guardian::RootGuardian;
 use crate::actor::system_guardian::SystemGuardian;
 use crate::actor::user_guardian::UserGuardian;
@@ -37,8 +36,8 @@ pub struct LocalActorRefProvider {
 }
 
 impl LocalActorRefProvider {
-    pub fn new(system: &ActorSystem, address: Option<Address>) -> anyhow::Result<(Self, Vec<DeferredSpawn>)> {
-        let mut deferred_spawns = vec![];
+    pub fn new(system: &ActorSystem, address: Option<Address>) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+        let mut spawns: Vec<Box<dyn DeferredSpawn>> = vec![];
         let address = address.unwrap_or_else(|| {
             Address {
                 protocol: "tcp".to_string(),
@@ -49,39 +48,19 @@ impl LocalActorRefProvider {
         let root_path = RootActorPath::new(address, "/");
         let root_props = Props::create(|_| { RootGuardian::default() });
         let (sender, mailbox) = root_props.mailbox();
-        let inner = crate::actor::local_ref::Inner {
-            system: system.clone(),
-            path: root_path.clone().into(),
-            sender,
-            cell: ActorCell::new(None),
-        };
-        let root_guardian = LocalActorRef {
-            inner: inner.into(),
-        };
-        deferred_spawns.push(DeferredSpawn::new(root_guardian.clone().into(), mailbox, root_props));
+        let root_guardian = LocalActorRef::new(system.clone(), root_path.clone().into(), sender, ActorCell::new(None));
+        spawns.push(Box::new(ActorDeferredSpawn::new(root_guardian.clone().into(), mailbox, root_props)));
         let (system_guardian, deferred) = root_guardian
             .attach_child(Props::create(|_| SystemGuardian), Some("system".to_string()), false)?;
-        deferred.into_foreach(|d| deferred_spawns.push(d));
+        deferred.into_foreach(|d| spawns.push(Box::new(d)));
         let system_guardian = system_guardian.local().unwrap();
         let (user_guardian, deferred) = root_guardian
             .attach_child(Props::create(|_| UserGuardian), Some("user".to_string()), false)?;
-        deferred.into_foreach(|d| deferred_spawns.push(d));
+        deferred.into_foreach(|d| spawns.push(Box::new(d)));
         let user_guardian = user_guardian.local().unwrap();
-        let inner = crate::actor::dead_letter_ref::Inner {
-            system: system.clone(),
-            path: root_path.child("dead_letters"),
-        };
-        let dead_letters = DeadLetterActorRef { inner: inner.into() };
+        let dead_letters = DeadLetterActorRef::new(system.clone(), root_path.child("dead_letters"));
         let temp_node = root_path.child("temp");
-        let inner = crate::actor::virtual_path_container::Inner {
-            system: system.clone(),
-            path: temp_node.clone(),
-            parent: root_guardian.clone().into(),
-            children: Arc::new(DashMap::with_hasher(ahash::RandomState::new())),
-        };
-        let temp_container = VirtualPathContainer {
-            inner: inner.into(),
-        };
+        let temp_container = VirtualPathContainer::new(system.clone(), temp_node.clone(), root_guardian.clone().into());
         let provider = LocalActorRefProvider {
             root_path: root_path.into(),
             root_guardian,
@@ -93,7 +72,7 @@ impl LocalActorRefProvider {
             temp_node,
             temp_container,
         };
-        Ok((provider, deferred_spawns))
+        Ok((provider, spawns))
     }
 }
 

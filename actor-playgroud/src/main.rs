@@ -17,6 +17,7 @@ use actor_core::ext::init_logger;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_derive::{CMessageCodec, MessageCodec, OrphanCodec};
 use actor_remote::remote_provider::RemoteActorRefProvider;
+use actor_remote::remote_setting::RemoteSetting;
 
 #[derive(Encode, Decode, MessageCodec)]
 struct MessageToAsk;
@@ -57,7 +58,12 @@ fn build_config(addr: SocketAddrV4) -> ActorSystemConfig {
         let mut reg = MessageRegistration::new();
         reg.register::<MessageToAsk>();
         reg.register::<MessageToAns>();
-        RemoteActorRefProvider::new(system, reg, addr).map(|(r, d)| (r.into(), d))
+        let setting = RemoteSetting::builder()
+            .system(system.clone())
+            .addr(addr)
+            .reg(reg)
+            .build();
+        RemoteActorRefProvider::new(setting).map(|(r, d)| (r.into(), d))
     });
     config
 }

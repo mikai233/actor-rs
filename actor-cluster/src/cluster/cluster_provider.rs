@@ -1,21 +1,55 @@
+use std::fmt::{Debug, Formatter};
+
 use actor_core::actor::actor_path::ActorPath;
 use actor_core::actor::actor_ref::ActorRef;
 use actor_core::actor::actor_ref_provider::TActorRefProvider;
-use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
 use actor_core::actor::local_ref::LocalActorRef;
-use actor_core::actor::props::Props;
+use actor_core::actor::props::{DeferredSpawn, FuncDeferredSpawn, Props};
 use actor_derive::AsAny;
 use actor_remote::remote_provider::RemoteActorRefProvider;
+use actor_remote::remote_setting::RemoteSetting;
 
-#[derive(Debug, Clone, AsAny)]
+use crate::cluster::cluster::Cluster;
+use crate::cluster::cluster_setting::ClusterSetting;
+
+#[derive(AsAny)]
 pub struct ClusterActorRefProvider {
-    pub(crate) remote: RemoteActorRefProvider,
+    pub remote: RemoteActorRefProvider,
+    pub eclient: etcd_client::Client,
+}
+
+impl Debug for ClusterActorRefProvider {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        f.debug_struct("ClusterActorRefProvider")
+            .field("remote", &self.remote)
+            .field("eclient", &"..")
+            .finish()
+    }
 }
 
 impl ClusterActorRefProvider {
-    pub fn new(system: ActorSystem) -> Self {
-        todo!()
+    pub fn new(setting: ClusterSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+        let ClusterSetting { system, addr, reg, eclient } = setting;
+        let remote_setting = RemoteSetting::builder()
+            .reg(reg)
+            .addr(addr)
+            .system(system.clone())
+            .build();
+        let (remote, mut spawns) = RemoteActorRefProvider::new(remote_setting)?;
+        let cluster = ClusterActorRefProvider {
+            remote,
+            eclient,
+        };
+        Self::register_extension(&mut spawns);
+        Ok((cluster, spawns))
+    }
+
+    fn register_extension(spawns: &mut Vec<Box<dyn DeferredSpawn>>) {
+        let s = FuncDeferredSpawn::new(|system| {
+            system.register_extension(|system| Cluster::new(system));
+        });
+        spawns.push(Box::new(s));
     }
 }
 

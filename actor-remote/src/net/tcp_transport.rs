@@ -154,6 +154,7 @@ mod test {
     use actor_derive::{EmptyCodec, MessageCodec, OrphanCodec};
 
     use crate::remote_provider::RemoteActorRefProvider;
+    use crate::remote_setting::RemoteSetting;
 
     struct PingPongActor;
 
@@ -215,12 +216,17 @@ mod test {
     fn build_config(addr: SocketAddrV4) -> ActorSystemConfig {
         let mut config = ActorSystemConfig::default();
         config.with_provider(move |system| {
-            let mut registration = MessageRegistration::new();
-            registration.register::<Ping>();
-            registration.register::<Pong>();
-            registration.register::<MessageToAsk>();
-            registration.register::<MessageToAns>();
-            RemoteActorRefProvider::new(system, registration, addr).map(|(r, d)| (r.into(), d))
+            let mut reg = MessageRegistration::new();
+            reg.register::<Ping>();
+            reg.register::<Pong>();
+            reg.register::<MessageToAsk>();
+            reg.register::<MessageToAns>();
+            let setting = RemoteSetting::builder()
+                .system(system.clone())
+                .addr(addr)
+                .reg(reg)
+                .build();
+            RemoteActorRefProvider::new(setting).map(|(r, d)| (r.into(), d))
         });
         config
     }
