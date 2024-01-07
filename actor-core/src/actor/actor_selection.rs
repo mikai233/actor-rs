@@ -182,7 +182,7 @@ impl ActorSelection {
 
 impl Display for ActorSelection {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "{}[P{}]", self.anchor, self.path_str())
+        write!(f, "{}[{}]", self.anchor, self.path_str())
     }
 }
 

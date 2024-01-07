@@ -5,8 +5,10 @@ use bincode::{Decode, Encode};
 use bincode::error::{DecodeError, EncodeError};
 
 use crate::{CodecMessage, DynMessage};
+use crate::actor::actor_selection::ActorSelectionMessage;
 use crate::actor::decoder::MessageDecoder;
 use crate::message::death_watch_notification::DeathWatchNotification;
+use crate::message::identify::{ActorIdentity, Identify};
 use crate::message::terminate::Terminate;
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
@@ -81,5 +83,8 @@ impl MessageRegistration {
         self.register::<Terminate>();
         self.register::<Watch>();
         self.register::<Unwatch>();
+        self.register::<ActorSelectionMessage>();
+        self.register::<Identify>();
+        self.register::<ActorIdentity>();
     }
 }

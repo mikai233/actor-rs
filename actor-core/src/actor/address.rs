@@ -3,7 +3,7 @@ use std::net::SocketAddrV4;
 
 use bincode::{Decode, Encode};
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Encode, Decode, )]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Encode, Decode)]
 pub struct Address {
     pub protocol: String,
     pub system: String,

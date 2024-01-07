@@ -4,6 +4,7 @@ use std::ops::{Deref, DerefMut};
 
 use dashmap::DashMap;
 use dashmap::mapref::one::{MappedRef, MappedRefMut};
+use tracing::warn;
 
 use crate::ext::as_any::AsAny;
 
@@ -21,6 +22,8 @@ impl ActorSystemExtension {
         let name = std::any::type_name::<E>();
         if !self.extensions.contains_key(name) {
             self.extensions.insert(name, Box::new(extension));
+        } else {
+            warn!("actor extension {} already registered", name);
         }
     }
 

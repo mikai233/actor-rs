@@ -54,10 +54,10 @@ impl Message for TestMessage {
 fn build_config(addr: SocketAddrV4) -> ActorSystemConfig {
     let mut config = ActorSystemConfig::default();
     config.with_provider(move |system| {
-        let mut registration = MessageRegistration::new();
-        registration.register::<MessageToAsk>();
-        registration.register::<MessageToAns>();
-        RemoteActorRefProvider::new(system, registration, addr).map(|(r, d)| (r.into(), d))
+        let mut reg = MessageRegistration::new();
+        reg.register::<MessageToAsk>();
+        reg.register::<MessageToAns>();
+        RemoteActorRefProvider::new(system, reg, addr).map(|(r, d)| (r.into(), d))
     });
     config
 }
@@ -71,6 +71,9 @@ async fn main() -> anyhow::Result<()> {
         system1.spawn_actor(Props::create(|_| EmptyTestActor), format!("test_actor_{}", i))?;
     }
     let sel = system1.actor_selection(ActorSelectionPath::RelativePath("/user/../user/test_actor_*".to_string()))?;
+    let which = sel.resolve_one(Duration::from_secs(3)).await?;
+    info!("{}", which);
+    let sel = system2.actor_selection(ActorSelectionPath::FullPath("tcp://mikai233@127.0.0.1:12121/user/test_actor_9".parse()?))?;
     let which = sel.resolve_one(Duration::from_secs(3)).await?;
     info!("{}", which);
     // sel.tell(DynMessage::user(TestMessage), ActorRef::no_sender());
