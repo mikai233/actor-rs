@@ -4,7 +4,7 @@ use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use arc_swap::{ArcSwap, ArcSwapOption};
+use arc_swap::{ArcSwap, ArcSwapOption, Guard};
 use dashmap::mapref::one::MappedRef;
 use futures::FutureExt;
 use rand::random;
@@ -204,6 +204,10 @@ impl ActorSystem {
     pub fn get_extension<E>(&self) -> Option<MappedRef<&'static str, Box<dyn Extension>, E>> where E: Extension {
         self.extensions.get()
     }
+
+    pub fn uid(&self) -> i64 {
+        self.uid
+    }
 }
 
 impl ActorRefFactory for ActorSystem {
@@ -211,8 +215,12 @@ impl ActorRefFactory for ActorSystem {
         &self
     }
 
-    fn provider(&self) -> Arc<ActorRefProvider> {
+    fn provider_full(&self) -> Arc<ActorRefProvider> {
         self.provider.load_full()
+    }
+
+    fn provider(&self) -> Guard<Arc<ActorRefProvider>> {
+        self.provider.load()
     }
 
     fn guardian(&self) -> LocalActorRef {

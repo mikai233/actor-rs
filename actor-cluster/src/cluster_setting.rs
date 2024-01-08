@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::net::SocketAddrV4;
 
@@ -13,6 +14,7 @@ pub struct ClusterSetting {
     pub addr: SocketAddrV4,
     pub reg: MessageRegistration,
     pub eclient: Client,
+    pub roles: HashSet<String>,
 }
 
 impl Debug for ClusterSetting {

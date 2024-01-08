@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 
 use actor_core::actor::actor_path::ActorPath;
@@ -10,13 +11,14 @@ use actor_derive::AsAny;
 use actor_remote::remote_provider::RemoteActorRefProvider;
 use actor_remote::remote_setting::RemoteSetting;
 
-use crate::cluster::cluster::Cluster;
-use crate::cluster::cluster_setting::ClusterSetting;
+use crate::cluster::Cluster;
+use crate::cluster_setting::ClusterSetting;
 
 #[derive(AsAny)]
 pub struct ClusterActorRefProvider {
     pub remote: RemoteActorRefProvider,
     pub eclient: etcd_client::Client,
+    pub roles: HashSet<String>,
 }
 
 impl Debug for ClusterActorRefProvider {
@@ -30,7 +32,7 @@ impl Debug for ClusterActorRefProvider {
 
 impl ClusterActorRefProvider {
     pub fn new(setting: ClusterSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
-        let ClusterSetting { system, addr, reg, eclient } = setting;
+        let ClusterSetting { system, addr, reg, eclient, roles } = setting;
         let remote_setting = RemoteSetting::builder()
             .reg(reg)
             .addr(addr)
@@ -40,6 +42,7 @@ impl ClusterActorRefProvider {
         let cluster = ClusterActorRefProvider {
             remote,
             eclient,
+            roles,
         };
         Self::register_extension(&mut spawns);
         Ok((cluster, spawns))

@@ -2,10 +2,15 @@ use anyhow::anyhow;
 
 pub trait OptionExt<T> {
     fn foreach<F, U>(&self, f: F) where F: FnOnce(&T) -> U;
+
     fn foreach_mut<F, U>(&mut self, f: F) where F: FnOnce(&mut T) -> U;
+
     fn into_foreach<F, U>(self, f: F) where F: FnOnce(T) -> U;
+
     fn as_result(&self) -> anyhow::Result<&T>;
+
     fn as_result_mut(&mut self) -> anyhow::Result<&mut T>;
+
     fn into_result(self) -> anyhow::Result<T>;
 }
 

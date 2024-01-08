@@ -46,7 +46,7 @@ struct TestMessage;
 impl Message for TestMessage {
     type A = EmptyTestActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         info!("{} recv {:?}", context.myself(), self);
         Ok(())
     }
@@ -58,6 +58,7 @@ fn build_config(addr: SocketAddrV4) -> ActorSystemConfig {
         let mut reg = MessageRegistration::new();
         reg.register::<MessageToAsk>();
         reg.register::<MessageToAns>();
+        reg.register::<TestMessage>();
         let setting = RemoteSetting::builder()
             .system(system.clone())
             .addr(addr)
@@ -82,7 +83,10 @@ async fn main() -> anyhow::Result<()> {
     let sel = system2.actor_selection(ActorSelectionPath::FullPath("tcp://mikai233@127.0.0.1:12121/user/test_actor_9".parse()?))?;
     let which = sel.resolve_one(Duration::from_secs(3)).await?;
     info!("{}", which);
-    // sel.tell(DynMessage::user(TestMessage), ActorRef::no_sender());
+    loop {
+        which.cast_ns(TestMessage);
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
     system1.wait_termination().await;
     Ok(())
 }

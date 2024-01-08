@@ -10,7 +10,12 @@ actor-core = { path = "../actor-core" }
 actor-remote = { path = "../actor-remote" }
 actor-derive = { path = "../actor-derive" }
 bincode = { workspace = true }
+arc-swap = { workspace = true }
 async-trait = { workspace = true }
 anyhow = { workspace = true }
 etcd-client = { workspace = true }
 typed-builder = { workspace = true }
+futures = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+async-recursion = { workspace = true }

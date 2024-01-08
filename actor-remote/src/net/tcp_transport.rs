@@ -75,7 +75,7 @@ impl Actor for TransportActor {
 
 impl TransportActor {
     pub fn new(system: ActorSystem) -> Self {
-        let provider = system.provider();
+        let provider = system.provider_full();
         let registration = (&***provider)
             .as_any()
             .downcast_ref::<RemoteActorRefProvider>()
@@ -271,7 +271,7 @@ mod test {
         let actor_a = system1.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
         let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
         let start = SystemTime::now();
-        let range = 0..1000;
+        let range = 0..10000;
         for _ in range {
             let _: MessageToAns = Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;
         }

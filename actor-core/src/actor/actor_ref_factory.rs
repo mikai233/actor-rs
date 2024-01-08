@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use arc_swap::Guard;
+
 use crate::actor::actor_path::TActorPath;
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_provider::ActorRefProvider;
@@ -11,7 +13,9 @@ use crate::actor::props::Props;
 pub trait ActorRefFactory {
     fn system(&self) -> &ActorSystem;
 
-    fn provider(&self) -> Arc<ActorRefProvider>;
+    fn provider_full(&self) -> Arc<ActorRefProvider>;
+
+    fn provider(&self) -> Guard<Arc<ActorRefProvider>>;
 
     fn guardian(&self) -> LocalActorRef;
 

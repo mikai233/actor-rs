@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
+use arc_swap::Guard;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::error::Elapsed;
 
@@ -26,7 +27,7 @@ pub struct DeferredActorRef {
 
 pub struct Inner {
     system: ActorSystem,
-    provider: Arc<ActorRefProvider>,
+    provider: Guard<Arc<ActorRefProvider>>,
     path: ActorPath,
     parent: ActorRef,
     sender: Sender<DynMessage>,

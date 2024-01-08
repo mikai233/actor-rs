@@ -7,15 +7,15 @@ use actor_core::actor::context::ActorContext;
 use actor_core::Message;
 use actor_derive::MessageCodec;
 
-use crate::cluster::daemon::cluster_daemon::ClusterDaemon;
+use crate::cluster_daemon::ClusterDaemon;
 
 #[derive(Debug, Encode, Decode, MessageCodec)]
-pub struct MemberJoin {
+pub struct MemberLeave {
     pub addr: SocketAddr,
 }
 
 #[async_trait]
-impl Message for MemberJoin {
+impl Message for MemberLeave {
     type A = ClusterDaemon;
 
     async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {

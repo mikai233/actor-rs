@@ -23,6 +23,7 @@ use crate::net::codec::PacketCodec;
 use crate::net::connection::{Connection, ConnectionTx};
 use crate::net::tcp_transport::{ConnectionSender, TransportActor};
 
+#[derive(Debug)]
 pub struct RemoteEnvelope {
     pub packet: IDPacket,
     pub sender: Option<ActorRef>,
@@ -155,7 +156,7 @@ impl Message for InboundMessage {
     }
 }
 
-#[derive(EmptyCodec)]
+#[derive(Debug, EmptyCodec)]
 pub struct OutboundMessage {
     pub name: &'static str,
     pub envelope: RemoteEnvelope,
@@ -173,15 +174,14 @@ impl Message for OutboundMessage {
                 let opts = ReconnectOptions::new()
                     .with_exit_if_first_connect_fails(false)
                     .with_retries_generator(|| repeat_with(|| Duration::from_secs(3)));
-                context.myself()
-                    .cast(Connect { addr, opts }, None);
+                context.myself().cast_ns(Connect { addr, opts });
                 context.stash(OutboundMessage { name: self.name, envelope: self.envelope });
-                debug!("message {} to {} not connected, stash current message and start connect", self.name, addr);
+                debug!("connection to {} not established, stash {} and start connect", addr, self.name);
                 *sender = ConnectionSender::Connecting;
             }
             ConnectionSender::Connecting => {
                 context.stash(OutboundMessage { name: self.name, envelope: self.envelope });
-                debug!("message {} to {} is connecting, stash current message and wait", self.name, addr);
+                debug!("connection to {} is establishing, stash {} and wait it established", addr, self.name);
             }
             ConnectionSender::Connected(tx) => {
                 if let Some(err) = tx.try_send(self.envelope).err() {

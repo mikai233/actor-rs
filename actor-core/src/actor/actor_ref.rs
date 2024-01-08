@@ -25,13 +25,21 @@ task_local! {
 
 pub trait TActorRef: Debug + Send + Sync + Any + AsAny {
     fn system(&self) -> &ActorSystem;
+
     fn path(&self) -> &ActorPath;
+
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>);
+
     fn stop(&self);
+
     fn parent(&self) -> Option<&ActorRef>;
+
     fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef>;
+
     fn resume(&self) {}
+
     fn suspend(&self) {}
+
     fn restart(&self) {}
 }
 

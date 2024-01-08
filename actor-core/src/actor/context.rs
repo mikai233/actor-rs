@@ -4,6 +4,7 @@ use std::ops::Not;
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use arc_swap::Guard;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, warn};
 
@@ -68,7 +69,11 @@ impl ActorRefFactory for ActorContext {
         &self.system
     }
 
-    fn provider(&self) -> Arc<ActorRefProvider> {
+    fn provider_full(&self) -> Arc<ActorRefProvider> {
+        self.system.provider_full()
+    }
+
+    fn provider(&self) -> Guard<Arc<ActorRefProvider>> {
         self.system.provider()
     }
 
@@ -157,7 +162,9 @@ impl Context for ActorContext {
             if self.myself.path().address() == subject.path().address() {
                 subject.cast_system(Unwatch { watchee, watcher }, ActorRef::no_sender());
             } else {
-                self.provider().resolve_actor_ref_of_path(subject.path()).cast_system(Unwatch { watchee, watcher }, ActorRef::no_sender());
+                self.provider()
+                    .resolve_actor_ref_of_path(subject.path())
+                    .cast_system(Unwatch { watchee, watcher }, ActorRef::no_sender());
             }
         }
     }

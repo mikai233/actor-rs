@@ -22,7 +22,7 @@ pub struct Props {
 }
 
 impl Props {
-    pub fn create<F, A>(f: F) -> Self where F: Fn(&mut ActorContext) -> A + 'static + Send + Sync + 'static, A: Actor {
+    pub fn create<F, A>(f: F) -> Self where F: Fn(&mut ActorContext) -> A + Send + Sync + 'static, A: Actor {
         let spawn_fn = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem, props: Props| {
             let mut context = ActorContext::new(myself, system);
             let system = context.system.clone();
