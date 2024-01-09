@@ -1,18 +1,21 @@
 use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
+use std::sync::Arc;
 
 use actor_core::actor::actor_path::ActorPath;
 use actor_core::actor::actor_ref::ActorRef;
-use actor_core::actor::actor_ref_provider::TActorRefProvider;
+use actor_core::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::actor::address::Address;
 use actor_core::actor::local_ref::LocalActorRef;
 use actor_core::actor::props::{DeferredSpawn, FuncDeferredSpawn, Props};
+use actor_core::message::message_registration::MessageRegistration;
 use actor_derive::AsAny;
 use actor_remote::remote_provider::RemoteActorRefProvider;
 use actor_remote::remote_setting::RemoteSetting;
 
 use crate::cluster::Cluster;
 use crate::cluster_setting::ClusterSetting;
+use crate::distributed_pub_sub::DistributedPubSub;
 
 #[derive(AsAny)]
 pub struct ClusterActorRefProvider {
@@ -51,6 +54,7 @@ impl ClusterActorRefProvider {
     fn register_extension(spawns: &mut Vec<Box<dyn DeferredSpawn>>) {
         let s = FuncDeferredSpawn::new(|system| {
             system.register_extension(|system| Cluster::new(system));
+            system.register_extension(|system| DistributedPubSub::new(system));
         });
         spawns.push(Box::new(s));
     }
@@ -107,5 +111,15 @@ impl TActorRefProvider for ClusterActorRefProvider {
 
     fn dead_letters(&self) -> &ActorRef {
         self.remote.dead_letters()
+    }
+
+    fn registration(&self) -> Option<&Arc<MessageRegistration>> {
+        self.remote.registration()
+    }
+}
+
+impl Into<ActorRefProvider> for ClusterActorRefProvider {
+    fn into(self) -> ActorRefProvider {
+        ActorRefProvider::new(self)
     }
 }

@@ -24,7 +24,6 @@ use actor_core::message::message_registration::MessageRegistration;
 use crate::net::codec::PacketCodec;
 use crate::net::connection::ConnectionTx;
 use crate::net::message::{InboundMessage, RemotePacket, SpawnInbound};
-use crate::remote_provider::RemoteActorRefProvider;
 
 #[derive(Debug)]
 pub struct TransportActor {
@@ -57,10 +56,7 @@ impl Actor for TransportActor {
                         let connection_fut = async move {
                             TransportActor::accept_inbound_connection(stream, peer_addr, actor).await;
                         };
-                        myself.cast(
-                            SpawnInbound { fut: Box::pin(connection_fut) },
-                            None,
-                        );
+                        myself.cast_ns(SpawnInbound { fut: Box::pin(connection_fut) });
                     }
                     Err(err) => {
                         warn!("{} accept connection error {:?}", addr, err);
@@ -76,17 +72,15 @@ impl Actor for TransportActor {
 impl TransportActor {
     pub fn new(system: ActorSystem) -> Self {
         let provider = system.provider_full();
-        let registration = (&***provider)
-            .as_any()
-            .downcast_ref::<RemoteActorRefProvider>()
-            .unwrap()
-            .registration
-            .clone();
+        let registration = provider
+            .registration()
+            .map(|r| (**r).clone())
+            .expect("message registration not found");
         Self {
             connections: HashMap::new(),
             actor_ref_cache: Cache::new(1000),
             provider,
-            registration: (*registration).clone(),
+            registration,
         }
     }
 

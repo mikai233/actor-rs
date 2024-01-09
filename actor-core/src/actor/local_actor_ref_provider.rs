@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use dashmap::DashMap;
@@ -21,6 +22,7 @@ use crate::actor::virtual_path_container::VirtualPathContainer;
 use crate::cell::ActorCell;
 use crate::ext::base64;
 use crate::ext::option_ext::OptionExt;
+use crate::message::message_registration::MessageRegistration;
 
 #[derive(Debug, AsAny)]
 pub struct LocalActorRefProvider {
@@ -164,6 +166,10 @@ impl TActorRefProvider for LocalActorRefProvider {
 
     fn dead_letters(&self) -> &ActorRef {
         &self.dead_letters
+    }
+
+    fn registration(&self) -> Option<&Arc<MessageRegistration>> {
+        None
     }
 }
 

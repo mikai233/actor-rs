@@ -1,23 +1,21 @@
+use std::collections::HashSet;
 use std::net::SocketAddrV4;
-use std::time::Duration;
 
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
+use etcd_client::Client;
 use tracing::{info, Level};
 
+use actor_cluster::cluster_provider::ClusterActorRefProvider;
+use actor_cluster::cluster_setting::ClusterSetting;
 use actor_core::{EmptyTestActor, Message};
 use actor_core::actor::actor_ref::ActorRefExt;
-use actor_core::actor::actor_ref_factory::ActorRefFactory;
-use actor_core::actor::actor_selection::ActorSelectionPath;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::config::actor_system_config::ActorSystemConfig;
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor::props::Props;
 use actor_core::ext::init_logger;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_derive::{CMessageCodec, MessageCodec, OrphanCodec};
-use actor_remote::remote_provider::RemoteActorRefProvider;
-use actor_remote::remote_setting::RemoteSetting;
 
 #[derive(Encode, Decode, MessageCodec)]
 struct MessageToAsk;
@@ -52,19 +50,21 @@ impl Message for TestMessage {
     }
 }
 
-fn build_config(addr: SocketAddrV4) -> ActorSystemConfig {
+fn build_config(addr: SocketAddrV4, eclient: Client) -> ActorSystemConfig {
     let mut config = ActorSystemConfig::default();
     config.with_provider(move |system| {
         let mut reg = MessageRegistration::new();
         reg.register::<MessageToAsk>();
         reg.register::<MessageToAns>();
         reg.register::<TestMessage>();
-        let setting = RemoteSetting::builder()
+        let setting = ClusterSetting::builder()
             .system(system.clone())
             .addr(addr)
             .reg(reg)
+            .eclient(eclient.clone())
+            .roles(HashSet::new())
             .build();
-        RemoteActorRefProvider::new(setting).map(|(r, d)| (r.into(), d))
+        ClusterActorRefProvider::new(setting).map(|(c, d)| (c.into(), d))
     });
     config
 }
@@ -72,21 +72,22 @@ fn build_config(addr: SocketAddrV4) -> ActorSystemConfig {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     init_logger(Level::DEBUG);
-    let system1 = ActorSystem::create("mikai233", build_config("127.0.0.1:12121".parse()?))?;
-    let system2 = ActorSystem::create("mikai233", build_config("127.0.0.1:12123".parse()?))?;
-    for i in 0..10 {
-        system1.spawn_actor(Props::create(|_| EmptyTestActor), format!("test_actor_{}", i))?;
-    }
-    let sel = system1.actor_selection(ActorSelectionPath::RelativePath("/user/../user/test_actor_*".to_string()))?;
-    let which = sel.resolve_one(Duration::from_secs(3)).await?;
-    info!("{}", which);
-    let sel = system2.actor_selection(ActorSelectionPath::FullPath("tcp://mikai233@127.0.0.1:12121/user/test_actor_9".parse()?))?;
-    let which = sel.resolve_one(Duration::from_secs(3)).await?;
-    info!("{}", which);
-    loop {
-        which.cast_ns(TestMessage);
-        tokio::time::sleep(Duration::from_secs(1)).await;
-    }
+    let client = Client::connect(["localhost:2379"], None).await?;
+    let system1 = ActorSystem::create("mikai233", build_config("127.0.0.1:12121".parse()?, client.clone()))?;
+    // let system2 = ActorSystem::create("mikai233", build_config("127.0.0.1:12123".parse()?, client.clone()))?;
+    // for i in 0..10 {
+    //     system1.spawn_actor(Props::create(|_| EmptyTestActor), format!("test_actor_{}", i))?;
+    // }
+    // let sel = system1.actor_selection(ActorSelectionPath::RelativePath("/user/../user/test_actor_*".to_string()))?;
+    // let which = sel.resolve_one(Duration::from_secs(3)).await?;
+    // info!("{}", which);
+    // let sel = system2.actor_selection(ActorSelectionPath::FullPath("tcp://mikai233@127.0.0.1:12121/user/test_actor_9".parse()?))?;
+    // let which = sel.resolve_one(Duration::from_secs(3)).await?;
+    // info!("{}", which);
+    // loop {
+    //     which.cast_ns(TestMessage);
+    //     tokio::time::sleep(Duration::from_secs(1)).await;
+    // }
     system1.wait_termination().await;
     Ok(())
 }

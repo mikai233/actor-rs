@@ -9,10 +9,11 @@ use async_trait::async_trait;
 use etcd_client::{Client, Watcher, WatchOptions, WatchResponse, WatchStream};
 use futures::StreamExt;
 use futures::task::ArcWake;
-use tracing::warn;
+use tracing::{debug, info, warn};
 
 use actor_core::{Actor, DynMessage, Message};
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
@@ -49,8 +50,22 @@ impl Actor for EWatcher {
 }
 
 impl EWatcher {
+    pub fn new(myself: ActorRef, eclient: Client, key: String, options: Option<WatchOptions>, receiver: ActorRef) -> Self {
+        let waker = futures::task::waker(Arc::new(WatchWaker { watcher: myself }));
+        Self {
+            eclient,
+            key,
+            options,
+            watcher: None,
+            watcher_stream: None,
+            waker,
+            watch_receiver: receiver,
+        }
+    }
+
     #[async_recursion]
     async fn watch(&mut self, context: &mut ActorContext) {
+        debug!("start watch {}", self.key);
         match self.eclient.watch(self.key.as_bytes(), self.options.clone()).await {
             Ok((watcher, watch_stream)) => {
                 self.watcher = Some(watcher);
@@ -98,29 +113,37 @@ impl Message for PollMessage {
                     actor.watch(context).await;
                 }
                 Some(Ok(resp)) => {
-                    actor.watch_receiver.tell(DynMessage::orphan(WatchRespWrap(resp)), ActorRef::no_sender());
+                    actor.watch_receiver.tell(
+                        DynMessage::orphan(EWatchResp { key: actor.key.clone(), resp }),
+                        ActorRef::no_sender(),
+                    );
                 }
                 Some(Err(error)) => {
                     warn!("watch {} {:?}, try rewatch it", actor.key, error);
                     actor.watch(context).await;
                 }
             }
+            context.myself().cast_ns(PollMessage);
         }
         Ok(())
     }
 }
 
 #[derive(Debug, OrphanEmptyCodec)]
-pub struct WatchRespWrap(WatchResponse);
+pub struct EWatchResp {
+    pub key: String,
+    pub resp: WatchResponse,
+}
 
-impl Deref for WatchRespWrap {
+impl Deref for EWatchResp {
     type Target = WatchResponse;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.resp
     }
 }
 
+/// cancel key watcher and stop watch actor
 #[derive(Debug, EmptyCodec)]
 pub struct CancelWatch;
 
@@ -128,9 +151,10 @@ pub struct CancelWatch;
 impl Message for CancelWatch {
     type A = EWatcher;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if let Some(watcher) = &mut actor.watcher {
             watcher.cancel().await?;
+            context.stop(context.myself());
         }
         Ok(())
     }

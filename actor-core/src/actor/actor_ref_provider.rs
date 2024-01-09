@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::fmt::Debug;
 use std::ops::Deref;
+use std::sync::Arc;
 
 use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_path::TActorPath;
@@ -9,6 +10,7 @@ use crate::actor::address::Address;
 use crate::actor::local_ref::LocalActorRef;
 use crate::actor::props::Props;
 use crate::ext::as_any::AsAny;
+use crate::message::message_registration::MessageRegistration;
 
 pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
     fn root_guardian(&self) -> &LocalActorRef;
@@ -47,6 +49,8 @@ pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
     fn get_default_address(&self) -> &Address {
         self.root_path().address()
     }
+
+    fn registration(&self) -> Option<&Arc<MessageRegistration>>;
 }
 
 #[derive(Debug)]

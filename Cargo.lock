@@ -14,6 +14,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "bincode",
+ "dashmap",
  "etcd-client",
  "futures",
  "tokio",
@@ -72,12 +73,14 @@ dependencies = [
 name = "actor-playgroud"
 version = "0.1.0"
 dependencies = [
+ "actor-cluster",
  "actor-core",
  "actor-derive",
  "actor-remote",
  "anyhow",
  "async-trait",
  "bincode",
+ "etcd-client",
  "tokio",
  "tracing",
 ]

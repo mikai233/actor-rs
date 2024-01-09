@@ -131,6 +131,10 @@ impl TActorRefProvider for RemoteActorRefProvider {
     fn dead_letters(&self) -> &ActorRef {
         &self.local.dead_letters()
     }
+
+    fn registration(&self) -> Option<&Arc<MessageRegistration>> {
+        Some(&self.registration)
+    }
 }
 
 impl Into<ActorRefProvider> for RemoteActorRefProvider {

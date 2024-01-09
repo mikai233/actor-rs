@@ -19,3 +19,4 @@ futures = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 async-recursion = { workspace = true }
+dashmap = { workspace = true, features = ["inline"] }

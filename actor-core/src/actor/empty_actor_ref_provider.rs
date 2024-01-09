@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::sync::Arc;
 
 use actor_derive::AsAny;
 
@@ -8,6 +9,7 @@ use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
 use crate::actor::address::Address;
 use crate::actor::local_ref::LocalActorRef;
 use crate::actor::props::Props;
+use crate::message::message_registration::MessageRegistration;
 
 #[derive(Debug, Default, Clone, Copy, AsAny)]
 pub(crate) struct EmptyActorRefProvider;
@@ -63,6 +65,10 @@ impl TActorRefProvider for EmptyActorRefProvider {
 
     fn dead_letters(&self) -> &ActorRef {
         unimplemented!()
+    }
+
+    fn registration(&self) -> Option<&Arc<MessageRegistration>> {
+        None
     }
 }
 

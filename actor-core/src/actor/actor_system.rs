@@ -24,7 +24,7 @@ use crate::actor::local_ref::LocalActorRef;
 use crate::actor::props::Props;
 use crate::actor::root_guardian::{AddShutdownHook, Shutdown};
 use crate::actor::timer_scheduler::{TimerScheduler, TimerSchedulerActor};
-use crate::event::event_bus::SystemEventBus;
+use crate::event::event_stream::EventStream;
 
 #[derive(Clone)]
 pub struct ActorSystem {
@@ -39,7 +39,7 @@ pub struct SystemInner {
     runtime: Runtime,
     signal: RwLock<(Option<Sender<()>>, Option<Receiver<()>>)>,
     scheduler: ArcSwapOption<TimerScheduler>,
-    event_bus: ArcSwapOption<SystemEventBus>,
+    event_stream: EventStream,
     extensions: ActorSystemExtension,
 }
 
@@ -51,7 +51,7 @@ impl Debug for ActorSystem {
             .field("provider", &self.provider)
             .field("runtime", &self.runtime)
             .field("scheduler", &self.scheduler)
-            .field("event_bus", &self.event_bus)
+            .field("event_stream", &self.event_stream)
             .field("extensions", &self.extensions)
             .finish()
     }
@@ -82,7 +82,7 @@ impl ActorSystem {
             runtime,
             signal: RwLock::new((Some(tx), Some(rx))),
             scheduler: ArcSwapOption::new(None),
-            event_bus: ArcSwapOption::new(None),
+            event_stream: EventStream::default(),
             extensions: ActorSystemExtension::default(),
         };
         let system = Self {
@@ -93,7 +93,6 @@ impl ActorSystem {
         for s in spawns {
             s.spawn(system.clone());
         }
-        system.init_event_bus()?;
         system.init_scheduler()?;
         Ok(system)
     }
@@ -171,8 +170,8 @@ impl ActorSystem {
         self.system_guardian().attach_child(props, name, true).map(|(actor, _)| actor)
     }
 
-    pub fn event_bus(&self) -> Arc<SystemEventBus> {
-        unsafe { self.event_bus.load().as_ref().unwrap_unchecked().clone() }
+    pub fn event_stream(&self) -> &EventStream {
+        &self.event_stream
     }
 
     pub fn scheduler(&self) -> Arc<TimerScheduler> {
@@ -181,12 +180,6 @@ impl ActorSystem {
 
     pub fn add_shutdown_hook<F>(&self, fut: F) where F: Future<Output=()> + Send + 'static {
         self.provider().root_guardian().cast(AddShutdownHook { fut: fut.boxed() }, ActorRef::no_sender());
-    }
-
-    fn init_event_bus(&self) -> anyhow::Result<()> {
-        let event_bus = SystemEventBus::new(self)?;
-        self.event_bus.store(Some(event_bus.into()));
-        Ok(())
     }
 
     fn init_scheduler(&self) -> anyhow::Result<()> {

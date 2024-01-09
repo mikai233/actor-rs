@@ -53,6 +53,18 @@ pub struct Connect {
     pub opts: ReconnectOptions,
 }
 
+impl Connect {
+    pub fn with_infinite_retry(addr: SocketAddr) -> Self {
+        let opts = ReconnectOptions::new()
+            .with_exit_if_first_connect_fails(false)
+            .with_retries_generator(|| repeat_with(|| Duration::from_secs(3)));
+        Self {
+            addr,
+            opts,
+        }
+    }
+}
+
 #[async_trait]
 impl Message for Connect {
     type A = TransportActor;
@@ -69,7 +81,7 @@ impl Message for Connect {
                     let framed = Framed::new(stream, PacketCodec);
                     let (connection, tx) = Connection::new(self.addr, framed, myself.clone());
                     connection.start();
-                    myself.cast(Connected { addr: self.addr, tx }, None);
+                    myself.cast_ns(Connected { addr: self.addr, tx });
                 }
                 Err(e) => {
                     error!("connect to {} error {:?}, drop current connection", self.addr, e);
@@ -130,7 +142,7 @@ impl Message for SpawnInbound {
     }
 }
 
-#[derive(EmptyCodec)]
+#[derive(Debug, EmptyCodec)]
 pub struct InboundMessage {
     pub packet: RemotePacket,
 }
@@ -171,10 +183,7 @@ impl Message for OutboundMessage {
         let sender = actor.connections.entry(addr).or_insert(ConnectionSender::NotConnected);
         match sender {
             ConnectionSender::NotConnected => {
-                let opts = ReconnectOptions::new()
-                    .with_exit_if_first_connect_fails(false)
-                    .with_retries_generator(|| repeat_with(|| Duration::from_secs(3)));
-                context.myself().cast_ns(Connect { addr, opts });
+                context.myself().cast_ns(Connect::with_infinite_retry(addr));
                 context.stash(OutboundMessage { name: self.name, envelope: self.envelope });
                 debug!("connection to {} not established, stash {} and start connect", addr, self.name);
                 *sender = ConnectionSender::Connecting;
