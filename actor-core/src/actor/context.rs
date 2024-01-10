@@ -8,7 +8,7 @@ use arc_swap::Guard;
 use tokio::task::{AbortHandle, JoinHandle};
 use tracing::{debug, error, warn};
 
-use crate::{Actor, DynMessage, Message, MessageType, OrphanMessage, UserDelegate};
+use crate::{Actor, DynMessage, Message, MessageType, OrphanMessage};
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_path::child_actor_path::ChildActorPath;
 use crate::actor::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt};
