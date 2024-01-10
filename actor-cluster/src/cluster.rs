@@ -82,7 +82,7 @@ impl Cluster {
         }
     }
 
-    pub fn get(system: &ActorSystem) -> MappedRef<&str, Box<dyn Extension + '_>, Self> {
+    pub fn get<'a>(system: &'a ActorSystem) -> MappedRef<'a, &str, Box<dyn Extension + 'a>, Self> {
         system.get_extension::<Self>().expect("Cluster extension not found")
     }
 

@@ -12,10 +12,10 @@ use tokio::sync::mpsc::error::TrySendError;
 use tokio_util::codec::Framed;
 use tracing::{debug, error, info, warn};
 
-use actor_core::{DynMessage, Message};
 use actor_core::actor::actor_path::TActorPath;
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt, PROVIDER};
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::Message;
 use actor_core::message::message_registration::IDPacket;
 use actor_derive::EmptyCodec;
 
@@ -191,20 +191,18 @@ impl Message for OutboundMessage {
         let sender = actor.connections.entry(addr).or_insert(ConnectionStatus::NotConnected);
         match sender {
             ConnectionStatus::NotConnected => {
-                context.myself().cast_ns(Connect::with_infinite_retry(addr));
-                let buffer = actor.buffer.entry(addr).or_insert(Vec::new());
-                buffer.push((DynMessage::user(OutboundMessage { name: self.name, envelope: self.envelope }), context.sender().cloned()));
                 debug!("connection to {} not established, stash {} and start connect", addr, self.name);
+                context.myself().cast_ns(Connect::with_infinite_retry(addr));
+                Self::A::stash_message(&mut actor.buffer, addr, *self, context.sender().cloned());
                 *sender = ConnectionStatus::PrepareForConnect;
             }
             ConnectionStatus::PrepareForConnect | ConnectionStatus::Connecting(_) => {
-                let buffer = actor.buffer.entry(addr).or_insert(Vec::new());
-                buffer.push((DynMessage::user(OutboundMessage { name: self.name, envelope: self.envelope }), context.sender().cloned()));
                 debug!("connection to {} is establishing, stash {} and wait it established", addr, self.name);
+                Self::A::stash_message(&mut actor.buffer, addr, *self, context.sender().cloned());
             }
             ConnectionStatus::Connected(tx) => {
-                if let Some(err) = tx.try_send(self.envelope).err() {
-                    match err {
+                if let Some(error) = tx.try_send(self.envelope).err() {
+                    match error {
                         TrySendError::Full(_) => {
                             warn!("message {} to {} connection buffer full, current message dropped", self.name, addr);
                         }

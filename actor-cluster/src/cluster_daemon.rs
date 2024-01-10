@@ -1,3 +1,4 @@
+use std::collections::hash_map::Entry;
 use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::net::SocketAddrV4;
@@ -16,7 +17,10 @@ use actor_core::actor::props::Props;
 use actor_derive::EmptyCodec;
 use actor_remote::net::message::Connect;
 
+use crate::cluster::Cluster;
+use crate::cluster_heartbeat::{ClusterHeartbeatReceiver, ClusterHeartbeatSender};
 use crate::ewatcher::{EWatcher, EWatchResp};
+use crate::member::Member;
 use crate::unique_address::UniqueAddress;
 
 pub struct ClusterDaemon {
@@ -41,6 +45,8 @@ impl Debug for ClusterDaemon {
 impl Actor for ClusterDaemon {
     async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         trace!("{} started", context.myself());
+        let heartbeat_sender = context.spawn_actor(Props::create(|_| ClusterHeartbeatSender::default()), ClusterHeartbeatSender::name())?;
+        let heartbeat_receiver = context.spawn_actor(Props::create(|_| ClusterHeartbeatReceiver::default()), ClusterHeartbeatReceiver::name())?;
         let addrs = self.get_cluster_nodes().await;
         for addr in addrs {
             debug!("{} try to connect {}", context.myself(), addr);
@@ -118,6 +124,30 @@ impl ClusterDaemon {
                 self.get_cluster_nodes().await
             }
         }
+    }
+
+    fn update_member(&mut self, context: &mut ActorContext, member: Member) {
+        let cluster = context.system().get_extension::<Cluster>().unwrap();
+        let mut state = cluster.state().write().unwrap();
+        match state.members.entry(member.unique_address.address.clone()) {
+            Entry::Occupied(mut o) => {
+                if o.get().unique_address != member.unique_address {
+                    //TODO member remove event
+                }
+                o.insert(member);
+                //TODO status change ?
+            }
+            Entry::Vacant(v) => {
+                //TODO member add event
+                v.insert(member);
+            }
+        }
+    }
+
+    fn remove_member(&mut self, context: &mut ActorContext, member: Member) {
+        //TODO Cluster::get ?
+        let cluster = context.system().get_extension::<Cluster>().unwrap();
+        let state = cluster.state().write().unwrap();
     }
 }
 

@@ -1,6 +1,8 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
+use std::net::SocketAddrV4;
 
 use bincode::{Decode, Encode};
+use actor_core::actor::address::Address;
 
 use crate::member::Member;
 
@@ -18,6 +20,6 @@ pub enum MemberEvent {
 
 #[derive(Debug, Default, Encode, Decode)]
 pub struct CurrentClusterState {
-    pub members: HashSet<Member>,
-    pub unreachable: HashSet<Member>,
+    pub members: HashMap<Address, Member>,
+    pub unreachable: HashMap<Address, Member>,
 }

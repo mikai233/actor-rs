@@ -74,7 +74,7 @@ async fn main() -> anyhow::Result<()> {
     init_logger(Level::DEBUG);
     let client = Client::connect(["localhost:2379"], None).await?;
     let system1 = ActorSystem::create("mikai233", build_config("127.0.0.1:12121".parse()?, client.clone()))?;
-    // let system2 = ActorSystem::create("mikai233", build_config("127.0.0.1:12123".parse()?, client.clone()))?;
+    let system2 = ActorSystem::create("mikai233", build_config("127.0.0.1:12123".parse()?, client.clone()))?;
     // for i in 0..10 {
     //     system1.spawn_actor(Props::create(|_| EmptyTestActor), format!("test_actor_{}", i))?;
     // }

@@ -1,6 +1,5 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
-use std::hash::Hash;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -25,7 +24,9 @@ use actor_core::message::message_registration::MessageRegistration;
 
 use crate::net::codec::PacketCodec;
 use crate::net::connection::ConnectionTx;
-use crate::net::message::{InboundMessage, RemotePacket, SpawnInbound};
+use crate::net::message::{InboundMessage, OutboundMessage, RemotePacket, SpawnInbound};
+
+pub const BUFFER_SIZE: usize = 10000;
 
 #[derive(Debug)]
 pub struct TransportActor {
@@ -33,7 +34,7 @@ pub struct TransportActor {
     pub actor_ref_cache: Cache<String, ActorRef>,
     pub provider: Arc<ActorRefProvider>,
     pub registration: MessageRegistration,
-    pub buffer: HashMap<SocketAddr, Vec<(DynMessage, Option<ActorRef>)>>,
+    pub buffer: HashMap<SocketAddr, VecDeque<(DynMessage, Option<ActorRef>)>>,
 }
 
 #[derive(Debug)]
@@ -62,8 +63,8 @@ impl Actor for TransportActor {
                         };
                         myself.cast_ns(SpawnInbound { fut: Box::pin(connection_fut) });
                     }
-                    Err(err) => {
-                        warn!("{} accept connection error {:?}", addr, err);
+                    Err(error) => {
+                        warn!("{} accept connection error {:?}", addr, error);
                     }
                 }
             }
@@ -127,6 +128,16 @@ impl TransportActor {
             }
             Some(actor_ref) => {
                 actor_ref.clone()
+            }
+        }
+    }
+
+    pub fn stash_message(buffer: &mut HashMap<SocketAddr, VecDeque<(DynMessage, Option<ActorRef>)>>, addr: SocketAddr, msg: OutboundMessage, sender: Option<ActorRef>) {
+        let buffer = buffer.entry(addr).or_insert(VecDeque::with_capacity(10));
+        buffer.push_back((DynMessage::user(msg), sender));
+        if buffer.len() >= BUFFER_SIZE {
+            if let Some((message, _)) = buffer.pop_front() {
+                warn!("stash buffer is going to large than {}, drop the oldest message {}", BUFFER_SIZE, message.name());
             }
         }
     }
@@ -207,7 +218,7 @@ mod test {
     #[async_trait]
     impl Actor for PingPongActor {
         async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-            info!("{} pre start", context.myself());
+            info!("{} started", context.myself());
             Ok(())
         }
     }

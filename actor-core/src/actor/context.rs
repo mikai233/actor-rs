@@ -32,13 +32,21 @@ use crate::message::watch::Watch;
 
 pub trait Context: ActorRefFactory {
     fn myself(&self) -> &ActorRef;
+
     fn sender(&self) -> Option<&ActorRef>;
+
     fn children(&self) -> Vec<ActorRef>;
+
     fn child(&self, name: &str) -> Option<ActorRef>;
+
     fn parent(&self) -> Option<&ActorRef>;
+
     fn watch<T>(&mut self, terminate: T) where T: WatchTerminated;
+
     fn unwatch(&mut self, subject: &ActorRef);
+
     fn is_watching(&self, subject: &ActorRef) -> bool;
+
     fn message_adapter<M>(&mut self, f: impl Fn(M) -> anyhow::Result<DynMessage> + Send + Sync + 'static) -> ActorRef
         where
             M: OrphanMessage;
