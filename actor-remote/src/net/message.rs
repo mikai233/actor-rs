@@ -12,16 +12,16 @@ use tokio::sync::mpsc::error::TrySendError;
 use tokio_util::codec::Framed;
 use tracing::{debug, error, info, warn};
 
+use actor_core::{DynMessage, Message};
 use actor_core::actor::actor_path::TActorPath;
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt, PROVIDER};
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::Message;
 use actor_core::message::message_registration::IDPacket;
 use actor_derive::EmptyCodec;
 
 use crate::net::codec::PacketCodec;
 use crate::net::connection::{Connection, ConnectionTx};
-use crate::net::tcp_transport::{ConnectionSender, TransportActor};
+use crate::net::tcp_transport::{ConnectionStatus, TransportActor};
 
 #[derive(Debug)]
 pub struct RemoteEnvelope {
@@ -69,25 +69,27 @@ impl Connect {
 impl Message for Connect {
     type A = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        let Self { addr, opts } = *self;
         let myself = context.myself().clone();
-        context.spawn(async move {
-            match StubbornTcpStream::connect_with_options(self.addr, self.opts).await {
+        let handle = context.spawn(async move {
+            match StubbornTcpStream::connect_with_options(addr, opts).await {
                 Ok(stream) => {
                     if let Some(e) = stream.set_nodelay(true).err() {
-                        warn!("connect {} set tcp nodelay error {:?}, drop current connection", self.addr, e);
+                        warn!("connect {} set tcp nodelay error {:?}, drop current connection", addr, e);
                         return;
                     }
                     let framed = Framed::new(stream, PacketCodec);
-                    let (connection, tx) = Connection::new(self.addr, framed, myself.clone());
+                    let (connection, tx) = Connection::new(addr, framed, myself.clone());
                     connection.start();
-                    myself.cast_ns(Connected { addr: self.addr, tx });
+                    myself.cast_ns(Connected { addr, tx });
                 }
                 Err(e) => {
-                    error!("connect to {} error {:?}, drop current connection", self.addr, e);
+                    error!("connect to {} error {:?}, drop current connection", addr, e);
                 }
             };
         });
+        actor.connections.insert(addr, ConnectionStatus::Connecting(handle));
         Ok(())
     }
 }
@@ -103,9 +105,13 @@ impl Message for Connected {
     type A = TransportActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.connections.insert(self.addr, ConnectionSender::Connected(self.tx));
+        actor.connections.insert(self.addr, ConnectionStatus::Connected(self.tx));
         info!("{} connect to {}", context.myself(), self.addr);
-        context.unstash_all();
+        if let Some(messages) = actor.buffer.remove(&self.addr) {
+            for (message, sender) in messages {
+                context.myself().tell(message, sender);
+            }
+        }
         Ok(())
     }
 }
@@ -120,9 +126,11 @@ impl Message for Disconnect {
     type A = TransportActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.connections.remove(&self.addr);
-        let myself = context.myself();
-        info!("{} disconnect to {}", myself, self.addr);
+        if let Some(ConnectionStatus::Connecting(handle)) = actor.connections.remove(&self.addr) {
+            handle.abort();
+        }
+        actor.buffer.remove(&self.addr);
+        info!("{} disconnect from {}", context.myself(), self.addr);
         Ok(())
     }
 }
@@ -180,19 +188,21 @@ impl Message for OutboundMessage {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let addr: SocketAddr = self.envelope.target.path().address().addr.map(|a| a.into()).ok_or(anyhow!("socket addr not set"))?;
-        let sender = actor.connections.entry(addr).or_insert(ConnectionSender::NotConnected);
+        let sender = actor.connections.entry(addr).or_insert(ConnectionStatus::NotConnected);
         match sender {
-            ConnectionSender::NotConnected => {
+            ConnectionStatus::NotConnected => {
                 context.myself().cast_ns(Connect::with_infinite_retry(addr));
-                context.stash(OutboundMessage { name: self.name, envelope: self.envelope });
+                let buffer = actor.buffer.entry(addr).or_insert(Vec::new());
+                buffer.push((DynMessage::user(OutboundMessage { name: self.name, envelope: self.envelope }), context.sender().cloned()));
                 debug!("connection to {} not established, stash {} and start connect", addr, self.name);
-                *sender = ConnectionSender::Connecting;
+                *sender = ConnectionStatus::PrepareForConnect;
             }
-            ConnectionSender::Connecting => {
-                context.stash(OutboundMessage { name: self.name, envelope: self.envelope });
+            ConnectionStatus::PrepareForConnect | ConnectionStatus::Connecting(_) => {
+                let buffer = actor.buffer.entry(addr).or_insert(Vec::new());
+                buffer.push((DynMessage::user(OutboundMessage { name: self.name, envelope: self.envelope }), context.sender().cloned()));
                 debug!("connection to {} is establishing, stash {} and wait it established", addr, self.name);
             }
-            ConnectionSender::Connected(tx) => {
+            ConnectionStatus::Connected(tx) => {
                 if let Some(err) = tx.try_send(self.envelope).err() {
                     match err {
                         TrySendError::Full(_) => {

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::hash::Hash;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -9,10 +10,11 @@ use futures::StreamExt;
 use quick_cache::unsync::Cache;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpListener;
+use tokio::task::AbortHandle;
 use tokio_util::codec::Framed;
 use tracing::{info, warn};
 
-use actor_core::Actor;
+use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_ref_provider::ActorRefProvider;
@@ -27,16 +29,18 @@ use crate::net::message::{InboundMessage, RemotePacket, SpawnInbound};
 
 #[derive(Debug)]
 pub struct TransportActor {
-    pub connections: HashMap<SocketAddr, ConnectionSender>,
+    pub connections: HashMap<SocketAddr, ConnectionStatus>,
     pub actor_ref_cache: Cache<String, ActorRef>,
     pub provider: Arc<ActorRefProvider>,
     pub registration: MessageRegistration,
+    pub buffer: HashMap<SocketAddr, Vec<(DynMessage, Option<ActorRef>)>>,
 }
 
 #[derive(Debug)]
-pub enum ConnectionSender {
+pub enum ConnectionStatus {
     NotConnected,
-    Connecting,
+    PrepareForConnect,
+    Connecting(AbortHandle),
     Connected(ConnectionTx),
 }
 
@@ -81,6 +85,7 @@ impl TransportActor {
             actor_ref_cache: Cache::new(1000),
             provider,
             registration,
+            buffer: HashMap::new(),
         }
     }
 
@@ -94,7 +99,7 @@ impl TransportActor {
                 Some(Ok(packet)) => {
                     match decode_bytes::<RemotePacket>(packet.body.as_slice()) {
                         Ok(packet) => {
-                            actor.cast(InboundMessage { packet }, None);
+                            actor.cast_ns(InboundMessage { packet });
                         }
                         Err(error) => {
                             warn!("{} deserialize error {:?}", addr, error);
@@ -264,6 +269,7 @@ mod test {
         let system2 = ActorSystem::create("mikai233", build_config("127.0.0.1:12123".parse()?))?;
         let actor_a = system1.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
         let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
+        let _: MessageToAns = Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;
         let start = SystemTime::now();
         let range = 0..10000;
         for _ in range {

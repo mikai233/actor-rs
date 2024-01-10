@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use arc_swap::Guard;
-use tokio::task::JoinHandle;
+use tokio::task::{AbortHandle, JoinHandle};
 use tracing::{debug, error, warn};
 
 use crate::{Actor, DynMessage, Message, MessageType, OrphanMessage, UserDelegate};
@@ -216,8 +216,7 @@ impl ActorContext {
     }
     pub fn stash<M>(&mut self, message: M) where M: Message {
         let sender = self.sender.clone();
-        let message = UserDelegate::new(message);
-        self.stash.push_back((message.into(), sender));
+        self.stash.push_back((DynMessage::user(message), sender));
     }
 
     pub fn unstash(&mut self) -> bool {
@@ -297,16 +296,19 @@ impl ActorContext {
         })
     }
 
-    pub fn spawn<F>(&mut self, future: F)
+    pub fn spawn<F>(&mut self, future: F) -> AbortHandle
         where
             F: Future<Output=()> + Send + 'static,
     {
         let handle = self.system.spawn(future);
+        let abort_handle = handle.abort_handle();
         self.async_tasks.push(handle);
+        abort_handle
     }
 
     pub(crate) fn remove_finished_tasks(&mut self) {
         if !self.async_tasks.is_empty() {
+            //TODO dose abort task return finished?
             self.async_tasks.retain(|t| !t.is_finished());
         }
     }
