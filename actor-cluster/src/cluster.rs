@@ -63,7 +63,7 @@ impl Cluster {
         let cluster_daemon = system.spawn_system_actor(Props::create(move |_| {
             ClusterDaemon {
                 eclient: eclient_c.clone(),
-                self_unique_address: unique_address_c.clone(),
+                self_addr: unique_address_c.clone(),
                 roles: roles_c.clone(),
                 transport: transport.clone(),
                 lease_id: None,

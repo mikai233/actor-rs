@@ -1,13 +1,25 @@
 use std::fmt::{Display, Formatter};
+use std::net::SocketAddrV4;
 
 use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 use actor_core::actor::address::Address;
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Encode, Decode)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Encode, Decode, Serialize, Deserialize)]
 pub struct UniqueAddress {
     pub address: Address,
     pub uid: i64,
+}
+
+impl UniqueAddress {
+    pub fn socket_addr(&self) -> Option<&SocketAddrV4> {
+        self.address.addr.as_ref()
+    }
+
+    pub fn system_name(&self) -> &String {
+        &self.address.system
+    }
 }
 
 impl Display for UniqueAddress {

@@ -2,20 +2,21 @@ use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
 use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 use crate::unique_address::UniqueAddress;
 
-#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, Serialize, Deserialize)]
 pub struct Member {
-    pub unique_address: UniqueAddress,
+    pub addr: UniqueAddress,
     pub status: MemberStatus,
     pub roles: HashSet<String>,
 }
 
 impl Member {
-    pub fn new(unique_address: UniqueAddress, status: MemberStatus, roles: HashSet<String>) -> Self {
+    pub fn new(addr: UniqueAddress, status: MemberStatus, roles: HashSet<String>) -> Self {
         Self {
-            unique_address,
+            addr,
             status,
             roles,
         }
@@ -24,7 +25,7 @@ impl Member {
 
 impl Hash for Member {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.unique_address.hash(state);
+        self.addr.hash(state);
         self.status.hash(state);
         for role in &self.roles {
             role.hash(state);
@@ -32,7 +33,7 @@ impl Hash for Member {
     }
 }
 
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Encode, Decode)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Encode, Decode, Serialize, Deserialize)]
 pub enum MemberStatus {
     Joining,
     Up,

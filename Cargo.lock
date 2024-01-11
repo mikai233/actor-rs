@@ -54,6 +54,7 @@ dependencies = [
  "futures",
  "rand",
  "regex",
+ "serde",
  "tokio",
  "tokio-util",
  "tracing",

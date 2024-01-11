@@ -10,7 +10,7 @@ use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::timer_scheduler::ScheduleKey;
 use actor_core::ext::option_ext::OptionExt;
-use actor_derive::{EmptyCodec, OrphanEmptyCodec};
+use actor_derive::{CEmptyCodec, EmptyCodec, OrphanEmptyCodec};
 
 pub(crate) struct LeaseKeeper {
     eclient: Client,
@@ -75,7 +75,7 @@ impl Message for RevokeLease {
     }
 }
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Clone, CEmptyCodec)]
 struct LeaseTick;
 
 #[async_trait]
