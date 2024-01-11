@@ -17,7 +17,7 @@ pub(crate) mod function_ref;
 pub mod root_guardian;
 pub(crate) mod system_guardian;
 pub(crate) mod user_guardian;
-pub(crate) mod timer_scheduler;
+pub mod timer_scheduler;
 pub mod actor_system;
 pub mod decoder;
 pub mod address;

@@ -238,19 +238,9 @@ impl ActorRefFactory for ActorSystem {
         let guard = self.guardian();
         let sys = self.system_guardian();
         if parent == guard.path {
-            guard.cast(
-                user_guardian::StopChild {
-                    child: actor.clone(),
-                },
-                None,
-            );
+            guard.cast_ns(user_guardian::StopChild { child: actor.clone() });
         } else if parent == sys.path {
-            sys.cast(
-                system_guardian::StopChild {
-                    child: actor.clone(),
-                },
-                None,
-            );
+            sys.cast_ns(system_guardian::StopChild { child: actor.clone() });
         } else {
             actor.stop();
         }

@@ -28,7 +28,7 @@ impl DistributedPubSub {
         }
     }
 
-    pub fn get(system: &ActorSystem) -> MappedRef<&str, Box<dyn Extension + '_>, Self> {
+    pub fn get(system: &ActorSystem) -> MappedRef<&'static str, Box<dyn Extension + '_>, Self> {
         system.get_extension::<Self>().expect("DistributedPubSub extension not found")
     }
 }

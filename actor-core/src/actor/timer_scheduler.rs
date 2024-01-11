@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use futures::task::ArcWake;
 use tokio_util::time::delay_queue::Key;
 use tokio_util::time::DelayQueue;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, trace, warn};
 
 use actor_derive::EmptyCodec;
 
@@ -19,12 +19,14 @@ use crate::actor::actor_ref::ActorRefExt;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::props::Props;
+use crate::message::terminated::WatchTerminated;
 
 #[derive(Debug)]
 pub(crate) struct TimerSchedulerActor {
     queue: DelayQueue<Schedule>,
     index: HashMap<u64, Key>,
     waker: futures::task::Waker,
+    watching_receivers: HashMap<ActorRef, HashSet<u64>>,
 }
 
 impl TimerSchedulerActor {
@@ -34,6 +36,7 @@ impl TimerSchedulerActor {
             queue: DelayQueue::new(),
             index: HashMap::new(),
             waker,
+            watching_receivers: HashMap::new(),
         }
     }
 }
@@ -41,7 +44,7 @@ impl TimerSchedulerActor {
 #[async_trait]
 impl Actor for TimerSchedulerActor {
     async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        debug!("{} pre start", context.myself);
+        debug!("{} started", context.myself);
         Ok(())
     }
 }
@@ -53,8 +56,8 @@ pub struct ScheduleKey {
 }
 
 impl ScheduleKey {
-    fn cancel(self) {
-        self.scheduler.cast(CancelSchedule { index: self.index }, ActorRef::no_sender());
+    pub fn cancel(self) {
+        self.scheduler.cast_ns(CancelSchedule { index: self.index });
     }
 }
 
@@ -90,15 +93,20 @@ enum Schedule {
 impl Message for Schedule {
     type A = TimerSchedulerActor;
 
-    #[instrument(skip_all)]
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match &*self {
-            Schedule::Once { index, delay, .. } => {
+            Schedule::Once { index, delay, receiver, .. } => {
+                if !actor.watching_receivers.contains_key(receiver) {
+                    context.watch(ReceiverTerminated(receiver.clone()));
+                }
                 let index = *index;
                 let delay = *delay;
                 self.once(actor, index, delay);
             }
-            Schedule::FixedDelay { index, initial_delay, interval, .. } => {
+            Schedule::FixedDelay { index, initial_delay, interval, receiver, .. } => {
+                if !actor.watching_receivers.contains_key(receiver) {
+                    context.watch(ReceiverTerminated(receiver.clone()));
+                }
                 let index = *index;
                 let initial_delay = *initial_delay;
                 let interval = *interval;
@@ -202,7 +210,16 @@ impl Message for CancelSchedule {
                 debug!("schedule index {} removed from TimerScheduler", self.index);
             }
         }
-        context.myself().cast(PollExpired, ActorRef::no_sender());
+        actor.watching_receivers.retain(|receiver, index| {
+            index.remove(&self.index);
+            if index.is_empty() {
+                context.unwatch(receiver);
+                false
+            } else {
+                true
+            }
+        });
+        context.myself().cast_ns(PollExpired);
         Ok(())
     }
 }
@@ -217,6 +234,10 @@ impl Message for CancelAllSchedule {
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.index.clear();
         actor.queue.clear();
+        for receiver in actor.watching_receivers.keys() {
+            context.unwatch(receiver);
+        }
+        actor.watching_receivers.clear();
         debug!("{} {:?}", context.myself(), self);
         Ok(())
     }
@@ -282,6 +303,33 @@ impl Message for PollExpired {
             }
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, EmptyCodec)]
+struct ReceiverTerminated(ActorRef);
+
+#[async_trait]
+impl Message for ReceiverTerminated {
+    type A = TimerSchedulerActor;
+
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        if let Some(index_set) = actor.watching_receivers.remove(&self.0) {
+            for index in &index_set {
+                if let Some(key) = actor.index.remove(&index) {
+                    actor.queue.try_remove(&key);
+                }
+            }
+            let index_str = index_set.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+            trace!("{} watch receiver {} stopped, stop associated timers {:?}", context.myself(), self.0, index_str);
+        }
+        Ok(())
+    }
+}
+
+impl WatchTerminated for ReceiverTerminated {
+    fn watch_actor(&self) -> &ActorRef {
+        &self.0
     }
 }
 

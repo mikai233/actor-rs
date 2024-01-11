@@ -17,6 +17,7 @@ use actor_derive::AsAny;
 
 use crate::cluster_daemon::ClusterDaemon;
 use crate::cluster_event::CurrentClusterState;
+use crate::cluster_node::ClusterNode;
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::cluster_state::ClusterState;
 use crate::member::{Member, MemberStatus};
@@ -65,6 +66,7 @@ impl Cluster {
                 self_unique_address: unique_address_c.clone(),
                 roles: roles_c.clone(),
                 transport: transport.clone(),
+                lease_id: None,
             }
         }), Some("cluster".to_string()))
             .expect("Failed to create cluster daemon");
@@ -82,7 +84,7 @@ impl Cluster {
         }
     }
 
-    pub fn get<'a>(system: &'a ActorSystem) -> MappedRef<'a, &str, Box<dyn Extension + 'a>, Self> {
+    pub fn get(system: &ActorSystem) -> MappedRef<&'static str, Box<dyn Extension>, Self> {
         system.get_extension::<Self>().expect("Cluster extension not found")
     }
 
@@ -116,5 +118,9 @@ impl Cluster {
 
     pub fn state(&self) -> &Arc<RwLock<CurrentClusterState>> {
         &self.state.cluster_state
+    }
+
+    pub(crate) fn node(&self) -> &Arc<RwLock<ClusterNode>> {
+        &self.state.cluster_node
     }
 }

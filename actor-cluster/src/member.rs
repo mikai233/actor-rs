@@ -5,7 +5,7 @@ use bincode::{Decode, Encode};
 
 use crate::unique_address::UniqueAddress;
 
-#[derive(Debug, Eq, PartialEq, Encode, Decode)]
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]
 pub struct Member {
     pub unique_address: UniqueAddress,
     pub status: MemberStatus,

@@ -24,7 +24,7 @@ pub mod ext;
 mod cell;
 pub mod delegate;
 pub mod message;
-mod event;
+pub mod event;
 pub mod routing;
 mod indirect_actor_producer;
 pub mod actor;

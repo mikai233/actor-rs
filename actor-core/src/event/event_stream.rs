@@ -23,17 +23,17 @@ impl EventBus for EventStream {
         subscribers.insert(subscriber);
     }
 
-    fn unsubscribe(&self, subscriber: Self::Subscriber, from: Self::Classifier) {
+    fn unsubscribe(&self, subscriber: &Self::Subscriber, from: Self::Classifier) {
         if let Entry::Occupied(mut o) = self.subscriptions.entry(from) {
-            o.get_mut().remove(&subscriber);
+            o.get_mut().remove(subscriber);
             trace!("{} unsubscribe from {}", subscriber, from);
         }
     }
 
-    fn unsubscribe_all(&self, subscriber: Self::Subscriber) {
+    fn unsubscribe_all(&self, subscriber: &Self::Subscriber) {
         let mut unsubscribe_events = vec![];
         for event_subscribers in &self.subscriptions {
-            if event_subscribers.remove(&subscriber).is_some() {
+            if event_subscribers.remove(subscriber).is_some() {
                 unsubscribe_events.push(*event_subscribers.key());
             }
         }

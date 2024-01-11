@@ -1,15 +1,18 @@
 use std::collections::HashMap;
-use std::net::SocketAddrV4;
 
 use bincode::{Decode, Encode};
+
 use actor_core::actor::address::Address;
+use actor_derive::COrphanCodec;
 
 use crate::member::Member;
 
-#[derive(Debug, Encode, Decode)]
-pub enum ClusterEvent {}
+#[derive(Debug, Clone, Encode, Decode, COrphanCodec)]
+pub enum ClusterEvent {
+    MemberEvent(MemberEvent),
+}
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Clone, Encode, Decode)]
 pub enum MemberEvent {
     MemberJoined(Member),
     MemberDowned(Member),

@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use etcd_client::{Client, Watcher, WatchOptions, WatchResponse, WatchStream};
 use futures::StreamExt;
 use futures::task::ArcWake;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 use actor_core::{Actor, DynMessage, Message};
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
@@ -65,7 +65,7 @@ impl EWatcher {
 
     #[async_recursion]
     async fn watch(&mut self, context: &mut ActorContext) {
-        debug!("start watch {}", self.key);
+        debug!("{} start watch {}", context.myself() ,self.key);
         match self.eclient.watch(self.key.as_bytes(), self.options.clone()).await {
             Ok((watcher, watch_stream)) => {
                 self.watcher = Some(watcher);
@@ -73,7 +73,7 @@ impl EWatcher {
                 context.myself().cast_ns(PollMessage);
             }
             Err(error) => {
-                warn!("watch {} {:?}, sleep 3s and try rewatch it", self.key, error);
+                warn!("{} watch {} {:?}, sleep 3s and try rewatch it", context.myself(), self.key, error);
                 tokio::time::sleep(Duration::from_secs(3)).await;
                 self.watch(context).await;
             }
@@ -109,7 +109,7 @@ impl Message for PollMessage {
             match watch_response {
                 None => {
                     //stream closed, rewatch
-                    warn!("watch {} stream closed, try rewatch it", actor.key);
+                    warn!("{} watch {} stream closed, try rewatch it", context.myself(), actor.key);
                     actor.watch(context).await;
                 }
                 Some(Ok(resp)) => {
@@ -119,7 +119,7 @@ impl Message for PollMessage {
                     );
                 }
                 Some(Err(error)) => {
-                    warn!("watch {} {:?}, try rewatch it", actor.key, error);
+                    warn!("{} watch {} {:?}, try rewatch it", context.myself(), actor.key, error);
                     actor.watch(context).await;
                 }
             }

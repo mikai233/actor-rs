@@ -9,9 +9,9 @@ pub trait EventBus {
 
     fn subscribe(&self, subscriber: Self::Subscriber, to: Self::Classifier);
 
-    fn unsubscribe(&self, subscriber: Self::Subscriber, from: Self::Classifier);
+    fn unsubscribe(&self, subscriber: &Self::Subscriber, from: Self::Classifier);
 
-    fn unsubscribe_all(&self, subscriber: Self::Subscriber);
+    fn unsubscribe_all(&self, subscriber: &Self::Subscriber);
 
     fn publish(&self, event: Self::Event) -> anyhow::Result<()>;
 }
