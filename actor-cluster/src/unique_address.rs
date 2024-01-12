@@ -20,6 +20,10 @@ impl UniqueAddress {
     pub fn system_name(&self) -> &String {
         &self.address.system
     }
+
+    pub fn socket_addr_with_uid(&self) -> Option<String> {
+        self.socket_addr().map(|addr| format!("{}/{}", addr, self.uid))
+    }
 }
 
 impl Display for UniqueAddress {

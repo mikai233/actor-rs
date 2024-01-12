@@ -72,6 +72,7 @@ impl<A> ActorRuntime<A> where A: Actor {
             }
         }
         if matches!(context.state, ActorState::Recreate) {
+            //TODO recreate has some problems, how to deal with childrens ?
             if let Some(err) = actor.pre_restart(&mut context).await.err() {
                 error!("actor {:?} pre restart error {:?}", actor_name, err);
             }

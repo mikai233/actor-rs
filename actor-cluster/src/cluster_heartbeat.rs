@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
-use tracing::trace;
+use tracing::{info, trace};
 
 use actor_core::{Actor, DynMessage, Message};
 use actor_core::actor::actor_path::{ActorPath, TActorPath};
@@ -64,7 +64,8 @@ impl Message for HeartbeatSenderClusterEvent {
     type A = ClusterHeartbeatSender;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        todo!()
+        info!("{} {:?}", context.myself(), self);
+        Ok(())
     }
 }
 

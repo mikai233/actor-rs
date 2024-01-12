@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::sync::{Arc, RwLock};
 
@@ -67,6 +67,7 @@ impl Cluster {
                 roles: roles_c.clone(),
                 transport: transport.clone(),
                 lease_id: None,
+                key_addr: HashMap::new(),
             }
         }), Some("cluster".to_string()))
             .expect("Failed to create cluster daemon");

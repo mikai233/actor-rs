@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::net::SocketAddrV4;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
@@ -75,6 +76,11 @@ async fn main() -> anyhow::Result<()> {
     let client = Client::connect(["localhost:2379"], None).await?;
     let system1 = ActorSystem::create("mikai233", build_config("127.0.0.1:12121".parse()?, client.clone()))?;
     let system2 = ActorSystem::create("mikai233", build_config("127.0.0.1:12123".parse()?, client.clone()))?;
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(10)).await;
+        system2.terminate();
+        system2.wait_termination().await;
+    });
     // for i in 0..10 {
     //     system1.spawn_actor(Props::create(|_| EmptyTestActor), format!("test_actor_{}", i))?;
     // }
