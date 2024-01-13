@@ -5,5 +5,5 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub(crate) struct ClusterNode {
-    pub(crate) nodes: BTreeSet<SocketAddrV4>,
+    pub(crate) addrs: BTreeSet<SocketAddrV4>,
 }

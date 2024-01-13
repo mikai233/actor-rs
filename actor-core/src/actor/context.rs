@@ -316,7 +316,6 @@ impl ActorContext {
 
     pub(crate) fn remove_finished_tasks(&mut self) {
         if !self.async_tasks.is_empty() {
-            //TODO dose abort task return finished?
             self.async_tasks.retain(|t| !t.is_finished());
         }
     }

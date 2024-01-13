@@ -21,6 +21,10 @@ impl Member {
             roles,
         }
     }
+
+    pub fn has_role(&self, role: &str) -> bool {
+        self.roles.contains(role)
+    }
 }
 
 impl Hash for Member {
