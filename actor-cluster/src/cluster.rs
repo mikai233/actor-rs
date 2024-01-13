@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
 
 use arc_swap::Guard;
 use dashmap::mapref::one::MappedRef;
@@ -66,7 +66,7 @@ impl Cluster {
                 self_addr: unique_address_c.clone(),
                 roles: roles_c.clone(),
                 transport: transport.clone(),
-                lease_id: None,
+                lease_id: 0,
                 key_addr: HashMap::new(),
             }
         }), Some("cluster".to_string()))
@@ -105,8 +105,12 @@ impl Cluster {
         &self.roles
     }
 
-    pub fn self_member(&self) -> &Arc<RwLock<Member>> {
-        &self.state.self_member
+    pub fn self_member(&self) -> RwLockReadGuard<Member> {
+        self.state.self_member.read().unwrap()
+    }
+
+    pub(crate) fn self_member_write(&self) -> RwLockWriteGuard<Member> {
+        self.state.self_member.write().unwrap()
     }
 
     pub fn self_address(&self) -> &Address {
@@ -117,11 +121,23 @@ impl Cluster {
         &self.self_unique_address
     }
 
-    pub fn state(&self) -> &Arc<RwLock<CurrentClusterState>> {
-        &self.state.cluster_state
+    pub(crate) fn state(&self) -> &ClusterState {
+        &self.state
     }
 
-    pub(crate) fn node(&self) -> &Arc<RwLock<ClusterNode>> {
-        &self.state.cluster_node
+    pub fn cluster_state(&self) -> RwLockReadGuard<CurrentClusterState> {
+        self.state.cluster_state.read().unwrap()
+    }
+
+    pub(crate) fn cluster_state_write(&self) -> RwLockWriteGuard<CurrentClusterState> {
+        self.state.cluster_state.write().unwrap()
+    }
+
+    pub fn node(&self) -> RwLockReadGuard<ClusterNode> {
+        self.state.cluster_node.read().unwrap()
+    }
+
+    pub(crate) fn node_write(&self) -> RwLockWriteGuard<ClusterNode> {
+        self.state.cluster_node.write().unwrap()
     }
 }
