@@ -5,7 +5,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use etcd_client::Client;
-use tracing::{info, Level};
+use tracing::info;
 
 use actor_cluster::cluster_provider::ClusterActorRefProvider;
 use actor_cluster::cluster_setting::ClusterSetting;
@@ -14,7 +14,7 @@ use actor_core::actor::actor_ref::ActorRefExt;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::config::actor_system_config::ActorSystemConfig;
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::ext::init_logger;
+use actor_core::ext::init_logger_with_filter;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_derive::{CMessageCodec, MessageCodec, OrphanCodec};
 
@@ -72,15 +72,15 @@ fn build_config(addr: SocketAddrV4, eclient: Client) -> ActorSystemConfig {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    init_logger(Level::DEBUG);
+    init_logger_with_filter("actor=trace");
     let client = Client::connect(["localhost:2379"], None).await?;
     let system1 = ActorSystem::create("mikai233", build_config("127.0.0.1:12121".parse()?, client.clone()))?;
     let system2 = ActorSystem::create("mikai233", build_config("127.0.0.1:12123".parse()?, client.clone()))?;
-    // tokio::spawn(async move {
-    //     tokio::time::sleep(Duration::from_secs(10)).await;
-    //     system2.terminate();
-    //     system2.wait_termination().await;
-    // });
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(10)).await;
+        system2.terminate();
+        system2.wait_termination().await;
+    });
     // for i in 0..10 {
     //     system1.spawn_actor(Props::create(|_| EmptyTestActor), format!("test_actor_{}", i))?;
     // }

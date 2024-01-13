@@ -4,52 +4,34 @@ use bincode::{Decode, Encode};
 
 use actor_derive::COrphanCodec;
 
-use crate::member::Member;
+use crate::member::{Member, MemberStatus};
 use crate::unique_address::UniqueAddress;
 
 #[derive(Debug, Clone, Encode, Decode, COrphanCodec)]
 pub enum ClusterEvent {
-    MemberEvent(MemberEvent),
+    MemberUp(Member),
+    MemberDowned(Member),
+    CurrentClusterState {
+        members: HashMap<UniqueAddress, Member>,
+        self_member: Member,
+    },
 }
 
 impl ClusterEvent {
-    pub fn member_joined(member: Member) -> Self {
-        ClusterEvent::MemberEvent(MemberEvent::MemberJoined(member))
+    pub fn member_up(member: Member) -> Self {
+        debug_assert!(member.status == MemberStatus::Up);
+        Self::MemberUp(member)
     }
 
     pub fn member_downed(member: Member) -> Self {
-        ClusterEvent::MemberEvent(MemberEvent::MemberDowned(member))
+        debug_assert!(member.status == MemberStatus::Down);
+        Self::MemberDowned(member)
     }
 
-    pub fn member_removed(member: Member) -> Self {
-        ClusterEvent::MemberEvent(MemberEvent::MemberRemoved(member))
+    pub fn current_cluster_state(members: HashMap<UniqueAddress, Member>, self_member: Member) -> Self {
+        Self::CurrentClusterState {
+            members,
+            self_member,
+        }
     }
-
-    pub fn member_exited(member: Member) -> Self {
-        ClusterEvent::MemberEvent(MemberEvent::MemberExited(member))
-    }
-
-    pub fn member_left(member: Member) -> Self {
-        ClusterEvent::MemberEvent(MemberEvent::MemberLeft(member))
-    }
-
-    pub fn member_up(member: Member) -> Self {
-        ClusterEvent::MemberEvent(MemberEvent::MemberUp(member))
-    }
-}
-
-#[derive(Debug, Clone, Encode, Decode)]
-pub enum MemberEvent {
-    MemberJoined(Member),
-    MemberDowned(Member),
-    MemberRemoved(Member),
-    MemberExited(Member),
-    MemberLeft(Member),
-    MemberUp(Member),
-}
-
-#[derive(Debug, Default, Encode, Decode)]
-pub struct CurrentClusterState {
-    pub members: HashMap<UniqueAddress, Member>,
-    pub unreachable: HashMap<UniqueAddress, Member>,
 }

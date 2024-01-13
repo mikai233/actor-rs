@@ -54,7 +54,7 @@ impl Actor for LeaseKeeper {
         Ok(())
     }
 
-    async fn post_stop(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn post_stop(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
         self.tick_key.take().into_foreach(|k| { k.cancel(); });
         Ok(())
     }
@@ -83,13 +83,13 @@ impl Message for LeaseTick {
     type A = LeaseKeeper;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let mut keeper = actor.keeper.as_mut().unwrap();
+        let keeper = actor.keeper.as_mut().unwrap();
         if let Some(error) = keeper.keep_alive().await.err() {
             actor.failed_receiver.tell(DynMessage::orphan(LeaseKeepAliveFailed(keeper.id())), ActorRef::no_sender());
             warn!("{} {} lease keep alive failed {:?}", context.myself(), keeper.id(), error);
             context.stop(context.myself());
         } else {
-            let mut stream = actor.stream.as_mut().unwrap();
+            let stream = actor.stream.as_mut().unwrap();
             match tokio::time::timeout(Duration::from_secs(3), stream.message()).await {
                 Ok(resp) => {
                     match resp {

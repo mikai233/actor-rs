@@ -14,7 +14,7 @@ anyhow = { workspace = true }
 futures = { workspace = true }
 etcd-client = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["local-time"] }
+tracing-subscriber = { workspace = true, features = ["local-time", "env-filter"] }
 bincode = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 bytes = { workspace = true }

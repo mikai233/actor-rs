@@ -39,10 +39,6 @@ impl Hash for Member {
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Encode, Decode, Serialize, Deserialize)]
 pub enum MemberStatus {
-    Joining,
     Up,
-    Leaving,
-    Exiting,
     Down,
-    Removed,
 }

@@ -13,8 +13,4 @@ mod cluster_event;
 mod distributed_pub_sub;
 mod member;
 mod cluster_state;
-mod cluster_node;
 mod lease_keeper;
-
-#[test]
-fn test_compile() {}

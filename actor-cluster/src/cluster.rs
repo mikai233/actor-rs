@@ -13,11 +13,12 @@ use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::Props;
+use actor_core::DynMessage;
+use actor_core::event::EventBus;
 use actor_derive::AsAny;
 
 use crate::cluster_daemon::ClusterDaemon;
-use crate::cluster_event::CurrentClusterState;
-use crate::cluster_node::ClusterNode;
+use crate::cluster_event::ClusterEvent;
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::cluster_state::ClusterState;
 use crate::member::{Member, MemberStatus};
@@ -71,10 +72,7 @@ impl Cluster {
             }
         }), Some("cluster".to_string()))
             .expect("Failed to create cluster daemon");
-        let state = ClusterState::new(
-            CurrentClusterState::default(),
-            Member::new(unique_address.clone(), MemberStatus::Removed, roles.clone()),
-        );
+        let state = ClusterState::new(Member::new(unique_address.clone(), MemberStatus::Down, roles.clone()));
         Self {
             system,
             eclient,
@@ -95,6 +93,17 @@ impl Cluster {
                 .downcast_ref::<ClusterActorRefProvider>()
                 .expect("expect ClusterActorRefProvider");
         cluster_provider
+    }
+
+    pub fn subscribe_cluster_event(&self, subscriber: ActorRef) {
+        let members = self.members().clone();
+        let self_member = self.self_member().clone();
+        subscriber.tell(DynMessage::orphan(ClusterEvent::current_cluster_state(members, self_member)), ActorRef::no_sender());
+        self.system.event_stream().subscribe(subscriber, std::any::type_name::<ClusterEvent>());
+    }
+
+    pub fn unsubscribe_cluster_event(&self, subscriber: &ActorRef) {
+        self.system.event_stream().unsubscribe(subscriber, std::any::type_name::<ClusterEvent>());
     }
 
     pub fn join(&self, address: Address) {}
@@ -125,19 +134,11 @@ impl Cluster {
         &self.state
     }
 
-    pub fn cluster_state(&self) -> RwLockReadGuard<CurrentClusterState> {
-        self.state.cluster_state.read().unwrap()
+    pub fn members(&self) -> RwLockReadGuard<HashMap<UniqueAddress, Member>> {
+        self.state.members.read().unwrap()
     }
 
-    pub(crate) fn cluster_state_write(&self) -> RwLockWriteGuard<CurrentClusterState> {
-        self.state.cluster_state.write().unwrap()
-    }
-
-    pub fn node(&self) -> RwLockReadGuard<ClusterNode> {
-        self.state.cluster_node.read().unwrap()
-    }
-
-    pub(crate) fn node_write(&self) -> RwLockWriteGuard<ClusterNode> {
-        self.state.cluster_node.write().unwrap()
+    pub(crate) fn members_write(&self) -> RwLockWriteGuard<HashMap<UniqueAddress, Member>> {
+        self.state.members.write().unwrap()
     }
 }

@@ -4,6 +4,7 @@ use anyhow::{anyhow, Ok};
 use bincode::{Decode, Encode};
 use bincode::error::{DecodeError, EncodeError};
 use bytes::BytesMut;
+use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::time::LocalTime;
 
 pub mod option_ext;
@@ -42,6 +43,17 @@ pub fn init_logger(level: tracing::Level) {
     tracing_subscriber::FmtSubscriber::builder()
         .event_format(format)
         .with_max_level(level)
+        .init();
+}
+
+pub fn init_logger_with_filter(filter: impl Into<EnvFilter>) {
+    let format = tracing_subscriber::fmt::format()
+        .with_timer(LocalTime::rfc_3339())
+        .pretty()
+        .compact();
+    tracing_subscriber::FmtSubscriber::builder()
+        .event_format(format)
+        .with_env_filter(filter)
         .init();
 }
 

@@ -14,6 +14,7 @@ use actor_remote::remote_provider::RemoteActorRefProvider;
 use actor_remote::remote_setting::RemoteSetting;
 
 use crate::cluster::Cluster;
+use crate::cluster_heartbeat::{Heartbeat, HeartbeatRsp};
 use crate::cluster_setting::ClusterSetting;
 use crate::distributed_pub_sub::DistributedPubSub;
 
@@ -35,7 +36,8 @@ impl Debug for ClusterActorRefProvider {
 
 impl ClusterActorRefProvider {
     pub fn new(setting: ClusterSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
-        let ClusterSetting { system, addr, reg, eclient, roles } = setting;
+        let ClusterSetting { system, addr, mut reg, eclient, roles } = setting;
+        Self::register_system_message(&mut reg);
         let remote_setting = RemoteSetting::builder()
             .reg(reg)
             .addr(addr)
@@ -57,6 +59,11 @@ impl ClusterActorRefProvider {
             system.register_extension(|system| DistributedPubSub::new(system));
         });
         spawns.push(Box::new(s));
+    }
+
+    fn register_system_message(reg: &mut MessageRegistration) {
+        reg.register::<Heartbeat>();
+        reg.register::<HeartbeatRsp>();
     }
 }
 
