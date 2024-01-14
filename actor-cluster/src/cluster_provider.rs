@@ -62,8 +62,8 @@ impl ClusterActorRefProvider {
     }
 
     fn register_system_message(reg: &mut MessageRegistration) {
-        reg.register::<Heartbeat>();
-        reg.register::<HeartbeatRsp>();
+        reg.register_system::<Heartbeat>();
+        reg.register_system::<HeartbeatRsp>();
     }
 }
 

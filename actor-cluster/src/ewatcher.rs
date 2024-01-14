@@ -4,7 +4,6 @@ use std::sync::Arc;
 use std::task::Poll;
 use std::time::Duration;
 
-use async_recursion::async_recursion;
 use async_trait::async_trait;
 use etcd_client::{Client, Watcher, WatchOptions, WatchResponse, WatchStream};
 use futures::StreamExt;
@@ -17,7 +16,7 @@ use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
-pub struct EWatcher {
+pub struct KeyWatcher {
     eclient: Client,
     key: String,
     options: Option<WatchOptions>,
@@ -27,9 +26,9 @@ pub struct EWatcher {
     watch_receiver: ActorRef,
 }
 
-impl Debug for EWatcher {
+impl Debug for KeyWatcher {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        f.debug_struct("EWatcher")
+        f.debug_struct("KeyWatcher")
             .field("eclient", &"..")
             .field("key", &self.key)
             .field("options", &self.options)
@@ -42,14 +41,14 @@ impl Debug for EWatcher {
 }
 
 #[async_trait]
-impl Actor for EWatcher {
+impl Actor for KeyWatcher {
     async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         self.watch(context).await;
         Ok(())
     }
 }
 
-impl EWatcher {
+impl KeyWatcher {
     pub fn new(myself: ActorRef, eclient: Client, key: String, options: Option<WatchOptions>, receiver: ActorRef) -> Self {
         let waker = futures::task::waker(Arc::new(WatchWaker { watcher: myself }));
         Self {
@@ -63,7 +62,6 @@ impl EWatcher {
         }
     }
 
-    #[async_recursion]
     async fn watch(&mut self, context: &mut ActorContext) {
         debug!("{} start watch {}", context.myself() ,self.key);
         match self.eclient.watch(self.key.as_bytes(), self.options.clone()).await {
@@ -74,8 +72,7 @@ impl EWatcher {
             }
             Err(error) => {
                 warn!("{} watch {} {:?}, sleep 3s and try rewatch it", context.myself(), self.key, error);
-                tokio::time::sleep(Duration::from_secs(3)).await;
-                self.watch(context).await;
+                context.system().scheduler().start_single_timer(Duration::from_secs(3), DynMessage::user(RetryWatch), context.myself().clone());
             }
         };
     }
@@ -97,7 +94,7 @@ struct PollMessage;
 
 #[async_trait]
 impl Message for PollMessage {
-    type A = EWatcher;
+    type A = KeyWatcher;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let stream = actor.watcher_stream.as_mut().unwrap();
@@ -114,7 +111,7 @@ impl Message for PollMessage {
                 }
                 Some(Ok(resp)) => {
                     actor.watch_receiver.tell(
-                        DynMessage::orphan(EWatchResp { key: actor.key.clone(), resp }),
+                        DynMessage::orphan(WatchResp { key: actor.key.clone(), resp }),
                         ActorRef::no_sender(),
                     );
                 }
@@ -130,12 +127,12 @@ impl Message for PollMessage {
 }
 
 #[derive(Debug, OrphanEmptyCodec)]
-pub struct EWatchResp {
+pub struct WatchResp {
     pub key: String,
     pub resp: WatchResponse,
 }
 
-impl Deref for EWatchResp {
+impl Deref for WatchResp {
     type Target = WatchResponse;
 
     fn deref(&self) -> &Self::Target {
@@ -149,13 +146,26 @@ pub struct CancelWatch;
 
 #[async_trait]
 impl Message for CancelWatch {
-    type A = EWatcher;
+    type A = KeyWatcher;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if let Some(watcher) = &mut actor.watcher {
             watcher.cancel().await?;
             context.stop(context.myself());
         }
+        Ok(())
+    }
+}
+
+#[derive(Debug, EmptyCodec)]
+struct RetryWatch;
+
+#[async_trait]
+impl Message for RetryWatch {
+    type A = KeyWatcher;
+
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        actor.watch(context).await;
         Ok(())
     }
 }

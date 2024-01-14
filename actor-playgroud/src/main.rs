@@ -1,3 +1,5 @@
+mod node;
+
 use std::collections::HashSet;
 use std::net::SocketAddrV4;
 use std::time::Duration;
@@ -55,9 +57,9 @@ fn build_config(addr: SocketAddrV4, eclient: Client) -> ActorSystemConfig {
     let mut config = ActorSystemConfig::default();
     config.with_provider(move |system| {
         let mut reg = MessageRegistration::new();
-        reg.register::<MessageToAsk>();
-        reg.register::<MessageToAns>();
-        reg.register::<TestMessage>();
+        reg.register_user::<MessageToAsk>();
+        reg.register_user::<MessageToAns>();
+        reg.register_user::<TestMessage>();
         let setting = ClusterSetting::builder()
             .system(system.clone())
             .addr(addr)

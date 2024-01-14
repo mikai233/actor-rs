@@ -227,10 +227,10 @@ mod test {
         let mut config = ActorSystemConfig::default();
         config.with_provider(move |system| {
             let mut reg = MessageRegistration::new();
-            reg.register::<Ping>();
-            reg.register::<Pong>();
-            reg.register::<MessageToAsk>();
-            reg.register::<MessageToAns>();
+            reg.register_user::<Ping>();
+            reg.register_user::<Pong>();
+            reg.register_user::<MessageToAsk>();
+            reg.register_user::<MessageToAns>();
             let setting = RemoteSetting::builder()
                 .system(system.clone())
                 .addr(addr)

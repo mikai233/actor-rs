@@ -18,7 +18,6 @@ typed-builder = { workspace = true }
 futures = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
-async-recursion = { workspace = true }
 dashmap = { workspace = true, features = ["inline"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

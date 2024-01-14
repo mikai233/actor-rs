@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
-use tracing::trace;
+use tracing::{error, trace};
 
 use actor_core::{Actor, DynMessage, Message};
 use actor_core::actor::actor_path::{ActorPath, TActorPath};

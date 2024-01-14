@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
+use std::ops::Deref;
 use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
 
 use arc_swap::Guard;
@@ -24,14 +25,26 @@ use crate::cluster_state::ClusterState;
 use crate::member::{Member, MemberStatus};
 use crate::unique_address::UniqueAddress;
 
-#[derive(AsAny)]
+#[derive(Clone, AsAny)]
 pub struct Cluster {
+    inner: Arc<ClusterInner>,
+}
+
+pub struct ClusterInner {
     system: ActorSystem,
     eclient: Client,
     self_unique_address: UniqueAddress,
     roles: HashSet<String>,
     daemon: ActorRef,
     state: ClusterState,
+}
+
+impl Deref for Cluster {
+    type Target = ClusterInner;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl Debug for Cluster {
@@ -61,7 +74,7 @@ impl Cluster {
         let unique_address_c = unique_address.clone();
         let roles_c = roles.clone();
         let transport = cluster_provider.remote.transport.clone();
-        let cluster_daemon = system.spawn_system_actor(Props::create(move |_| {
+        let cluster_daemon = system.spawn_system_actor(Props::create(move |context| {
             ClusterDaemon {
                 eclient: eclient_c.clone(),
                 self_addr: unique_address_c.clone(),
@@ -69,18 +82,20 @@ impl Cluster {
                 transport: transport.clone(),
                 lease_id: 0,
                 key_addr: HashMap::new(),
+                cluster:None
             }
         }), Some("cluster".to_string()))
             .expect("Failed to create cluster daemon");
         let state = ClusterState::new(Member::new(unique_address.clone(), MemberStatus::Down, roles.clone()));
-        Self {
+        let inner = ClusterInner {
             system,
             eclient,
             self_unique_address: unique_address,
             roles,
             daemon: cluster_daemon,
             state,
-        }
+        };
+        Self { inner: Arc::new(inner) }
     }
 
     pub fn get(system: &ActorSystem) -> MappedRef<&'static str, Box<dyn Extension>, Self> {
@@ -140,5 +155,19 @@ impl Cluster {
 
     pub(crate) fn members_write(&self) -> RwLockWriteGuard<HashMap<UniqueAddress, Member>> {
         self.state.members.write().unwrap()
+    }
+
+    pub fn cluster_leader(&self) -> Option<Member> {
+        let members = self.members();
+        let mut members = members.values().filter(|m| m.status == MemberStatus::Up).collect::<Vec<_>>();
+        members.sort_by_key(|m| &m.addr);
+        members.first().map(|leader| *leader).cloned()
+    }
+
+    pub fn role_leader(&self, role: &str) -> Option<Member> {
+        let members = self.members();
+        let mut role_members = members.values().filter(|m| m.has_role(role) && m.status == MemberStatus::Up).collect::<Vec<_>>();
+        role_members.sort_by_key(|m| &m.addr);
+        role_members.first().map(|leader| *leader).cloned()
     }
 }
