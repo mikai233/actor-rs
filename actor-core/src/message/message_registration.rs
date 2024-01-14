@@ -30,7 +30,8 @@ pub struct MessageRegistration {
 impl Debug for MessageRegistration {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("MessageRegistration")
-            .field("next_id", &self.next_user_id)
+            .field("next_user_id", &self.next_user_id)
+            .field("next_system_id", &self.next_system_id)
             .field("name_id", &self.name_id)
             .field("decoder", &"..")
             .finish()

@@ -46,6 +46,13 @@ impl Actor for KeyWatcher {
         self.watch(context).await;
         Ok(())
     }
+
+    async fn post_stop(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
+        if let Some(mut watcher) = self.watcher.take() {
+            let _ = watcher.cancel().await;
+        }
+        Ok(())
+    }
 }
 
 impl KeyWatcher {
