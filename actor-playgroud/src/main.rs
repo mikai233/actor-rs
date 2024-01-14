@@ -14,7 +14,7 @@ use actor_cluster::cluster_setting::ClusterSetting;
 use actor_core::{EmptyTestActor, Message};
 use actor_core::actor::actor_ref::ActorRefExt;
 use actor_core::actor::actor_system::ActorSystem;
-use actor_core::actor::config::actor_system_config::ActorSystemConfig;
+use actor_core::actor::config::actor_setting::ActorSetting;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::ext::init_logger_with_filter;
 use actor_core::message::message_registration::MessageRegistration;
@@ -53,9 +53,9 @@ impl Message for TestMessage {
     }
 }
 
-fn build_config(addr: SocketAddrV4, eclient: Client) -> ActorSystemConfig {
-    let mut config = ActorSystemConfig::default();
-    config.with_provider(move |system| {
+fn build_setting(addr: SocketAddrV4, eclient: Client) -> ActorSetting {
+    let mut setting = ActorSetting::default();
+    setting.with_provider(move |system| {
         let mut reg = MessageRegistration::new();
         reg.register_user::<MessageToAsk>();
         reg.register_user::<MessageToAns>();
@@ -69,15 +69,15 @@ fn build_config(addr: SocketAddrV4, eclient: Client) -> ActorSystemConfig {
             .build();
         ClusterActorRefProvider::new(setting).map(|(c, d)| (c.into(), d))
     });
-    config
+    setting
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     init_logger_with_filter("actor=trace");
     let client = Client::connect(["localhost:2379"], None).await?;
-    let system1 = ActorSystem::create("mikai233", build_config("127.0.0.1:12121".parse()?, client.clone()))?;
-    let system2 = ActorSystem::create("mikai233", build_config("127.0.0.1:12123".parse()?, client.clone()))?;
+    let system1 = ActorSystem::create("mikai233", build_setting("127.0.0.1:12121".parse()?, client.clone()))?;
+    let system2 = ActorSystem::create("mikai233", build_setting("127.0.0.1:12123".parse()?, client.clone()))?;
     tokio::spawn(async move {
         tokio::time::sleep(Duration::from_secs(10)).await;
         system2.terminate();

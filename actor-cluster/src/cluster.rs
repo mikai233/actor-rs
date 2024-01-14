@@ -82,7 +82,7 @@ impl Cluster {
                 transport: transport.clone(),
                 lease_id: 0,
                 key_addr: HashMap::new(),
-                cluster:None
+                cluster: None,
             }
         }), Some("cluster".to_string()))
             .expect("Failed to create cluster daemon");
@@ -120,8 +120,6 @@ impl Cluster {
     pub fn unsubscribe_cluster_event(&self, subscriber: &ActorRef) {
         self.system.event_stream().unsubscribe(subscriber, std::any::type_name::<ClusterEvent>());
     }
-
-    pub fn join(&self, address: Address) {}
 
     pub fn leave(&self, address: Address) {}
 

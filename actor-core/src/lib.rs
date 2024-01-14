@@ -28,6 +28,7 @@ pub mod event;
 pub mod routing;
 mod indirect_actor_producer;
 pub mod actor;
+mod promise;
 
 #[async_trait]
 pub trait Actor: Send + Any {

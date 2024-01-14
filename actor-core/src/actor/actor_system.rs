@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::ops::Deref;
@@ -17,9 +18,10 @@ use crate::actor::actor_ref::{ActorRef, ActorRefExt};
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::address::Address;
-use crate::actor::config::actor_system_config::ActorSystemConfig;
+use crate::actor::config::actor_setting::ActorSetting;
+use crate::actor::config::Config;
 use crate::actor::empty_actor_ref_provider::EmptyActorRefProvider;
-use crate::actor::extension::{ActorSystemExtension, Extension};
+use crate::actor::extension::{ActorExtension, Extension};
 use crate::actor::local_ref::LocalActorRef;
 use crate::actor::props::Props;
 use crate::actor::root_guardian::{AddShutdownHook, Shutdown};
@@ -40,7 +42,8 @@ pub struct SystemInner {
     signal: RwLock<(Option<Sender<()>>, Option<Receiver<()>>)>,
     scheduler: ArcSwapOption<TimerScheduler>,
     event_stream: EventStream,
-    extensions: ActorSystemExtension,
+    extensions: ActorExtension,
+    config: HashMap<&'static str, Box<dyn Config>>,
 }
 
 impl Debug for ActorSystem {
@@ -53,6 +56,7 @@ impl Debug for ActorSystem {
             .field("scheduler", &self.scheduler)
             .field("event_stream", &self.event_stream)
             .field("extensions", &self.extensions)
+            .field("config", &self.config)
             .finish()
     }
 }
@@ -66,8 +70,8 @@ impl Deref for ActorSystem {
 }
 
 impl ActorSystem {
-    pub fn create(name: impl Into<String>, config: ActorSystemConfig) -> anyhow::Result<Self> {
-        let ActorSystemConfig { provider_fn } = config;
+    pub fn create(name: impl Into<String>, setting: ActorSetting) -> anyhow::Result<Self> {
+        let ActorSetting { provider_fn, config } = setting;
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .thread_name("actor-pool")
@@ -83,7 +87,8 @@ impl ActorSystem {
             signal: RwLock::new((Some(tx), Some(rx))),
             scheduler: ArcSwapOption::new(None),
             event_stream: EventStream::default(),
-            extensions: ActorSystemExtension::default(),
+            extensions: ActorExtension::default(),
+            config,
         };
         let system = Self {
             inner: inner.into(),
@@ -200,6 +205,10 @@ impl ActorSystem {
 
     pub fn uid(&self) -> i64 {
         self.uid
+    }
+
+    pub fn get_config<C>(&self) -> Option<&C> where C: Config {
+        self.config.get(std::any::type_name::<C>()).map(|c| c.as_any().downcast_ref::<C>()).unwrap_or_default()
     }
 }
 

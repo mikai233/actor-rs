@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
-use tracing::{error, trace};
+use tracing::trace;
 
 use actor_core::{Actor, DynMessage, Message};
 use actor_core::actor::actor_path::{ActorPath, TActorPath};
@@ -77,6 +77,8 @@ impl Message for HeartbeatSenderClusterEvent {
                 }
                 actor.active_receivers.insert(m.addr);
             }
+            ClusterEvent::MemberPrepareForLeaving(_) => {}
+            ClusterEvent::MemberLeaving(_) => {}
             ClusterEvent::MemberDowned(m) => {
                 if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
                     actor.self_member = Some(m.clone());
@@ -87,6 +89,7 @@ impl Message for HeartbeatSenderClusterEvent {
                 actor.self_member = Some(self_member);
                 actor.active_receivers.extend(members.into_keys());
             }
+            ClusterEvent::EtcdUnreachable => {}
         }
         Ok(())
     }
@@ -143,6 +146,8 @@ impl Message for HeartbeatReceiverClusterEvent {
                     actor.self_member = Some(m.clone());
                 }
             }
+            ClusterEvent::MemberPrepareForLeaving(_) => {}
+            ClusterEvent::MemberLeaving(_) => {}
             ClusterEvent::MemberDowned(m) => {
                 if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
                     actor.self_member = Some(m.clone());
@@ -151,6 +156,7 @@ impl Message for HeartbeatReceiverClusterEvent {
             ClusterEvent::CurrentClusterState { self_member, .. } => {
                 actor.self_member = Some(self_member);
             }
+            ClusterEvent::EtcdUnreachable => {}
         }
         Ok(())
     }

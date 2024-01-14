@@ -13,11 +13,11 @@ pub trait Extension: Any + AsAny + Send + Sync {}
 impl<T> Extension for T where T: Any + AsAny + Send + Sync {}
 
 #[derive(Default)]
-pub struct ActorSystemExtension {
+pub struct ActorExtension {
     extensions: DashMap<&'static str, Box<dyn Extension>>,
 }
 
-impl ActorSystemExtension {
+impl ActorExtension {
     pub fn register<E>(&self, extension: E) where E: Extension {
         let name = std::any::type_name::<E>();
         if !self.extensions.contains_key(name) {
@@ -60,7 +60,7 @@ impl ActorSystemExtension {
     }
 }
 
-impl Deref for ActorSystemExtension {
+impl Deref for ActorExtension {
     type Target = DashMap<&'static str, Box<dyn Extension>>;
 
     fn deref(&self) -> &Self::Target {
@@ -68,13 +68,13 @@ impl Deref for ActorSystemExtension {
     }
 }
 
-impl DerefMut for ActorSystemExtension {
+impl DerefMut for ActorExtension {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.extensions
     }
 }
 
-impl Debug for ActorSystemExtension {
+impl Debug for ActorExtension {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         let extensions = self.extensions.iter().map(|e| *e.key()).collect::<Vec<_>>();
         f.debug_struct("ActorExtension")
@@ -87,7 +87,7 @@ impl Debug for ActorSystemExtension {
 mod test {
     use actor_derive::AsAny;
 
-    use crate::actor::extension::ActorSystemExtension;
+    use crate::actor::extension::ActorExtension;
 
     #[derive(AsAny)]
     struct ExtensionA;
@@ -97,7 +97,7 @@ mod test {
 
     #[test]
     fn test_extension() {
-        let extensions = ActorSystemExtension::default();
+        let extensions = ActorExtension::default();
         assert!(extensions.get::<ExtensionA>().is_none());
         extensions.register(ExtensionA);
         extensions.register(ExtensionB);

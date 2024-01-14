@@ -7,7 +7,7 @@ mod region;
 mod shard_region;
 mod unique_address;
 mod message;
-pub mod ewatcher;
+pub mod key_watcher;
 mod cluster_heartbeat;
 mod cluster_event;
 mod distributed_pub_sub;

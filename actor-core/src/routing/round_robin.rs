@@ -94,7 +94,7 @@ mod test {
     use crate::actor::actor_ref::ActorRefExt;
     use crate::actor::actor_ref_factory::ActorRefFactory;
     use crate::actor::actor_system::ActorSystem;
-    use crate::actor::config::actor_system_config::ActorSystemConfig;
+    use crate::actor::config::actor_setting::ActorSetting;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::fault_handing::OneForOneStrategy;
     use crate::actor::props::Props;
@@ -125,7 +125,7 @@ mod test {
     #[tokio::test]
     async fn test_round_robin() -> anyhow::Result<()> {
         init_logger(Level::TRACE);
-        let system = ActorSystem::create("mikai233", ActorSystemConfig::default())?;
+        let system = ActorSystem::create("mikai233", ActorSetting::default())?;
         let router_props = RoundRobinPool::new(5, OneForOneStrategy::default()).props(Props::create(|_| TestActor));
         let round_robin_router = system.spawn_anonymous_actor(router_props)?;
         for _ in 0..10 {
