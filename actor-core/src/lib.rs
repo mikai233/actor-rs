@@ -71,6 +71,8 @@ pub trait CodecMessage: Any + Send {
     fn encode(&self, reg: &MessageRegistration) -> Result<Vec<u8>, EncodeError>;
 
     fn dyn_clone(&self) -> Option<DynMessage>;
+
+    fn is_cloneable(&self) -> bool;
 }
 
 #[async_trait]

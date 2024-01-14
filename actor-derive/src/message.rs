@@ -37,6 +37,10 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
             fn dyn_clone(&self) -> Option<#dy_message> {
                 #dyn_clone
             }
+
+            fn is_cloneable(&self) -> bool {
+                #cloneable
+            }
         }
     };
     let impl_message = if matches!(message_impl, MessageImpl::OrphanMessage) {

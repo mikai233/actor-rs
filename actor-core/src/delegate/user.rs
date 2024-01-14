@@ -63,6 +63,10 @@ impl<A> CodecMessage for UserDelegate<A> where A: 'static + Actor + Send {
     fn dyn_clone(&self) -> Option<DynMessage> {
         self.message.dyn_clone()
     }
+
+    fn is_cloneable(&self) -> bool {
+        self.message.is_cloneable()
+    }
 }
 
 #[async_trait]

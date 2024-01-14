@@ -409,6 +409,10 @@ impl CodecMessage for ActorSelectionMessage {
             DynMessage::orphan(message)
         })
     }
+
+    fn is_cloneable(&self) -> bool {
+        self.message.boxed.is_cloneable()
+    }
 }
 
 impl OrphanMessage for ActorSelectionMessage {}
