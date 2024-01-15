@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::task::Poll;
 use std::time::Duration;
 
@@ -53,11 +53,22 @@ impl Actor for TimerSchedulerActor {
 pub struct ScheduleKey {
     index: u64,
     scheduler: ActorRef,
+    cancelled: Arc<AtomicBool>,
 }
 
 impl ScheduleKey {
+    pub(crate) fn new(index: u64, scheduler: ActorRef) -> Self {
+        Self {
+            index,
+            scheduler,
+            cancelled: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
     pub fn cancel(self) {
-        self.scheduler.cast_ns(CancelSchedule { index: self.index });
+        if !self.cancelled.swap(true, Ordering::Relaxed) {
+            self.scheduler.cast_ns(CancelSchedule { index: self.index });
+        }
     }
 }
 
@@ -378,11 +389,8 @@ impl TimerScheduler {
             message,
             receiver,
         };
-        self.scheduler_actor.cast(once, ActorRef::no_sender());
-        ScheduleKey {
-            index,
-            scheduler: self.scheduler_actor.clone(),
-        }
+        self.scheduler_actor.cast_ns(once);
+        ScheduleKey::new(index, self.scheduler_actor.clone())
     }
 
     pub fn start_single_timer_with<F>(&self, delay: Duration, block: F) -> ScheduleKey
@@ -394,11 +402,8 @@ impl TimerScheduler {
             delay,
             block: Box::new(block),
         };
-        self.scheduler_actor.cast(once_with, ActorRef::no_sender());
-        ScheduleKey {
-            index,
-            scheduler: self.scheduler_actor.clone(),
-        }
+        self.scheduler_actor.cast_ns(once_with);
+        ScheduleKey::new(index, self.scheduler_actor.clone())
     }
 
     pub fn start_timer_with_fixed_delay(
@@ -416,11 +421,8 @@ impl TimerScheduler {
             message,
             receiver,
         };
-        self.scheduler_actor.cast(fixed_delay, ActorRef::no_sender());
-        ScheduleKey {
-            index,
-            scheduler: self.scheduler_actor.clone(),
-        }
+        self.scheduler_actor.cast_ns(fixed_delay);
+        ScheduleKey::new(index, self.scheduler_actor.clone())
     }
 
     pub fn start_timer_with_fixed_delay_with<F>(
@@ -439,15 +441,12 @@ impl TimerScheduler {
             interval,
             block: Arc::new(Box::new(block)),
         };
-        self.scheduler_actor.cast(fixed_delay_with, ActorRef::no_sender());
-        ScheduleKey {
-            index,
-            scheduler: self.scheduler_actor.clone(),
-        }
+        self.scheduler_actor.cast_ns(fixed_delay_with);
+        ScheduleKey::new(index, self.scheduler_actor.clone())
     }
 
     pub fn cancel_all(&self) {
-        self.scheduler_actor.cast(CancelAllSchedule, ActorRef::no_sender());
+        self.scheduler_actor.cast_ns(CancelAllSchedule);
     }
 }
 

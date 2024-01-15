@@ -80,7 +80,7 @@ impl TActorRef for RemoteActorRef {
                     sender,
                     target: self.clone().into(),
                 };
-                self.transport.cast(OutboundMessage { name, envelope }, None);
+                self.transport.cast_ns(OutboundMessage { name, envelope });
             }
             Err(err) => {
                 match sender {
@@ -112,15 +112,12 @@ impl TActorRef for RemoteActorRef {
             }
             Some(&"..") => None,
             Some(_) => {
-                let inner = Inner {
-                    system: self.system().clone(),
-                    path: self.path().descendant(names),
-                    transport: self.transport.clone(),
-                    registration: self.registration.clone(),
-                };
-                let remote_ref = RemoteActorRef {
-                    inner: inner.into(),
-                };
+                let remote_ref = RemoteActorRef::new(
+                    self.system.clone(),
+                    self.path().descendant(names),
+                    self.transport.clone(),
+                    self.registration.clone(),
+                );
                 Some(remote_ref.into())
             }
         }
