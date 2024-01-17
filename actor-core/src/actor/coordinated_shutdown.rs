@@ -1,8 +1,12 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::fmt::{Debug, Formatter};
+use std::future::Future;
 use std::time::Duration;
 
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
+
+use actor_derive::AsAny;
 
 pub const PHASE_BEFORE_SERVICE_UNBIND: &'static str = "before-service-unbind";
 pub const PHASE_SERVICE_UNBIND: &'static str = "service-unbind";
@@ -17,8 +21,11 @@ pub const PHASE_CLUSTER_SHUTDOWN: &'static str = "cluster-shutdown";
 pub const PHASE_BEFORE_ACTOR_SYSTEM_TERMINATE: &'static str = "before-actor-system-terminate";
 pub const PHASE_ACTOR_SYSTEM_TERMINATE: &'static str = "actor-system-terminate";
 
-#[derive(Debug)]
-pub struct CoordinatedShutdown {}
+#[derive(Debug, AsAny)]
+pub struct CoordinatedShutdown {
+    phases: HashMap<String, Phase>,
+    registered_phases: HashMap<String, PhaseTasks>,
+}
 
 impl CoordinatedShutdown {
     fn topological_sort(phases: &HashMap<String, Phase>) -> anyhow::Result<Vec<String>> {
@@ -47,6 +54,27 @@ impl CoordinatedShutdown {
         }
         Ok(result)
     }
+
+    fn register<F>(&mut self, phase_name: String, name: String, fut: F) where F: Future<Output=()> + Send + 'static {
+        let mut phase_tasks = self.registered_phases.entry(phase_name).or_insert(PhaseTasks::default());
+        let task = TaskDefinition {
+            name,
+            task: Box::new(fut),
+        };
+        phase_tasks.tasks.push(task);
+    }
+
+    pub fn add_task<F>(&mut self, phase: String, task_name: String, fut: F) -> anyhow::Result<()> where F: Future<Output=()> + Send + 'static {
+        if task_name.is_empty() {
+            return Err(anyhow!("Set a task name when adding tasks to the Coordinated Shutdown. Try to use unique, self-explanatory names."));
+        }
+
+        todo!()
+    }
+
+    fn known_phases(&self) -> HashSet<&str> {
+        todo!()
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -57,7 +85,32 @@ pub(crate) struct Phase {
     enabled: bool,
 }
 
-#[cfg(test)]
-mod test {
-
+#[derive(Default)]
+struct PhaseTasks {
+    tasks: Vec<TaskDefinition>,
 }
+
+impl Debug for PhaseTasks {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        f.debug_struct("PhaseTasks")
+            .field("tasks", &self.tasks)
+            .finish()
+    }
+}
+
+struct TaskDefinition {
+    name: String,
+    task: Box<dyn Future<Output=()> + Send>,
+}
+
+impl Debug for TaskDefinition {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        f.debug_struct("TaskDefinition")
+            .field("name", &self.name)
+            .field("task", &"..")
+            .finish()
+    }
+}
+
+#[cfg(test)]
+mod test {}

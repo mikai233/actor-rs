@@ -194,8 +194,18 @@ impl WatchRespWrap {
                                     stream.publish(DynMessage::orphan(ClusterEvent::member_up(member)))?;
                                 }
                             }
-                            MemberStatus::PrepareForLeaving => {}
-                            MemberStatus::Leaving => {}
+                            MemberStatus::PrepareForLeaving => {
+                                let updated = Self::update_member(member.clone(), cluster.members_write())?;
+                                if updated {
+                                    stream.publish(DynMessage::orphan(ClusterEvent::member_prepare_for_leaving(member)))?;
+                                }
+                            }
+                            MemberStatus::Leaving => {
+                                let updated = Self::update_member(member.clone(), cluster.members_write())?;
+                                if updated {
+                                    stream.publish(DynMessage::orphan(ClusterEvent::member_leaving(member)))?;
+                                }
+                            }
                             MemberStatus::Down => {
                                 if cluster.members_write().remove(&member.addr).is_some() {
                                     if member.addr == actor.self_addr {

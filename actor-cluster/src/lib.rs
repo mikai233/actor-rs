@@ -4,7 +4,6 @@ pub mod cluster_provider;
 pub mod cluster_setting;
 mod cluster_singleton_manager;
 mod region;
-mod shard_region;
 mod unique_address;
 mod message;
 pub mod key_watcher;
