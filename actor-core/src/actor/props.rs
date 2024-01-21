@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use tokio::runtime::Handle;
 
 use tokio::sync::mpsc::channel;
 
@@ -15,6 +16,7 @@ pub type Spawner = Arc<Box<dyn Fn(ActorRef, Mailbox, ActorSystem, Props) + Send 
 #[derive(Clone)]
 pub struct Props {
     pub(crate) spawner: Spawner,
+    pub(crate) handle: Option<Handle>,
     pub(crate) router_config: Option<RouterConfig>,
     pub(crate) mailbox_size: usize,
     pub(crate) system_size: usize,
@@ -27,16 +29,25 @@ impl Props {
             let mut context = ActorContext::new(myself, system);
             let system = context.system.clone();
             let actor = f(&mut context);
+            let handle = props.handle.clone();
             let runtime = ActorRuntime {
                 actor,
                 context,
                 mailbox,
                 props,
             };
-            system.spawn(runtime.run());
+            match handle {
+                None => {
+                    system.spawn_user(runtime.run());
+                }
+                Some(handle) => {
+                    handle.spawn(runtime.run());
+                }
+            }
         };
         Self {
             spawner: Arc::new(Box::new(spawn_fn)),
+            handle: None,
             router_config: None,
             mailbox_size: 10000,
             system_size: 10000,

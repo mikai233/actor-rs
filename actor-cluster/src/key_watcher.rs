@@ -79,7 +79,10 @@ impl KeyWatcher {
             }
             Err(error) => {
                 warn!("{} watch {} {:?}, sleep 3s and try rewatch it", context.myself(), self.key, error);
-                context.system().scheduler().start_single_timer(Duration::from_secs(3), DynMessage::user(RetryWatch), context.myself().clone());
+                let myself = context.myself().clone();
+                context.system().scheduler().schedule_once(Duration::from_secs(3), move || {
+                    myself.cast_ns(RetryWatch);
+                });
             }
         };
     }

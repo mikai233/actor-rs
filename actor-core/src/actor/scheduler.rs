@@ -9,7 +9,7 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::time::Instant;
 use tokio_util::time::delay_queue::{Expired, Key};
 use tokio_util::time::DelayQueue;
-use tracing::{debug, warn};
+use tracing::{debug, trace, warn};
 
 enum Schedule {
     Once(Once),
@@ -113,7 +113,7 @@ impl Scheduler {
         let index = once.index;
         let timeout = once.delay;
         let key = queue.insert(Schedule::Once(once), timeout);
-        debug!("schedule once with index {}  after {:?}", index,  timeout);
+        trace!("schedule once with index {}  after {:?}", index,  timeout);
         index_map.insert(index, key);
     }
 
@@ -121,7 +121,7 @@ impl Scheduler {
         let index = fixed_delay.index;
         let timeout = fixed_delay.initial_delay.unwrap_or(fixed_delay.interval);
         let key = queue.insert(Schedule::FixedDelay(fixed_delay), timeout);
-        debug!("schedule fixed delay with index {} after {:?}", index,  timeout);
+        trace!("schedule fixed delay with index {} after {:?}", index,  timeout);
         index_map.insert(index, key);
     }
 
@@ -129,7 +129,7 @@ impl Scheduler {
         let index = fixed_rate.index;
         let timeout = fixed_rate.initial_delay.unwrap_or(fixed_rate.interval);
         let key = queue.insert(Schedule::FixedRate(fixed_rate), timeout);
-        debug!("schedule fixed rate with index {} after {:?}", index,  timeout);
+        trace!("schedule fixed rate with index {} after {:?}", index,  timeout);
         index_map.insert(index, key);
     }
 
@@ -175,7 +175,7 @@ impl Scheduler {
 
     fn handle_once_expired(once: Once, index_map: &mut HashMap<u64, Key>) {
         let Once { index, delay, block } = once;
-        debug!("execute once expired task {} after {:?}", index, delay);
+        trace!("execute once expired task {} after {:?}", index, delay);
         index_map.remove(&index);
         block();
     }
@@ -183,7 +183,7 @@ impl Scheduler {
     fn handle_fixed_delay_expired(fixed_delay: FixedDelay, queue: &mut DelayQueue<Schedule>, index_map: &mut HashMap<u64, Key>) {
         let FixedDelay { index, initial_delay, interval, block } = fixed_delay;
         let current_delay = initial_delay.unwrap_or(interval);
-        debug!("execute fixed delay expired task {} after {:?}", index, current_delay);
+        trace!("execute fixed delay expired task {} after {:?}", index, current_delay);
         block();
         let next_schedule = Schedule::fixed_delay(index, None, interval, block);
         let next_key = queue.insert(next_schedule, interval);
@@ -193,7 +193,7 @@ impl Scheduler {
     fn handle_fixed_rate_expired(fixed_rate: FixedRate, deadline: Instant, queue: &mut DelayQueue<Schedule>, index_map: &mut HashMap<u64, Key>) {
         let FixedRate { index, initial_delay, interval, actual_delay, block } = fixed_rate;
         let current_delay = initial_delay.unwrap_or(interval);
-        debug!("execute fixed rate expired task {} after {:?} with actual delay {:?}", index, current_delay, actual_delay);
+        trace!("execute fixed rate expired task {} after {:?} with actual delay {:?}", index, current_delay, actual_delay);
         block();
         let next_actual_delay = interval.sub(deadline.elapsed());
         let next_schedule = Schedule::fixed_rate(index, None, interval, next_actual_delay, block);

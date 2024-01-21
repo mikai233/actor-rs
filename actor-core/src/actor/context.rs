@@ -304,11 +304,21 @@ impl ActorContext {
         })
     }
 
-    pub fn spawn<F>(&mut self, future: F) -> AbortHandle
+    pub fn spawn_user<F>(&mut self, future: F) -> AbortHandle
         where
             F: Future<Output=()> + Send + 'static,
     {
-        let handle = self.system.spawn(future);
+        let handle = self.system.spawn_user(future);
+        let abort_handle = handle.abort_handle();
+        self.async_tasks.push(handle);
+        abort_handle
+    }
+
+    pub fn spawn_system<F>(&mut self, future: F) -> AbortHandle
+        where
+            F: Future<Output=()> + Send + 'static,
+    {
+        let handle = self.system.spawn_system(future);
         let abort_handle = handle.abort_handle();
         self.async_tasks.push(handle);
         abort_handle

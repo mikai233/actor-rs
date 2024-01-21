@@ -8,11 +8,12 @@ use tracing::trace;
 use actor_core::{Actor, DynMessage, Message};
 use actor_core::actor::actor_path::{ActorPath, TActorPath};
 use actor_core::actor::actor_path::root_actor_path::RootActorPath;
-use actor_core::actor::actor_ref::ActorRef;
+use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_selection::ActorSelectionPath;
 use actor_core::actor::address::Address;
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::scheduler::ScheduleKey;
 use actor_derive::{CEmptyCodec, CMessageCodec, EmptyCodec, MessageCodec};
 
 use crate::cluster::Cluster;
@@ -25,6 +26,7 @@ pub(crate) struct ClusterHeartbeatSender {
     self_member: Option<Member>,
     active_receivers: HashSet<UniqueAddress>,
     event_adapter: ActorRef,
+    key: Option<ScheduleKey>,
 }
 
 #[async_trait]
@@ -32,12 +34,19 @@ impl Actor for ClusterHeartbeatSender {
     async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         trace!("{} started", context.myself());
         Cluster::get(context.system()).subscribe_cluster_event(self.event_adapter.clone());
-        context.system().scheduler().start_timer_with_fixed_delay(None, Duration::from_secs(5), DynMessage::user(HeartbeatTick), context.myself().clone());
+        let myself = context.myself().clone();
+        let key = context.system().scheduler().schedule_with_fixed_delay(None, Duration::from_secs(5), move || {
+            myself.cast_ns(HeartbeatTick);
+        });
+        self.key = Some(key);
         Ok(())
     }
 
     async fn post_stop(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         trace!("{} stopped", context.myself());
+        if let Some(key) = self.key.take() {
+            key.cancel();
+        }
         Cluster::get(context.system()).unsubscribe_cluster_event(&self.event_adapter);
         Ok(())
     }
@@ -53,6 +62,7 @@ impl ClusterHeartbeatSender {
             active_receivers: Default::default(),
             event_adapter,
             self_member: None,
+            key: None,
         }
     }
 

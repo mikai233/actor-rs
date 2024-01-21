@@ -12,7 +12,7 @@ use rand::random;
 use tokio::runtime::Runtime;
 use tokio::sync::oneshot::{channel, Receiver, Sender};
 
-use crate::actor::{system_guardian, user_guardian};
+use crate::actor::{scheduler, system_guardian, user_guardian};
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref::{ActorRef, ActorRefExt};
 use crate::actor::actor_ref_factory::ActorRefFactory;
@@ -25,6 +25,7 @@ use crate::actor::extension::{ActorExtension, Extension};
 use crate::actor::local_ref::LocalActorRef;
 use crate::actor::props::Props;
 use crate::actor::root_guardian::{AddShutdownHook, Shutdown};
+use crate::actor::scheduler::{scheduler, SchedulerSender};
 use crate::actor::timer_scheduler::{TimerScheduler, TimerSchedulerActor};
 use crate::event::event_stream::EventStream;
 
@@ -38,9 +39,10 @@ pub struct SystemInner {
     uid: i64,
     start_time: u128,
     provider: ArcSwap<ActorRefProvider>,
-    runtime: Runtime,
+    system_rt: Runtime,
+    user_rt: Runtime,
     signal: RwLock<(Option<Sender<()>>, Option<Receiver<()>>)>,
-    scheduler: ArcSwapOption<TimerScheduler>,
+    scheduler: SchedulerSender,
     event_stream: EventStream,
     extensions: ActorExtension,
     config: HashMap<&'static str, Box<dyn Config>>,
@@ -52,7 +54,8 @@ impl Debug for ActorSystem {
             .field("name", &self.name)
             .field("start_time", &self.start_time)
             .field("provider", &self.provider)
-            .field("runtime", &self.runtime)
+            .field("system_rt", &self.system_rt)
+            .field("user_rt", &self.user_rt)
             .field("scheduler", &self.scheduler)
             .field("event_stream", &self.event_stream)
             .field("extensions", &self.extensions)
@@ -72,20 +75,20 @@ impl Deref for ActorSystem {
 impl ActorSystem {
     pub fn create(name: impl Into<String>, setting: ActorSetting) -> anyhow::Result<Self> {
         let ActorSetting { provider_fn, config } = setting;
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .thread_name("actor-pool")
-            .build()
-            .expect("Failed building the Runtime");
+        let system_rt = Self::build_runtime("actor-system");
+        let _guard = system_rt.enter();
+        let scheduler = scheduler();
+        let user_rt = Self::build_runtime("user-system");
         let (tx, rx) = channel();
         let inner = SystemInner {
             name: name.into(),
             uid: random(),
             start_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
             provider: ArcSwap::new(Arc::new(EmptyActorRefProvider.into())),
-            runtime,
+            system_rt,
+            user_rt,
             signal: RwLock::new((Some(tx), Some(rx))),
-            scheduler: ArcSwapOption::new(None),
+            scheduler,
             event_stream: EventStream::default(),
             extensions: ActorExtension::default(),
             config,
@@ -98,9 +101,9 @@ impl ActorSystem {
         for s in spawns {
             s.spawn(system.clone());
         }
-        system.init_scheduler()?;
         Ok(system)
     }
+
     pub fn name(&self) -> &String {
         &self.name
     }
@@ -160,15 +163,26 @@ impl ActorSystem {
         self.provider().system_guardian().clone()
     }
 
-    pub fn runtime(&self) -> &Runtime {
-        &self.runtime
+    pub fn system_runtime(&self) -> &Runtime {
+        &self.system_rt
     }
 
-    pub fn spawn<F>(&self, future: F) -> tokio::task::JoinHandle<F::Output>
+    pub fn user_runtime(&self) -> &Runtime {
+        &self.user_rt
+    }
+
+    pub fn spawn_system<F>(&self, future: F) -> tokio::task::JoinHandle<F::Output>
         where
             F: Future + Send + 'static,
             F::Output: Send + 'static, {
-        self.runtime().spawn(future)
+        self.system_runtime().spawn(future)
+    }
+
+    pub fn spawn_user<F>(&self, future: F) -> tokio::task::JoinHandle<F::Output>
+        where
+            F: Future + Send + 'static,
+            F::Output: Send + 'static, {
+        self.user_runtime().spawn(future)
     }
 
     pub fn spawn_system_actor(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
@@ -179,19 +193,12 @@ impl ActorSystem {
         &self.event_stream
     }
 
-    pub fn scheduler(&self) -> Arc<TimerScheduler> {
-        unsafe { self.scheduler.load().as_ref().unwrap_unchecked().clone() }
+    pub fn scheduler(&self) -> &SchedulerSender {
+        &self.scheduler
     }
 
     pub fn add_shutdown_hook<F>(&self, fut: F) where F: Future<Output=()> + Send + 'static {
         self.provider().root_guardian().cast(AddShutdownHook { fut: fut.boxed() }, ActorRef::no_sender());
-    }
-
-    fn init_scheduler(&self) -> anyhow::Result<()> {
-        let timers = self.spawn_system_actor(Props::create(|context| TimerSchedulerActor::new(context.myself.clone())), Some("timers".to_string()))?;
-        let scheduler = TimerScheduler::with_actor(timers);
-        self.scheduler.store(Some(scheduler.into()));
-        Ok(())
     }
 
     pub fn register_extension<E, F>(&self, ext_fn: F) where E: Extension, F: Fn(ActorSystem) -> E {
@@ -209,6 +216,15 @@ impl ActorSystem {
 
     pub fn get_config<C>(&self) -> Option<&C> where C: Config {
         self.config.get(std::any::type_name::<C>()).map(|c| c.as_any().downcast_ref::<C>()).unwrap_or_default()
+    }
+
+    fn build_runtime(name: &str) -> Runtime {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .thread_name(name)
+            .build()
+            .expect("Failed building the Runtime");
+        runtime
     }
 }
 

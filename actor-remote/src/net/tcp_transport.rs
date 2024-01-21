@@ -51,7 +51,7 @@ impl Actor for TransportActor {
         let myself = context.myself().clone();
         let address = context.system().address().clone();
         let addr = address.addr.ok_or(anyhow!("socket addr not set"))?;
-        context.spawn(async move {
+        context.spawn_user(async move {
             let tcp_listener = TcpListener::bind(addr).await.unwrap();
             info!("{} start listening", address);
             loop {
@@ -178,7 +178,7 @@ mod test {
         async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             let myself = context.myself().clone();
             let sender = context.sender().unwrap().clone();
-            context.spawn(async move {
+            context.spawn_user(async move {
                 sender.cast(Pong, Some(myself));
                 tokio::time::sleep(Duration::from_secs(1)).await;
             });

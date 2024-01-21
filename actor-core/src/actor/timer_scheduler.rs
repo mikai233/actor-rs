@@ -296,11 +296,11 @@ impl Message for PollExpired {
                 }
                 Schedule::OnceWith { index, block, .. } => {
                     index_map.remove(&index);
-                    context.spawn(async move { block() });
+                    context.spawn_user(async move { block() });
                 }
                 Schedule::FixedDelayWith { index, interval, block, .. } => {
                     let block_clone = block.clone();
-                    context.spawn(async move { block_clone() });
+                    context.spawn_user(async move { block_clone() });
                     let next_delay = interval;
                     let reschedule = Schedule::FixedDelayWith {
                         index,

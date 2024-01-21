@@ -5,10 +5,10 @@ use etcd_client::Client;
 use tracing::{debug, warn};
 
 use actor_core::{Actor, DynMessage, Message};
-use actor_core::actor::actor_ref::ActorRef;
+use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor::timer_scheduler::ScheduleKey;
+use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::ext::option_ext::OptionExt;
 use actor_derive::{CEmptyCodec, EmptyCodec, OrphanEmptyCodec};
 
@@ -49,8 +49,11 @@ impl Actor for LeaseKeeper {
                 return Err(anyhow::Error::from(error));
             }
         };
-        let tick_key = context.system().scheduler().start_timer_with_fixed_delay(None, self.interval, DynMessage::user(LeaseTick), context.myself().clone());
-        self.tick_key = Some(tick_key);
+        let myself = context.myself().clone();
+        let key = context.system().scheduler().schedule_with_fixed_delay(None, self.interval, move || {
+            myself.cast_ns(LeaseTick);
+        });
+        self.tick_key = Some(key);
         Ok(())
     }
 
