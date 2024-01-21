@@ -47,7 +47,7 @@ pub enum ConnectionStatus {
 
 #[async_trait]
 impl Actor for TransportActor {
-    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let myself = context.myself().clone();
         let address = context.system().address().clone();
         let addr = address.addr.ok_or(anyhow!("socket addr not set"))?;
@@ -217,7 +217,7 @@ mod test {
 
     #[async_trait]
     impl Actor for PingPongActor {
-        async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+        async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
             info!("{} started", context.myself());
             Ok(())
         }

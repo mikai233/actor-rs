@@ -26,7 +26,7 @@ impl<A> ActorRuntime<A> where A: Actor {
     pub(crate) async fn run(self) {
         let Self { mut actor, mut context, mut mailbox } = self;
         let actor_name = std::any::type_name::<A>();
-        if let Err(err) = actor.pre_start(&mut context).await {
+        if let Err(err) = actor.started(&mut context).await {
             error!("actor {} pre start error {:?}", actor_name, err);
             context.stop(&context.myself());
             while let Some(message) = mailbox.system.recv().await {
@@ -72,7 +72,7 @@ impl<A> ActorRuntime<A> where A: Actor {
                 }
             }
         }
-        if let Some(err) = actor.post_stop(&mut context).await.err() {
+        if let Some(err) = actor.stopped(&mut context).await.err() {
             error!("actor {:?} post stop error {:?}", actor_name, err);
         }
         if matches!(context.state, ActorState::Recreate) {
@@ -125,7 +125,7 @@ impl<A> ActorRuntime<A> where A: Actor {
     async fn handle_message(context: &mut ActorContext, actor: &mut A, envelope: Envelope) -> bool {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
-        if let Some(message) = actor.handle_message(context, message) {
+        if let Some(message) = actor.on_recv(context, message) {
             match message.downcast_user_delegate::<A>() {
                 Ok(message) => {
                     if let Some(error) = message.handle(context, actor).await.err() {

@@ -12,7 +12,6 @@ use tracing::info;
 use actor::decoder::MessageDecoder;
 use actor_derive::MessageCodec;
 
-use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::fault_handing::{default_strategy, SupervisorStrategy};
 use crate::delegate::downcast_box_message;
@@ -33,12 +32,12 @@ mod promise;
 #[async_trait]
 pub trait Actor: Send + Any {
     #[allow(unused_variables)]
-    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         Ok(())
     }
 
     #[allow(unused_variables)]
-    async fn post_stop(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         Ok(())
     }
 
@@ -47,7 +46,7 @@ pub trait Actor: Send + Any {
     }
 
     #[allow(unused_variables)]
-    fn handle_message(&mut self, context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {
+    fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {
         Some(message)
     }
 }
@@ -220,12 +219,12 @@ pub struct EmptyTestActor;
 
 #[async_trait]
 impl Actor for EmptyTestActor {
-    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         info!("{} pre start", context.myself());
         Ok(())
     }
 
-    async fn post_stop(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         info!("{} post stop", context.myself());
         Ok(())
     }

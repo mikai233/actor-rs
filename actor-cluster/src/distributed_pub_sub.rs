@@ -38,7 +38,7 @@ struct DistributedPubSubMediator {}
 
 #[async_trait]
 impl Actor for DistributedPubSubMediator {
-    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         trace!("{} started", context.myself());
         Ok(())
     }

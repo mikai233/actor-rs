@@ -31,7 +31,7 @@ pub(crate) struct ClusterHeartbeatSender {
 
 #[async_trait]
 impl Actor for ClusterHeartbeatSender {
-    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         trace!("{} started", context.myself());
         Cluster::get(context.system()).subscribe_cluster_event(self.event_adapter.clone());
         let myself = context.myself().clone();
@@ -42,7 +42,7 @@ impl Actor for ClusterHeartbeatSender {
         Ok(())
     }
 
-    async fn post_stop(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         trace!("{} stopped", context.myself());
         if let Some(key) = self.key.take() {
             key.cancel();
@@ -110,7 +110,7 @@ pub(crate) struct ClusterHeartbeatReceiver {
 
 #[async_trait]
 impl Actor for ClusterHeartbeatReceiver {
-    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         trace!("started {}", context.myself());
         Cluster::get(context.system()).subscribe_cluster_event(self.event_adapter.clone());
         Ok(())

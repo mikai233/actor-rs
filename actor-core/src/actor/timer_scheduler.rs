@@ -43,7 +43,7 @@ impl TimerSchedulerActor {
 
 #[async_trait]
 impl Actor for TimerSchedulerActor {
-    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{} started", context.myself);
         Ok(())
     }

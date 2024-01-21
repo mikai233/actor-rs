@@ -20,12 +20,12 @@ pub(crate) struct RootGuardian {
 
 #[async_trait]
 impl Actor for RootGuardian {
-    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{} pre start", context.myself());
         Ok(())
     }
 
-    async fn post_stop(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{} post stop", context.myself());
         if let Some(signal) = self.shutdown_signal.take() {
             let _ = signal.send(());

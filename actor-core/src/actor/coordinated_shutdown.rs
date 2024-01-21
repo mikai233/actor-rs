@@ -56,7 +56,7 @@ impl CoordinatedShutdown {
     }
 
     fn register<F>(&mut self, phase_name: String, name: String, fut: F) where F: Future<Output=()> + Send + 'static {
-        let mut phase_tasks = self.registered_phases.entry(phase_name).or_insert(PhaseTasks::default());
+        let phase_tasks = self.registered_phases.entry(phase_name).or_insert(PhaseTasks::default());
         let task = TaskDefinition {
             name,
             task: Box::new(fut),

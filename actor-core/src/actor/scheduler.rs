@@ -72,7 +72,6 @@ impl Scheduler {
     fn run(self) {
         tokio::spawn(async move {
             let Scheduler { mut rx, mut queue, mut index } = self;
-            let r = queue.next().await;
             loop {
                 select! {
                     Some(schedule) = rx.recv() => {

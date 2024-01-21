@@ -38,7 +38,7 @@ impl LeaseKeeper {
 
 #[async_trait]
 impl Actor for LeaseKeeper {
-    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         match self.eclient.lease_keep_alive(self.lease_id).await {
             Ok((keeper, stream)) => {
                 self.keeper = Some(keeper);
@@ -57,7 +57,7 @@ impl Actor for LeaseKeeper {
         Ok(())
     }
 
-    async fn post_stop(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
         self.tick_key.take().into_foreach(|k| { k.cancel(); });
         Ok(())
     }

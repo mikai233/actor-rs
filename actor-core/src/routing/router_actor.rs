@@ -24,20 +24,20 @@ pub trait TRouterActor: Actor + AsAny {
 
 #[async_trait]
 impl Actor for Box<dyn TRouterActor> {
-    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        (&mut **self).pre_start(context).await
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+        (&mut **self).started(context).await
     }
 
-    async fn post_stop(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        (&mut **self).post_stop(context).await
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+        (&mut **self).stopped(context).await
     }
 
     fn supervisor_strategy(&self) -> Box<dyn SupervisorStrategy> {
         (&**self).supervisor_strategy()
     }
 
-    fn handle_message(&mut self, context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {
-        (&mut **self).handle_message(context, message)
+    fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {
+        (&mut **self).on_recv(context, message)
     }
 }
 
@@ -49,7 +49,7 @@ pub struct RouterActor {
 
 #[async_trait]
 impl Actor for RouterActor {
-    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let routee_props = self.props.with_router(None);
         match self.props.router_config.as_ref().unwrap() {
             RouterConfig::PoolRouterConfig(pool) => {
@@ -68,7 +68,7 @@ impl Actor for RouterActor {
         Ok(())
     }
 
-    fn handle_message(&mut self, context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {
+    fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {
         if self.props().router_config().unwrap().is_management_message(&message) {
             Some(message)
         } else {

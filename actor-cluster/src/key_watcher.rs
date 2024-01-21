@@ -42,12 +42,12 @@ impl Debug for KeyWatcher {
 
 #[async_trait]
 impl Actor for KeyWatcher {
-    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         self.watch(context).await;
         Ok(())
     }
 
-    async fn post_stop(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
         if let Some(mut watcher) = self.watcher.take() {
             let _ = watcher.cancel().await;
         }

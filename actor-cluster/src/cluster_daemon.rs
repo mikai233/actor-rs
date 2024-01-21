@@ -49,7 +49,7 @@ impl Debug for ClusterDaemon {
 
 #[async_trait]
 impl Actor for ClusterDaemon {
-    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         trace!("{} started", context.myself());
         let cluster = Cluster::get(context.system()).clone();
         self.cluster = Some(cluster);
@@ -64,7 +64,7 @@ impl Actor for ClusterDaemon {
         Ok(())
     }
 
-    async fn post_stop(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
         let _ = self.self_removed().await;
         Ok(())
     }

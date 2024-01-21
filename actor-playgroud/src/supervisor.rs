@@ -16,7 +16,7 @@ struct TestActor;
 
 #[async_trait]
 impl Actor for TestActor {
-    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         info!("{} started", context.myself());
         Ok(())
     }

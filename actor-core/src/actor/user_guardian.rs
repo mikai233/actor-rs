@@ -29,7 +29,7 @@ impl Message for StopChild {
 
 #[async_trait]
 impl Actor for UserGuardian {
-    async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{} pre start", context.myself());
         context.parent().unwrap().cast(ChildGuardianStarted { guardian: context.myself.clone() }, ActorRef::no_sender());
         Ok(())
