@@ -47,9 +47,7 @@ pub trait Context: ActorRefFactory {
 
     fn is_watching(&self, subject: &ActorRef) -> bool;
 
-    fn message_adapter<M>(&mut self, f: impl Fn(M) -> anyhow::Result<DynMessage> + Send + Sync + 'static) -> ActorRef
-        where
-            M: OrphanMessage;
+    fn message_adapter<M>(&mut self, f: impl Fn(M) -> DynMessage + Send + Sync + 'static) -> ActorRef where M: OrphanMessage;
 }
 
 impl<T: ?Sized> ContextExt for T where T: Context {}
@@ -66,10 +64,11 @@ pub struct ActorContext {
     pub(crate) myself: ActorRef,
     pub(crate) sender: Option<ActorRef>,
     pub(crate) stash: VecDeque<(DynMessage, Option<ActorRef>)>,
-    pub(crate) async_tasks: Vec<JoinHandle<()>>,
+    pub(crate) tasks: Vec<JoinHandle<()>>,
     pub(crate) system: ActorSystem,
     pub(crate) watching: HashMap<ActorRef, DynMessage>,
     pub(crate) watched_by: HashSet<ActorRef>,
+    pub(crate) props: Props,
 }
 
 impl ActorRefFactory for ActorContext {
@@ -93,7 +92,7 @@ impl ActorRefFactory for ActorContext {
         self.myself().clone()
     }
 
-    fn spawn_actor(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
+    fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
         if !matches!(self.state, ActorState::Init | ActorState::Started) {
             return Err(anyhow!(
                 "cannot spawn child actor while parent actor {} is terminating",
@@ -103,7 +102,7 @@ impl ActorRefFactory for ActorContext {
         self.myself.local().unwrap().attach_child(props, Some(name.into()), true).map(|(actor, _)| actor)
     }
 
-    fn spawn_anonymous_actor(&self, props: Props) -> anyhow::Result<ActorRef> {
+    fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
         if !matches!(self.state, ActorState::Init | ActorState::Started) {
             return Err(anyhow!(
                 "cannot spawn child actor while parent actor {} is terminating",
@@ -181,9 +180,7 @@ impl Context for ActorContext {
         self.watching.contains_key(subject)
     }
 
-    fn message_adapter<M>(&mut self, f: impl Fn(M) -> anyhow::Result<DynMessage> + Send + Sync + 'static) -> ActorRef
-        where
-            M: OrphanMessage {
+    fn message_adapter<M>(&mut self, f: impl Fn(M) -> DynMessage + Send + Sync + 'static) -> ActorRef where M: OrphanMessage {
         let myself = self.myself.clone();
         self.add_function_ref(move |message, sender| {
             let DynMessage { name, message_type, boxed } = message;
@@ -191,14 +188,7 @@ impl Context for ActorContext {
             if matches!(message_type, MessageType::Orphan) {
                 match boxed.into_any().downcast::<M>() {
                     Ok(message) => {
-                        match f(*message) {
-                            Ok(t) => {
-                                myself.tell(t, sender);
-                            }
-                            Err(error) => {
-                                error!("message {} transform error {:?}", downcast_name, error);
-                            }
-                        }
+                        myself.tell(f(*message), sender);
                     }
                     Err(_) => {
                         error!("message {} cannot downcast to {}", name, downcast_name);
@@ -210,16 +200,17 @@ impl Context for ActorContext {
 }
 
 impl ActorContext {
-    pub(crate) fn new(myself: ActorRef, system: ActorSystem) -> Self {
+    pub(crate) fn new(myself: ActorRef, system: ActorSystem, props: Props) -> Self {
         Self {
             state: ActorState::Init,
             myself,
             sender: None,
-            stash: Default::default(),
-            async_tasks: vec![],
+            stash: VecDeque::new(),
+            tasks: vec![],
             system,
-            watching: Default::default(),
-            watched_by: Default::default(),
+            watching: HashMap::new(),
+            watched_by: HashSet::new(),
+            props,
         }
     }
     pub fn stash<M>(&mut self, message: M) where M: Message {
@@ -304,29 +295,26 @@ impl ActorContext {
         })
     }
 
-    pub fn spawn_user<F>(&mut self, future: F) -> AbortHandle
+    pub fn spawn_task<F>(&mut self, future: F) -> AbortHandle
         where
             F: Future<Output=()> + Send + 'static,
     {
-        let handle = self.system.spawn_user(future);
+        let handle = match &self.props.handle {
+            None => {
+                self.system.user_rt().spawn(future)
+            }
+            Some(handle) => {
+                handle.spawn(future)
+            }
+        };
         let abort_handle = handle.abort_handle();
-        self.async_tasks.push(handle);
-        abort_handle
-    }
-
-    pub fn spawn_system<F>(&mut self, future: F) -> AbortHandle
-        where
-            F: Future<Output=()> + Send + 'static,
-    {
-        let handle = self.system.spawn_system(future);
-        let abort_handle = handle.abort_handle();
-        self.async_tasks.push(handle);
+        self.tasks.push(handle);
         abort_handle
     }
 
     pub(crate) fn remove_finished_tasks(&mut self) {
-        if !self.async_tasks.is_empty() {
-            self.async_tasks.retain(|t| !t.is_finished());
+        if !self.tasks.is_empty() {
+            self.tasks.retain(|t| !t.is_finished());
         }
     }
 

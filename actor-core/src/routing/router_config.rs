@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -45,7 +45,7 @@ pub trait Pool: TRouterConfig {
     fn nr_of_instances(&self, sys: &ActorSystem) -> usize;
 
     fn new_routee(&self, routee_props: Props, context: &mut ActorContext) -> anyhow::Result<Box<dyn Routee>> {
-        let routee = context.spawn_anonymous_actor(routee_props)?;
+        let routee = context.spawn_anonymous(routee_props)?;
         let routee = ActorRefRoutee(routee);
         Ok(Box::new(routee))
     }
@@ -70,6 +70,21 @@ dyn_clone::clone_trait_object!(Group);
 pub enum RouterConfig {
     PoolRouterConfig,
     GroupRouterConfig,
+}
+
+impl Debug for RouterConfig {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            RouterConfig::PoolRouterConfig(_) => {
+                f.debug_struct("PoolRouterConfig")
+                    .finish()
+            }
+            RouterConfig::GroupRouterConfig(_) => {
+                f.debug_struct("GroupRouterConfig")
+                    .finish()
+            }
+        }
+    }
 }
 
 #[derive(Debug, EmptyCodec)]

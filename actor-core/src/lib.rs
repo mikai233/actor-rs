@@ -42,15 +42,6 @@ pub trait Actor: Send + Any {
         Ok(())
     }
 
-    async fn pre_restart(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        let children = context.children();
-        for child in children {
-            context.unwatch(&child);
-            context.stop(&child);
-        }
-        self.post_stop(context).await
-    }
-
     fn supervisor_strategy(&self) -> Box<dyn SupervisorStrategy> {
         default_strategy()
     }

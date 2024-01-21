@@ -5,7 +5,7 @@ use crate::actor::config::Config;
 pub struct ActorConfig {}
 
 impl Config for ActorConfig {
-    fn merge(&self, other: Box<dyn Config>) -> anyhow::Result<Box<dyn Config>> {
+    fn with_fallback(&self, fallback: Box<dyn Config>) -> anyhow::Result<Box<dyn Config>> {
         todo!()
     }
 }

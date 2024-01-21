@@ -51,7 +51,7 @@ impl Actor for TransportActor {
         let myself = context.myself().clone();
         let address = context.system().address().clone();
         let addr = address.addr.ok_or(anyhow!("socket addr not set"))?;
-        context.spawn_user(async move {
+        context.spawn_task(async move {
             let tcp_listener = TcpListener::bind(addr).await.unwrap();
             info!("{} start listening", address);
             loop {
@@ -178,7 +178,7 @@ mod test {
         async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             let myself = context.myself().clone();
             let sender = context.sender().unwrap().clone();
-            context.spawn_user(async move {
+            context.spawn_task(async move {
                 sender.cast(Pong, Some(myself));
                 tokio::time::sleep(Duration::from_secs(1)).await;
             });
@@ -245,9 +245,9 @@ mod test {
     async fn test() -> anyhow::Result<()> {
         let system_a = ActorSystem::create("game", build_setting("127.0.0.1:12121".parse()?))?;
         let props = Props::create(|_| PingPongActor);
-        let actor_a = system_a.spawn_actor(props.clone(), "actor_a")?;
+        let actor_a = system_a.spawn(props.clone(), "actor_a")?;
         let system_b = ActorSystem::create("game", build_setting("127.0.0.1:12122".parse()?))?;
-        let _ = system_b.spawn_actor(props.clone(), "actor_b")?;
+        let _ = system_b.spawn(props.clone(), "actor_b")?;
         loop {
             actor_a.cast(PingTo { to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string() }, None);
             tokio::time::sleep(Duration::from_secs(1)).await;
@@ -278,7 +278,7 @@ mod test {
     async fn test_remote_ask() -> anyhow::Result<()> {
         let system1 = ActorSystem::create("mikai233", build_setting("127.0.0.1:12121".parse()?))?;
         let system2 = ActorSystem::create("mikai233", build_setting("127.0.0.1:12123".parse()?))?;
-        let actor_a = system1.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
+        let actor_a = system1.spawn_anonymous(Props::create(|_| EmptyTestActor))?;
         let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
         let _: MessageToAns = Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;
         let start = SystemTime::now();

@@ -54,10 +54,7 @@ impl Actor for ClusterHeartbeatSender {
 
 impl ClusterHeartbeatSender {
     pub(crate) fn new(context: &mut ActorContext) -> Self {
-        let event_adapter = context.message_adapter::<ClusterEvent>(|m| {
-            let m = DynMessage::user(HeartbeatSenderClusterEvent(m));
-            Ok(m)
-        });
+        let event_adapter = context.message_adapter(|m| DynMessage::user(HeartbeatSenderClusterEvent(m)));
         Self {
             active_receivers: Default::default(),
             event_adapter,
@@ -122,10 +119,7 @@ impl Actor for ClusterHeartbeatReceiver {
 
 impl ClusterHeartbeatReceiver {
     pub(crate) fn new(context: &mut ActorContext) -> Self {
-        let event_adapter = context.message_adapter::<ClusterEvent>(|m| {
-            let m = DynMessage::user(HeartbeatReceiverClusterEvent(m));
-            Ok(m)
-        });
+        let event_adapter = context.message_adapter(|m| DynMessage::user(HeartbeatReceiverClusterEvent(m)));
         Self {
             self_member: None,
             event_adapter,

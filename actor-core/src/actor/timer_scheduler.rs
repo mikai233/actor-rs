@@ -296,11 +296,11 @@ impl Message for PollExpired {
                 }
                 Schedule::OnceWith { index, block, .. } => {
                     index_map.remove(&index);
-                    context.spawn_user(async move { block() });
+                    context.spawn_task(async move { block() });
                 }
                 Schedule::FixedDelayWith { index, interval, block, .. } => {
                     let block_clone = block.clone();
-                    context.spawn_user(async move { block_clone() });
+                    context.spawn_task(async move { block_clone() });
                     let next_delay = interval;
                     let reschedule = Schedule::FixedDelayWith {
                         index,
@@ -364,7 +364,7 @@ pub struct TimerScheduler {
 impl TimerScheduler {
     pub fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
         let scheduler_actor = context
-            .spawn_actor(
+            .spawn(
                 Props::create(move |context| TimerSchedulerActor::new(context.myself.clone())),
                 "timer_scheduler",
             )?;

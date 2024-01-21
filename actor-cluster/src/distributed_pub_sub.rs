@@ -18,7 +18,7 @@ pub struct DistributedPubSub {
 
 impl DistributedPubSub {
     pub fn new(system: ActorSystem) -> Self {
-        let mediator = system.spawn_system_actor(
+        let mediator = system.spawn_system(
             Props::create(|_| DistributedPubSubMediator {}),
             Some("distributed_pub_sub_mediator".to_string()),
         ).expect("Failed to create DistributedPubSubMediator");

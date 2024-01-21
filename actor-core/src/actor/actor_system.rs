@@ -5,14 +5,14 @@ use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use arc_swap::{ArcSwap, ArcSwapOption, Guard};
+use arc_swap::{ArcSwap, Guard};
 use dashmap::mapref::one::MappedRef;
 use futures::FutureExt;
 use rand::random;
 use tokio::runtime::Runtime;
 use tokio::sync::oneshot::{channel, Receiver, Sender};
 
-use crate::actor::{scheduler, system_guardian, user_guardian};
+use crate::actor::{system_guardian, user_guardian};
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref::{ActorRef, ActorRefExt};
 use crate::actor::actor_ref_factory::ActorRefFactory;
@@ -26,7 +26,6 @@ use crate::actor::local_ref::LocalActorRef;
 use crate::actor::props::Props;
 use crate::actor::root_guardian::{AddShutdownHook, Shutdown};
 use crate::actor::scheduler::{scheduler, SchedulerSender};
-use crate::actor::timer_scheduler::{TimerScheduler, TimerSchedulerActor};
 use crate::event::event_stream::EventStream;
 
 #[derive(Clone)]
@@ -163,29 +162,16 @@ impl ActorSystem {
         self.provider().system_guardian().clone()
     }
 
-    pub fn system_runtime(&self) -> &Runtime {
+    pub fn system_rt(&self) -> &Runtime {
         &self.system_rt
     }
 
-    pub fn user_runtime(&self) -> &Runtime {
+    pub fn user_rt(&self) -> &Runtime {
         &self.user_rt
     }
 
-    pub fn spawn_system<F>(&self, future: F) -> tokio::task::JoinHandle<F::Output>
-        where
-            F: Future + Send + 'static,
-            F::Output: Send + 'static, {
-        self.system_runtime().spawn(future)
-    }
-
-    pub fn spawn_user<F>(&self, future: F) -> tokio::task::JoinHandle<F::Output>
-        where
-            F: Future + Send + 'static,
-            F::Output: Send + 'static, {
-        self.user_runtime().spawn(future)
-    }
-
-    pub fn spawn_system_actor(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
+    pub fn spawn_system(&self, mut props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
+        props.handle = Some(self.system_rt.handle().clone());
         self.system_guardian().attach_child(props, name, true).map(|(actor, _)| actor)
     }
 
@@ -249,11 +235,11 @@ impl ActorRefFactory for ActorSystem {
         self.provider().root_guardian().clone().into()
     }
 
-    fn spawn_actor(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
+    fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
         self.guardian().attach_child(props, Some(name.into()), true).map(|(actor, _)| actor)
     }
 
-    fn spawn_anonymous_actor(&self, props: Props) -> anyhow::Result<ActorRef> {
+    fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
         self.guardian().attach_child(props, None, true).map(|(actor, _)| actor)
     }
 

@@ -127,11 +127,11 @@ mod test {
         init_logger(Level::TRACE);
         let system = ActorSystem::create("mikai233", ActorSetting::default())?;
         let router_props = RoundRobinPool::new(5, OneForOneStrategy::default()).props(Props::create(|_| TestActor));
-        let round_robin_router = system.spawn_anonymous_actor(router_props)?;
+        let round_robin_router = system.spawn_anonymous(router_props)?;
         for _ in 0..10 {
             round_robin_router.cast_ns(TestMessage);
         }
-        let another_routee = system.spawn_anonymous_actor(Props::create(|_| TestActor))?;
+        let another_routee = system.spawn_anonymous(Props::create(|_| TestActor))?;
         round_robin_router.cast_ns(AddRoutee { routee: Arc::new(Box::new(ActorRefRoutee(another_routee))) });
         tokio::time::sleep(Duration::from_secs(2)).await;
         Ok(())

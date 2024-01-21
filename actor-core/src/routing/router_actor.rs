@@ -32,10 +32,6 @@ impl Actor for Box<dyn TRouterActor> {
         (&mut **self).post_stop(context).await
     }
 
-    async fn pre_restart(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        (&mut **self).pre_restart(context).await
-    }
-
     fn supervisor_strategy(&self) -> Box<dyn SupervisorStrategy> {
         (&**self).supervisor_strategy()
     }

@@ -53,12 +53,9 @@ impl Actor for ClusterDaemon {
         trace!("{} started", context.myself());
         let cluster = Cluster::get(context.system()).clone();
         self.cluster = Some(cluster);
-        context.spawn_actor(Props::create(|context| ClusterHeartbeatSender::new(context)), ClusterHeartbeatSender::name())?;
-        context.spawn_actor(Props::create(|context| ClusterHeartbeatReceiver::new(context)), ClusterHeartbeatReceiver::name())?;
-        let adapter = context.message_adapter::<WatchResp>(|m| {
-            let m = DynMessage::user(WatchRespWrap(m));
-            Ok(m)
-        });
+        context.spawn(Props::create(|context| ClusterHeartbeatSender::new(context)), ClusterHeartbeatSender::name())?;
+        context.spawn(Props::create(|context| ClusterHeartbeatReceiver::new(context)), ClusterHeartbeatReceiver::name())?;
+        let adapter = context.message_adapter(|m| DynMessage::user(WatchRespWrap(m)));
         self.spawn_lease_watcher(context, adapter)?;
         let lease_id = self.spawn_lease_keeper(context).await?;
         self.lease_id = lease_id;
@@ -79,7 +76,7 @@ impl ClusterDaemon {
     }
 
     fn spawn_watcher(context: &mut ActorContext, name: impl Into<String>, adapter: ActorRef, key: String, options: Option<WatchOptions>, eclient: Client) -> anyhow::Result<()> {
-        context.spawn_actor(Props::create(move |ctx| {
+        context.spawn(Props::create(move |ctx| {
             KeyWatcher::new(
                 ctx.myself().clone(),
                 eclient.clone(),
@@ -95,11 +92,8 @@ impl ClusterDaemon {
         let resp = self.eclient.lease_grant(60, None).await?;
         let lease_id = resp.id();
         let eclient = self.eclient.clone();
-        let receiver = context.message_adapter::<LeaseKeepAliveFailed>(|m| {
-            let m = DynMessage::user(LeaseFailed(m));
-            Ok(m)
-        });
-        context.spawn_actor(
+        let receiver = context.message_adapter(|m| DynMessage::user(LeaseFailed(m)));
+        context.spawn(
             Props::create(move |_| { LeaseKeeper::new(eclient.clone(), resp.id(), receiver.clone(), Duration::from_secs(3)) }),
             "lease_keeper",
         )?;

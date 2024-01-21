@@ -1,6 +1,7 @@
+use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
-use tokio::runtime::Handle;
 
+use tokio::runtime::Handle;
 use tokio::sync::mpsc::channel;
 
 use crate::Actor;
@@ -23,22 +24,34 @@ pub struct Props {
     pub(crate) throughput: usize,
 }
 
+impl Debug for Props {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        f.debug_struct("Props")
+            .field("spawner", &"..")
+            .field("handle", &self.handle)
+            .field("router_config", &self.router_config)
+            .field("mailbox_size", &self.mailbox_size)
+            .field("system_size", &self.system_size)
+            .field("throughput", &self.throughput)
+            .finish()
+    }
+}
+
 impl Props {
     pub fn create<F, A>(f: F) -> Self where F: Fn(&mut ActorContext) -> A + Send + Sync + 'static, A: Actor {
-        let spawn_fn = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem, props: Props| {
-            let mut context = ActorContext::new(myself, system);
+        let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem, props: Props| {
+            let handle = props.handle.clone();
+            let mut context = ActorContext::new(myself, system, props);
             let system = context.system.clone();
             let actor = f(&mut context);
-            let handle = props.handle.clone();
             let runtime = ActorRuntime {
                 actor,
                 context,
                 mailbox,
-                props,
             };
             match handle {
                 None => {
-                    system.spawn_user(runtime.run());
+                    system.user_rt().spawn(runtime.run());
                 }
                 Some(handle) => {
                     handle.spawn(runtime.run());
@@ -46,7 +59,7 @@ impl Props {
             }
         };
         Self {
-            spawner: Arc::new(Box::new(spawn_fn)),
+            spawner: Arc::new(Box::new(spawner)),
             handle: None,
             router_config: None,
             mailbox_size: 10000,

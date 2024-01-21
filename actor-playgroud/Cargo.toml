@@ -22,3 +22,7 @@ clap = { workspace = true, features = ["derive"] }
 [[bin]]
 name = "node"
 path = "src/node.rs"
+
+[[bin]]
+name = "supervisor"
+path = "src/supervisor.rs"

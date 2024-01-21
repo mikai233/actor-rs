@@ -7,7 +7,9 @@ use tokio::task::yield_now;
 use tracing::error;
 
 use crate::{Actor, Message};
+use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_factory::ActorRefFactory;
+use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::mailbox::Mailbox;
 use crate::actor::props::Props;
@@ -18,12 +20,11 @@ pub struct ActorRuntime<A> where A: Actor {
     pub(crate) actor: A,
     pub(crate) context: ActorContext,
     pub(crate) mailbox: Mailbox,
-    pub(crate) props: Props,
 }
 
 impl<A> ActorRuntime<A> where A: Actor {
     pub(crate) async fn run(self) {
-        let Self { mut actor, mut context, mut mailbox, props } = self;
+        let Self { mut actor, mut context, mut mailbox } = self;
         let actor_name = std::any::type_name::<A>();
         if let Err(err) = actor.pre_start(&mut context).await {
             error!("actor {} pre start error {:?}", actor_name, err);
@@ -71,23 +72,23 @@ impl<A> ActorRuntime<A> where A: Actor {
                 }
             }
         }
-        if matches!(context.state, ActorState::Recreate) {
-            //TODO recreate has some problems, how to deal with childrens ?
-            if let Some(err) = actor.pre_restart(&mut context).await.err() {
-                error!("actor {:?} pre restart error {:?}", actor_name, err);
-            }
-            let spawner = props.spawner.clone();
-            spawner(context.myself, mailbox, context.system, props);
-        } else {
-            if let Some(err) = actor.post_stop(&mut context).await.err() {
-                error!("actor {:?} post stop error {:?}", actor_name, err);
-            }
-            mailbox.close();
-            context.state = ActorState::Terminated;
+        if let Some(err) = actor.post_stop(&mut context).await.err() {
+            error!("actor {:?} post stop error {:?}", actor_name, err);
         }
-        for task in context.async_tasks {
+        if matches!(context.state, ActorState::Recreate) {
+            Self::recreate(context.myself, mailbox, context.system, context.props);
+        } else {
+            mailbox.close();
+        }
+        context.state = ActorState::Terminated;
+        for task in context.tasks {
             task.abort();
         }
+    }
+
+    pub(crate) fn recreate(myself: ActorRef, mailbox: Mailbox, system: ActorSystem, props: Props) {
+        let spawner = props.spawner.clone();
+        spawner(myself, mailbox, system, props);
     }
 
     async fn handle_system(context: &mut ActorContext, actor: &mut A, envelope: Envelope) {
