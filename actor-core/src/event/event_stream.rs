@@ -43,7 +43,7 @@ impl EventBus for EventStream {
 
     fn publish(&self, event: Self::Event) -> anyhow::Result<()> {
         if matches!(event.message_type, MessageType::Orphan) {
-            if event.dyn_clone().is_some() {
+            if event.is_cloneable() {
                 if let Some(subscribers) = self.subscriptions.get(event.name()) {
                     subscribers.iter().for_each(|s| {
                         s.tell(event.dyn_clone().unwrap(), ActorRef::no_sender());

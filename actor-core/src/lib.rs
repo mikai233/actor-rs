@@ -119,6 +119,10 @@ impl DynMessage {
         self.boxed.dyn_clone()
     }
 
+    pub fn is_cloneable(&self) -> bool {
+        self.boxed.is_cloneable()
+    }
+
     pub fn user<M>(message: M) -> Self where M: Message {
         let delegate = UserDelegate::new(message);
         DynMessage::new(delegate.name, MessageType::User, delegate)

@@ -4,9 +4,13 @@ use std::future::Future;
 use std::time::Duration;
 
 use anyhow::anyhow;
+use dashmap::mapref::one::MappedRef;
 use serde::{Deserialize, Serialize};
 
 use actor_derive::AsAny;
+
+use crate::actor::actor_system::ActorSystem;
+use crate::actor::extension::Extension;
 
 pub const PHASE_BEFORE_SERVICE_UNBIND: &'static str = "before-service-unbind";
 pub const PHASE_SERVICE_UNBIND: &'static str = "service-unbind";
@@ -23,11 +27,20 @@ pub const PHASE_ACTOR_SYSTEM_TERMINATE: &'static str = "actor-system-terminate";
 
 #[derive(Debug, AsAny)]
 pub struct CoordinatedShutdown {
+    system: ActorSystem,
     phases: HashMap<String, Phase>,
     registered_phases: HashMap<String, PhaseTasks>,
 }
 
 impl CoordinatedShutdown {
+    pub(crate) fn new(system: ActorSystem) -> Self {
+        Self {
+            system,
+            phases: HashMap::new(),
+            registered_phases: HashMap::new(),
+        }
+    }
+
     fn topological_sort(phases: &HashMap<String, Phase>) -> anyhow::Result<Vec<String>> {
         let mut result = vec![];
         let mut unmarked = phases.keys().cloned().chain(phases.values().flat_map(|p| &p.depends_on).cloned()).collect::<BTreeSet<_>>();
@@ -55,7 +68,7 @@ impl CoordinatedShutdown {
         Ok(result)
     }
 
-    fn register<F>(&mut self, phase_name: String, name: String, fut: F) where F: Future<Output=()> + Send + 'static {
+    fn register<F>(&mut self, phase_name: String, name: String, fut: F) where F: Future<Output=()> + Send + Sync + 'static {
         let phase_tasks = self.registered_phases.entry(phase_name).or_insert(PhaseTasks::default());
         let task = TaskDefinition {
             name,
@@ -64,25 +77,58 @@ impl CoordinatedShutdown {
         phase_tasks.tasks.push(task);
     }
 
-    pub fn add_task<F>(&mut self, phase: String, task_name: String, fut: F) -> anyhow::Result<()> where F: Future<Output=()> + Send + 'static {
+    pub fn add_task<F>(&mut self, phase: impl Into<String>, task_name: impl Into<String>, fut: F) -> anyhow::Result<()> where F: Future<Output=()> + Send + Sync + 'static {
+        let phase = phase.into();
+        let known_phases = self.known_phases();
+        if !known_phases.contains(&phase) {
+            return Err(anyhow!("Unknown phase [{}], known phases [{:?}]. All phases (alone with their optional dependencies) mut be defined in configuration",phase, known_phases));
+        }
+        let task_name = task_name.into();
         if task_name.is_empty() {
             return Err(anyhow!("Set a task name when adding tasks to the Coordinated Shutdown. Try to use unique, self-explanatory names."));
         }
-
-        todo!()
+        self.register(phase, task_name, fut);
+        Ok(())
     }
 
-    fn known_phases(&self) -> HashSet<&str> {
+    fn known_phases(&self) -> HashSet<&String> {
+        let mut phases = HashSet::new();
+        for (name, phase) in &self.phases {
+            phases.insert(name);
+            for depends in &phase.depends_on {
+                phases.insert(depends);
+            }
+        }
+        phases
+    }
+
+    pub fn get(system: &ActorSystem) -> MappedRef<&'static str, Box<dyn Extension>, Self> {
+        system.get_extension::<Self>().expect("CoordinatedShutdown extension not found")
+    }
+
+    fn parse_phases(system: &ActorSystem) -> HashMap<String, Phase> {
         todo!()
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct Phase {
-    depends_on: HashSet<String>,
-    timeout: Duration,
-    recover: bool,
-    enabled: bool,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Phase {
+    pub depends_on: HashSet<String>,
+    pub timeout: Duration,
+    pub recover: bool,
+    pub enabled: bool,
+}
+
+impl Default for Phase {
+    fn default() -> Self {
+        Self {
+            depends_on: HashSet::new(),
+            timeout: Duration::from_secs(10),
+            recover: true,
+            enabled: true,
+        }
+    }
 }
 
 #[derive(Default)]
@@ -100,7 +146,7 @@ impl Debug for PhaseTasks {
 
 struct TaskDefinition {
     name: String,
-    task: Box<dyn Future<Output=()> + Send>,
+    task: Box<dyn Future<Output=()> + Send + Sync>,
 }
 
 impl Debug for TaskDefinition {

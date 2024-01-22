@@ -20,6 +20,7 @@ use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::address::Address;
 use crate::actor::config::actor_setting::ActorSetting;
 use crate::actor::config::Config;
+use crate::actor::coordinated_shutdown::CoordinatedShutdown;
 use crate::actor::empty_actor_ref_provider::EmptyActorRefProvider;
 use crate::actor::extension::{ActorExtension, Extension};
 use crate::actor::local_ref::LocalActorRef;
@@ -100,6 +101,9 @@ impl ActorSystem {
         for s in spawns {
             s.spawn(system.clone());
         }
+        system.register_extension(|system| {
+            CoordinatedShutdown::new(system)
+        });
         Ok(system)
     }
 
