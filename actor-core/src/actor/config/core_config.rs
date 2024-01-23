@@ -25,4 +25,38 @@ impl Config for CoreConfig {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+    use crate::actor::config::core_config::CoreConfig;
+    use crate::actor::config::mailbox::Mailbox;
+    use crate::actor::coordinated_shutdown::{Phase, PHASE_BEFORE_SERVICE_UNBIND, PHASE_SERVICE_UNBIND};
 
+    #[test]
+    fn test_config() -> anyhow::Result<()> {
+        let mut config = CoreConfig::default();
+        config.mailbox.insert(
+            "default".to_string(),
+            Mailbox {
+                mailbox_capacity: 5000,
+                stash_capacity: Some(5000),
+                throughput: 50,
+            },
+        );
+        config.phases.insert(
+            PHASE_BEFORE_SERVICE_UNBIND.to_string(),
+            Phase::default(),
+        );
+        let mut depends_on = HashSet::new();
+        depends_on.insert(PHASE_BEFORE_SERVICE_UNBIND.to_string());
+        config.phases.insert(
+            PHASE_SERVICE_UNBIND.to_string(),
+            Phase {
+                depends_on,
+                ..Default::default()
+            },
+        );
+        println!("{}", toml::to_string(&config)?);
+        Ok(())
+    }
+}

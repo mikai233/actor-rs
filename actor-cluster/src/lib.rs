@@ -1,4 +1,4 @@
-pub const ACTOR_CLUSTER_CONFIG: &'static str = include_str!("../cluster.toml");
+pub const CLUSTER_CONFIG: &'static str = include_str!("../cluster.toml");
 
 mod cluster;
 mod cluster_daemon;

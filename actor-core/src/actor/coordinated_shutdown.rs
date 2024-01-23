@@ -11,7 +11,7 @@ use dashmap::mapref::one::{MappedRef, MappedRefMut};
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use serde::{Deserialize, Serialize};
-use tracing::warn;
+use tracing::{info, warn};
 
 use actor_derive::AsAny;
 
@@ -121,6 +121,7 @@ impl CoordinatedShutdown {
     }
 
     pub async fn run(&mut self, reason: Box<dyn Reason>) {
+        info!("run CoordinatedShutdown with reason {:?}", reason);
         let started = self.run_started.swap(true, Ordering::Relaxed);
         if !started {
             for phase_name in &self.ordered_phases {
@@ -200,6 +201,3 @@ impl Reason for ActorSystemTerminateReason {}
 pub struct CtrlCExitReason;
 
 impl Reason for CtrlCExitReason {}
-
-#[cfg(test)]
-mod test {}

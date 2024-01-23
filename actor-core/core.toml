@@ -1,0 +1,22 @@
+[mailbox.default]
+mailbox_capacity = 5000
+stash_capacity = 5000
+throughput = 50
+
+[phases.before-service-unbind]
+depends_on = []
+recover = true
+enabled = true
+
+[phases.before-service-unbind.timeout]
+secs = 10
+nanos = 0
+
+[phases.service-unbind]
+depends_on = ["before-service-unbind"]
+recover = true
+enabled = true
+
+[phases.service-unbind.timeout]
+secs = 10
+nanos = 0

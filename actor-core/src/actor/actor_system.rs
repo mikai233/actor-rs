@@ -10,6 +10,7 @@ use futures::FutureExt;
 use rand::random;
 use tokio::runtime::Runtime;
 use tokio::sync::oneshot::{channel, Receiver, Sender};
+use tracing::info;
 
 use crate::actor::{system_guardian, user_guardian};
 use crate::actor::actor_path::{ActorPath, TActorPath};
@@ -18,6 +19,7 @@ use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::address::Address;
 use crate::actor::config::actor_setting::ActorSetting;
+use crate::actor::config::Config;
 use crate::actor::config::core_config::CoreConfig;
 use crate::actor::coordinated_shutdown::CoordinatedShutdown;
 use crate::actor::empty_actor_ref_provider::EmptyActorRefProvider;
@@ -26,6 +28,7 @@ use crate::actor::local_ref::LocalActorRef;
 use crate::actor::props::Props;
 use crate::actor::root_guardian::{AddShutdownHook, Shutdown};
 use crate::actor::scheduler::{scheduler, SchedulerSender};
+use crate::CORE_CONFIG;
 use crate::event::event_stream::EventStream;
 
 #[derive(Clone)]
@@ -74,6 +77,8 @@ impl Deref for ActorSystem {
 impl ActorSystem {
     pub fn create(name: impl Into<String>, setting: ActorSetting) -> anyhow::Result<Self> {
         let ActorSetting { provider_fn, core_config } = setting;
+        let default_config: CoreConfig = toml::from_str(CORE_CONFIG)?;
+        let core_config = default_config.merge(core_config);
         let system_rt = Self::build_runtime("actor-system");
         let _guard = system_rt.enter();
         let scheduler = scheduler();
