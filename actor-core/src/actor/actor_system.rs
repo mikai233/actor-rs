@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::ops::Deref;
@@ -6,7 +5,7 @@ use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use arc_swap::{ArcSwap, Guard};
-use dashmap::mapref::one::MappedRef;
+use dashmap::mapref::one::{MappedRef, MappedRefMut};
 use futures::FutureExt;
 use rand::random;
 use tokio::runtime::Runtime;
@@ -19,7 +18,7 @@ use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::address::Address;
 use crate::actor::config::actor_setting::ActorSetting;
-use crate::actor::config::Config;
+use crate::actor::config::core_config::CoreConfig;
 use crate::actor::coordinated_shutdown::CoordinatedShutdown;
 use crate::actor::empty_actor_ref_provider::EmptyActorRefProvider;
 use crate::actor::extension::{ActorExtension, Extension};
@@ -45,7 +44,7 @@ pub struct SystemInner {
     scheduler: SchedulerSender,
     event_stream: EventStream,
     extensions: ActorExtension,
-    config: HashMap<&'static str, Box<dyn Config>>,
+    core_config: CoreConfig,
 }
 
 impl Debug for ActorSystem {
@@ -59,7 +58,7 @@ impl Debug for ActorSystem {
             .field("scheduler", &self.scheduler)
             .field("event_stream", &self.event_stream)
             .field("extensions", &self.extensions)
-            .field("config", &self.config)
+            .field("core_config", &self.core_config)
             .finish()
     }
 }
@@ -74,7 +73,7 @@ impl Deref for ActorSystem {
 
 impl ActorSystem {
     pub fn create(name: impl Into<String>, setting: ActorSetting) -> anyhow::Result<Self> {
-        let ActorSetting { provider_fn, config } = setting;
+        let ActorSetting { provider_fn, core_config } = setting;
         let system_rt = Self::build_runtime("actor-system");
         let _guard = system_rt.enter();
         let scheduler = scheduler();
@@ -91,7 +90,7 @@ impl ActorSystem {
             scheduler,
             event_stream: EventStream::default(),
             extensions: ActorExtension::default(),
-            config,
+            core_config,
         };
         let system = Self {
             inner: inner.into(),
@@ -200,12 +199,16 @@ impl ActorSystem {
         self.extensions.get()
     }
 
+    pub fn get_extension_mut<E>(&self) -> Option<MappedRefMut<&'static str, Box<dyn Extension>, E>> where E: Extension {
+        self.extensions.get_mut()
+    }
+
     pub fn uid(&self) -> i64 {
         self.uid
     }
 
-    pub fn get_config<C>(&self) -> Option<&C> where C: Config {
-        self.config.get(std::any::type_name::<C>()).map(|c| c.as_any().downcast_ref::<C>()).unwrap_or_default()
+    pub fn core_config(&self) -> &CoreConfig {
+        &self.core_config
     }
 
     fn build_runtime(name: &str) -> Runtime {

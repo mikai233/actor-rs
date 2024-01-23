@@ -4,13 +4,14 @@ use std::sync::Arc;
 use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::config::Config;
+use crate::actor::config::core_config::CoreConfig;
 use crate::actor::local_actor_ref_provider::LocalActorRefProvider;
 use crate::actor::props::DeferredSpawn;
 
 #[derive(Clone)]
 pub struct ActorSetting {
     pub provider_fn: Arc<Box<dyn Fn(&ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)>>>,
-    pub config: HashMap<&'static str, Box<dyn Config>>,
+    pub core_config: CoreConfig,
 }
 
 impl Default for ActorSetting {
@@ -20,7 +21,7 @@ impl Default for ActorSetting {
         };
         Self {
             provider_fn: Arc::new(Box::new(local_fn)),
-            config: HashMap::new(),
+            core_config: CoreConfig::default(),
         }
     }
 }
@@ -31,8 +32,8 @@ impl ActorSetting {
         self
     }
 
-    pub fn with_config<C>(&mut self, config: C) -> &mut Self where C: Config {
-        self.config.insert(std::any::type_name::<C>(), Box::new(config));
+    pub fn with_config<C>(&mut self, core_config: CoreConfig) -> &mut Self {
+        self.core_config = core_config;
         self
     }
 }

@@ -1,16 +1,23 @@
+use std::any::Any;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use dashmap::mapref::one::MappedRef;
+use dashmap::mapref::one::{MappedRef, MappedRefMut};
+use futures::future::BoxFuture;
+use futures::FutureExt;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use actor_derive::AsAny;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::extension::Extension;
+use crate::ext::as_any::AsAny;
 
 pub const PHASE_BEFORE_SERVICE_UNBIND: &'static str = "before-service-unbind";
 pub const PHASE_SERVICE_UNBIND: &'static str = "service-unbind";
@@ -28,16 +35,19 @@ pub const PHASE_ACTOR_SYSTEM_TERMINATE: &'static str = "actor-system-terminate";
 #[derive(Debug, AsAny)]
 pub struct CoordinatedShutdown {
     system: ActorSystem,
-    phases: HashMap<String, Phase>,
     registered_phases: HashMap<String, PhaseTasks>,
+    ordered_phases: Vec<String>,
+    run_started: AtomicBool,
 }
 
 impl CoordinatedShutdown {
     pub(crate) fn new(system: ActorSystem) -> Self {
+        let ordered_phases = Self::topological_sort(&system.core_config().phases).unwrap();
         Self {
             system,
-            phases: HashMap::new(),
             registered_phases: HashMap::new(),
+            ordered_phases,
+            run_started: AtomicBool::new(false),
         }
     }
 
@@ -72,9 +82,9 @@ impl CoordinatedShutdown {
         let phase_tasks = self.registered_phases.entry(phase_name).or_insert(PhaseTasks::default());
         let task = TaskDefinition {
             name,
-            task: Box::new(fut),
+            fut: fut.boxed(),
         };
-        phase_tasks.tasks.push(task);
+        phase_tasks.tasks.lock().unwrap().push(task);
     }
 
     pub fn add_task<F>(&mut self, phase: impl Into<String>, task_name: impl Into<String>, fut: F) -> anyhow::Result<()> where F: Future<Output=()> + Send + Sync + 'static {
@@ -93,7 +103,7 @@ impl CoordinatedShutdown {
 
     fn known_phases(&self) -> HashSet<&String> {
         let mut phases = HashSet::new();
-        for (name, phase) in &self.phases {
+        for (name, phase) in &self.system.core_config().phases {
             phases.insert(name);
             for depends in &phase.depends_on {
                 phases.insert(depends);
@@ -106,8 +116,29 @@ impl CoordinatedShutdown {
         system.get_extension::<Self>().expect("CoordinatedShutdown extension not found")
     }
 
-    fn parse_phases(system: &ActorSystem) -> HashMap<String, Phase> {
-        todo!()
+    pub fn get_mut(system: &ActorSystem) -> MappedRefMut<&'static str, Box<dyn Extension>, Self> {
+        system.get_extension_mut::<Self>().expect("CoordinatedShutdown extension not found")
+    }
+
+    pub async fn run(&mut self, reason: Box<dyn Reason>) {
+        let started = self.run_started.swap(true, Ordering::Relaxed);
+        if !started {
+            for phase_name in &self.ordered_phases {
+                if let Some(phase) = self.system.core_config().phases.get(phase_name) {
+                    if phase.enabled {
+                        if let Some(phase_task) = self.registered_phases.remove(phase_name) {
+                            let mut task = phase_task.tasks.lock().unwrap();
+                            let tasks = task.drain(..);
+                            for task in tasks {
+                                if let Some(_) = tokio::time::timeout(phase.timeout, task.fut).await.err() {
+                                    warn!("running phase {} task timout after {:?}", phase_name, phase.timeout);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -133,7 +164,7 @@ impl Default for Phase {
 
 #[derive(Default)]
 struct PhaseTasks {
-    tasks: Vec<TaskDefinition>,
+    tasks: Mutex<Vec<TaskDefinition>>,
 }
 
 impl Debug for PhaseTasks {
@@ -146,7 +177,7 @@ impl Debug for PhaseTasks {
 
 struct TaskDefinition {
     name: String,
-    task: Box<dyn Future<Output=()> + Send + Sync>,
+    fut: BoxFuture<'static, ()>,
 }
 
 impl Debug for TaskDefinition {
@@ -157,6 +188,18 @@ impl Debug for TaskDefinition {
             .finish()
     }
 }
+
+pub trait Reason: Debug + Any + AsAny {}
+
+#[derive(Debug, AsAny)]
+pub struct ActorSystemTerminateReason;
+
+impl Reason for ActorSystemTerminateReason {}
+
+#[derive(Debug, AsAny)]
+pub struct CtrlCExitReason;
+
+impl Reason for CtrlCExitReason {}
 
 #[cfg(test)]
 mod test {}

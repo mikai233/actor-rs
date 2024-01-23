@@ -1,4 +1,4 @@
-extern crate core;
+pub const ACTOR_CORE_CONFIG: &'static str = include_str!("../core.toml");
 
 use std::any::Any;
 use std::fmt::{Debug, Formatter};

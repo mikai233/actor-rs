@@ -6,10 +6,9 @@ use dyn_clone::DynClone;
 use crate::ext::as_any::AsAny;
 
 pub mod actor_setting;
-pub mod actor_config;
+pub mod core_config;
+mod mailbox;
 
-pub trait Config: Debug + Send + Sync + Any + AsAny + DynClone {
-    fn with_fallback(&self, fallback: Box<dyn Config>) -> anyhow::Result<Box<dyn Config>>;
+pub trait Config: Debug + Send + Sync + Sized + Clone {
+    fn merge(&self, other: Self) -> Self;
 }
-
-dyn_clone::clone_trait_object!(Config);
