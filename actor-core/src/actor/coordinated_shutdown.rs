@@ -1,23 +1,25 @@
-use std::any::Any;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 use anyhow::anyhow;
 use dashmap::mapref::one::{MappedRef, MappedRefMut};
+use futures::{FutureExt, ready};
 use futures::future::BoxFuture;
-use futures::FutureExt;
+use pin_project::pin_project;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tokio::time::error::Elapsed;
+use tracing::{error, info};
 
 use actor_derive::AsAny;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::extension::Extension;
-use crate::ext::as_any::AsAny;
 
 pub const PHASE_BEFORE_SERVICE_UNBIND: &'static str = "before-service-unbind";
 pub const PHASE_SERVICE_UNBIND: &'static str = "service-unbind";
@@ -35,7 +37,7 @@ pub const PHASE_ACTOR_SYSTEM_TERMINATE: &'static str = "actor-system-terminate";
 #[derive(Debug, AsAny)]
 pub struct CoordinatedShutdown {
     system: ActorSystem,
-    registered_phases: HashMap<String, PhaseTasks>,
+    registered_phases: Mutex<HashMap<String, PhaseTask>>,
     ordered_phases: Vec<String>,
     run_started: AtomicBool,
 }
@@ -43,19 +45,28 @@ pub struct CoordinatedShutdown {
 impl CoordinatedShutdown {
     pub(crate) fn new(system: ActorSystem) -> Self {
         let ordered_phases = Self::topological_sort(&system.core_config().phases).unwrap();
-        Self {
+        let mut coordinated_shutdown = Self {
             system,
-            registered_phases: HashMap::new(),
+            registered_phases: Mutex::default(),
             ordered_phases,
             run_started: AtomicBool::new(false),
-        }
+        };
+        coordinated_shutdown.init_phase_actor_system_terminate();
+        coordinated_shutdown.init_ctrl_c_signal();
+        coordinated_shutdown
     }
 
     fn topological_sort(phases: &HashMap<String, Phase>) -> anyhow::Result<Vec<String>> {
         let mut result = vec![];
         let mut unmarked = phases.keys().cloned().chain(phases.values().flat_map(|p| &p.depends_on).cloned()).collect::<BTreeSet<_>>();
         let mut temp_mark = HashSet::new();
-        fn depth_first_search(result: &mut Vec<String>, phases: &HashMap<String, Phase>, unmarked: &mut BTreeSet<String>, temp_mark: &mut HashSet<String>, u: String) -> anyhow::Result<()> {
+        fn depth_first_search(
+            result: &mut Vec<String>,
+            phases: &HashMap<String, Phase>,
+            unmarked: &mut BTreeSet<String>,
+            temp_mark: &mut HashSet<String>,
+            u: String,
+        ) -> anyhow::Result<()> {
             if temp_mark.contains(&u) {
                 return Err(anyhow!("Cycle detected in graph of phases. It must be a DAG. phase [{}] depends transitively on itself. All dependencies: {:?}", u, phases));
             }
@@ -68,26 +79,32 @@ impl CoordinatedShutdown {
                 }
                 unmarked.remove(&u);
                 temp_mark.remove(&u);
-                result.push(u);
+                result.push(u.clone());
             }
             Ok(())
         }
-        while let Some(head) = unmarked.pop_first() {
+        while let Some(head) = unmarked.first().cloned() {
             depth_first_search(&mut result, phases, &mut unmarked, &mut temp_mark, head)?;
         }
         Ok(result)
     }
 
     fn register<F>(&mut self, phase_name: String, name: String, fut: F) where F: Future<Output=()> + Send + Sync + 'static {
-        let phase_tasks = self.registered_phases.entry(phase_name).or_insert(PhaseTasks::default());
+        let mut registered_phases = self.registered_phases.lock().unwrap();
+        let phase_tasks = registered_phases.entry(phase_name).or_insert(PhaseTask::default());
         let task = TaskDefinition {
             name,
             fut: fut.boxed(),
         };
-        phase_tasks.tasks.lock().unwrap().push(task);
+        phase_tasks.tasks.push(task);
     }
 
-    pub fn add_task<F>(&mut self, phase: impl Into<String>, task_name: impl Into<String>, fut: F) -> anyhow::Result<()> where F: Future<Output=()> + Send + Sync + 'static {
+    pub fn add_task<F>(
+        &mut self,
+        phase: impl Into<String>,
+        task_name: impl Into<String>,
+        fut: F,
+    ) -> anyhow::Result<()> where F: Future<Output=()> + Send + Sync + 'static {
         let phase = phase.into();
         let known_phases = self.known_phases();
         if !known_phases.contains(&phase) {
@@ -120,26 +137,51 @@ impl CoordinatedShutdown {
         system.get_extension_mut::<Self>().expect("CoordinatedShutdown extension not found")
     }
 
-    pub async fn run(&mut self, reason: Box<dyn Reason>) {
-        info!("run CoordinatedShutdown with reason {:?}", reason);
+    pub fn run(&mut self, reason: &dyn Reason) -> impl Future<Output=()> + 'static {
+        let name = self.system.name();
+        info!("{} run CoordinatedShutdown with reason {:?}", name, reason);
+        let mut coordinated_tasks = VecDeque::new();
         let started = self.run_started.swap(true, Ordering::Relaxed);
         if !started {
+            let mut registered_phases = self.registered_phases.lock().unwrap().drain().collect::<HashMap<_, _>>();
             for phase_name in &self.ordered_phases {
                 if let Some(phase) = self.system.core_config().phases.get(phase_name) {
                     if phase.enabled {
-                        if let Some(phase_task) = self.registered_phases.remove(phase_name) {
-                            let mut task = phase_task.tasks.lock().unwrap();
-                            let tasks = task.drain(..);
-                            for task in tasks {
-                                if let Some(_) = tokio::time::timeout(phase.timeout, task.fut).await.err() {
-                                    warn!("running phase {} task timout after {:?}", phase_name, phase.timeout);
-                                }
+                        if let Some(phase_task) = registered_phases.remove(phase_name) {
+                            for task in phase_task.into_inner() {
+                                let task_run = TaskRun {
+                                    phase: phase_name.clone(),
+                                    timeout: phase.timeout,
+                                    task: tokio::time::timeout(phase.timeout, task),
+                                };
+                                coordinated_tasks.push_back(task_run);
                             }
                         }
                     }
                 }
             }
         }
+        async {
+            for task in coordinated_tasks {
+                task.await;
+            }
+        }
+    }
+
+    fn init_phase_actor_system_terminate(&mut self) {
+        self.add_task(PHASE_ACTOR_SYSTEM_TERMINATE, "terminate-system", async {
+            todo!()
+        }).unwrap();
+    }
+
+    fn init_ctrl_c_signal(&self) {
+        let fut = CoordinatedShutdown::get_mut(&self.system).run(&CtrlCExitReason);
+        self.system.system_rt().spawn(async move {
+            if let Some(error) = tokio::signal::ctrl_c().await.err() {
+                error!("ctrl c signal error {}", error);
+            }
+            fut.await;
+        });
     }
 }
 
@@ -148,7 +190,6 @@ impl CoordinatedShutdown {
 pub struct Phase {
     pub depends_on: HashSet<String>,
     pub timeout: Duration,
-    pub recover: bool,
     pub enabled: bool,
 }
 
@@ -157,40 +198,79 @@ impl Default for Phase {
         Self {
             depends_on: HashSet::new(),
             timeout: Duration::from_secs(10),
-            recover: true,
             enabled: true,
         }
     }
 }
 
 #[derive(Default)]
-struct PhaseTasks {
-    tasks: Mutex<Vec<TaskDefinition>>,
+struct PhaseTask {
+    tasks: Vec<TaskDefinition>,
 }
 
-impl Debug for PhaseTasks {
+impl PhaseTask {
+    fn into_inner(self) -> Vec<TaskDefinition> {
+        self.tasks
+    }
+}
+
+impl Debug for PhaseTask {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        f.debug_struct("PhaseTasks")
+        f.debug_struct("PhaseTask")
             .field("tasks", &self.tasks)
             .finish()
     }
 }
 
+#[pin_project]
 struct TaskDefinition {
     name: String,
+    #[pin]
     fut: BoxFuture<'static, ()>,
+}
+
+impl Future for TaskDefinition {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        ready!(this.fut.poll(cx));
+        Poll::Ready(())
+    }
 }
 
 impl Debug for TaskDefinition {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("TaskDefinition")
             .field("name", &self.name)
-            .field("task", &"..")
+            .field("fut", &"..")
             .finish()
     }
 }
 
-pub trait Reason: Debug + Any + AsAny {}
+#[derive(Debug)]
+#[pin_project]
+struct TaskRun {
+    phase: String,
+    timeout: Duration,
+    #[pin]
+    task: tokio::time::Timeout<TaskDefinition>,
+}
+
+impl Future for TaskRun {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        let this = self.project();
+        let r: Result<(), Elapsed> = ready!(this.task.poll(cx));
+        if r.err().is_some() {
+            error!("execute {} task timeout after {:?}", this.phase, this.timeout);
+        }
+        Poll::Ready(())
+    }
+}
+
+pub trait Reason: Debug {}
 
 #[derive(Debug, AsAny)]
 pub struct ActorSystemTerminateReason;

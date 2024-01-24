@@ -5,18 +5,36 @@ throughput = 50
 
 [phases.before-service-unbind]
 depends_on = []
-recover = true
-enabled = true
-
-[phases.before-service-unbind.timeout]
-secs = 10
-nanos = 0
 
 [phases.service-unbind]
 depends_on = ["before-service-unbind"]
-recover = true
-enabled = true
 
-[phases.service-unbind.timeout]
-secs = 10
-nanos = 0
+[phases.service-requests-done]
+depends_on = ["service-unbind"]
+
+[phases.service-stop]
+depends_on = ["service-requests-done"]
+
+[phases.before-cluster-shutdown]
+depends_on = ["service-stop"]
+
+[phases.cluster-sharding-shutdown-region]
+depends_on = ["before-cluster-shutdown"]
+
+[phases.cluster-leave]
+depends_on = ["cluster-sharding-shutdown-region"]
+
+[phases.cluster-exiting]
+depends_on = ["cluster-leave"]
+
+[phases.cluster-exiting-done]
+depends_on = ["cluster-exiting"]
+
+[phases.cluster-shutdown]
+depends_on = ["cluster-exiting-done"]
+
+[phases.before-actor-system-terminate]
+depends_on = ["cluster-shutdown"]
+
+[phases.actor-system-terminate]
+depends_on = ["before-actor-system-terminate"]

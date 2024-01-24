@@ -52,6 +52,7 @@ dependencies = [
  "enum_dispatch",
  "etcd-client",
  "futures",
+ "pin-project",
  "rand",
  "regex",
  "serde",

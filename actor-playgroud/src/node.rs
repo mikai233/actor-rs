@@ -39,6 +39,6 @@ async fn main() -> anyhow::Result<()> {
         ClusterActorRefProvider::new(setting).map(|(c, d)| (c.into(), d))
     });
     let system = ActorSystem::create(args.system_name, setting)?;
-    system.wait_termination().await;
+    system.await;
     Ok(())
 }

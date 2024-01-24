@@ -80,8 +80,7 @@ async fn main() -> anyhow::Result<()> {
     let system2 = ActorSystem::create("mikai233", build_setting("127.0.0.1:12123".parse()?, client.clone()))?;
     tokio::spawn(async move {
         tokio::time::sleep(Duration::from_secs(10)).await;
-        system2.terminate();
-        system2.wait_termination().await;
+        system2.terminate().await;
     });
     // for i in 0..10 {
     //     system1.spawn_actor(Props::create(|_| EmptyTestActor), format!("test_actor_{}", i))?;
@@ -96,6 +95,6 @@ async fn main() -> anyhow::Result<()> {
     //     which.cast_ns(TestMessage);
     //     tokio::time::sleep(Duration::from_secs(1)).await;
     // }
-    system1.wait_termination().await;
+    system1.await;
     Ok(())
 }
