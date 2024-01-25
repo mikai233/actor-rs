@@ -318,14 +318,14 @@ pub(crate) struct ActorSelectionMessage {
 impl ActorSelectionMessage {
     pub(crate) fn new(message: DynMessage, elements: Vec<SelectionPathElement>, wildcard_fan_out: bool) -> anyhow::Result<Self> {
         if message.is_cloneable() {
-            Err(anyhow!("message {} must be cloneable", message.name()))
-        } else {
             let myself = Self {
                 message,
                 elements,
                 wildcard_fan_out,
             };
             Ok(myself)
+        } else {
+            Err(anyhow!("message {} must be cloneable", message.name()))
         }
     }
     pub(crate) fn identify_request(&self) -> Option<&Identify> {

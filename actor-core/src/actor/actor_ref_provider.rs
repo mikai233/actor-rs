@@ -2,6 +2,7 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::sync::Arc;
+use tokio::sync::broadcast::Receiver;
 
 use crate::actor::actor_path::ActorPath;
 use crate::actor::actor_path::TActorPath;
@@ -51,6 +52,8 @@ pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
     }
 
     fn registration(&self) -> Option<&Arc<MessageRegistration>>;
+
+    fn termination_rx(&self) -> Receiver<()>;
 }
 
 #[derive(Debug)]

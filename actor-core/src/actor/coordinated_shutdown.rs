@@ -13,11 +13,11 @@ use futures::{FutureExt, ready};
 use futures::future::BoxFuture;
 use pin_project::pin_project;
 use serde::{Deserialize, Serialize};
-use tokio::time::error::Elapsed;
-use tracing::{error, info};
+use tracing::{debug, error, info, warn};
 
 use actor_derive::AsAny;
 
+use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::extension::Extension;
 
@@ -138,11 +138,11 @@ impl CoordinatedShutdown {
     }
 
     pub fn run(&mut self, reason: &dyn Reason) -> impl Future<Output=()> + 'static {
-        let name = self.system.name();
-        info!("{} run CoordinatedShutdown with reason {:?}", name, reason);
         let mut coordinated_tasks = VecDeque::new();
         let started = self.run_started.swap(true, Ordering::Relaxed);
         if !started {
+            let name = self.system.name();
+            info!("{} run CoordinatedShutdown with reason {:?}", name, reason);
             let mut registered_phases = self.registered_phases.lock().unwrap().drain().collect::<HashMap<_, _>>();
             for phase_name in &self.ordered_phases {
                 if let Some(phase) = self.system.core_config().phases.get(phase_name) {
@@ -150,9 +150,10 @@ impl CoordinatedShutdown {
                         if let Some(phase_task) = registered_phases.remove(phase_name) {
                             for task in phase_task.into_inner() {
                                 let task_run = TaskRun {
+                                    name: task.name,
                                     phase: phase_name.clone(),
                                     timeout: phase.timeout,
-                                    task: tokio::time::timeout(phase.timeout, task),
+                                    task: tokio::time::timeout(phase.timeout, task.fut),
                                 };
                                 coordinated_tasks.push_back(task_run);
                             }
@@ -161,25 +162,38 @@ impl CoordinatedShutdown {
                 }
             }
         }
-        async {
-            for task in coordinated_tasks {
-                task.await;
+        async move {
+            if !started {
+                for task_run in coordinated_tasks {
+                    let TaskRun { name, phase, timeout, task } = task_run;
+                    debug!("start execute coordinated shutdown task {} at phase {}", name, phase);
+                    if task.await.is_err() {
+                        warn!("execute coordinated shutdown task {} at phase {} timeout after {:?}", name, phase, timeout);
+                    };
+                    debug!("execute coordinated shutdown task {} at phase {} done", name, phase);
+                }
+                debug!("execute coordinated shutdown complete");
             }
         }
     }
 
     fn init_phase_actor_system_terminate(&mut self) {
-        self.add_task(PHASE_ACTOR_SYSTEM_TERMINATE, "terminate-system", async {
-            todo!()
+        let system = self.system.clone();
+        self.add_task(PHASE_ACTOR_SYSTEM_TERMINATE, "terminate-system", async move {
+            let provider = system.provider();
+            let mut termination_rx = provider.termination_rx();
+            system.final_terminated();
+            let _ = termination_rx.recv().await;
         }).unwrap();
     }
 
     fn init_ctrl_c_signal(&self) {
-        let fut = CoordinatedShutdown::get_mut(&self.system).run(&CtrlCExitReason);
+        let system = self.system.clone();
         self.system.system_rt().spawn(async move {
             if let Some(error) = tokio::signal::ctrl_c().await.err() {
                 error!("ctrl c signal error {}", error);
             }
+            let fut = { CoordinatedShutdown::get_mut(&system).run(&CtrlCExitReason) };
             fut.await;
         });
     }
@@ -248,26 +262,11 @@ impl Debug for TaskDefinition {
     }
 }
 
-#[derive(Debug)]
-#[pin_project]
 struct TaskRun {
+    name: String,
     phase: String,
     timeout: Duration,
-    #[pin]
-    task: tokio::time::Timeout<TaskDefinition>,
-}
-
-impl Future for TaskRun {
-    type Output = ();
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        let this = self.project();
-        let r: Result<(), Elapsed> = ready!(this.task.poll(cx));
-        if r.err().is_some() {
-            error!("execute {} task timeout after {:?}", this.phase, this.timeout);
-        }
-        Poll::Ready(())
-    }
+    task: tokio::time::Timeout<BoxFuture<'static, ()>>,
 }
 
 pub trait Reason: Debug {}

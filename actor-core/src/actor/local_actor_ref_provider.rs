@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use dashmap::DashMap;
+use tokio::sync::broadcast::{channel, Receiver, Sender};
 
 use actor_derive::AsAny;
 
@@ -35,6 +36,7 @@ pub struct LocalActorRefProvider {
     temp_number: AtomicI64,
     temp_node: ActorPath,
     temp_container: VirtualPathContainer,
+    termination_tx: Sender<()>,
 }
 
 impl LocalActorRefProvider {
@@ -47,8 +49,10 @@ impl LocalActorRefProvider {
                 addr: None,
             }
         });
+        let (termination_tx, _) = channel(1);
         let root_path = RootActorPath::new(address, "/");
-        let root_props = Props::create(|_| { RootGuardian::default() });
+        let termination_tx_c = termination_tx.clone();
+        let root_props = Props::create(move |_| { RootGuardian::new(termination_tx_c.clone()) });
         let (sender, mailbox) = root_props.mailbox();
         let root_guardian = LocalActorRef::new(system.clone(), root_path.clone().into(), sender, ActorCell::new(None));
         spawns.push(Box::new(ActorDeferredSpawn::new(root_guardian.clone().into(), mailbox, root_props)));
@@ -73,6 +77,7 @@ impl LocalActorRefProvider {
             temp_number: AtomicI64::new(0),
             temp_node,
             temp_container,
+            termination_tx,
         };
         Ok((provider, spawns))
     }
@@ -170,6 +175,10 @@ impl TActorRefProvider for LocalActorRefProvider {
 
     fn registration(&self) -> Option<&Arc<MessageRegistration>> {
         None
+    }
+
+    fn termination_rx(&self) -> Receiver<()> {
+        self.termination_tx.subscribe()
     }
 }
 

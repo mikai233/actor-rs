@@ -3,21 +3,19 @@ use std::future::Future;
 use std::ops::Deref;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use arc_swap::{ArcSwap, Guard};
 use dashmap::mapref::one::{MappedRef, MappedRefMut};
-use futures::ready;
+use futures::{FutureExt, ready};
+use futures::future::BoxFuture;
 use pin_project::pin_project;
 use rand::random;
 use tokio::runtime::Runtime;
-use tokio::sync::oneshot::{channel, Receiver, Sender};
 
-use crate::actor::{system_guardian, user_guardian};
 use crate::actor::actor_path::{ActorPath, TActorPath};
-use crate::actor::actor_ref::{ActorRef, ActorRefExt};
+use crate::actor::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::address::Address;
@@ -30,8 +28,11 @@ use crate::actor::extension::{ActorExtension, Extension};
 use crate::actor::local_ref::LocalActorRef;
 use crate::actor::props::Props;
 use crate::actor::scheduler::{scheduler, SchedulerSender};
+use crate::actor::system_guardian::SystemGuardian;
+use crate::actor::user_guardian::UserGuardian;
 use crate::CORE_CONFIG;
 use crate::event::event_stream::EventStream;
+use crate::message::stop_child::StopChild;
 
 #[derive(Clone)]
 pub struct ActorSystem {
@@ -45,8 +46,6 @@ pub struct SystemInner {
     provider: ArcSwap<ActorRefProvider>,
     system_rt: Runtime,
     user_rt: Runtime,
-    signal: ArcSwap<Sender<()>>,
-    terminate_started: AtomicBool,
     scheduler: SchedulerSender,
     event_stream: EventStream,
     extensions: ActorExtension,
@@ -57,6 +56,7 @@ impl Debug for ActorSystem {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("ActorSystem")
             .field("name", &self.name)
+            .field("uid", &self.uid)
             .field("start_time", &self.start_time)
             .field("provider", &self.provider)
             .field("system_rt", &self.system_rt)
@@ -86,7 +86,6 @@ impl ActorSystem {
         let _guard = system_rt.enter();
         let scheduler = scheduler();
         let user_rt = Self::build_runtime("user-system");
-        let (signal_tx, signal_rx) = channel();
         let inner = SystemInner {
             name: name.into(),
             uid: random(),
@@ -94,8 +93,6 @@ impl ActorSystem {
             provider: ArcSwap::new(Arc::new(EmptyActorRefProvider.into())),
             system_rt,
             user_rt,
-            signal: ArcSwap::from_pointee(signal_tx),
-            terminate_started: AtomicBool::new(false),
             scheduler,
             event_stream: EventStream::default(),
             extensions: ActorExtension::default(),
@@ -104,17 +101,21 @@ impl ActorSystem {
         let system = Self {
             inner: inner.into(),
         };
+        let (provider, spawns) = provider_fn(&system)?;
+        let mut termination_rx = provider.termination_rx();
+        system.provider.store(Arc::new(provider));
         system.register_extension(|system| {
             CoordinatedShutdown::new(system)
         });
-        let (provider, spawns) = provider_fn(&system)?;
-        system.provider.store(Arc::new(provider));
         for s in spawns {
             s.spawn(system.clone());
         }
+        let signal = async move {
+            let _ = termination_rx.recv().await;
+        }.boxed();
         let runner = ActorSystemRunner {
             system,
-            signal: signal_rx,
+            signal,
         };
         Ok(runner)
     }
@@ -139,18 +140,12 @@ impl ActorSystem {
         self.start_time
     }
 
-    pub async fn terminate(&self) {
-        let started = self.terminate_started.swap(true, Ordering::Relaxed);
-        if !started {
-            let fut = {
-                CoordinatedShutdown::get_mut(self.system()).run(&ActorSystemTerminateReason)
-            };
-            fut.await;
-        }
+    pub fn terminate(&self) -> impl Future<Output=()> {
+        CoordinatedShutdown::get_mut(self.system()).run(&ActorSystemTerminateReason)
     }
 
-    fn final_terminated(){
-
+    pub(crate) fn final_terminated(&self) {
+        self.provider().root_guardian().stop();
     }
 
     // pub async fn wait_termination(&self) {
@@ -273,21 +268,20 @@ impl ActorRefFactory for ActorSystem {
         let guard = self.guardian();
         let sys = self.system_guardian();
         if parent == guard.path {
-            guard.cast_ns(user_guardian::StopChild { child: actor.clone() });
+            guard.cast_ns(StopChild::<UserGuardian>::new(actor.clone()));
         } else if parent == sys.path {
-            sys.cast_ns(system_guardian::StopChild { child: actor.clone() });
+            sys.cast_ns(StopChild::<SystemGuardian>::new(actor.clone()));
         } else {
             actor.stop();
         }
     }
 }
 
-#[derive(Debug)]
 #[pin_project]
 pub struct ActorSystemRunner {
     pub system: ActorSystem,
     #[pin]
-    signal: Receiver<()>,
+    signal: BoxFuture<'static, ()>,
 }
 
 impl Deref for ActorSystemRunner {
@@ -303,7 +297,7 @@ impl Future for ActorSystemRunner {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let this = self.project();
-        ready!(this.signal.poll(cx));
+        let _ = ready!(this.signal.poll(cx));
         Poll::Ready(())
     }
 }

@@ -11,4 +11,5 @@ pub mod recreate;
 pub mod failed;
 pub(crate) mod identify;
 pub mod message_registration;
+pub mod stop_child;
 

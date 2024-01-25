@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
+use tokio::sync::broadcast::Receiver;
 
 use actor_core::actor::actor_path::ActorPath;
 use actor_core::actor::actor_ref::ActorRef;
@@ -122,6 +123,10 @@ impl TActorRefProvider for ClusterActorRefProvider {
 
     fn registration(&self) -> Option<&Arc<MessageRegistration>> {
         self.remote.registration()
+    }
+
+    fn termination_rx(&self) -> Receiver<()> {
+        self.remote.termination_rx()
     }
 }
 

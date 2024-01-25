@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 use std::sync::Arc;
+use tokio::sync::broadcast::Receiver;
 
 use actor_derive::AsAny;
 
@@ -69,6 +70,10 @@ impl TActorRefProvider for EmptyActorRefProvider {
 
     fn registration(&self) -> Option<&Arc<MessageRegistration>> {
         None
+    }
+
+    fn termination_rx(&self) -> Receiver<()> {
+        unimplemented!()
     }
 }
 

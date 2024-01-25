@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use tokio::sync::broadcast::Receiver;
 
 use actor_core::actor::actor_path::ActorPath;
 use actor_core::actor::actor_path::root_actor_path::RootActorPath;
@@ -134,6 +135,10 @@ impl TActorRefProvider for RemoteActorRefProvider {
 
     fn registration(&self) -> Option<&Arc<MessageRegistration>> {
         Some(&self.registration)
+    }
+
+    fn termination_rx(&self) -> Receiver<()> {
+        self.local.termination_rx()
     }
 }
 
