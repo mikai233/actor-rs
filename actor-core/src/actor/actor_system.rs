@@ -2,7 +2,7 @@ use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::ops::Deref;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -13,6 +13,7 @@ use futures::future::BoxFuture;
 use pin_project::pin_project;
 use rand::random;
 use tokio::runtime::Runtime;
+use tokio::sync::broadcast::{channel, Sender};
 
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref::{ActorRef, ActorRefExt, TActorRef};
@@ -50,6 +51,8 @@ pub struct SystemInner {
     event_stream: EventStream,
     extensions: ActorExtension,
     core_config: CoreConfig,
+    signal: Sender<()>,
+    termination_callbacks: TerminationCallbacks,
 }
 
 impl Debug for ActorSystem {
@@ -65,6 +68,8 @@ impl Debug for ActorSystem {
             .field("event_stream", &self.event_stream)
             .field("extensions", &self.extensions)
             .field("core_config", &self.core_config)
+            .field("signal", &self.signal)
+            .field("termination_callbacks", &self.termination_callbacks)
             .finish()
     }
 }
@@ -86,6 +91,7 @@ impl ActorSystem {
         let _guard = system_rt.enter();
         let scheduler = scheduler();
         let user_rt = Self::build_runtime("user-system");
+        let (signal_tx, mut signal_rx) = channel(1);
         let inner = SystemInner {
             name: name.into(),
             uid: random(),
@@ -97,21 +103,22 @@ impl ActorSystem {
             event_stream: EventStream::default(),
             extensions: ActorExtension::default(),
             core_config,
+            signal: signal_tx,
+            termination_callbacks: TerminationCallbacks::default(),
         };
         let system = Self {
             inner: inner.into(),
         };
         let (provider, spawns) = provider_fn(&system)?;
-        let mut termination_rx = provider.termination_rx();
         system.provider.store(Arc::new(provider));
         system.register_extension(|system| {
             CoordinatedShutdown::new(system)
-        });
+        })?;
         for s in spawns {
-            s.spawn(system.clone());
+            s.spawn(system.clone())?;
         }
         let signal = async move {
-            let _ = termination_rx.recv().await;
+            let _ = signal_rx.recv().await;
         }.boxed();
         let runner = ActorSystemRunner {
             system,
@@ -141,41 +148,25 @@ impl ActorSystem {
     }
 
     pub fn terminate(&self) -> impl Future<Output=()> {
-        CoordinatedShutdown::get_mut(self.system()).run(&ActorSystemTerminateReason)
+        CoordinatedShutdown::get_mut(self.system()).run(ActorSystemTerminateReason)
+    }
+
+    pub(crate) fn when_terminated(&self) -> impl Future<Output=()> + 'static {
+        let callbacks = self.termination_callbacks.run();
+        let signal = self.signal.clone();
+        async move {
+            callbacks.await;
+            let _ = signal.send(());
+        }
     }
 
     pub(crate) fn final_terminated(&self) {
         self.provider().root_guardian().stop();
     }
 
-    // pub async fn wait_termination(&self) {
-    //     let rx = self.signal.write().unwrap().1.take();
-    //     let guardian = self.provider().root_guardian().clone();
-    //     async fn stop(guardian: LocalActorRef) {
-    //         let (tx, rx) = channel();
-    //         guardian.cast(Shutdown { signal: tx }, ActorRef::no_sender());
-    //         let _ = rx.await;
-    //     }
-    //     match rx {
-    //         None => {
-    //             tokio::select! {
-    //                 _ = tokio::signal::ctrl_c() => {
-    //                     stop(guardian).await;
-    //                 }
-    //             }
-    //         }
-    //         Some(rx) => {
-    //             tokio::select! {
-    //                 _ = tokio::signal::ctrl_c() => {
-    //                     stop(guardian).await;
-    //                 }
-    //                 _ = rx => {
-    //                     stop(guardian).await;
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+    pub fn register_on_termination<F>(&self, fut: F) where F: Future<Output=()> + Send + 'static {
+        self.termination_callbacks.add(fut);
+    }
 
     pub fn system_guardian(&self) -> LocalActorRef {
         self.provider().system_guardian().clone()
@@ -202,9 +193,10 @@ impl ActorSystem {
         &self.scheduler
     }
 
-    pub fn register_extension<E, F>(&self, ext_fn: F) where E: Extension, F: Fn(ActorSystem) -> E {
-        let extension = ext_fn(self.clone());
-        self.extensions.register(extension);
+    pub fn register_extension<E, F>(&self, ext_fn: F) -> anyhow::Result<()> where E: Extension, F: Fn(ActorSystem) -> anyhow::Result<E> {
+        let extension = ext_fn(self.clone())?;
+        self.extensions.register(extension)?;
+        Ok(())
     }
 
     pub fn get_extension<E>(&self) -> Option<MappedRef<&'static str, Box<dyn Extension>, E>> where E: Extension {
@@ -299,6 +291,34 @@ impl Future for ActorSystemRunner {
         let this = self.project();
         let _ = ready!(this.signal.poll(cx));
         Poll::Ready(())
+    }
+}
+
+#[derive(Default)]
+struct TerminationCallbacks {
+    callbacks: Mutex<Vec<BoxFuture<'static, ()>>>,
+}
+
+impl TerminationCallbacks {
+    fn add<F>(&self, fut: F) where F: Future<Output=()> + Send + 'static {
+        self.callbacks.lock().unwrap().push(fut.boxed());
+    }
+
+    fn run(&self) -> impl Future<Output=()> + 'static {
+        let callbacks = self.callbacks.lock().unwrap().drain(..).collect::<Vec<_>>();
+        async move {
+            for cb in callbacks {
+                cb.await;
+            }
+        }
+    }
+}
+
+impl Debug for TerminationCallbacks {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        f.debug_struct("TerminationCallbacks")
+            .field("callbacks", &"..")
+            .finish()
     }
 }
 

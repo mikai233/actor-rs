@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
@@ -20,6 +21,7 @@ use actor_derive::AsAny;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::extension::Extension;
+use crate::ext::as_any::AsAny;
 
 pub const PHASE_BEFORE_SERVICE_UNBIND: &'static str = "before-service-unbind";
 pub const PHASE_SERVICE_UNBIND: &'static str = "service-unbind";
@@ -43,17 +45,17 @@ pub struct CoordinatedShutdown {
 }
 
 impl CoordinatedShutdown {
-    pub(crate) fn new(system: ActorSystem) -> Self {
-        let ordered_phases = Self::topological_sort(&system.core_config().phases).unwrap();
-        let mut coordinated_shutdown = Self {
+    pub(crate) fn new(system: ActorSystem) -> anyhow::Result<Self> {
+        let ordered_phases = Self::topological_sort(&system.core_config().phases)?;
+        let mut shutdown = Self {
             system,
             registered_phases: Mutex::default(),
             ordered_phases,
             run_started: AtomicBool::new(false),
         };
-        coordinated_shutdown.init_phase_actor_system_terminate();
-        coordinated_shutdown.init_ctrl_c_signal();
-        coordinated_shutdown
+        shutdown.init_phase_actor_system_terminate()?;
+        shutdown.init_ctrl_c_signal();
+        Ok(shutdown)
     }
 
     fn topological_sort(phases: &HashMap<String, Phase>) -> anyhow::Result<Vec<String>> {
@@ -89,7 +91,7 @@ impl CoordinatedShutdown {
         Ok(result)
     }
 
-    fn register<F>(&mut self, phase_name: String, name: String, fut: F) where F: Future<Output=()> + Send + Sync + 'static {
+    fn register<F>(&mut self, phase_name: String, name: String, fut: F) where F: Future<Output=()> + Send + 'static {
         let mut registered_phases = self.registered_phases.lock().unwrap();
         let phase_tasks = registered_phases.entry(phase_name).or_insert(PhaseTask::default());
         let task = TaskDefinition {
@@ -104,7 +106,7 @@ impl CoordinatedShutdown {
         phase: impl Into<String>,
         task_name: impl Into<String>,
         fut: F,
-    ) -> anyhow::Result<()> where F: Future<Output=()> + Send + Sync + 'static {
+    ) -> anyhow::Result<()> where F: Future<Output=()> + Send + 'static {
         let phase = phase.into();
         let known_phases = self.known_phases();
         if !known_phases.contains(&phase) {
@@ -137,12 +139,11 @@ impl CoordinatedShutdown {
         system.get_extension_mut::<Self>().expect("CoordinatedShutdown extension not found")
     }
 
-    pub fn run(&mut self, reason: &dyn Reason) -> impl Future<Output=()> + 'static {
+    pub fn run<R: Reason>(&mut self, reason: R) -> impl Future<Output=()> + 'static {
         let mut coordinated_tasks = VecDeque::new();
         let started = self.run_started.swap(true, Ordering::Relaxed);
         if !started {
-            let name = self.system.name();
-            info!("{} run CoordinatedShutdown with reason {:?}", name, reason);
+            info!("running CoordinatedShutdown with reason [{:?}]",  reason);
             let mut registered_phases = self.registered_phases.lock().unwrap().drain().collect::<HashMap<_, _>>();
             for phase_name in &self.ordered_phases {
                 if let Some(phase) = self.system.core_config().phases.get(phase_name) {
@@ -166,25 +167,27 @@ impl CoordinatedShutdown {
             if !started {
                 for task_run in coordinated_tasks {
                     let TaskRun { name, phase, timeout, task } = task_run;
-                    debug!("start execute coordinated shutdown task {} at phase {}", name, phase);
+                    debug!("start execute coordinated shutdown task [{}] at phase [{}]", name, phase);
                     if task.await.is_err() {
-                        warn!("execute coordinated shutdown task {} at phase {} timeout after {:?}", name, phase, timeout);
+                        warn!("execute coordinated shutdown task [{}] at phase [{}] timeout after [{:?}]", name, phase, timeout);
                     };
-                    debug!("execute coordinated shutdown task {} at phase {} done", name, phase);
+                    debug!("execute coordinated shutdown task [{}] at phase [{}] done", name, phase);
                 }
                 debug!("execute coordinated shutdown complete");
             }
         }
     }
 
-    fn init_phase_actor_system_terminate(&mut self) {
+    fn init_phase_actor_system_terminate(&mut self) -> anyhow::Result<()> {
         let system = self.system.clone();
         self.add_task(PHASE_ACTOR_SYSTEM_TERMINATE, "terminate-system", async move {
             let provider = system.provider();
             let mut termination_rx = provider.termination_rx();
             system.final_terminated();
             let _ = termination_rx.recv().await;
-        }).unwrap();
+            system.when_terminated().await;
+        })?;
+        Ok(())
     }
 
     fn init_ctrl_c_signal(&self) {
@@ -193,7 +196,7 @@ impl CoordinatedShutdown {
             if let Some(error) = tokio::signal::ctrl_c().await.err() {
                 error!("ctrl c signal error {}", error);
             }
-            let fut = { CoordinatedShutdown::get_mut(&system).run(&CtrlCExitReason) };
+            let fut = { CoordinatedShutdown::get_mut(&system).run(CtrlCExitReason) };
             fut.await;
         });
     }
@@ -269,7 +272,7 @@ struct TaskRun {
     task: tokio::time::Timeout<BoxFuture<'static, ()>>,
 }
 
-pub trait Reason: Debug {}
+pub trait Reason: Debug + Any + AsAny {}
 
 #[derive(Debug, AsAny)]
 pub struct ActorSystemTerminateReason;

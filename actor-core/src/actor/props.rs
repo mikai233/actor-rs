@@ -22,6 +22,7 @@ pub struct Props {
     pub(crate) mailbox_size: usize,
     pub(crate) system_size: usize,
     pub(crate) throughput: usize,
+    pub(crate) mailbox: Option<String>,
 }
 
 impl Debug for Props {
@@ -65,6 +66,7 @@ impl Props {
             mailbox_size: 10000,
             system_size: 10000,
             throughput: 10,
+            mailbox: None,
         }
     }
     pub(crate) fn mailbox(&self) -> (MailboxSender, Mailbox) {
@@ -91,10 +93,15 @@ impl Props {
     pub fn router_config(&self) -> Option<&RouterConfig> {
         self.router_config.as_ref()
     }
+
+    pub fn with_mailbox(&mut self, mailbox: impl Into<String>) -> &mut Self {
+        self.mailbox = Some(mailbox.into());
+        self
+    }
 }
 
 pub trait DeferredSpawn {
-    fn spawn(self: Box<Self>, system: ActorSystem);
+    fn spawn(self: Box<Self>, system: ActorSystem) -> anyhow::Result<()>;
 }
 
 pub struct ActorDeferredSpawn {
@@ -114,19 +121,20 @@ impl ActorDeferredSpawn {
 }
 
 impl DeferredSpawn for ActorDeferredSpawn {
-    fn spawn(self: Box<Self>, system: ActorSystem) {
+    fn spawn(self: Box<Self>, system: ActorSystem) -> anyhow::Result<()> {
         let Self { actor_ref, mailbox, props } = *self;
         let spawner = props.spawner.clone();
         spawner(actor_ref, mailbox, system, props);
+        Ok(())
     }
 }
 
 pub struct FuncDeferredSpawn {
-    func: Box<dyn FnOnce(ActorSystem)>,
+    func: Box<dyn FnOnce(ActorSystem) -> anyhow::Result<()>>,
 }
 
 impl FuncDeferredSpawn {
-    pub fn new<F>(f: F) -> Self where F: FnOnce(ActorSystem) + 'static {
+    pub fn new<F>(f: F) -> Self where F: FnOnce(ActorSystem) -> anyhow::Result<()> + 'static {
         Self {
             func: Box::new(f),
         }
@@ -134,8 +142,9 @@ impl FuncDeferredSpawn {
 }
 
 impl DeferredSpawn for FuncDeferredSpawn {
-    fn spawn(self: Box<Self>, system: ActorSystem) {
+    fn spawn(self: Box<Self>, system: ActorSystem) -> anyhow::Result<()> {
         let Self { func } = *self;
-        func(system);
+        func(system)?;
+        Ok(())
     }
 }

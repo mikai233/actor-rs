@@ -56,8 +56,9 @@ impl ClusterActorRefProvider {
 
     fn register_extension(spawns: &mut Vec<Box<dyn DeferredSpawn>>) {
         let s = FuncDeferredSpawn::new(|system| {
-            system.register_extension(|system| Cluster::new(system));
-            system.register_extension(|system| DistributedPubSub::new(system));
+            system.register_extension(|system| Cluster::new(system))?;
+            system.register_extension(|system| DistributedPubSub::new(system))?;
+            Ok(())
         });
         spawns.push(Box::new(s));
     }

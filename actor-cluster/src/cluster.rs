@@ -60,21 +60,21 @@ impl Debug for Cluster {
 }
 
 impl Cluster {
-    pub fn new(system: ActorSystem) -> Self {
+    pub fn new(system: ActorSystem) -> anyhow::Result<Self> {
         let provider = system.provider();
         let cluster_provider = Self::cluster_provider(&provider);
         let eclient = cluster_provider.eclient.clone();
         let roles = cluster_provider.roles.clone();
         let address = cluster_provider.get_default_address();
-        let unique_address = UniqueAddress {
+        let self_unique_address = UniqueAddress {
             address: address.clone(),
             uid: system.uid(),
         };
         let eclient_c = eclient.clone();
-        let unique_address_c = unique_address.clone();
+        let unique_address_c = self_unique_address.clone();
         let roles_c = roles.clone();
         let transport = cluster_provider.remote.transport.clone();
-        let cluster_daemon = system.spawn_system(Props::create(move |_| {
+        let daemon = system.spawn_system(Props::create(move |_| {
             ClusterDaemon {
                 eclient: eclient_c.clone(),
                 self_addr: unique_address_c.clone(),
@@ -84,18 +84,17 @@ impl Cluster {
                 key_addr: HashMap::new(),
                 cluster: None,
             }
-        }), Some("cluster".to_string()))
-            .expect("Failed to create cluster daemon");
-        let state = ClusterState::new(Member::new(unique_address.clone(), MemberStatus::Down, roles.clone()));
+        }), Some("cluster".to_string()))?;
+        let state = ClusterState::new(Member::new(self_unique_address.clone(), MemberStatus::Down, roles.clone()));
         let inner = ClusterInner {
             system,
             eclient,
-            self_unique_address: unique_address,
+            self_unique_address,
             roles,
-            daemon: cluster_daemon,
+            daemon,
             state,
         };
-        Self { inner: Arc::new(inner) }
+        Ok(Self { inner: Arc::new(inner) })
     }
 
     pub fn get(system: &ActorSystem) -> MappedRef<&'static str, Box<dyn Extension>, Self> {

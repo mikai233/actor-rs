@@ -2,9 +2,9 @@ use std::any::Any;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
+use anyhow::anyhow;
 use dashmap::DashMap;
 use dashmap::mapref::one::{MappedRef, MappedRefMut};
-use tracing::warn;
 
 use crate::ext::as_any::AsAny;
 
@@ -18,13 +18,14 @@ pub struct ActorExtension {
 }
 
 impl ActorExtension {
-    pub fn register<E>(&self, extension: E) where E: Extension {
+    pub fn register<E>(&self, extension: E) -> anyhow::Result<()> where E: Extension {
         let name = std::any::type_name::<E>();
         if !self.extensions.contains_key(name) {
             self.extensions.insert(name, Box::new(extension));
         } else {
-            warn!("actor extension {} already registered", name);
+            return Err(anyhow!("actor extension {} already registered", name));
         }
+        Ok(())
     }
 
     pub fn get<E>(&self) -> Option<MappedRef<&'static str, Box<dyn Extension>, E>> where E: Extension {
@@ -99,9 +100,9 @@ mod test {
     fn test_extension() {
         let extensions = ActorExtension::default();
         assert!(extensions.get::<ExtensionA>().is_none());
-        extensions.register(ExtensionA);
-        extensions.register(ExtensionB);
-        extensions.register(ExtensionB);
+        extensions.register(ExtensionA)?;
+        extensions.register(ExtensionB)?;
+        extensions.register(ExtensionB)?;
         assert!(extensions.get::<ExtensionA>().is_some());
         assert!(extensions.get::<ExtensionB>().is_some());
     }

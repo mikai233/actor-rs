@@ -17,15 +17,16 @@ pub struct DistributedPubSub {
 }
 
 impl DistributedPubSub {
-    pub fn new(system: ActorSystem) -> Self {
+    pub fn new(system: ActorSystem) -> anyhow::Result<Self> {
         let mediator = system.spawn_system(
             Props::create(|_| DistributedPubSubMediator {}),
             Some("distributed_pub_sub_mediator".to_string()),
-        ).expect("Failed to create DistributedPubSubMediator");
-        Self {
+        )?;
+        let myself = Self {
             system,
             mediator,
-        }
+        };
+        Ok(myself)
     }
 
     pub fn get(system: &ActorSystem) -> MappedRef<&'static str, Box<dyn Extension>, Self> {
