@@ -53,7 +53,7 @@ impl LocalActorRefProvider {
         let root_path = RootActorPath::new(address, "/");
         let termination_tx_c = termination_tx.clone();
         let root_props = Props::create(move |_| { RootGuardian::new(termination_tx_c.clone()) });
-        let (sender, mailbox) = root_props.mailbox();
+        let (sender, mailbox) = root_props.mailbox(system)?;
         let root_guardian = LocalActorRef::new(system.clone(), root_path.clone().into(), sender, ActorCell::new(None));
         spawns.push(Box::new(ActorDeferredSpawn::new(root_guardian.clone().into(), mailbox, root_props)));
         let (system_guardian, deferred) = root_guardian

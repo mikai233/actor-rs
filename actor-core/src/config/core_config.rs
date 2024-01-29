@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
-use crate::actor::config::Config;
-use crate::actor::config::mailbox::Mailbox;
+
 use crate::actor::coordinated_shutdown::Phase;
+use crate::config::Config;
+use crate::config::mailbox::Mailbox;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -28,9 +30,10 @@ impl Config for CoreConfig {
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
-    use crate::actor::config::core_config::CoreConfig;
-    use crate::actor::config::mailbox::Mailbox;
+
     use crate::actor::coordinated_shutdown::{Phase, PHASE_BEFORE_SERVICE_UNBIND, PHASE_SERVICE_UNBIND};
+    use crate::config::core_config::CoreConfig;
+    use crate::config::mailbox::Mailbox;
 
     #[test]
     fn test_config() -> anyhow::Result<()> {

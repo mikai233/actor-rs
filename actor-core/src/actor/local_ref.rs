@@ -235,7 +235,7 @@ impl LocalActorRef {
     pub(crate) fn make_child(&self, props: Props, name: Option<String>, start: bool) -> anyhow::Result<(ActorRef, Option<ActorDeferredSpawn>)> {
         let name_is_none = name.is_none();
         let name = name.unwrap_or(random_actor_name());
-        let (sender, mailbox) = props.mailbox();
+        let (sender, mailbox) = props.mailbox(&self.system)?;
         let uid = if name == "system" || name == "user" {
             ActorPath::undefined_uid()
         } else {

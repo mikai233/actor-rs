@@ -15,4 +15,4 @@ mod distributed_pub_sub;
 mod member;
 mod cluster_state;
 mod lease_keeper;
-pub mod cluster_config;
+pub mod config;

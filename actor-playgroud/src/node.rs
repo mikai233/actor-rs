@@ -6,10 +6,13 @@ use etcd_client::Client;
 
 use actor_cluster::cluster_provider::ClusterActorRefProvider;
 use actor_cluster::cluster_setting::ClusterSetting;
+use actor_cluster::config::ClusterConfig;
 use actor_core::actor::actor_system::ActorSystem;
-use actor_core::actor::config::actor_setting::ActorSetting;
+use actor_core::config::actor_setting::ActorSetting;
 use actor_core::ext::init_logger_with_filter;
 use actor_core::message::message_registration::MessageRegistration;
+use actor_remote::config::RemoteConfig;
+use actor_remote::config::transport::{TcpTransport, Transport};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -29,9 +32,12 @@ async fn main() -> anyhow::Result<()> {
     let mut setting = ActorSetting::default();
     setting.with_provider(move |system| {
         let reg = MessageRegistration::new();
+        let config = ClusterConfig {
+            remote: RemoteConfig { transport: Transport::Tcp(TcpTransport { addr: args.addr, buffer: None }) },
+        };
         let setting = ClusterSetting::builder()
             .system(system.clone())
-            .addr(args.addr)
+            .config(config)
             .reg(reg)
             .eclient(client.clone())
             .roles(HashSet::new())

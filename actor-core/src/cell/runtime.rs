@@ -15,6 +15,7 @@ use crate::actor::mailbox::Mailbox;
 use crate::actor::props::Props;
 use crate::actor::state::ActorState;
 use crate::cell::envelope::Envelope;
+use crate::ext::type_name_of;
 
 pub struct ActorRuntime<A> where A: Actor {
     pub(crate) actor: A,
@@ -25,6 +26,7 @@ pub struct ActorRuntime<A> where A: Actor {
 impl<A> ActorRuntime<A> where A: Actor {
     pub(crate) async fn run(self) {
         let Self { mut actor, mut context, mut mailbox } = self;
+        context.stash_capacity = mailbox.stash_capacity;
         let actor_name = std::any::type_name::<A>();
         if let Err(err) = actor.started(&mut context).await {
             error!("actor {} pre start error {:?}", actor_name, err);
@@ -57,13 +59,13 @@ impl<A> ActorRuntime<A> where A: Actor {
                             }
                         }
                         Err(_) => {
-                            Self::handle_failure(&mut context, anyhow!("{} panic", std::any::type_name::<A>()));
+                            Self::handle_failure(&mut context, anyhow!("{} panic", type_name_of::<A>()));
                         }
                     }
-                    context.remove_finished_tasks();
                     throughput += 1;
                     if throughput >= mailbox.throughput {
                         throughput = 0;
+                        context.remove_finished_tasks();
                         yield_now().await;
                     }
                 }

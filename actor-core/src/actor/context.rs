@@ -69,6 +69,7 @@ pub struct ActorContext {
     pub(crate) watching: HashMap<ActorRef, DynMessage>,
     pub(crate) watched_by: HashSet<ActorRef>,
     pub(crate) props: Props,
+    pub(crate) stash_capacity: Option<usize>,
 }
 
 impl ActorRefFactory for ActorContext {
@@ -211,11 +212,20 @@ impl ActorContext {
             watching: HashMap::new(),
             watched_by: HashSet::new(),
             props,
+            stash_capacity: None,
         }
     }
     pub fn stash<M>(&mut self, message: M) where M: Message {
         let sender = self.sender.clone();
         self.stash.push_back((DynMessage::user(message), sender));
+        if let Some(stash_capacity) = self.stash_capacity {
+            if self.stash.len() > stash_capacity {
+                if let Some((oldest, _)) = self.stash.pop_front() {
+                    let name = oldest.name();
+                    warn!("stash buffer reach max size {}, drop oldest message {}", stash_capacity, name);
+                }
+            }
+        }
     }
 
     pub fn unstash(&mut self) -> bool {

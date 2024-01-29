@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::channel;
 
@@ -10,6 +11,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
 use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::cell::runtime::ActorRuntime;
+use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
 use crate::routing::router_config::RouterConfig;
 
 pub type Spawner = Arc<Box<dyn Fn(ActorRef, Mailbox, ActorSystem, Props) + Send + Sync + 'static>>;
@@ -19,9 +21,6 @@ pub struct Props {
     pub(crate) spawner: Spawner,
     pub(crate) handle: Option<Handle>,
     pub(crate) router_config: Option<RouterConfig>,
-    pub(crate) mailbox_size: usize,
-    pub(crate) system_size: usize,
-    pub(crate) throughput: usize,
     pub(crate) mailbox: Option<String>,
 }
 
@@ -31,9 +30,7 @@ impl Debug for Props {
             .field("spawner", &"..")
             .field("handle", &self.handle)
             .field("router_config", &self.router_config)
-            .field("mailbox_size", &self.mailbox_size)
-            .field("system_size", &self.system_size)
-            .field("throughput", &self.throughput)
+            .field("mailbox", &self.mailbox)
             .finish()
     }
 }
@@ -63,15 +60,15 @@ impl Props {
             spawner: Arc::new(Box::new(spawner)),
             handle: None,
             router_config: None,
-            mailbox_size: 10000,
-            system_size: 10000,
-            throughput: 10,
             mailbox: None,
         }
     }
-    pub(crate) fn mailbox(&self) -> (MailboxSender, Mailbox) {
-        let (m_tx, m_rx) = channel(self.mailbox_size);
-        let (s_tx, s_rx) = channel(self.system_size);
+    pub(crate) fn mailbox(&self, system: &ActorSystem) -> anyhow::Result<(MailboxSender, Mailbox)> {
+        let core_config = system.core_config();
+        let mailbox_name = self.mailbox.as_ref().map(|m| m.as_str()).unwrap_or("default");
+        let mailbox = core_config.mailbox.get(mailbox_name).ok_or(anyhow!("mailbox {} config not found", mailbox_name))?;
+        let (m_tx, m_rx) = channel(mailbox.mailbox_capacity);
+        let (s_tx, s_rx) = channel(SYSTEM_MAILBOX_SIZE);
         let sender = MailboxSender {
             message: m_tx,
             system: s_tx,
@@ -79,9 +76,10 @@ impl Props {
         let mailbox = Mailbox {
             message: m_rx,
             system: s_rx,
-            throughput: self.throughput,
+            throughput: mailbox.throughput,
+            stash_capacity: mailbox.stash_capacity,
         };
-        (sender, mailbox)
+        Ok((sender, mailbox))
     }
 
     pub fn with_router(&self, r: Option<RouterConfig>) -> Props {

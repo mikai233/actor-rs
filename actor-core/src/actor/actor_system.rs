@@ -20,9 +20,6 @@ use crate::actor::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::address::Address;
-use crate::actor::config::actor_setting::ActorSetting;
-use crate::actor::config::Config;
-use crate::actor::config::core_config::CoreConfig;
 use crate::actor::coordinated_shutdown::{ActorSystemTerminateReason, CoordinatedShutdown};
 use crate::actor::empty_actor_ref_provider::EmptyActorRefProvider;
 use crate::actor::extension::{ActorExtension, Extension};
@@ -31,6 +28,9 @@ use crate::actor::props::Props;
 use crate::actor::scheduler::{scheduler, SchedulerSender};
 use crate::actor::system_guardian::SystemGuardian;
 use crate::actor::user_guardian::UserGuardian;
+use crate::config::actor_setting::ActorSetting;
+use crate::config::Config;
+use crate::config::core_config::CoreConfig;
 use crate::CORE_CONFIG;
 use crate::event::event_stream::EventStream;
 use crate::message::stop_child::StopChild;
@@ -109,7 +109,8 @@ impl ActorSystem {
         let system = Self {
             inner: inner.into(),
         };
-        let (provider, spawns) = provider_fn(&system)?;
+
+        let (provider, spawns) = anyhow::Context::context(provider_fn(&system), "failed to create actor provider")?;
         system.provider.store(Arc::new(provider));
         system.register_extension(|system| {
             CoordinatedShutdown::new(system)

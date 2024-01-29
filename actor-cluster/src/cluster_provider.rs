@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
+
 use tokio::sync::broadcast::Receiver;
 
 use actor_core::actor::actor_path::ActorPath;
@@ -17,11 +18,13 @@ use actor_remote::remote_setting::RemoteSetting;
 use crate::cluster::Cluster;
 use crate::cluster_heartbeat::{Heartbeat, HeartbeatRsp};
 use crate::cluster_setting::ClusterSetting;
+use crate::config::ClusterConfig;
 use crate::distributed_pub_sub::DistributedPubSub;
 
 #[derive(AsAny)]
 pub struct ClusterActorRefProvider {
     pub remote: RemoteActorRefProvider,
+    pub config: ClusterConfig,
     pub eclient: etcd_client::Client,
     pub roles: HashSet<String>,
 }
@@ -37,16 +40,17 @@ impl Debug for ClusterActorRefProvider {
 
 impl ClusterActorRefProvider {
     pub fn new(setting: ClusterSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
-        let ClusterSetting { system, addr, mut reg, eclient, roles } = setting;
+        let ClusterSetting { system, config, mut reg, eclient, roles } = setting;
         Self::register_system_message(&mut reg);
         let remote_setting = RemoteSetting::builder()
             .reg(reg)
-            .addr(addr)
+            .config(config.remote.clone())
             .system(system.clone())
             .build();
         let (remote, mut spawns) = RemoteActorRefProvider::new(remote_setting)?;
         let cluster = ClusterActorRefProvider {
             remote,
+            config,
             eclient,
             roles,
         };

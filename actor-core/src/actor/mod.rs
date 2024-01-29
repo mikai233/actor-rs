@@ -22,7 +22,6 @@ pub mod actor_system;
 pub mod decoder;
 pub mod address;
 pub mod props;
-pub mod config;
 pub mod fault_handing;
 pub mod actor_selection;
 pub(crate) mod empty_local_ref;

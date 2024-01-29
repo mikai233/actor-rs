@@ -1,7 +1,10 @@
+pub const REMOTE_CONFIG: &'static str = include_str!("../remote.toml");
+
 pub mod remote_provider;
 pub mod net;
 pub mod remote_actor_ref;
 pub mod remote_setting;
+pub mod config;
 
 #[cfg(test)]
 mod test {

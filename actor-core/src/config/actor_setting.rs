@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::config::core_config::CoreConfig;
 use crate::actor::local_actor_ref_provider::LocalActorRefProvider;
 use crate::actor::props::DeferredSpawn;
+use crate::config::core_config::CoreConfig;
 
 #[derive(Clone)]
 pub struct ActorSetting {

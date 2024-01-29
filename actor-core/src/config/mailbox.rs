@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+pub const SYSTEM_MAILBOX_SIZE: usize = 500;
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Mailbox {

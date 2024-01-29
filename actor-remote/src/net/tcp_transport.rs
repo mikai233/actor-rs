@@ -21,6 +21,7 @@ use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::ext::decode_bytes;
 use actor_core::message::message_registration::MessageRegistration;
+use crate::config::transport::TcpTransport;
 
 use crate::net::codec::PacketCodec;
 use crate::net::connection::ConnectionTx;
@@ -75,7 +76,7 @@ impl Actor for TransportActor {
 
 
 impl TransportActor {
-    pub fn new(system: ActorSystem) -> Self {
+    pub fn new(system: ActorSystem, transport: TcpTransport) -> Self {
         let provider = system.provider_full();
         let registration = provider
             .registration()
@@ -156,12 +157,14 @@ mod test {
     use actor_core::actor::actor_ref::ActorRefExt;
     use actor_core::actor::actor_ref_factory::ActorRefFactory;
     use actor_core::actor::actor_system::ActorSystem;
-    use actor_core::actor::config::actor_setting::ActorSetting;
     use actor_core::actor::context::{ActorContext, Context};
     use actor_core::actor::deferred_ref::Patterns;
     use actor_core::actor::props::Props;
+    use actor_core::config::actor_setting::ActorSetting;
     use actor_core::message::message_registration::MessageRegistration;
     use actor_derive::{EmptyCodec, MessageCodec, OrphanCodec};
+    use crate::config::RemoteConfig;
+    use crate::config::transport::Transport;
 
     use crate::remote_provider::RemoteActorRefProvider;
     use crate::remote_setting::RemoteSetting;
@@ -233,7 +236,7 @@ mod test {
             reg.register_user::<MessageToAns>();
             let setting = RemoteSetting::builder()
                 .system(system.clone())
-                .addr(addr)
+                .config(RemoteConfig { transport: Transport::tcp(addr, None) })
                 .reg(reg)
                 .build();
             RemoteActorRefProvider::new(setting).map(|(r, d)| (r.into(), d))
