@@ -22,3 +22,6 @@ dashmap = { workspace = true, features = ["inline"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 toml = { workspace = true }
+
+[dev-dependencies]
+ctor = { workspace = true }

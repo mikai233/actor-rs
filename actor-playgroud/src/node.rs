@@ -34,13 +34,13 @@ async fn main() -> anyhow::Result<()> {
         let reg = MessageRegistration::new();
         let config = ClusterConfig {
             remote: RemoteConfig { transport: Transport::Tcp(TcpTransport { addr: args.addr, buffer: None }) },
+            roles: HashSet::new(),
         };
         let setting = ClusterSetting::builder()
             .system(system.clone())
             .config(config)
             .reg(reg)
             .eclient(client.clone())
-            .roles(HashSet::new())
             .build();
         ClusterActorRefProvider::new(setting).map(|(c, d)| (c.into(), d))
     });

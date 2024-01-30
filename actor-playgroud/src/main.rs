@@ -1,6 +1,3 @@
-mod node;
-
-use std::collections::HashSet;
 use std::net::SocketAddrV4;
 use std::time::Duration;
 
@@ -24,7 +21,9 @@ use actor_core::ext::init_logger_with_filter;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_derive::{CMessageCodec, MessageCodec, OrphanCodec};
 use actor_remote::config::RemoteConfig;
-use actor_remote::config::transport::{TcpTransport, Transport};
+use actor_remote::config::transport::Transport;
+
+mod node;
 
 #[derive(Encode, Decode, MessageCodec)]
 struct MessageToAsk;
@@ -68,13 +67,13 @@ fn build_setting(addr: SocketAddrV4, eclient: Client) -> ActorSetting {
         reg.register_user::<TestMessage>();
         let config = ClusterConfig {
             remote: RemoteConfig { transport: Transport::tcp(addr, None) },
+            roles: Default::default(),
         };
         let setting = ClusterSetting::builder()
             .system(system.clone())
             .config(config)
             .reg(reg)
             .eclient(eclient.clone())
-            .roles(HashSet::new())
             .build();
         ClusterActorRefProvider::new(setting).map(|(c, d)| (c.into(), d))
     });

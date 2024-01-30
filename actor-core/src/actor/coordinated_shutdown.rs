@@ -120,15 +120,16 @@ impl CoordinatedShutdown {
         Ok(())
     }
 
-    fn known_phases(&self) -> HashSet<&String> {
-        let mut phases = HashSet::new();
-        for (name, phase) in &self.system.core_config().phases {
-            phases.insert(name);
+    fn known_phases(&self) -> HashSet<String> {
+        let mut know_phases = HashSet::new();
+        let phases = self.system.core_config().phases.clone();
+        for (name, phase) in phases {
+            know_phases.insert(name);
             for depends in &phase.depends_on {
-                phases.insert(depends);
+                know_phases.insert(depends.clone());
             }
         }
-        phases
+        know_phases
     }
 
     pub fn get(system: &ActorSystem) -> MappedRef<&'static str, Box<dyn Extension>, Self> {

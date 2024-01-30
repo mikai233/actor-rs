@@ -7,6 +7,7 @@ use dashmap::DashMap;
 use dashmap::mapref::one::{MappedRef, MappedRefMut};
 
 use crate::ext::as_any::AsAny;
+use crate::ext::type_name_of;
 
 pub trait Extension: Any + AsAny + Send + Sync {}
 
@@ -19,7 +20,7 @@ pub struct ActorExtension {
 
 impl ActorExtension {
     pub fn register<E>(&self, extension: E) -> anyhow::Result<()> where E: Extension {
-        let name = std::any::type_name::<E>();
+        let name = type_name_of::<E>();
         if !self.extensions.contains_key(name) {
             self.extensions.insert(name, Box::new(extension));
         } else {
@@ -29,7 +30,7 @@ impl ActorExtension {
     }
 
     pub fn get<E>(&self) -> Option<MappedRef<&'static str, Box<dyn Extension>, E>> where E: Extension {
-        let name = std::any::type_name::<E>();
+        let name = type_name_of::<E>();
         let extension = self.extensions
             .get(name)
             .and_then(|e| {
@@ -45,7 +46,7 @@ impl ActorExtension {
     }
 
     pub fn get_mut<E>(&self) -> Option<MappedRefMut<&'static str, Box<dyn Extension>, E>> where E: Extension {
-        let name = std::any::type_name::<E>();
+        let name = type_name_of::<E>();
         let extension = self.extensions
             .get_mut(name)
             .and_then(|e| {
@@ -97,13 +98,13 @@ mod test {
     struct ExtensionB;
 
     #[test]
-    fn test_extension() {
+    fn test_extension() -> anyhow::Result<()> {
         let extensions = ActorExtension::default();
         assert!(extensions.get::<ExtensionA>().is_none());
         extensions.register(ExtensionA)?;
         extensions.register(ExtensionB)?;
-        extensions.register(ExtensionB)?;
         assert!(extensions.get::<ExtensionA>().is_some());
         assert!(extensions.get::<ExtensionB>().is_some());
+        Ok(())
     }
 }

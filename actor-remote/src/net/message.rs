@@ -21,7 +21,7 @@ use actor_derive::EmptyCodec;
 
 use crate::net::codec::PacketCodec;
 use crate::net::connection::{Connection, ConnectionTx};
-use crate::net::tcp_transport::{ConnectionStatus, TransportActor};
+use crate::net::tcp_transport::{ConnectionStatus, TcpTransportActor};
 
 #[derive(Debug)]
 pub struct RemoteEnvelope {
@@ -67,7 +67,7 @@ impl Connect {
 
 #[async_trait]
 impl Message for Connect {
-    type A = TransportActor;
+    type A = TcpTransportActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { addr, opts } = *self;
@@ -102,7 +102,7 @@ pub struct Connected {
 
 #[async_trait]
 impl Message for Connected {
-    type A = TransportActor;
+    type A = TcpTransportActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.connections.insert(self.addr, ConnectionStatus::Connected(self.tx));
@@ -123,7 +123,7 @@ pub struct Disconnect {
 
 #[async_trait]
 impl Message for Disconnect {
-    type A = TransportActor;
+    type A = TcpTransportActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if let Some(ConnectionStatus::Connecting(handle)) = actor.connections.remove(&self.addr) {
@@ -142,7 +142,7 @@ pub struct SpawnInbound {
 
 #[async_trait]
 impl Message for SpawnInbound {
-    type A = TransportActor;
+    type A = TcpTransportActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         context.spawn_task(self.fut);
@@ -157,7 +157,7 @@ pub struct InboundMessage {
 
 #[async_trait]
 impl Message for InboundMessage {
-    type A = TransportActor;
+    type A = TcpTransportActor;
 
     async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let RemotePacket {
@@ -184,7 +184,7 @@ pub struct OutboundMessage {
 
 #[async_trait]
 impl Message for OutboundMessage {
-    type A = TransportActor;
+    type A = TcpTransportActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let addr: SocketAddr = self.envelope.target.path().address().addr.map(|a| a.into()).ok_or(anyhow!("socket addr not set"))?;
@@ -193,12 +193,12 @@ impl Message for OutboundMessage {
             ConnectionStatus::NotConnected => {
                 debug!("connection to {} not established, stash {} and start connect", addr, self.name);
                 context.myself().cast_ns(Connect::with_infinite_retry(addr));
-                Self::A::stash_message(&mut actor.buffer, addr, *self, context.sender().cloned());
+                Self::A::stash_message(&mut actor.buffer, &actor.transport, addr, *self, context.sender().cloned());
                 *sender = ConnectionStatus::PrepareForConnect;
             }
             ConnectionStatus::PrepareForConnect | ConnectionStatus::Connecting(_) => {
                 debug!("connection to {} is establishing, stash {} and wait it established", addr, self.name);
-                Self::A::stash_message(&mut actor.buffer, addr, *self, context.sender().cloned());
+                Self::A::stash_message(&mut actor.buffer, &actor.transport, addr, *self, context.sender().cloned());
             }
             ConnectionStatus::Connected(tx) => {
                 if let Some(error) = tx.try_send(self.envelope).err() {

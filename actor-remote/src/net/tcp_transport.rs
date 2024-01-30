@@ -3,7 +3,6 @@ use std::fmt::Debug;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use async_trait::async_trait;
 use futures::StreamExt;
 use quick_cache::unsync::Cache;
@@ -21,21 +20,22 @@ use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::ext::decode_bytes;
 use actor_core::message::message_registration::MessageRegistration;
-use crate::config::transport::TcpTransport;
 
+use crate::config::transport::TcpTransport;
 use crate::net::codec::PacketCodec;
 use crate::net::connection::ConnectionTx;
 use crate::net::message::{InboundMessage, OutboundMessage, RemotePacket, SpawnInbound};
 
-pub const BUFFER_SIZE: usize = 10000;
+pub const ACTOR_REF_CACHE: usize = 10000;
 
 #[derive(Debug)]
-pub struct TransportActor {
-    pub connections: HashMap<SocketAddr, ConnectionStatus>,
-    pub actor_ref_cache: Cache<String, ActorRef>,
-    pub provider: Arc<ActorRefProvider>,
-    pub registration: MessageRegistration,
-    pub buffer: HashMap<SocketAddr, VecDeque<(DynMessage, Option<ActorRef>)>>,
+pub struct TcpTransportActor {
+    pub(crate) transport: TcpTransport,
+    pub(crate) connections: HashMap<SocketAddr, ConnectionStatus>,
+    pub(crate) actor_ref_cache: Cache<String, ActorRef>,
+    pub(crate) provider: Arc<ActorRefProvider>,
+    pub(crate) registration: MessageRegistration,
+    pub(crate) buffer: HashMap<SocketAddr, VecDeque<(DynMessage, Option<ActorRef>)>>,
 }
 
 #[derive(Debug)]
@@ -47,20 +47,20 @@ pub enum ConnectionStatus {
 }
 
 #[async_trait]
-impl Actor for TransportActor {
+impl Actor for TcpTransportActor {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let myself = context.myself().clone();
-        let address = context.system().address().clone();
-        let addr = address.addr.ok_or(anyhow!("socket addr not set"))?;
+        let addr = self.transport.addr;
         context.spawn_task(async move {
             let tcp_listener = TcpListener::bind(addr).await.unwrap();
-            info!("{} start listening", address);
+            //TODO shutdown system when bind error
+            info!("{} start listening", addr);
             loop {
                 match tcp_listener.accept().await {
                     Ok((stream, peer_addr)) => {
                         let actor = myself.clone();
                         let connection_fut = async move {
-                            TransportActor::accept_inbound_connection(stream, peer_addr, actor).await;
+                            TcpTransportActor::accept_inbound_connection(stream, peer_addr, actor).await;
                         };
                         myself.cast_ns(SpawnInbound { fut: Box::pin(connection_fut) });
                     }
@@ -75,7 +75,7 @@ impl Actor for TransportActor {
 }
 
 
-impl TransportActor {
+impl TcpTransportActor {
     pub fn new(system: ActorSystem, transport: TcpTransport) -> Self {
         let provider = system.provider_full();
         let registration = provider
@@ -83,8 +83,9 @@ impl TransportActor {
             .map(|r| (**r).clone())
             .expect("message registration not found");
         Self {
+            transport,
             connections: HashMap::new(),
-            actor_ref_cache: Cache::new(1000),
+            actor_ref_cache: Cache::new(ACTOR_REF_CACHE),
             provider,
             registration,
             buffer: HashMap::new(),
@@ -133,12 +134,14 @@ impl TransportActor {
         }
     }
 
-    pub fn stash_message(buffer: &mut HashMap<SocketAddr, VecDeque<(DynMessage, Option<ActorRef>)>>, addr: SocketAddr, msg: OutboundMessage, sender: Option<ActorRef>) {
+    pub fn stash_message(buffer: &mut HashMap<SocketAddr, VecDeque<(DynMessage, Option<ActorRef>)>>, transport: &TcpTransport, addr: SocketAddr, msg: OutboundMessage, sender: Option<ActorRef>) {
         let buffer = buffer.entry(addr).or_insert(VecDeque::with_capacity(10));
         buffer.push_back((DynMessage::user(msg), sender));
-        if buffer.len() >= BUFFER_SIZE {
-            if let Some((message, _)) = buffer.pop_front() {
-                warn!("stash buffer is going to large than {}, drop the oldest message {}", BUFFER_SIZE, message.name());
+        if let Some(buffer_len) = transport.buffer {
+            if buffer.len() > buffer_len {
+                if let Some((message, _)) = buffer.pop_front() {
+                    warn!("stash buffer is going to large than {}, drop the oldest message {}", buffer_len, message.name());
+                }
             }
         }
     }
@@ -163,9 +166,9 @@ mod test {
     use actor_core::config::actor_setting::ActorSetting;
     use actor_core::message::message_registration::MessageRegistration;
     use actor_derive::{EmptyCodec, MessageCodec, OrphanCodec};
+
     use crate::config::RemoteConfig;
     use crate::config::transport::Transport;
-
     use crate::remote_provider::RemoteActorRefProvider;
     use crate::remote_setting::RemoteSetting;
 

@@ -20,9 +20,9 @@ use actor_derive::AsAny;
 use crate::config::RemoteConfig;
 use crate::config::transport::Transport;
 
-use crate::net::tcp_transport::TransportActor;
+use crate::net::tcp_transport::TcpTransportActor;
 use crate::remote_actor_ref::RemoteActorRef;
-use crate::REMOTE_CONFIG;
+use crate::{REMOTE_CONFIG, REMOTE_CONFIG_NAME};
 use crate::remote_setting::RemoteSetting;
 
 #[derive(Debug, AsAny)]
@@ -30,15 +30,15 @@ pub struct RemoteActorRefProvider {
     pub local: LocalActorRefProvider,
     pub address: Address,
     pub transport: ActorRef,
-    pub config: RemoteConfig,
     pub registration: Arc<MessageRegistration>,
 }
 
 impl RemoteActorRefProvider {
     pub fn new(setting: RemoteSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
         let RemoteSetting { system, config, reg } = setting;
-        let default_config: RemoteConfig = toml::from_str(REMOTE_CONFIG).context("aaaaaaaaaaaaaaaaaaaaaaaaaaa")?;
-        let remote_config = default_config.merge(config);
+        let default_config: RemoteConfig = toml::from_str(REMOTE_CONFIG).context(format!("failed to load {}", REMOTE_CONFIG_NAME))?;
+        let remote_config = config.with_fallback(default_config);
+        let transport = remote_config.transport.clone();
         let address = match &remote_config.transport {
             Transport::Tcp(tcp) => {
                 Address {
@@ -51,25 +51,25 @@ impl RemoteActorRefProvider {
                 unimplemented!("kcp transport not unimplemented");
             }
         };
+        system.add_config(remote_config)?;
 
         let (local, mut spawns) = LocalActorRefProvider::new(&system, Some(address.clone()))?;
-        let (transport, deferred) = RemoteActorRefProvider::spawn_transport(&local, remote_config.clone())?;
+        let (transport, deferred) = RemoteActorRefProvider::spawn_transport(&local, transport)?;
         deferred.into_foreach(|d| spawns.push(Box::new(d)));
         let remote = Self {
             local,
             address,
             transport,
-            config: remote_config,
             registration: Arc::new(reg),
         };
         Ok((remote, spawns))
     }
 
-    pub(crate) fn spawn_transport(provider: &LocalActorRefProvider, config: RemoteConfig) -> anyhow::Result<(ActorRef, Option<ActorDeferredSpawn>)> {
-        match config.transport {
+    pub(crate) fn spawn_transport(provider: &LocalActorRefProvider, transport: Transport) -> anyhow::Result<(ActorRef, Option<ActorDeferredSpawn>)> {
+        match transport {
             Transport::Tcp(tcp) => {
                 provider.system_guardian().attach_child(
-                    Props::create(move |context| TransportActor::new(context.system().clone(), tcp.clone())),
+                    Props::create(move |context| TcpTransportActor::new(context.system().clone(), tcp.clone())),
                     Some("tcp_transport".to_string()),
                     false,
                 )

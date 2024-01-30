@@ -1,21 +1,22 @@
 use serde::{Deserialize, Serialize};
 use actor_core::config::Config;
+use actor_derive::AsAny;
 
 
 use crate::config::transport::Transport;
 
 pub mod transport;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, AsAny)]
 pub struct RemoteConfig {
     pub transport: Transport,
 }
 
 impl Config for RemoteConfig {
-    fn merge(&self, other: Self) -> Self {
-        let RemoteConfig { transport } = other;
+    fn with_fallback(&self, other: Self) -> Self {
+        let RemoteConfig { .. } = other;
         Self {
-            transport,
+            transport: self.transport.clone(),
         }
     }
 }

@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use actor_derive::AsAny;
 
 use crate::actor::coordinated_shutdown::Phase;
 use crate::config::Config;
 use crate::config::mailbox::Mailbox;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, AsAny)]
 #[serde(default)]
 pub struct CoreConfig {
     pub mailbox: HashMap<String, Mailbox>,
@@ -14,15 +15,13 @@ pub struct CoreConfig {
 }
 
 impl Config for CoreConfig {
-    fn merge(&self, other: Self) -> Self {
-        let CoreConfig { mailbox, phases } = other;
-        let mut merged_mailbox = self.mailbox.clone();
-        merged_mailbox.extend(mailbox);
-        let mut merged_phases = self.phases.clone();
-        merged_phases.extend(phases);
+    fn with_fallback(&self, other: Self) -> Self {
+        let CoreConfig { mut mailbox, mut phases } = other;
+        mailbox.extend(self.mailbox.clone());
+        phases.extend(self.phases.clone());
         Self {
-            mailbox: merged_mailbox,
-            phases: merged_phases,
+            mailbox,
+            phases,
         }
     }
 }

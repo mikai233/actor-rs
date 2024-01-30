@@ -1,4 +1,5 @@
-pub const CORE_CONFIG: &'static str = include_str!("../core.toml");
+pub(crate) const CORE_CONFIG_NAME: &'static str = "core.toml";
+pub(crate) const CORE_CONFIG: &'static str = include_str!("../core.toml");
 
 use std::any::Any;
 use std::fmt::{Debug, Formatter};

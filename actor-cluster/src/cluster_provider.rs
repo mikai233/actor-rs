@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
+use anyhow::Context;
 use tokio::sync::broadcast::Receiver;
 
 use actor_core::actor::actor_path::ActorPath;
@@ -10,11 +11,13 @@ use actor_core::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider}
 use actor_core::actor::address::Address;
 use actor_core::actor::local_ref::LocalActorRef;
 use actor_core::actor::props::{DeferredSpawn, FuncDeferredSpawn, Props};
+use actor_core::config::Config;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_derive::AsAny;
 use actor_remote::remote_provider::RemoteActorRefProvider;
 use actor_remote::remote_setting::RemoteSetting;
 
+use crate::{CLUSTER_CONFIG, CLUSTER_CONFIG_NAME};
 use crate::cluster::Cluster;
 use crate::cluster_heartbeat::{Heartbeat, HeartbeatRsp};
 use crate::cluster_setting::ClusterSetting;
@@ -24,7 +27,6 @@ use crate::distributed_pub_sub::DistributedPubSub;
 #[derive(AsAny)]
 pub struct ClusterActorRefProvider {
     pub remote: RemoteActorRefProvider,
-    pub config: ClusterConfig,
     pub eclient: etcd_client::Client,
     pub roles: HashSet<String>,
 }
@@ -40,17 +42,21 @@ impl Debug for ClusterActorRefProvider {
 
 impl ClusterActorRefProvider {
     pub fn new(setting: ClusterSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
-        let ClusterSetting { system, config, mut reg, eclient, roles } = setting;
+        let ClusterSetting { system, config, mut reg, eclient } = setting;
+        let default_config: ClusterConfig = toml::from_str(CLUSTER_CONFIG).context(format!("failed to load {}", CLUSTER_CONFIG_NAME))?;
+        let cluster_config = config.with_fallback(default_config);
+        let remote_config = cluster_config.remote.clone();
+        let roles = cluster_config.roles.clone();
+        system.add_config(cluster_config)?;
         Self::register_system_message(&mut reg);
         let remote_setting = RemoteSetting::builder()
             .reg(reg)
-            .config(config.remote.clone())
+            .config(remote_config)
             .system(system.clone())
             .build();
         let (remote, mut spawns) = RemoteActorRefProvider::new(remote_setting)?;
         let cluster = ClusterActorRefProvider {
             remote,
-            config,
             eclient,
             roles,
         };

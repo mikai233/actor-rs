@@ -94,10 +94,10 @@ mod test {
     use crate::actor::actor_ref::ActorRefExt;
     use crate::actor::actor_ref_factory::ActorRefFactory;
     use crate::actor::actor_system::ActorSystem;
-    use crate::actor::config::actor_setting::ActorSetting;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::fault_handing::OneForOneStrategy;
     use crate::actor::props::Props;
+    use crate::config::actor_setting::ActorSetting;
     use crate::ext::init_logger;
     use crate::routing::round_robin::RoundRobinPool;
     use crate::routing::router::ActorRefRoutee;

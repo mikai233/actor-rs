@@ -5,6 +5,7 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
+use anyhow::Context as AnyhowContext;
 
 use arc_swap::{ArcSwap, Guard};
 use dashmap::mapref::one::{MappedRef, MappedRefMut};
@@ -29,17 +30,19 @@ use crate::actor::scheduler::{scheduler, SchedulerSender};
 use crate::actor::system_guardian::SystemGuardian;
 use crate::actor::user_guardian::UserGuardian;
 use crate::config::actor_setting::ActorSetting;
-use crate::config::Config;
+use crate::config::{ActorConfig, Config};
 use crate::config::core_config::CoreConfig;
-use crate::CORE_CONFIG;
+use crate::{CORE_CONFIG, CORE_CONFIG_NAME};
 use crate::event::event_stream::EventStream;
+use crate::ext::type_name_of;
 use crate::message::stop_child::StopChild;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ActorSystem {
     inner: Arc<SystemInner>,
 }
 
+#[derive(Debug)]
 pub struct SystemInner {
     name: String,
     uid: i64,
@@ -49,30 +52,30 @@ pub struct SystemInner {
     user_rt: Runtime,
     scheduler: SchedulerSender,
     event_stream: EventStream,
-    extensions: ActorExtension,
-    core_config: CoreConfig,
+    extension: ActorExtension,
+    config: ActorConfig,
     signal: Sender<()>,
     termination_callbacks: TerminationCallbacks,
 }
 
-impl Debug for ActorSystem {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        f.debug_struct("ActorSystem")
-            .field("name", &self.name)
-            .field("uid", &self.uid)
-            .field("start_time", &self.start_time)
-            .field("provider", &self.provider)
-            .field("system_rt", &self.system_rt)
-            .field("user_rt", &self.user_rt)
-            .field("scheduler", &self.scheduler)
-            .field("event_stream", &self.event_stream)
-            .field("extensions", &self.extensions)
-            .field("core_config", &self.core_config)
-            .field("signal", &self.signal)
-            .field("termination_callbacks", &self.termination_callbacks)
-            .finish()
-    }
-}
+// impl Debug for ActorSystem {
+//     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+//         f.debug_struct("ActorSystem")
+//             .field("name", &self.name)
+//             .field("uid", &self.uid)
+//             .field("start_time", &self.start_time)
+//             .field("provider", &self.provider)
+//             .field("system_rt", &self.system_rt)
+//             .field("user_rt", &self.user_rt)
+//             .field("scheduler", &self.scheduler)
+//             .field("event_stream", &self.event_stream)
+//             .field("extension", &self.extension)
+//             .field("config", &self.config)
+//             .field("signal", &self.signal)
+//             .field("termination_callbacks", &self.termination_callbacks)
+//             .finish()
+//     }
+// }
 
 impl Deref for ActorSystem {
     type Target = Arc<SystemInner>;
@@ -85,8 +88,8 @@ impl Deref for ActorSystem {
 impl ActorSystem {
     pub fn create(name: impl Into<String>, setting: ActorSetting) -> anyhow::Result<ActorSystemRunner> {
         let ActorSetting { provider_fn, core_config } = setting;
-        let default_config: CoreConfig = toml::from_str(CORE_CONFIG)?;
-        let core_config = default_config.merge(core_config);
+        let default_config: CoreConfig = toml::from_str(CORE_CONFIG).context(format!("failed to load {}", CORE_CONFIG_NAME))?;
+        let core_config = core_config.with_fallback(default_config);
         let system_rt = Self::build_runtime("actor-system");
         let _guard = system_rt.enter();
         let scheduler = scheduler();
@@ -101,14 +104,15 @@ impl ActorSystem {
             user_rt,
             scheduler,
             event_stream: EventStream::default(),
-            extensions: ActorExtension::default(),
-            core_config,
+            extension: ActorExtension::default(),
+            config: ActorConfig::default(),
             signal: signal_tx,
             termination_callbacks: TerminationCallbacks::default(),
         };
         let system = Self {
             inner: inner.into(),
         };
+        system.config.add(core_config)?;
 
         let (provider, spawns) = anyhow::Context::context(provider_fn(&system), "failed to create actor provider")?;
         system.provider.store(Arc::new(provider));
@@ -196,24 +200,33 @@ impl ActorSystem {
 
     pub fn register_extension<E, F>(&self, ext_fn: F) -> anyhow::Result<()> where E: Extension, F: Fn(ActorSystem) -> anyhow::Result<E> {
         let extension = ext_fn(self.clone())?;
-        self.extensions.register(extension)?;
+        self.extension.register(extension)?;
         Ok(())
     }
 
     pub fn get_extension<E>(&self) -> Option<MappedRef<&'static str, Box<dyn Extension>, E>> where E: Extension {
-        self.extensions.get()
+        self.extension.get()
     }
 
     pub fn get_extension_mut<E>(&self) -> Option<MappedRefMut<&'static str, Box<dyn Extension>, E>> where E: Extension {
-        self.extensions.get_mut()
+        self.extension.get_mut()
     }
 
     pub fn uid(&self) -> i64 {
         self.uid
     }
 
-    pub fn core_config(&self) -> &CoreConfig {
-        &self.core_config
+    pub fn get_config<C>(&self) -> MappedRef<&'static str, Box<dyn Config>, C> where C: Config {
+        let msg = format!("{} not found", type_name_of::<CoreConfig>());
+        self.config.get().expect(&msg)
+    }
+
+    pub fn add_config<C>(&self, config: C) -> anyhow::Result<()> where C: Config {
+        self.config.add(config)
+    }
+
+    pub fn core_config(&self) -> MappedRef<&'static str, Box<dyn Config>, CoreConfig> {
+        self.get_config()
     }
 
     fn build_runtime(name: &str) -> Runtime {
