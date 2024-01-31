@@ -13,7 +13,7 @@ pub struct ClusterSetting {
     pub system: ActorSystem,
     pub config: ClusterConfig,
     pub reg: MessageRegistration,
-    pub eclient: Client,
+    pub client: Client,
 }
 
 impl Debug for ClusterSetting {
@@ -22,7 +22,7 @@ impl Debug for ClusterSetting {
             .field("system", &self.system)
             .field("config", &self.config)
             .field("reg", &self.reg)
-            .field("eclient", &"..")
+            .field("client", &"..")
             .finish()
     }
 }

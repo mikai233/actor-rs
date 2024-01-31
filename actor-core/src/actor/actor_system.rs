@@ -308,6 +308,14 @@ impl Future for ActorSystemRunner {
     }
 }
 
+impl Debug for ActorSystemRunner {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        f.debug_struct("ActorSystemRunner")
+            .field("system", &self.system)
+            .finish_non_exhaustive()
+    }
+}
+
 #[derive(Default)]
 struct TerminationCallbacks {
     callbacks: Mutex<Vec<BoxFuture<'static, ()>>>,

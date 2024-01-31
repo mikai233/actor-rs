@@ -8,6 +8,10 @@ edition = "2021"
 [dependencies]
 actor-core = { path = "../actor-core" }
 actor-remote = { path = "../actor-remote" }
+actor-cluster = { path = "../actor-cluster" }
 actor-derive = { path = "../actor-derive" }
 bincode = { workspace = true }
 anyhow = { workspace = true }
+dashmap = { workspace = true, features = ["inline"] }
+tracing = { workspace = true }
+async-trait = { workspace = true }

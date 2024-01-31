@@ -169,7 +169,7 @@ mod test {
 
     use crate::config::RemoteConfig;
     use crate::config::transport::Transport;
-    use crate::remote_provider::RemoteActorRefProvider;
+    use crate::remote_provider::{RemoteActorRefProvider, RemoteProviderBuilder};
     use crate::remote_setting::RemoteSetting;
 
     struct PingPongActor;
@@ -232,17 +232,13 @@ mod test {
     fn build_setting(addr: SocketAddrV4) -> ActorSetting {
         let mut config = ActorSetting::default();
         config.with_provider(move |system| {
-            let mut reg = MessageRegistration::new();
-            reg.register_user::<Ping>();
-            reg.register_user::<Pong>();
-            reg.register_user::<MessageToAsk>();
-            reg.register_user::<MessageToAns>();
-            let setting = RemoteSetting::builder()
-                .system(system.clone())
-                .config(RemoteConfig { transport: Transport::tcp(addr, None) })
-                .reg(reg)
-                .build();
-            RemoteActorRefProvider::new(setting).map(|(r, d)| (r.into(), d))
+            RemoteProviderBuilder::new()
+                .with_config(RemoteConfig { transport: Transport::tcp(addr, None) })
+                .register::<Ping>()
+                .register::<Pong>()
+                .register::<MessageToAsk>()
+                .register::<MessageToAns>()
+                .build(system.clone())
         });
         config
     }

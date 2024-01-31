@@ -9,10 +9,12 @@ use actor_core::actor::actor_path::TActorPath;
 use actor_core::actor::actor_ref::{ActorRef, TActorRef};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
+use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
 use actor_core::actor::local_actor_ref_provider::LocalActorRefProvider;
 use actor_core::actor::local_ref::LocalActorRef;
 use actor_core::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
+use actor_core::CodecMessage;
 use actor_core::config::Config;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_registration::MessageRegistration;
@@ -171,5 +173,39 @@ impl TActorRefProvider for RemoteActorRefProvider {
 impl Into<ActorRefProvider> for RemoteActorRefProvider {
     fn into(self) -> ActorRefProvider {
         ActorRefProvider::new(self)
+    }
+}
+
+pub struct RemoteProviderBuilder {
+    reg: MessageRegistration,
+    config: Option<RemoteConfig>,
+}
+
+impl RemoteProviderBuilder {
+    pub fn new() -> Self {
+        Self {
+            reg: MessageRegistration::new(),
+            config: None,
+        }
+    }
+
+    pub fn with_config(mut self, config: RemoteConfig) -> Self {
+        self.config = Some(config);
+        self
+    }
+
+    pub fn register<M>(mut self) -> Self where M: CodecMessage {
+        self.reg.register_user::<M>();
+        self
+    }
+
+    pub fn build(self, system: ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
+        let Self { reg, config } = self;
+        let setting = RemoteSetting::builder()
+            .system(system)
+            .config(config.into_result()?)
+            .reg(reg)
+            .build();
+        RemoteActorRefProvider::new(setting).map(|(c, d)| (c.into(), d))
     }
 }

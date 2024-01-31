@@ -1,7 +1,7 @@
 pub(crate) const CLUSTER_CONFIG_NAME: &'static str = "cluster.toml";
 pub(crate) const CLUSTER_CONFIG: &'static str = include_str!("../cluster.toml");
 
-mod cluster;
+pub mod cluster;
 mod cluster_daemon;
 pub mod cluster_provider;
 pub mod cluster_setting;

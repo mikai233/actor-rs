@@ -6,9 +6,9 @@ use actor_core::{Actor, Message};
 use actor_core::actor::actor_ref::ActorRefExt;
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_system::ActorSystem;
-use actor_core::actor::config::actor_setting::ActorSetting;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
+use actor_core::config::actor_setting::ActorSetting;
 use actor_core::ext::init_logger;
 use actor_derive::EmptyCodec;
 
@@ -50,11 +50,10 @@ impl Message for NormalMessage {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     init_logger(Level::DEBUG);
-    info!("hellllllllll");
     let system = ActorSystem::create("mikai233", ActorSetting::default())?;
     let test_actor = system.spawn_anonymous(Props::create(|_| TestActor))?;
     test_actor.cast_ns(ErrorMessage);
     test_actor.cast_ns(NormalMessage);
-    system.wait_termination().await;
+    system.await;
     Ok(())
 }

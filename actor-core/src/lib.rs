@@ -26,9 +26,7 @@ pub mod delegate;
 pub mod message;
 pub mod event;
 pub mod routing;
-mod indirect_actor_producer;
 pub mod actor;
-mod promise;
 pub mod config;
 
 #[async_trait]

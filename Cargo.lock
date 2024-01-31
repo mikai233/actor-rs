@@ -29,11 +29,15 @@ dependencies = [
 name = "actor-cluster-sharding"
 version = "0.1.0"
 dependencies = [
+ "actor-cluster",
  "actor-core",
  "actor-derive",
  "actor-remote",
  "anyhow",
+ "async-trait",
  "bincode",
+ "dashmap",
+ "tracing",
 ]
 
 [[package]]

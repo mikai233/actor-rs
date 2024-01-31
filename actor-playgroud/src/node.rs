@@ -4,15 +4,13 @@ use std::net::SocketAddrV4;
 use clap::Parser;
 use etcd_client::Client;
 
-use actor_cluster::cluster_provider::ClusterActorRefProvider;
-use actor_cluster::cluster_setting::ClusterSetting;
+use actor_cluster::cluster_provider::ClusterProviderBuilder;
 use actor_cluster::config::ClusterConfig;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::config::actor_setting::ActorSetting;
 use actor_core::ext::init_logger_with_filter;
-use actor_core::message::message_registration::MessageRegistration;
 use actor_remote::config::RemoteConfig;
-use actor_remote::config::transport::{TcpTransport, Transport};
+use actor_remote::config::transport::Transport;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -31,18 +29,14 @@ async fn main() -> anyhow::Result<()> {
     let client = Client::connect([args.etcd.to_string()], None).await?;
     let mut setting = ActorSetting::default();
     setting.with_provider(move |system| {
-        let reg = MessageRegistration::new();
         let config = ClusterConfig {
-            remote: RemoteConfig { transport: Transport::Tcp(TcpTransport { addr: args.addr, buffer: None }) },
+            remote: RemoteConfig { transport: Transport::tcp(args.addr, None) },
             roles: HashSet::new(),
         };
-        let setting = ClusterSetting::builder()
-            .system(system.clone())
-            .config(config)
-            .reg(reg)
-            .eclient(client.clone())
-            .build();
-        ClusterActorRefProvider::new(setting).map(|(c, d)| (c.into(), d))
+        ClusterProviderBuilder::new()
+            .with_client(client.clone())
+            .with_config(config)
+            .build(system.clone())
     });
     let system = ActorSystem::create(args.system_name, setting)?;
     system.await;

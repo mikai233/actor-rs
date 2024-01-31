@@ -6,7 +6,7 @@ use bincode::{Decode, Encode};
 use etcd_client::Client;
 use tracing::info;
 
-use actor_cluster::cluster_provider::ClusterActorRefProvider;
+use actor_cluster::cluster_provider::{ClusterActorRefProvider, ClusterProviderBuilder};
 use actor_cluster::cluster_setting::ClusterSetting;
 use actor_cluster::config::ClusterConfig;
 use actor_core::{DynMessage, EmptyTestActor, Message};
@@ -58,24 +58,20 @@ impl Message for TestMessage {
     }
 }
 
-fn build_setting(addr: SocketAddrV4, eclient: Client) -> ActorSetting {
+fn build_setting(addr: SocketAddrV4, client: Client) -> ActorSetting {
     let mut setting = ActorSetting::default();
     setting.with_provider(move |system| {
-        let mut reg = MessageRegistration::new();
-        reg.register_user::<MessageToAsk>();
-        reg.register_user::<MessageToAns>();
-        reg.register_user::<TestMessage>();
         let config = ClusterConfig {
             remote: RemoteConfig { transport: Transport::tcp(addr, None) },
             roles: Default::default(),
         };
-        let setting = ClusterSetting::builder()
-            .system(system.clone())
-            .config(config)
-            .reg(reg)
-            .eclient(eclient.clone())
-            .build();
-        ClusterActorRefProvider::new(setting).map(|(c, d)| (c.into(), d))
+        ClusterProviderBuilder::new()
+            .with_config(config)
+            .with_client(client.clone())
+            .register::<MessageToAsk>()
+            .register::<MessageToAns>()
+            .register::<TestMessage>()
+            .build(system.clone())
     });
     setting
 }
@@ -99,10 +95,7 @@ async fn main() -> anyhow::Result<()> {
     // let sel = system2.actor_selection(ActorSelectionPath::FullPath("tcp://mikai233@127.0.0.1:12121/user/test_actor_9".parse()?))?;
     // let which = sel.resolve_one(Duration::from_secs(3)).await?;
     // info!("{}", which);
-    loop {
-        sel.tell(DynMessage::user(TestMessage), ActorRef::no_sender());
-        tokio::time::sleep(Duration::from_secs(1)).await;
-    }
+    sel.tell(DynMessage::user(TestMessage), ActorRef::no_sender());
     system1.await;
     Ok(())
 }

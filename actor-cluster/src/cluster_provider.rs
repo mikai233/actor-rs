@@ -3,15 +3,19 @@ use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use anyhow::Context;
+use etcd_client::Client;
 use tokio::sync::broadcast::Receiver;
 
 use actor_core::actor::actor_path::ActorPath;
 use actor_core::actor::actor_ref::ActorRef;
 use actor_core::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
+use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
 use actor_core::actor::local_ref::LocalActorRef;
 use actor_core::actor::props::{DeferredSpawn, FuncDeferredSpawn, Props};
+use actor_core::CodecMessage;
 use actor_core::config::Config;
+use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_derive::AsAny;
 use actor_remote::remote_provider::RemoteActorRefProvider;
@@ -27,7 +31,7 @@ use crate::distributed_pub_sub::DistributedPubSub;
 #[derive(AsAny)]
 pub struct ClusterActorRefProvider {
     pub remote: RemoteActorRefProvider,
-    pub eclient: etcd_client::Client,
+    pub client: Client,
     pub roles: HashSet<String>,
 }
 
@@ -35,14 +39,14 @@ impl Debug for ClusterActorRefProvider {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("ClusterActorRefProvider")
             .field("remote", &self.remote)
-            .field("eclient", &"..")
+            .field("client", &"..")
             .finish()
     }
 }
 
 impl ClusterActorRefProvider {
     pub fn new(setting: ClusterSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
-        let ClusterSetting { system, config, mut reg, eclient } = setting;
+        let ClusterSetting { system, config, mut reg, client } = setting;
         let default_config: ClusterConfig = toml::from_str(CLUSTER_CONFIG).context(format!("failed to load {}", CLUSTER_CONFIG_NAME))?;
         let cluster_config = config.with_fallback(default_config);
         let remote_config = cluster_config.remote.clone();
@@ -57,7 +61,7 @@ impl ClusterActorRefProvider {
         let (remote, mut spawns) = RemoteActorRefProvider::new(remote_setting)?;
         let cluster = ClusterActorRefProvider {
             remote,
-            eclient,
+            client,
             roles,
         };
         Self::register_extension(&mut spawns);
@@ -144,5 +148,47 @@ impl TActorRefProvider for ClusterActorRefProvider {
 impl Into<ActorRefProvider> for ClusterActorRefProvider {
     fn into(self) -> ActorRefProvider {
         ActorRefProvider::new(self)
+    }
+}
+
+pub struct ClusterProviderBuilder {
+    reg: MessageRegistration,
+    config: Option<ClusterConfig>,
+    client: Option<Client>,
+}
+
+impl ClusterProviderBuilder {
+    pub fn new() -> Self {
+        Self {
+            reg: MessageRegistration::new(),
+            config: None,
+            client: None,
+        }
+    }
+
+    pub fn with_config(mut self, config: ClusterConfig) -> Self {
+        self.config = Some(config);
+        self
+    }
+
+    pub fn with_client(mut self, client: Client) -> Self {
+        self.client = Some(client);
+        self
+    }
+
+    pub fn register<M>(mut self) -> Self where M: CodecMessage {
+        self.reg.register_user::<M>();
+        self
+    }
+
+    pub fn build(self, system: ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
+        let Self { reg, config, client } = self;
+        let setting = ClusterSetting::builder()
+            .system(system)
+            .config(config.into_result()?)
+            .reg(reg)
+            .client(client.into_result()?)
+            .build();
+        ClusterActorRefProvider::new(setting).map(|(c, d)| (c.into(), d))
     }
 }

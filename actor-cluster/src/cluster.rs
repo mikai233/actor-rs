@@ -32,7 +32,7 @@ pub struct Cluster {
 
 pub struct ClusterInner {
     system: ActorSystem,
-    eclient: Client,
+    client: Client,
     self_unique_address: UniqueAddress,
     roles: HashSet<String>,
     daemon: ActorRef,
@@ -51,7 +51,7 @@ impl Debug for Cluster {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("Cluster")
             .field("system", &self.system)
-            .field("eclient", &"..")
+            .field("client", &"..")
             .field("self_unique_address", &self.self_unique_address)
             .field("roles", &self.roles)
             .field("daemon", &self.daemon)
@@ -63,20 +63,20 @@ impl Cluster {
     pub fn new(system: ActorSystem) -> anyhow::Result<Self> {
         let provider = system.provider();
         let cluster_provider = Self::cluster_provider(&provider);
-        let eclient = cluster_provider.eclient.clone();
+        let client = cluster_provider.client.clone();
         let roles = cluster_provider.roles.clone();
         let address = cluster_provider.get_default_address();
         let self_unique_address = UniqueAddress {
             address: address.clone(),
             uid: system.uid(),
         };
-        let eclient_c = eclient.clone();
+        let client_clone = client.clone();
         let unique_address_c = self_unique_address.clone();
         let roles_c = roles.clone();
         let transport = cluster_provider.remote.transport.clone();
         let daemon = system.spawn_system(Props::create(move |_| {
             ClusterDaemon {
-                eclient: eclient_c.clone(),
+                eclient: client_clone.clone(),
                 self_addr: unique_address_c.clone(),
                 roles: roles_c.clone(),
                 transport: transport.clone(),
@@ -88,7 +88,7 @@ impl Cluster {
         let state = ClusterState::new(Member::new(self_unique_address.clone(), MemberStatus::Down, roles.clone()));
         let inner = ClusterInner {
             system,
-            eclient,
+            client,
             self_unique_address,
             roles,
             daemon,
