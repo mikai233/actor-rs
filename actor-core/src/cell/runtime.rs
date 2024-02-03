@@ -83,7 +83,7 @@ impl<A> ActorRuntime<A> where A: Actor {
             mailbox.close();
         }
         context.state = ActorState::Terminated;
-        for task in context.tasks {
+        for task in context.fut_handle {
             task.abort();
         }
     }

@@ -12,22 +12,8 @@ use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_system::ActorSystem;
 use crate::DynMessage;
 use crate::ext::as_any::AsAny;
+use crate::ext::maybe_ref::MaybeRef;
 
-pub enum MaybeRef<'a, T> {
-    Ref(&'a T),
-    Own(T),
-}
-
-impl<'a, T> Deref for MaybeRef<'a, T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            MaybeRef::Ref(value) => value,
-            MaybeRef::Own(value) => value,
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct Router {

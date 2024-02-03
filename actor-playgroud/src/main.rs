@@ -7,7 +7,6 @@ use etcd_client::Client;
 use tracing::info;
 
 use actor_cluster::cluster_provider::{ClusterActorRefProvider, ClusterProviderBuilder};
-use actor_cluster::cluster_setting::ClusterSetting;
 use actor_cluster::config::ClusterConfig;
 use actor_core::{DynMessage, EmptyTestActor, Message};
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
@@ -18,7 +17,6 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::config::actor_setting::ActorSetting;
 use actor_core::ext::init_logger_with_filter;
-use actor_core::message::message_registration::MessageRegistration;
 use actor_derive::{CMessageCodec, MessageCodec, OrphanCodec};
 use actor_remote::config::RemoteConfig;
 use actor_remote::config::transport::Transport;
@@ -59,21 +57,21 @@ impl Message for TestMessage {
 }
 
 fn build_setting(addr: SocketAddrV4, client: Client) -> ActorSetting {
-    let mut setting = ActorSetting::default();
-    setting.with_provider(move |system| {
-        let config = ClusterConfig {
-            remote: RemoteConfig { transport: Transport::tcp(addr, None) },
-            roles: Default::default(),
-        };
-        ClusterProviderBuilder::new()
-            .with_config(config)
-            .with_client(client.clone())
-            .register::<MessageToAsk>()
-            .register::<MessageToAns>()
-            .register::<TestMessage>()
-            .build(system.clone())
-    });
-    setting
+    ActorSetting::builder()
+        .provider_fn(move |system| {
+            let config = ClusterConfig {
+                remote: RemoteConfig { transport: Transport::tcp(addr, None) },
+                roles: Default::default(),
+            };
+            ClusterActorRefProvider::builder()
+                .config(config)
+                .client(client.clone())
+                .register::<MessageToAsk>()
+                .register::<MessageToAns>()
+                .register::<TestMessage>()
+                .build(system.clone())
+        })
+        .build()
 }
 
 #[tokio::main]

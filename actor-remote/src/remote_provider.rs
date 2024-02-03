@@ -36,6 +36,10 @@ pub struct RemoteActorRefProvider {
 }
 
 impl RemoteActorRefProvider {
+    pub fn builder() -> RemoteProviderBuilder {
+        RemoteProviderBuilder::new()
+    }
+
     pub fn new(setting: RemoteSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
         let RemoteSetting { system, config, reg } = setting;
         let default_config: RemoteConfig = toml::from_str(REMOTE_CONFIG).context(format!("failed to load {}", REMOTE_CONFIG_NAME))?;
@@ -189,7 +193,7 @@ impl RemoteProviderBuilder {
         }
     }
 
-    pub fn with_config(mut self, config: RemoteConfig) -> Self {
+    pub fn config(mut self, config: RemoteConfig) -> Self {
         self.config = Some(config);
         self
     }

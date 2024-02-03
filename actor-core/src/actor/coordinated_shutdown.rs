@@ -193,7 +193,7 @@ impl CoordinatedShutdown {
 
     fn init_ctrl_c_signal(&self) {
         let system = self.system.clone();
-        self.system.system_rt().spawn(async move {
+        self.system.handle().spawn(async move {
             if let Some(error) = tokio::signal::ctrl_c().await.err() {
                 error!("ctrl c signal error {}", error);
             }

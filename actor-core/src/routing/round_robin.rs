@@ -5,8 +5,9 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::fault_handing::SupervisorStrategy;
 use crate::actor::props::Props;
 use crate::DynMessage;
+use crate::ext::maybe_ref::MaybeRef;
 use crate::routing::pool_router_config::PoolRouterConfig;
-use crate::routing::router::{MaybeRef, NoRoutee, Routee, Router, RoutingLogic};
+use crate::routing::router::{NoRoutee, Routee, Router, RoutingLogic};
 use crate::routing::router_actor::{RouterActor, TRouterActor};
 use crate::routing::router_config::{Pool, TRouterConfig};
 

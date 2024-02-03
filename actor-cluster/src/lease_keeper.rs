@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use etcd_client::Client;
 use tracing::{debug, warn};
 
 use actor_core::{Actor, DynMessage, Message};
@@ -9,11 +8,12 @@ use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::scheduler::ScheduleKey;
+use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
 use actor_derive::{CEmptyCodec, EmptyCodec, OrphanEmptyCodec};
 
 pub(crate) struct LeaseKeeper {
-    eclient: Client,
+    client: EtcdClient,
     lease_id: i64,
     keeper: Option<etcd_client::LeaseKeeper>,
     stream: Option<etcd_client::LeaseKeepAliveStream>,
@@ -23,9 +23,9 @@ pub(crate) struct LeaseKeeper {
 }
 
 impl LeaseKeeper {
-    pub fn new(eclient: Client, lease_id: i64, failed_receiver: ActorRef, interval: Duration) -> Self {
+    pub fn new(client: EtcdClient, lease_id: i64, failed_receiver: ActorRef, interval: Duration) -> Self {
         Self {
-            eclient,
+            client,
             lease_id,
             keeper: None,
             stream: None,
@@ -39,7 +39,7 @@ impl LeaseKeeper {
 #[async_trait]
 impl Actor for LeaseKeeper {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        match self.eclient.lease_keep_alive(self.lease_id).await {
+        match self.client.lease_keep_alive(self.lease_id).await {
             Ok((keeper, stream)) => {
                 self.keeper = Some(keeper);
                 self.stream = Some(stream);
@@ -72,7 +72,7 @@ impl Message for RevokeLease {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let keeper = actor.keeper.as_ref().unwrap();
-        actor.eclient.lease_revoke(keeper.id()).await?;
+        actor.client.lease_revoke(keeper.id()).await?;
         debug!("{} {} lease revoke success", context.myself(), keeper.id());
         Ok(())
     }

@@ -64,7 +64,7 @@ pub struct ActorContext {
     pub(crate) myself: ActorRef,
     pub(crate) sender: Option<ActorRef>,
     pub(crate) stash: VecDeque<(DynMessage, Option<ActorRef>)>,
-    pub(crate) tasks: Vec<JoinHandle<()>>,
+    pub(crate) fut_handle: Vec<JoinHandle<()>>,
     pub(crate) system: ActorSystem,
     pub(crate) watching: HashMap<ActorRef, DynMessage>,
     pub(crate) watched_by: HashSet<ActorRef>,
@@ -207,7 +207,7 @@ impl ActorContext {
             myself,
             sender: None,
             stash: VecDeque::new(),
-            tasks: vec![],
+            fut_handle: vec![],
             system,
             watching: HashMap::new(),
             watched_by: HashSet::new(),
@@ -305,26 +305,26 @@ impl ActorContext {
         })
     }
 
-    pub fn spawn_task<F>(&mut self, future: F) -> AbortHandle
+    pub fn spawn_fut<F>(&mut self, future: F) -> AbortHandle
         where
             F: Future<Output=()> + Send + 'static,
     {
         let handle = match &self.props.handle {
             None => {
-                self.system.user_rt().spawn(future)
+                self.system.handle().spawn(future)
             }
             Some(handle) => {
                 handle.spawn(future)
             }
         };
         let abort_handle = handle.abort_handle();
-        self.tasks.push(handle);
+        self.fut_handle.push(handle);
         abort_handle
     }
 
     pub(crate) fn remove_finished_tasks(&mut self) {
-        if !self.tasks.is_empty() {
-            self.tasks.retain(|t| !t.is_finished());
+        if !self.fut_handle.is_empty() {
+            self.fut_handle.retain(|t| !t.is_finished());
         }
     }
 

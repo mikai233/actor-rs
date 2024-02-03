@@ -254,9 +254,7 @@ impl LocalActorRef {
                     sender,
                     cell: ActorCell::new(Some(self.clone().into())),
                 };
-                let child_ref = LocalActorRef {
-                    inner: inner.into(),
-                };
+                let child_ref = LocalActorRef { inner: inner.into() };
                 self.cell.insert_child(name, child_ref.clone());
                 if start {
                     let spawner = props.spawner.clone();

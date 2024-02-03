@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::sync::RwLockWriteGuard;
 use std::time::Duration;
 
@@ -14,6 +14,7 @@ use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::event::EventBus;
+use actor_core::ext::etcd_client::EtcdClient;
 use actor_derive::EmptyCodec;
 
 use crate::cluster::Cluster;
@@ -24,27 +25,15 @@ use crate::lease_keeper::{LeaseKeepAliveFailed, LeaseKeeper};
 use crate::member::{Member, MemberStatus};
 use crate::unique_address::UniqueAddress;
 
+#[derive(Debug)]
 pub struct ClusterDaemon {
-    pub(crate) eclient: Client,
+    pub(crate) client: EtcdClient,
     pub(crate) self_addr: UniqueAddress,
     pub(crate) roles: HashSet<String>,
     pub(crate) transport: ActorRef,
     pub(crate) lease_id: i64,
     pub(crate) key_addr: HashMap<String, UniqueAddress>,
     pub(crate) cluster: Option<Cluster>,
-}
-
-impl Debug for ClusterDaemon {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        f.debug_struct("ClusterDaemon")
-            .field("eclient", &"..")
-            .field("self_addr", &self.self_addr)
-            .field("roles", &self.roles)
-            .field("transport", &self.transport)
-            .field("lease_id", &self.lease_id)
-            .field("key_addr", &self.key_addr)
-            .finish()
-    }
 }
 
 #[async_trait]
@@ -89,9 +78,9 @@ impl ClusterDaemon {
     }
 
     async fn spawn_lease_keeper(&mut self, context: &mut ActorContext) -> anyhow::Result<i64> {
-        let resp = self.eclient.lease_grant(60, None).await?;
+        let resp = self.client.lease_grant(60, None).await?;
         let lease_id = resp.id();
-        let eclient = self.eclient.clone();
+        let eclient = self.client.clone();
         let receiver = context.message_adapter(|m| DynMessage::user(LeaseFailed(m)));
         context.spawn(
             Props::create(move |_| { LeaseKeeper::new(eclient.clone(), resp.id(), receiver.clone(), Duration::from_secs(3)) }),
@@ -104,7 +93,7 @@ impl ClusterDaemon {
         let key = format!("{}/{}", self.lease_path(), self.self_addr.socket_addr_with_uid().unwrap());
         let value = serde_json::to_vec(&member)?;
         let put_options = PutOptions::new().with_lease(self.lease_id);
-        self.eclient.put(key, value, Some(put_options)).await?;
+        self.client.put(key, value, Some(put_options)).await?;
         Ok(())
     }
 
@@ -128,7 +117,7 @@ impl ClusterDaemon {
             adapter.clone(),
             self.lease_path(),
             Some(WatchOptions::new().with_prefix()),
-            self.eclient.clone(),
+            self.client.clone().into(),
         )?;
         Ok(())
     }

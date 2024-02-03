@@ -51,7 +51,7 @@ impl Actor for TcpTransportActor {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let myself = context.myself().clone();
         let addr = self.transport.addr;
-        context.spawn_task(async move {
+        context.spawn_fut(async move {
             let tcp_listener = TcpListener::bind(addr).await.unwrap();
             //TODO shutdown system when bind error
             info!("{} start listening", addr);
@@ -164,13 +164,11 @@ mod test {
     use actor_core::actor::deferred_ref::Patterns;
     use actor_core::actor::props::Props;
     use actor_core::config::actor_setting::ActorSetting;
-    use actor_core::message::message_registration::MessageRegistration;
     use actor_derive::{EmptyCodec, MessageCodec, OrphanCodec};
 
     use crate::config::RemoteConfig;
     use crate::config::transport::Transport;
-    use crate::remote_provider::{RemoteActorRefProvider, RemoteProviderBuilder};
-    use crate::remote_setting::RemoteSetting;
+    use crate::remote_provider::RemoteActorRefProvider;
 
     struct PingPongActor;
 
@@ -184,7 +182,7 @@ mod test {
         async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             let myself = context.myself().clone();
             let sender = context.sender().unwrap().clone();
-            context.spawn_task(async move {
+            context.spawn_fut(async move {
                 sender.cast(Pong, Some(myself));
                 tokio::time::sleep(Duration::from_secs(1)).await;
             });
@@ -230,17 +228,17 @@ mod test {
     }
 
     fn build_setting(addr: SocketAddrV4) -> ActorSetting {
-        let mut config = ActorSetting::default();
-        config.with_provider(move |system| {
-            RemoteProviderBuilder::new()
-                .with_config(RemoteConfig { transport: Transport::tcp(addr, None) })
-                .register::<Ping>()
-                .register::<Pong>()
-                .register::<MessageToAsk>()
-                .register::<MessageToAns>()
-                .build(system.clone())
-        });
-        config
+        ActorSetting::builder()
+            .provider_fn(move |system| {
+                RemoteActorRefProvider::builder()
+                    .config(RemoteConfig { transport: Transport::tcp(addr, None) })
+                    .register::<Ping>()
+                    .register::<Pong>()
+                    .register::<MessageToAsk>()
+                    .register::<MessageToAns>()
+                    .build(system.clone())
+            })
+            .build()
     }
 
     #[tokio::test]

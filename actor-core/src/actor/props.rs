@@ -49,7 +49,7 @@ impl Props {
             };
             match handle {
                 None => {
-                    system.user_rt().spawn(runtime.run());
+                    system.handle().spawn(runtime.run());
                 }
                 Some(handle) => {
                     handle.spawn(runtime.run());

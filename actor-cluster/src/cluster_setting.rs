@@ -1,28 +1,18 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 
-use etcd_client::Client;
 use typed_builder::TypedBuilder;
 
 use actor_core::actor::actor_system::ActorSystem;
+use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::message::message_registration::MessageRegistration;
 
 use crate::config::ClusterConfig;
 
-#[derive(Clone, TypedBuilder)]
+#[derive(Debug, Clone, TypedBuilder)]
 pub struct ClusterSetting {
     pub system: ActorSystem,
     pub config: ClusterConfig,
     pub reg: MessageRegistration,
-    pub client: Client,
-}
-
-impl Debug for ClusterSetting {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        f.debug_struct("ClusterSetting")
-            .field("system", &self.system)
-            .field("config", &self.config)
-            .field("reg", &self.reg)
-            .field("client", &"..")
-            .finish()
-    }
+    #[builder(setter(into))]
+    pub client: EtcdClient,
 }

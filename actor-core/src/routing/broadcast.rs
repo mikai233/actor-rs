@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use crate::DynMessage;
-use crate::routing::router::{MaybeRef, Routee, RoutingLogic, SeveralRoutees};
+use crate::ext::maybe_ref::MaybeRef;
+use crate::routing::router::{Routee, RoutingLogic, SeveralRoutees};
 
 #[derive(Debug, Clone)]
 pub struct BroadcastRoutingLogic;

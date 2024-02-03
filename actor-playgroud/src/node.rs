@@ -27,17 +27,18 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     init_logger_with_filter("actor=trace");
     let client = Client::connect([args.etcd.to_string()], None).await?;
-    let mut setting = ActorSetting::default();
-    setting.with_provider(move |system| {
-        let config = ClusterConfig {
-            remote: RemoteConfig { transport: Transport::tcp(args.addr, None) },
-            roles: HashSet::new(),
-        };
-        ClusterProviderBuilder::new()
-            .with_client(client.clone())
-            .with_config(config)
-            .build(system.clone())
-    });
+    let setting = ActorSetting::builder()
+        .provider_fn(move |system| {
+            let config = ClusterConfig {
+                remote: RemoteConfig { transport: Transport::tcp(args.addr, None) },
+                roles: HashSet::new(),
+            };
+            ClusterProviderBuilder::new()
+                .client(client.clone())
+                .config(config)
+                .build(system.clone())
+        })
+        .build();
     let system = ActorSystem::create(args.system_name, setting)?;
     system.await;
     Ok(())

@@ -1,11 +1,10 @@
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::ops::Deref;
 use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
 
 use arc_swap::Guard;
 use dashmap::mapref::one::MappedRef;
-use etcd_client::Client;
 
 use actor_core::actor::actor_ref::ActorRef;
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
@@ -16,6 +15,7 @@ use actor_core::actor::extension::Extension;
 use actor_core::actor::props::Props;
 use actor_core::DynMessage;
 use actor_core::event::EventBus;
+use actor_core::ext::etcd_client::EtcdClient;
 use actor_derive::AsAny;
 
 use crate::cluster_daemon::ClusterDaemon;
@@ -25,14 +25,15 @@ use crate::cluster_state::ClusterState;
 use crate::member::{Member, MemberStatus};
 use crate::unique_address::UniqueAddress;
 
-#[derive(Clone, AsAny)]
+#[derive(Clone, Debug, AsAny)]
 pub struct Cluster {
-    inner: Arc<ClusterInner>,
+    inner: Arc<Inner>,
 }
 
-pub struct ClusterInner {
+#[derive(Debug)]
+pub struct Inner {
     system: ActorSystem,
-    client: Client,
+    client: EtcdClient,
     self_unique_address: UniqueAddress,
     roles: HashSet<String>,
     daemon: ActorRef,
@@ -40,22 +41,10 @@ pub struct ClusterInner {
 }
 
 impl Deref for Cluster {
-    type Target = ClusterInner;
+    type Target = Inner;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-
-impl Debug for Cluster {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        f.debug_struct("Cluster")
-            .field("system", &self.system)
-            .field("client", &"..")
-            .field("self_unique_address", &self.self_unique_address)
-            .field("roles", &self.roles)
-            .field("daemon", &self.daemon)
-            .finish()
     }
 }
 
@@ -76,7 +65,7 @@ impl Cluster {
         let transport = cluster_provider.remote.transport.clone();
         let daemon = system.spawn_system(Props::create(move |_| {
             ClusterDaemon {
-                eclient: client_clone.clone(),
+                client: client_clone.clone(),
                 self_addr: unique_address_c.clone(),
                 roles: roles_c.clone(),
                 transport: transport.clone(),
@@ -86,7 +75,7 @@ impl Cluster {
             }
         }), Some("cluster".to_string()))?;
         let state = ClusterState::new(Member::new(self_unique_address.clone(), MemberStatus::Down, roles.clone()));
-        let inner = ClusterInner {
+        let inner = Inner {
             system,
             client,
             self_unique_address,

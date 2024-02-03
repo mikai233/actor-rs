@@ -72,7 +72,7 @@ impl Message for Connect {
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { addr, opts } = *self;
         let myself = context.myself().clone();
-        let handle = context.spawn_task(async move {
+        let handle = context.spawn_fut(async move {
             match StubbornTcpStream::connect_with_options(addr, opts).await {
                 Ok(stream) => {
                     if let Some(e) = stream.set_nodelay(true).err() {
@@ -145,7 +145,7 @@ impl Message for SpawnInbound {
     type A = TcpTransportActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-        context.spawn_task(self.fut);
+        context.spawn_fut(self.fut);
         Ok(())
     }
 }

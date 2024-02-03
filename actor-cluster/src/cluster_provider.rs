@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -15,6 +15,7 @@ use actor_core::actor::local_ref::LocalActorRef;
 use actor_core::actor::props::{DeferredSpawn, FuncDeferredSpawn, Props};
 use actor_core::CodecMessage;
 use actor_core::config::Config;
+use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_derive::AsAny;
@@ -28,23 +29,18 @@ use crate::cluster_setting::ClusterSetting;
 use crate::config::ClusterConfig;
 use crate::distributed_pub_sub::DistributedPubSub;
 
-#[derive(AsAny)]
+#[derive(Debug, AsAny)]
 pub struct ClusterActorRefProvider {
     pub remote: RemoteActorRefProvider,
-    pub client: Client,
+    pub client: EtcdClient,
     pub roles: HashSet<String>,
 }
 
-impl Debug for ClusterActorRefProvider {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        f.debug_struct("ClusterActorRefProvider")
-            .field("remote", &self.remote)
-            .field("client", &"..")
-            .finish()
-    }
-}
-
 impl ClusterActorRefProvider {
+    pub fn builder() -> ClusterProviderBuilder {
+        ClusterProviderBuilder::new()
+    }
+
     pub fn new(setting: ClusterSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
         let ClusterSetting { system, config, mut reg, client } = setting;
         let default_config: ClusterConfig = toml::from_str(CLUSTER_CONFIG).context(format!("failed to load {}", CLUSTER_CONFIG_NAME))?;
@@ -166,12 +162,12 @@ impl ClusterProviderBuilder {
         }
     }
 
-    pub fn with_config(mut self, config: ClusterConfig) -> Self {
+    pub fn config(mut self, config: ClusterConfig) -> Self {
         self.config = Some(config);
         self
     }
 
-    pub fn with_client(mut self, client: Client) -> Self {
+    pub fn client(mut self, client: Client) -> Self {
         self.client = Some(client);
         self
     }

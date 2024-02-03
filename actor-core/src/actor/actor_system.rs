@@ -13,7 +13,7 @@ use futures::{FutureExt, ready};
 use futures::future::BoxFuture;
 use pin_project::pin_project;
 use rand::random;
-use tokio::runtime::Runtime;
+use tokio::runtime::{Handle, Runtime};
 use tokio::sync::broadcast::{channel, Sender};
 
 use crate::actor::actor_path::{ActorPath, TActorPath};
@@ -34,22 +34,22 @@ use crate::config::{ActorConfig, Config};
 use crate::config::core_config::CoreConfig;
 use crate::{CORE_CONFIG, CORE_CONFIG_NAME};
 use crate::event::event_stream::EventStream;
+use crate::ext::maybe_ref::MaybeRef;
 use crate::ext::type_name_of;
 use crate::message::stop_child::StopChild;
 
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
-    inner: Arc<SystemInner>,
+    inner: Arc<Inner>,
 }
 
 #[derive(Debug)]
-pub struct SystemInner {
+pub struct Inner {
     name: String,
     uid: i64,
     start_time: u128,
     provider: ArcSwap<ActorRefProvider>,
-    system_rt: Runtime,
-    user_rt: Runtime,
+    handle: Option<Handle>,
     scheduler: SchedulerSender,
     event_stream: EventStream,
     extension: ActorExtension,
@@ -58,27 +58,8 @@ pub struct SystemInner {
     termination_callbacks: TerminationCallbacks,
 }
 
-// impl Debug for ActorSystem {
-//     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-//         f.debug_struct("ActorSystem")
-//             .field("name", &self.name)
-//             .field("uid", &self.uid)
-//             .field("start_time", &self.start_time)
-//             .field("provider", &self.provider)
-//             .field("system_rt", &self.system_rt)
-//             .field("user_rt", &self.user_rt)
-//             .field("scheduler", &self.scheduler)
-//             .field("event_stream", &self.event_stream)
-//             .field("extension", &self.extension)
-//             .field("config", &self.config)
-//             .field("signal", &self.signal)
-//             .field("termination_callbacks", &self.termination_callbacks)
-//             .finish()
-//     }
-// }
-
 impl Deref for ActorSystem {
-    type Target = Arc<SystemInner>;
+    type Target = Arc<Inner>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -87,21 +68,25 @@ impl Deref for ActorSystem {
 
 impl ActorSystem {
     pub fn create(name: impl Into<String>, setting: ActorSetting) -> anyhow::Result<ActorSystemRunner> {
-        let ActorSetting { provider_fn, core_config } = setting;
+        let ActorSetting { provider_fn, config, handle } = setting;
         let default_config: CoreConfig = toml::from_str(CORE_CONFIG).context(format!("failed to load {}", CORE_CONFIG_NAME))?;
-        let core_config = core_config.with_fallback(default_config);
-        let system_rt = Self::build_runtime("actor-system");
-        let _guard = system_rt.enter();
-        let scheduler = scheduler();
-        let user_rt = Self::build_runtime("user-system");
+        let core_config = config.with_fallback(default_config);
+        let scheduler = match &handle {
+            None => {
+                scheduler()
+            }
+            Some(handle) => {
+                let _guard = handle.enter();
+                scheduler()
+            }
+        };
         let (signal_tx, mut signal_rx) = channel(1);
-        let inner = SystemInner {
+        let inner = Inner {
             name: name.into(),
             uid: random(),
             start_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
             provider: ArcSwap::new(Arc::new(EmptyActorRefProvider.into())),
-            system_rt,
-            user_rt,
+            handle,
             scheduler,
             event_stream: EventStream::default(),
             extension: ActorExtension::default(),
@@ -109,11 +94,8 @@ impl ActorSystem {
             signal: signal_tx,
             termination_callbacks: TerminationCallbacks::default(),
         };
-        let system = Self {
-            inner: inner.into(),
-        };
+        let system = Self { inner: inner.into() };
         system.config.add(core_config)?;
-
         let (provider, spawns) = anyhow::Context::context(provider_fn(&system), "failed to create actor provider")?;
         system.provider.store(Arc::new(provider));
         system.register_extension(|system| {
@@ -177,16 +159,18 @@ impl ActorSystem {
         self.provider().system_guardian().clone()
     }
 
-    pub fn system_rt(&self) -> &Runtime {
-        &self.system_rt
+    pub fn handle(&self) -> MaybeRef<Handle> {
+        match &self.handle {
+            None => {
+                MaybeRef::Own(Handle::current())
+            }
+            Some(handle) => {
+                MaybeRef::Ref(handle)
+            }
+        }
     }
 
-    pub fn user_rt(&self) -> &Runtime {
-        &self.user_rt
-    }
-
-    pub fn spawn_system(&self, mut props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
-        props.handle = Some(self.system_rt.handle().clone());
+    pub fn spawn_system(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
         self.system_guardian().attach_child(props, name, true).map(|(actor, _)| actor)
     }
 

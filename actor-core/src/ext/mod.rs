@@ -9,6 +9,8 @@ use tracing_subscriber::fmt::time::LocalTime;
 
 pub mod option_ext;
 pub mod as_any;
+pub mod etcd_client;
+pub mod maybe_ref;
 
 const BASE64_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+~";
 static ACTOR_NAME_OFFSET: AtomicI64 = AtomicI64::new(0);

@@ -13,11 +13,11 @@ use crate::cluster_sharding_guardian::ClusterShardingGuardian;
 
 #[derive(Debug, Clone, AsAny)]
 pub struct ClusterSharding {
-    inner: Arc<ClusterShardingInner>,
+    inner: Arc<Inner>,
 }
 
 #[derive(Debug)]
-pub struct ClusterShardingInner {
+pub struct Inner {
     system: ActorSystem,
     cluster: Cluster,
     regions: DashMap<String, ActorRef>,
@@ -26,7 +26,7 @@ pub struct ClusterShardingInner {
 }
 
 impl Deref for ClusterSharding {
-    type Target = Arc<ClusterShardingInner>;
+    type Target = Arc<Inner>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -41,7 +41,7 @@ impl ClusterSharding {
                 cluster: Cluster::get(context.system()).clone(),
             }
         }), Some("sharding".to_string()))?;
-        let inner = ClusterShardingInner {
+        let inner = Inner {
             system,
             cluster,
             regions: Default::default(),
