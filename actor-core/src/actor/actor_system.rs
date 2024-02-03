@@ -5,17 +5,18 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
-use anyhow::Context as AnyhowContext;
 
+use anyhow::{anyhow, Context as AnyhowContext};
 use arc_swap::{ArcSwap, Guard};
 use dashmap::mapref::one::{MappedRef, MappedRefMut};
-use futures::{FutureExt, ready};
 use futures::future::BoxFuture;
+use futures::FutureExt;
 use pin_project::pin_project;
 use rand::random;
-use tokio::runtime::{Handle, Runtime};
-use tokio::sync::broadcast::{channel, Sender};
+use tokio::runtime::Handle;
+use tokio::sync::mpsc::{channel, Sender};
 
+use crate::{CORE_CONFIG, CORE_CONFIG_NAME};
 use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::actor::actor_ref_factory::ActorRefFactory;
@@ -29,10 +30,9 @@ use crate::actor::props::Props;
 use crate::actor::scheduler::{scheduler, SchedulerSender};
 use crate::actor::system_guardian::SystemGuardian;
 use crate::actor::user_guardian::UserGuardian;
-use crate::config::actor_setting::ActorSetting;
 use crate::config::{ActorConfig, Config};
+use crate::config::actor_setting::ActorSetting;
 use crate::config::core_config::CoreConfig;
-use crate::{CORE_CONFIG, CORE_CONFIG_NAME};
 use crate::event::event_stream::EventStream;
 use crate::ext::maybe_ref::MaybeRef;
 use crate::ext::type_name_of;
@@ -54,8 +54,9 @@ pub struct Inner {
     event_stream: EventStream,
     extension: ActorExtension,
     config: ActorConfig,
-    signal: Sender<()>,
+    signal: Sender<anyhow::Result<()>>,
     termination_callbacks: TerminationCallbacks,
+    pub(crate) termination_result: Mutex<Option<anyhow::Result<()>>>,
 }
 
 impl Deref for ActorSystem {
@@ -93,6 +94,7 @@ impl ActorSystem {
             config: ActorConfig::default(),
             signal: signal_tx,
             termination_callbacks: TerminationCallbacks::default(),
+            termination_result: Mutex::default(),
         };
         let system = Self { inner: inner.into() };
         system.config.add(core_config)?;
@@ -105,7 +107,10 @@ impl ActorSystem {
             s.spawn(system.clone())?;
         }
         let signal = async move {
-            let _ = signal_rx.recv().await;
+            match signal_rx.recv().await {
+                None => Err(anyhow!("signal tx closed")),
+                Some(result) => result,
+            }
         }.boxed();
         let runner = ActorSystemRunner {
             system,
@@ -139,11 +144,12 @@ impl ActorSystem {
     }
 
     pub(crate) fn when_terminated(&self) -> impl Future<Output=()> + 'static {
+        let result = self.termination_result.lock().unwrap().take().unwrap_or(Ok(()));
         let callbacks = self.termination_callbacks.run();
         let signal = self.signal.clone();
         async move {
             callbacks.await;
-            let _ = signal.send(());
+            let _ = signal.send(result).await;
         }
     }
 
@@ -188,6 +194,10 @@ impl ActorSystem {
         Ok(())
     }
 
+    pub fn exist_extension<E>(&self) -> bool {
+        self.extension.contains_key(type_name_of::<E>())
+    }
+
     pub fn get_extension<E>(&self) -> Option<MappedRef<&'static str, Box<dyn Extension>, E>> where E: Extension {
         self.extension.get()
     }
@@ -211,15 +221,6 @@ impl ActorSystem {
 
     pub fn core_config(&self) -> MappedRef<&'static str, Box<dyn Config>, CoreConfig> {
         self.get_config()
-    }
-
-    fn build_runtime(name: &str) -> Runtime {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .thread_name(name)
-            .build()
-            .expect("Failed building the Runtime");
-        runtime
     }
 }
 
@@ -271,7 +272,7 @@ impl ActorRefFactory for ActorSystem {
 pub struct ActorSystemRunner {
     pub system: ActorSystem,
     #[pin]
-    signal: BoxFuture<'static, ()>,
+    signal: BoxFuture<'static, anyhow::Result<()>>,
 }
 
 impl Deref for ActorSystemRunner {
@@ -283,12 +284,11 @@ impl Deref for ActorSystemRunner {
 }
 
 impl Future for ActorSystemRunner {
-    type Output = ();
+    type Output = anyhow::Result<()>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let this = self.project();
-        let _ = ready!(this.signal.poll(cx));
-        Poll::Ready(())
+        this.signal.poll(cx)
     }
 }
 

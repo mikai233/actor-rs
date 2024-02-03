@@ -5,7 +5,7 @@ use std::sync::RwLockWriteGuard;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use etcd_client::{Client, EventType, PutOptions, WatchOptions, WatchResponse};
+use etcd_client::{EventType, PutOptions, WatchOptions, WatchResponse};
 use tracing::{debug, error, info, trace};
 
 use actor_core::{Actor, DynMessage, Message};
@@ -20,7 +20,7 @@ use actor_derive::EmptyCodec;
 use crate::cluster::Cluster;
 use crate::cluster_event::ClusterEvent;
 use crate::cluster_heartbeat::{ClusterHeartbeatReceiver, ClusterHeartbeatSender};
-use crate::key_watcher::{KeyWatcher, WatchResp};
+use crate::etcd_watcher::{EtcdWatcher, WatchResp};
 use crate::lease_keeper::{LeaseKeepAliveFailed, LeaseKeeper};
 use crate::member::{Member, MemberStatus};
 use crate::unique_address::UniqueAddress;
@@ -64,11 +64,11 @@ impl ClusterDaemon {
         format!("actor/{}/cluster/lease", self.self_addr.system_name())
     }
 
-    fn spawn_watcher(context: &mut ActorContext, name: impl Into<String>, adapter: ActorRef, key: String, options: Option<WatchOptions>, eclient: Client) -> anyhow::Result<()> {
+    fn spawn_watcher(context: &mut ActorContext, name: impl Into<String>, adapter: ActorRef, key: String, options: Option<WatchOptions>, client: EtcdClient) -> anyhow::Result<()> {
         context.spawn(Props::create(move |ctx| {
-            KeyWatcher::new(
+            EtcdWatcher::new(
                 ctx.myself().clone(),
-                eclient.clone(),
+                client.clone(),
                 key.clone(),
                 options.clone(),
                 adapter.clone(),
@@ -80,10 +80,10 @@ impl ClusterDaemon {
     async fn spawn_lease_keeper(&mut self, context: &mut ActorContext) -> anyhow::Result<i64> {
         let resp = self.client.lease_grant(60, None).await?;
         let lease_id = resp.id();
-        let eclient = self.client.clone();
+        let client = self.client.clone();
         let receiver = context.message_adapter(|m| DynMessage::user(LeaseFailed(m)));
         context.spawn(
-            Props::create(move |_| { LeaseKeeper::new(eclient.clone(), resp.id(), receiver.clone(), Duration::from_secs(3)) }),
+            Props::create(move |_| { LeaseKeeper::new(client.clone(), resp.id(), receiver.clone(), Duration::from_secs(3)) }),
             "lease_keeper",
         )?;
         Ok(lease_id)
@@ -117,7 +117,7 @@ impl ClusterDaemon {
             adapter.clone(),
             self.lease_path(),
             Some(WatchOptions::new().with_prefix()),
-            self.client.clone().into(),
+            self.client.clone(),
         )?;
         Ok(())
     }

@@ -27,7 +27,6 @@ use crate::cluster::Cluster;
 use crate::cluster_heartbeat::{Heartbeat, HeartbeatRsp};
 use crate::cluster_setting::ClusterSetting;
 use crate::config::ClusterConfig;
-use crate::distributed_pub_sub::DistributedPubSub;
 
 #[derive(Debug, AsAny)]
 pub struct ClusterActorRefProvider {
@@ -67,7 +66,6 @@ impl ClusterActorRefProvider {
     fn register_extension(spawns: &mut Vec<Box<dyn DeferredSpawn>>) {
         let s = FuncDeferredSpawn::new(|system| {
             system.register_extension(|system| Cluster::new(system))?;
-            system.register_extension(|system| DistributedPubSub::new(system))?;
             Ok(())
         });
         spawns.push(Box::new(s));

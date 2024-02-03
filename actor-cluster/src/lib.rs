@@ -9,7 +9,7 @@ mod cluster_singleton_manager;
 mod region;
 mod unique_address;
 mod message;
-pub mod key_watcher;
+pub mod etcd_watcher;
 mod cluster_heartbeat;
 mod cluster_event;
 mod distributed_pub_sub;

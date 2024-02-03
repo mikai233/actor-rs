@@ -140,11 +140,12 @@ impl CoordinatedShutdown {
         system.get_extension_mut::<Self>().expect("CoordinatedShutdown extension not found")
     }
 
-    pub fn run<R: Reason>(&mut self, reason: R) -> impl Future<Output=()> + 'static {
+    pub fn run_with_result<R: Reason>(&mut self, reason: R, result: anyhow::Result<()>) -> impl Future<Output=()> + 'static {
         let mut coordinated_tasks = VecDeque::new();
         let started = self.run_started.swap(true, Ordering::Relaxed);
         if !started {
             info!("running CoordinatedShutdown with reason [{:?}]",  reason);
+            *self.system.termination_result.lock().unwrap() = Some(result);
             let mut registered_phases = self.registered_phases.lock().unwrap().drain().collect::<HashMap<_, _>>();
             for phase_name in &self.ordered_phases {
                 if let Some(phase) = self.system.core_config().phases.get(phase_name) {
@@ -177,6 +178,10 @@ impl CoordinatedShutdown {
                 debug!("execute coordinated shutdown complete");
             }
         }
+    }
+
+    pub fn run<R: Reason>(&mut self, reason: R) -> impl Future<Output=()> + 'static {
+        self.run_with_result(reason, Ok(()))
     }
 
     fn init_phase_actor_system_terminate(&mut self) -> anyhow::Result<()> {
@@ -284,3 +289,8 @@ impl Reason for ActorSystemTerminateReason {}
 pub struct CtrlCExitReason;
 
 impl Reason for CtrlCExitReason {}
+
+#[derive(Debug, AsAny)]
+pub struct ActorSystemStartFailedReason;
+
+impl Reason for ActorSystemStartFailedReason {}

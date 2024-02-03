@@ -9,7 +9,7 @@ use crate::actor::decoder::MessageDecoder;
 use crate::delegate::downcast_box_message;
 use crate::message::message_registration::MessageRegistration;
 
-pub(crate) struct SystemDelegate {
+pub struct SystemDelegate {
     pub(crate) name: &'static str,
     pub(crate) message: Box<dyn SystemMessage>,
 }

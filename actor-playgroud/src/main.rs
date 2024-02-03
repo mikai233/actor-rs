@@ -6,7 +6,7 @@ use bincode::{Decode, Encode};
 use etcd_client::Client;
 use tracing::info;
 
-use actor_cluster::cluster_provider::{ClusterActorRefProvider, ClusterProviderBuilder};
+use actor_cluster::cluster_provider::ClusterActorRefProvider;
 use actor_cluster::config::ClusterConfig;
 use actor_core::{DynMessage, EmptyTestActor, Message};
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
@@ -94,6 +94,6 @@ async fn main() -> anyhow::Result<()> {
     // let which = sel.resolve_one(Duration::from_secs(3)).await?;
     // info!("{}", which);
     sel.tell(DynMessage::user(TestMessage), ActorRef::no_sender());
-    system1.await;
+    system2.await?;
     Ok(())
 }

@@ -2,6 +2,7 @@ use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use anyhow::anyhow;
 
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -18,6 +19,7 @@ use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_ref_provider::ActorRefProvider;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::coordinated_shutdown::{ActorSystemStartFailedReason, CoordinatedShutdown};
 use actor_core::ext::decode_bytes;
 use actor_core::message::message_registration::MessageRegistration;
 
@@ -52,21 +54,33 @@ impl Actor for TcpTransportActor {
         let myself = context.myself().clone();
         let addr = self.transport.addr;
         context.spawn_fut(async move {
-            let tcp_listener = TcpListener::bind(addr).await.unwrap();
-            //TODO shutdown system when bind error
-            info!("{} start listening", addr);
-            loop {
-                match tcp_listener.accept().await {
-                    Ok((stream, peer_addr)) => {
-                        let actor = myself.clone();
-                        let connection_fut = async move {
-                            TcpTransportActor::accept_inbound_connection(stream, peer_addr, actor).await;
-                        };
-                        myself.cast_ns(SpawnInbound { fut: Box::pin(connection_fut) });
+            info!("start bind tcp addr {}", addr);
+            match TcpListener::bind(addr).await {
+                Ok(tcp_listener) => {
+                    loop {
+                        match tcp_listener.accept().await {
+                            Ok((stream, peer_addr)) => {
+                                let actor = myself.clone();
+                                let connection_fut = async move {
+                                    TcpTransportActor::accept_inbound_connection(stream, peer_addr, actor).await;
+                                };
+                                myself.cast_ns(SpawnInbound { fut: Box::pin(connection_fut) });
+                            }
+                            Err(error) => {
+                                warn!("{} accept connection error {:?}", addr, error);
+                            }
+                        }
                     }
-                    Err(error) => {
-                        warn!("{} accept connection error {:?}", addr, error);
-                    }
+                }
+                Err(error) => {
+                    //这里不能用actor的上下文去执行异步任务，因为停止系统会导致actor销毁，与之关联的异步任务也会销毁，后面的任务无法执行
+                    let fut = {
+                        let error = anyhow!("bind tcp addr {} failed {:?}", addr, error);
+                        CoordinatedShutdown::get_mut(myself.system()).run_with_result(ActorSystemStartFailedReason, Err(error))
+                    };
+                    tokio::spawn(async move {
+                        fut.await;
+                    });
                 }
             }
         });
