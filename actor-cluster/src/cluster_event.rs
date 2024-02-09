@@ -12,6 +12,7 @@ pub enum ClusterEvent {
     MemberUp(Member),
     MemberPrepareForLeaving(Member),
     MemberLeaving(Member),
+    MemberRemoved(Member),
     MemberDowned(Member),
     CurrentClusterState {
         members: HashMap<UniqueAddress, Member>,
@@ -34,6 +35,11 @@ impl ClusterEvent {
     pub fn member_leaving(member: Member) -> Self {
         debug_assert!(member.status == MemberStatus::Leaving);
         Self::MemberLeaving(member)
+    }
+
+    pub fn member_removed(member: Member) -> Self {
+        debug_assert!(member.status == MemberStatus::Removed);
+        Self::MemberRemoved(member)
     }
 
     pub fn member_downed(member: Member) -> Self {

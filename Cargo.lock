@@ -37,6 +37,19 @@ dependencies = [
  "async-trait",
  "bincode",
  "dashmap",
+ "serde",
+ "tracing",
+]
+
+[[package]]
+name = "actor-cluster-tools"
+version = "0.1.0"
+dependencies = [
+ "actor-core",
+ "actor-derive",
+ "anyhow",
+ "async-trait",
+ "dashmap",
  "tracing",
 ]
 

@@ -51,7 +51,7 @@ impl Actor for LeaseKeeper {
         };
         let myself = context.myself().clone();
         let key = context.system().scheduler().schedule_with_fixed_delay(None, self.interval, move || {
-            myself.cast_ns(LeaseTick);
+            myself.cast_ns(KeepAliveTick);
         });
         self.tick_key = Some(key);
         Ok(())
@@ -64,14 +64,14 @@ impl Actor for LeaseKeeper {
 }
 
 #[derive(Debug, EmptyCodec)]
-struct RevokeLease;
+struct LeaseRevoke;
 
 #[async_trait]
-impl Message for RevokeLease {
+impl Message for LeaseRevoke {
     type A = LeaseKeeper;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let keeper = actor.keeper.as_ref().unwrap();
+        let keeper = actor.keeper.as_result()?;
         actor.client.lease_revoke(keeper.id()).await?;
         debug!("{} {} lease revoke success", context.myself(), keeper.id());
         Ok(())
@@ -79,10 +79,10 @@ impl Message for RevokeLease {
 }
 
 #[derive(Debug, Clone, CEmptyCodec)]
-struct LeaseTick;
+struct KeepAliveTick;
 
 #[async_trait]
-impl Message for LeaseTick {
+impl Message for KeepAliveTick {
     type A = LeaseKeeper;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {

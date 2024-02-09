@@ -1,5 +1,5 @@
 [package]
-name = "actor-cluster-sharding"
+name = "actor-cluster-tools"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,12 +7,8 @@ edition = "2021"
 
 [dependencies]
 actor-core = { path = "../actor-core" }
-actor-remote = { path = "../actor-remote" }
-actor-cluster = { path = "../actor-cluster" }
 actor-derive = { path = "../actor-derive" }
-bincode = { workspace = true }
-anyhow = { workspace = true }
+async-trait = { workspace = true }
 dashmap = { workspace = true, features = ["inline"] }
 tracing = { workspace = true }
-async-trait = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
+anyhow = { workspace = true }

@@ -1,14 +1,12 @@
-use async_trait::async_trait;
 use dashmap::mapref::one::MappedRef;
-use tracing::trace;
 
-use actor_core::Actor;
 use actor_core::actor::actor_ref::ActorRef;
 use actor_core::actor::actor_system::ActorSystem;
-use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::Props;
 use actor_derive::AsAny;
+
+use crate::pubsub::distributed_pub_sub_mediator::DistributedPubSubMediator;
 
 #[derive(Debug, AsAny)]
 pub struct DistributedPubSub {
@@ -31,16 +29,5 @@ impl DistributedPubSub {
 
     pub fn get(system: &ActorSystem) -> MappedRef<&'static str, Box<dyn Extension>, Self> {
         system.get_extension::<Self>().expect("DistributedPubSub extension not found")
-    }
-}
-
-#[derive(Debug)]
-struct DistributedPubSubMediator {}
-
-#[async_trait]
-impl Actor for DistributedPubSubMediator {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        trace!("{} started", context.myself());
-        Ok(())
     }
 }

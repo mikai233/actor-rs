@@ -6,7 +6,7 @@ use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
 use arc_swap::Guard;
 use dashmap::mapref::one::MappedRef;
 
-use actor_core::actor::actor_ref::ActorRef;
+use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::actor::actor_system::ActorSystem;
@@ -16,9 +16,10 @@ use actor_core::actor::props::Props;
 use actor_core::DynMessage;
 use actor_core::event::EventBus;
 use actor_core::ext::etcd_client::EtcdClient;
+use actor_core::ext::type_name_of;
 use actor_derive::AsAny;
 
-use crate::cluster_daemon::ClusterDaemon;
+use crate::cluster_daemon::{AddOnMemberRemovedListener, ClusterDaemon};
 use crate::cluster_event::ClusterEvent;
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::cluster_state::ClusterState;
@@ -69,12 +70,13 @@ impl Cluster {
                 self_addr: unique_address_c.clone(),
                 roles: roles_c.clone(),
                 transport: transport.clone(),
-                lease_id: 0,
                 key_addr: HashMap::new(),
                 cluster: None,
             }
         }), Some("cluster".to_string()))?;
-        let state = ClusterState::new(Member::new(self_unique_address.clone(), MemberStatus::Down, roles.clone()));
+        let state = ClusterState::new(
+            Member::new(self_unique_address.clone(), MemberStatus::Down, roles.clone(), 0)
+        );
         let inner = Inner {
             system,
             client,
@@ -102,14 +104,22 @@ impl Cluster {
         let members = self.members().clone();
         let self_member = self.self_member().clone();
         subscriber.tell(DynMessage::orphan(ClusterEvent::current_cluster_state(members, self_member)), ActorRef::no_sender());
-        self.system.event_stream().subscribe(subscriber, std::any::type_name::<ClusterEvent>());
+        self.system.event_stream().subscribe(subscriber, type_name_of::<ClusterEvent>());
     }
 
     pub fn unsubscribe_cluster_event(&self, subscriber: &ActorRef) {
-        self.system.event_stream().unsubscribe(subscriber, std::any::type_name::<ClusterEvent>());
+        self.system.event_stream().unsubscribe(subscriber, type_name_of::<ClusterEvent>());
     }
 
     pub fn leave(&self, address: Address) {}
+
+    pub fn register_on_member_up<F>(&self, f: F) where F: FnOnce() + Send + 'static {
+        self.daemon.cast_ns(AddOnMemberRemovedListener(Box::new(f)));
+    }
+
+    pub fn register_on_member_removed<F>(&self, f: F) where F: FnOnce() + Send + 'static {
+        self.daemon.cast_ns(AddOnMemberRemovedListener(Box::new(f)));
+    }
 
     pub fn self_roles(&self) -> &HashSet<String> {
         &self.roles

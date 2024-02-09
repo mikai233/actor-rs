@@ -40,6 +40,6 @@ async fn main() -> anyhow::Result<()> {
         })
         .build();
     let system = ActorSystem::create(args.system_name, setting)?;
-    system.await;
+    system.await?;
     Ok(())
 }

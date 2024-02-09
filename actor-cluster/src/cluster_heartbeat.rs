@@ -97,6 +97,7 @@ impl Message for HeartbeatSenderClusterEvent {
                 actor.active_receivers.extend(members.into_keys());
             }
             ClusterEvent::EtcdUnreachable => {}
+            ClusterEvent::MemberRemoved(_) => {}
         }
         Ok(())
     }
@@ -161,6 +162,7 @@ impl Message for HeartbeatReceiverClusterEvent {
                 actor.self_member = Some(self_member);
             }
             ClusterEvent::EtcdUnreachable => {}
+            ClusterEvent::MemberRemoved(_) => {}
         }
         Ok(())
     }

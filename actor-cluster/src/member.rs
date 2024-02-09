@@ -11,14 +11,16 @@ pub struct Member {
     pub addr: UniqueAddress,
     pub status: MemberStatus,
     pub roles: HashSet<String>,
+    pub lease: i64,
 }
 
 impl Member {
-    pub fn new(addr: UniqueAddress, status: MemberStatus, roles: HashSet<String>) -> Self {
+    pub fn new(addr: UniqueAddress, status: MemberStatus, roles: HashSet<String>, lease: i64) -> Self {
         Self {
             addr,
             status,
             roles,
+            lease,
         }
     }
 
@@ -42,5 +44,6 @@ pub enum MemberStatus {
     Up,
     PrepareForLeaving,
     Leaving,
+    Removed,
     Down,
 }
