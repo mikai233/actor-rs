@@ -1,2 +1,3 @@
-mod pubsub;
-mod singleton;
+pub mod pubsub;
+pub mod singleton;
+pub mod config;

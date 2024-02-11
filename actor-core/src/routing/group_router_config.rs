@@ -25,7 +25,7 @@ impl TRouterConfig for GroupRouterConfig {
         self.config.create_router()
     }
 
-    fn create_router_actor(&self, routee_props: Props) -> Box<dyn TRouterActor> {
+    fn create_router_actor(&self, routee_props: Props) -> anyhow::Result<Box<dyn TRouterActor>> {
         self.config.create_router_actor(routee_props)
     }
 }

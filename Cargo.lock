@@ -45,12 +45,19 @@ dependencies = [
 name = "actor-cluster-tools"
 version = "0.1.0"
 dependencies = [
+ "actor-cluster",
  "actor-core",
  "actor-derive",
  "anyhow",
  "async-trait",
+ "bincode",
  "dashmap",
+ "etcd-client",
+ "futures",
+ "serde",
+ "tokio",
  "tracing",
+ "typed-builder",
 ]
 
 [[package]]
@@ -97,6 +104,7 @@ name = "actor-playgroud"
 version = "0.1.0"
 dependencies = [
  "actor-cluster",
+ "actor-cluster-tools",
  "actor-core",
  "actor-derive",
  "actor-remote",

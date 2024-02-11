@@ -51,7 +51,7 @@ impl Message for NormalMessage {
 async fn main() -> anyhow::Result<()> {
     init_logger(Level::DEBUG);
     let system = ActorSystem::create("mikai233", ActorSetting::default())?;
-    let test_actor = system.spawn_anonymous(Props::create(|_| TestActor))?;
+    let test_actor = system.spawn_anonymous(Props::create(|_| Ok(TestActor)))?;
     test_actor.cast_ns(ErrorMessage);
     test_actor.cast_ns(NormalMessage);
     system.await;

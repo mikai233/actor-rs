@@ -74,6 +74,7 @@ impl Message for Connect {
         let myself = context.myself().clone();
         let handle = context.spawn_fut(async move {
             match StubbornTcpStream::connect_with_options(addr, opts).await {
+                //TODO 对于非集群内的地址，以及集群节点离开后，不能再一直尝试连接
                 Ok(stream) => {
                     if let Some(e) = stream.set_nodelay(true).err() {
                         warn!("connect {} set tcp nodelay error {:?}, drop current connection", addr, e);
@@ -106,7 +107,7 @@ impl Message for Connected {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.connections.insert(self.addr, ConnectionStatus::Connected(self.tx));
-        info!("{} connect to {}", context.myself(), self.addr);
+        info!("{} connected to {}", context.myself(), self.addr);
         if let Some(messages) = actor.buffer.remove(&self.addr) {
             for (message, sender) in messages {
                 context.myself().tell(message, sender);

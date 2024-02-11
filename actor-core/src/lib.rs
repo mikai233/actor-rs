@@ -1,6 +1,3 @@
-pub(crate) const CORE_CONFIG_NAME: &'static str = "core.toml";
-pub(crate) const CORE_CONFIG: &'static str = include_str!("../core.toml");
-
 use std::any::Any;
 use std::fmt::{Debug, Formatter};
 
@@ -19,6 +16,9 @@ use crate::delegate::downcast_box_message;
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::UserDelegate;
 use crate::message::message_registration::MessageRegistration;
+
+pub(crate) const CORE_CONFIG_NAME: &'static str = "core.toml";
+pub(crate) const CORE_CONFIG: &'static str = include_str!("../core.toml");
 
 pub mod ext;
 mod cell;
@@ -128,7 +128,7 @@ impl DynMessage {
         DynMessage::new(delegate.name, MessageType::User, delegate)
     }
 
-    pub(crate) fn system<M>(message: M) -> Self where M: SystemMessage {
+    pub fn system<M>(message: M) -> Self where M: SystemMessage {
         let delegate = SystemDelegate::new(message);
         DynMessage::new(delegate.name, MessageType::System, delegate)
     }

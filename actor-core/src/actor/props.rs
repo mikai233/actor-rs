@@ -14,7 +14,7 @@ use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
 use crate::routing::router_config::RouterConfig;
 
-pub type Spawner = Arc<Box<dyn Fn(ActorRef, Mailbox, ActorSystem, Props) + Send + Sync + 'static>>;
+pub type Spawner = Arc<Box<dyn Fn(ActorRef, Mailbox, ActorSystem, Props) -> anyhow::Result<()> + Send + Sync + 'static>>;
 
 #[derive(Clone)]
 pub struct Props {
@@ -36,12 +36,14 @@ impl Debug for Props {
 }
 
 impl Props {
-    pub fn create<F, A>(f: F) -> Self where F: Fn(&mut ActorContext) -> A + Send + Sync + 'static, A: Actor {
+    pub fn create<F, A>(f: F) -> Self where
+        F: Fn(&mut ActorContext) -> anyhow::Result<A> + Send + Sync + 'static,
+        A: Actor {
         let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem, props: Props| {
             let handle = props.handle.clone();
             let mut context = ActorContext::new(myself, system, props);
             let system = context.system.clone();
-            let actor = f(&mut context);
+            let actor = f(&mut context)?;
             let runtime = ActorRuntime {
                 actor,
                 context,
@@ -55,6 +57,7 @@ impl Props {
                     handle.spawn(runtime.run());
                 }
             }
+            Ok::<_, anyhow::Error>(())
         };
         Self {
             spawner: Arc::new(Box::new(spawner)),
@@ -122,7 +125,7 @@ impl DeferredSpawn for ActorDeferredSpawn {
     fn spawn(self: Box<Self>, system: ActorSystem) -> anyhow::Result<()> {
         let Self { actor_ref, mailbox, props } = *self;
         let spawner = props.spawner.clone();
-        spawner(actor_ref, mailbox, system, props);
+        spawner(actor_ref, mailbox, system, props)?;
         Ok(())
     }
 }

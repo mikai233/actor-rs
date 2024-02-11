@@ -9,6 +9,7 @@ edition = "2021"
 actor-core = { path = "../actor-core" }
 actor-remote = { path = "../actor-remote" }
 actor-cluster = { path = "../actor-cluster" }
+actor-cluster-tools = { path = "../actor-cluster-tools" }
 actor-derive = { path = "../actor-derive" }
 tokio = { workspace = true, features = ["full"] }
 anyhow = { workspace = true }
@@ -26,3 +27,7 @@ path = "src/node.rs"
 [[bin]]
 name = "supervisor"
 path = "src/supervisor.rs"
+
+[[bin]]
+name = "singleton"
+path = "src/singleton.rs"

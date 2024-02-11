@@ -258,7 +258,7 @@ impl LocalActorRef {
                 self.cell.insert_child(name, child_ref.clone());
                 if start {
                     let spawner = props.spawner.clone();
-                    spawner(child_ref.clone().into(), mailbox, self.system().clone(), props);
+                    spawner(child_ref.clone().into(), mailbox, self.system().clone(), props)?;
                     Ok((child_ref.into(), None))
                 } else {
                     let deferred_spawn = ActorDeferredSpawn::new(child_ref.clone().into(), mailbox, props);

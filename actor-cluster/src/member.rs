@@ -4,6 +4,8 @@ use std::hash::{Hash, Hasher};
 use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
+use actor_core::actor::address::Address;
+
 use crate::unique_address::UniqueAddress;
 
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode, Serialize, Deserialize)]
@@ -26,6 +28,10 @@ impl Member {
 
     pub fn has_role(&self, role: &str) -> bool {
         self.roles.contains(role)
+    }
+
+    pub fn address(&self) -> &Address {
+        &self.addr.address
     }
 }
 

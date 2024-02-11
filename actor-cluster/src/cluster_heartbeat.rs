@@ -86,6 +86,7 @@ impl Message for HeartbeatSenderClusterEvent {
             }
             ClusterEvent::MemberPrepareForLeaving(_) => {}
             ClusterEvent::MemberLeaving(_) => {}
+            ClusterEvent::MemberRemoved(_) => {}
             ClusterEvent::MemberDowned(m) => {
                 if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
                     actor.self_member = Some(m.clone());
@@ -94,10 +95,14 @@ impl Message for HeartbeatSenderClusterEvent {
             }
             ClusterEvent::CurrentClusterState { members, self_member } => {
                 actor.self_member = Some(self_member);
-                actor.active_receivers.extend(members.into_keys());
+                let up_members = members
+                    .into_iter()
+                    .filter(|(_, m)| m.status == MemberStatus::Up)
+                    .map(|(addr, _)| addr)
+                    .collect::<HashSet<_>>();
+                actor.active_receivers.extend(up_members);
             }
             ClusterEvent::EtcdUnreachable => {}
-            ClusterEvent::MemberRemoved(_) => {}
         }
         Ok(())
     }
@@ -153,6 +158,7 @@ impl Message for HeartbeatReceiverClusterEvent {
             }
             ClusterEvent::MemberPrepareForLeaving(_) => {}
             ClusterEvent::MemberLeaving(_) => {}
+            ClusterEvent::MemberRemoved(_) => {}
             ClusterEvent::MemberDowned(m) => {
                 if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
                     actor.self_member = Some(m.clone());
@@ -162,7 +168,6 @@ impl Message for HeartbeatReceiverClusterEvent {
                 actor.self_member = Some(self_member);
             }
             ClusterEvent::EtcdUnreachable => {}
-            ClusterEvent::MemberRemoved(_) => {}
         }
         Ok(())
     }

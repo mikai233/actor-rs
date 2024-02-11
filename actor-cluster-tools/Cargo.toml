@@ -7,8 +7,15 @@ edition = "2021"
 
 [dependencies]
 actor-core = { path = "../actor-core" }
+actor-cluster = { path = "../actor-cluster" }
 actor-derive = { path = "../actor-derive" }
 async-trait = { workspace = true }
 dashmap = { workspace = true, features = ["inline"] }
 tracing = { workspace = true }
 anyhow = { workspace = true }
+typed-builder = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+etcd-client = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+bincode = { workspace = true }

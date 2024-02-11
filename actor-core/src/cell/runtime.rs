@@ -4,7 +4,7 @@ use std::panic::AssertUnwindSafe;
 use anyhow::{anyhow, Error};
 use futures::FutureExt;
 use tokio::task::yield_now;
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::{Actor, Message};
 use crate::actor::actor_ref::ActorRef;
@@ -90,7 +90,10 @@ impl<A> ActorRuntime<A> where A: Actor {
 
     pub(crate) fn recreate(myself: ActorRef, mailbox: Mailbox, system: ActorSystem, props: Props) {
         let spawner = props.spawner.clone();
-        spawner(myself, mailbox, system, props);
+        let myself_display = myself.to_string();
+        if let Some(error) = spawner(myself, mailbox, system, props).err() {
+            warn!("{} recreate error {:?}", myself_display, error);
+        }
     }
 
     async fn handle_system(context: &mut ActorContext, actor: &mut A, envelope: Envelope) {

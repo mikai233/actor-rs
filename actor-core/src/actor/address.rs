@@ -11,6 +11,18 @@ pub struct Address {
     pub addr: Option<SocketAddrV4>,
 }
 
+impl Address {
+    pub fn new(protocol: impl Into<String>, system: impl Into<String>, addr: Option<SocketAddrV4>) -> Self {
+        let protocol = protocol.into();
+        let system = system.into();
+        Self {
+            protocol,
+            system,
+            addr,
+        }
+    }
+}
+
 impl Display for Address {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match &self.addr {

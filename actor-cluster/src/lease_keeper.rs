@@ -12,7 +12,7 @@ use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
 use actor_derive::{CEmptyCodec, EmptyCodec, OrphanEmptyCodec};
 
-pub(crate) struct LeaseKeeper {
+pub struct EtcdLeaseKeeper {
     client: EtcdClient,
     lease_id: i64,
     keeper: Option<etcd_client::LeaseKeeper>,
@@ -22,7 +22,7 @@ pub(crate) struct LeaseKeeper {
     tick_key: Option<ScheduleKey>,
 }
 
-impl LeaseKeeper {
+impl EtcdLeaseKeeper {
     pub fn new(client: EtcdClient, lease_id: i64, failed_receiver: ActorRef, interval: Duration) -> Self {
         Self {
             client,
@@ -37,7 +37,7 @@ impl LeaseKeeper {
 }
 
 #[async_trait]
-impl Actor for LeaseKeeper {
+impl Actor for EtcdLeaseKeeper {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         match self.client.lease_keep_alive(self.lease_id).await {
             Ok((keeper, stream)) => {
@@ -58,6 +58,7 @@ impl Actor for LeaseKeeper {
     }
 
     async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
+        let _ = self.client.lease_revoke(self.lease_id).await;
         self.tick_key.take().into_foreach(|k| { k.cancel(); });
         Ok(())
     }
@@ -68,7 +69,7 @@ struct LeaseRevoke;
 
 #[async_trait]
 impl Message for LeaseRevoke {
-    type A = LeaseKeeper;
+    type A = EtcdLeaseKeeper;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let keeper = actor.keeper.as_result()?;
@@ -83,13 +84,13 @@ struct KeepAliveTick;
 
 #[async_trait]
 impl Message for KeepAliveTick {
-    type A = LeaseKeeper;
+    type A = EtcdLeaseKeeper;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let keeper = actor.keeper.as_mut().unwrap();
         if let Some(error) = keeper.keep_alive().await.err() {
             actor.failed_receiver.tell(DynMessage::orphan(LeaseKeepAliveFailed(keeper.id())), ActorRef::no_sender());
-            warn!("{} {} lease keep alive failed {:?}", context.myself(), keeper.id(), error);
+            warn!("{} {} lease keep alive failed {:?}, stop the lease keeper", context.myself(), keeper.id(), error);
             context.stop(context.myself());
         } else {
             let stream = actor.stream.as_mut().unwrap();

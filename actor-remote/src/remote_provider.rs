@@ -1,6 +1,6 @@
 use std::sync::Arc;
-use anyhow::Context;
 
+use anyhow::Context;
 use tokio::sync::broadcast::Receiver;
 
 use actor_core::actor::actor_path::ActorPath;
@@ -19,12 +19,12 @@ use actor_core::config::Config;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_derive::AsAny;
+
+use crate::{REMOTE_CONFIG, REMOTE_CONFIG_NAME};
 use crate::config::RemoteConfig;
 use crate::config::transport::Transport;
-
 use crate::net::tcp_transport::TcpTransportActor;
 use crate::remote_actor_ref::RemoteActorRef;
-use crate::{REMOTE_CONFIG, REMOTE_CONFIG_NAME};
 use crate::remote_setting::RemoteSetting;
 
 #[derive(Debug, AsAny)]
@@ -75,7 +75,7 @@ impl RemoteActorRefProvider {
         match transport {
             Transport::Tcp(tcp) => {
                 provider.system_guardian().attach_child(
-                    Props::create(move |context| TcpTransportActor::new(context.system().clone(), tcp.clone())),
+                    Props::create(move |context| Ok(TcpTransportActor::new(context.system().clone(), tcp.clone()))),
                     Some("tcp_transport".to_string()),
                     false,
                 )

@@ -9,7 +9,7 @@ use crate::actor::context::{ActorContext, Context};
 use crate::ext::option_ext::OptionExt;
 
 #[derive(Debug, Clone, Encode, Decode, CSystemCodec)]
-pub(crate) struct Identify;
+pub struct Identify;
 
 #[async_trait]
 impl SystemMessage for Identify {
@@ -26,6 +26,6 @@ impl SystemMessage for Identify {
 }
 
 #[derive(Debug, Encode, Decode, OrphanCodec)]
-pub(crate) struct ActorIdentity {
-    pub(crate) actor_ref: Option<ActorRef>,
+pub struct ActorIdentity {
+    pub actor_ref: Option<ActorRef>,
 }

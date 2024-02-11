@@ -2,13 +2,13 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use arc_swap::Guard;
 use dashmap::mapref::one::MappedRef;
 
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
-use actor_core::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
+use actor_core::actor::actor_ref_provider::{downcast_provider, TActorRefProvider};
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
 use actor_core::actor::extension::Extension;
@@ -19,7 +19,7 @@ use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::type_name_of;
 use actor_derive::AsAny;
 
-use crate::cluster_daemon::{AddOnMemberRemovedListener, ClusterDaemon};
+use crate::cluster_daemon::{AddOnMemberRemovedListener, ClusterDaemon, LeaveCluster};
 use crate::cluster_event::ClusterEvent;
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::cluster_state::ClusterState;
@@ -39,6 +39,7 @@ pub struct Inner {
     roles: HashSet<String>,
     daemon: ActorRef,
     state: ClusterState,
+    is_terminated: AtomicBool,
 }
 
 impl Deref for Cluster {
@@ -52,7 +53,7 @@ impl Deref for Cluster {
 impl Cluster {
     pub fn new(system: ActorSystem) -> anyhow::Result<Self> {
         let provider = system.provider();
-        let cluster_provider = Self::cluster_provider(&provider);
+        let cluster_provider = downcast_provider::<ClusterActorRefProvider>(&provider);
         let client = cluster_provider.client.clone();
         let roles = cluster_provider.roles.clone();
         let address = cluster_provider.get_default_address();
@@ -65,14 +66,14 @@ impl Cluster {
         let roles_c = roles.clone();
         let transport = cluster_provider.remote.transport.clone();
         let daemon = system.spawn_system(Props::create(move |_| {
-            ClusterDaemon {
+            Ok(ClusterDaemon {
                 client: client_clone.clone(),
                 self_addr: unique_address_c.clone(),
                 roles: roles_c.clone(),
                 transport: transport.clone(),
                 key_addr: HashMap::new(),
                 cluster: None,
-            }
+            })
         }), Some("cluster".to_string()))?;
         let state = ClusterState::new(
             Member::new(self_unique_address.clone(), MemberStatus::Down, roles.clone(), 0)
@@ -84,20 +85,13 @@ impl Cluster {
             roles,
             daemon,
             state,
+            is_terminated: AtomicBool::new(false),
         };
         Ok(Self { inner: Arc::new(inner) })
     }
 
     pub fn get(system: &ActorSystem) -> MappedRef<&'static str, Box<dyn Extension>, Self> {
         system.get_extension::<Self>().expect("Cluster extension not found")
-    }
-
-    pub fn cluster_provider(provider: &Guard<Arc<ActorRefProvider>>) -> &ClusterActorRefProvider {
-        let cluster_provider =
-            provider.as_any()
-                .downcast_ref::<ClusterActorRefProvider>()
-                .expect("expect ClusterActorRefProvider");
-        cluster_provider
     }
 
     pub fn subscribe_cluster_event(&self, subscriber: ActorRef) {
@@ -111,7 +105,9 @@ impl Cluster {
         self.system.event_stream().unsubscribe(subscriber, type_name_of::<ClusterEvent>());
     }
 
-    pub fn leave(&self, address: Address) {}
+    pub fn leave(&self, address: Address) {
+        self.daemon.cast_ns(LeaveCluster(address));
+    }
 
     pub fn register_on_member_up<F>(&self, f: F) where F: FnOnce() + Send + 'static {
         self.daemon.cast_ns(AddOnMemberRemovedListener(Box::new(f)));
@@ -165,5 +161,15 @@ impl Cluster {
         let mut role_members = members.values().filter(|m| m.has_role(role) && m.status == MemberStatus::Up).collect::<Vec<_>>();
         role_members.sort_by_key(|m| &m.addr);
         role_members.first().map(|leader| *leader).cloned()
+    }
+
+    pub(crate) fn shutdown(&self) {
+        if !self.is_terminated.swap(true, Ordering::Relaxed) {
+            self.system.stop(&self.daemon);
+        }
+    }
+
+    pub fn is_terminated(&self) -> bool {
+        self.is_terminated.load(Ordering::Relaxed)
     }
 }

@@ -1,7 +1,9 @@
 use std::ops::Deref;
 use std::sync::Arc;
+
 use dashmap::DashMap;
 use dashmap::mapref::one::MappedRef;
+
 use actor_cluster::cluster::Cluster;
 use actor_core::actor::actor_ref::ActorRef;
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
@@ -9,6 +11,7 @@ use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::Props;
 use actor_derive::AsAny;
+
 use crate::cluster_sharding_guardian::ClusterShardingGuardian;
 
 #[derive(Debug, Clone, AsAny)]
@@ -37,9 +40,9 @@ impl ClusterSharding {
     pub fn new(system: ActorSystem) -> anyhow::Result<Self> {
         let cluster = Cluster::get(&system).clone();
         let guardian = system.spawn_system(Props::create(|context| {
-            ClusterShardingGuardian {
+            Ok(ClusterShardingGuardian {
                 cluster: Cluster::get(context.system()).clone(),
-            }
+            })
         }), Some("sharding".to_string()))?;
         let inner = Inner {
             system,

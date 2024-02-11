@@ -24,7 +24,9 @@ use crate::routing::router_actor::{TRouterActor, WatchRouteeTerminated};
 #[enum_dispatch(RouterConfig)]
 pub trait TRouterConfig: Send + Sync + DynClone + 'static {
     fn create_router(&self) -> Router;
-    fn create_router_actor(&self, routee_props: Props) -> Box<dyn TRouterActor>;
+
+    fn create_router_actor(&self, routee_props: Props) -> anyhow::Result<Box<dyn TRouterActor>>;
+
     fn is_management_message(&self, message: &DynMessage) -> bool {
         if matches!(message.message_type, MessageType::System)
             || message.name == std::any::type_name::<WatchRouteeTerminated>()
@@ -36,6 +38,7 @@ pub trait TRouterConfig: Send + Sync + DynClone + 'static {
             false
         }
     }
+
     fn stop_router_when_all_routees_removed(&self) -> bool {
         true
     }

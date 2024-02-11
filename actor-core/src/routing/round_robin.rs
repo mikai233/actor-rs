@@ -56,13 +56,13 @@ impl TRouterConfig for RoundRobinPool {
         Router::new(RoundRobinRoutingLogic::default())
     }
 
-    fn create_router_actor(&self, routee_props: Props) -> Box<dyn TRouterActor> {
+    fn create_router_actor(&self, routee_props: Props) -> anyhow::Result<Box<dyn TRouterActor>> {
         let router = self.create_router();
         let router_actor = RouterActor {
             router,
             props: routee_props,
         };
-        Box::new(router_actor)
+        Ok(Box::new(router_actor))
     }
 }
 
@@ -85,8 +85,8 @@ impl Pool for RoundRobinPool {
 mod test {
     use std::sync::Arc;
     use std::time::Duration;
-    use async_trait::async_trait;
 
+    use async_trait::async_trait;
     use tracing::{info, Level};
 
     use actor_derive::EmptyCodec;
@@ -127,12 +127,12 @@ mod test {
     async fn test_round_robin() -> anyhow::Result<()> {
         init_logger(Level::TRACE);
         let system = ActorSystem::create("mikai233", ActorSetting::default())?;
-        let router_props = RoundRobinPool::new(5, OneForOneStrategy::default()).props(Props::create(|_| TestActor));
+        let router_props = RoundRobinPool::new(5, OneForOneStrategy::default()).props(Props::create(|_| Ok(TestActor)));
         let round_robin_router = system.spawn_anonymous(router_props)?;
         for _ in 0..10 {
             round_robin_router.cast_ns(TestMessage);
         }
-        let another_routee = system.spawn_anonymous(Props::create(|_| TestActor))?;
+        let another_routee = system.spawn_anonymous(Props::create(|_| Ok(TestActor)))?;
         round_robin_router.cast_ns(AddRoutee { routee: Arc::new(Box::new(ActorRefRoutee(another_routee))) });
         tokio::time::sleep(Duration::from_secs(2)).await;
         Ok(())
