@@ -18,11 +18,11 @@ use crate::actor::actor_ref::{ActorRef, TActorRef};
 use crate::actor::cell::Cell;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::decoder::MessageDecoder;
-use crate::actor::deferred_ref::Patterns;
 use crate::actor::empty_local_ref::EmptyLocalActorRef;
 use crate::ext::{decode_bytes, encode_bytes};
 use crate::message::identify::{ActorIdentity, Identify};
 use crate::message::message_registration::{IDPacket, MessageRegistration};
+use crate::pattern::patterns::Patterns;
 
 #[derive(Debug)]
 pub struct ActorSelection {

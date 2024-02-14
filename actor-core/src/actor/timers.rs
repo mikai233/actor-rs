@@ -22,14 +22,14 @@ use crate::actor::props::Props;
 use crate::message::terminated::WatchTerminated;
 
 #[derive(Debug)]
-pub(crate) struct TimerSchedulerActor {
+pub(crate) struct TimersActor {
     queue: DelayQueue<Schedule>,
     index: HashMap<u64, Key>,
     waker: futures::task::Waker,
     watching_receivers: HashMap<ActorRef, HashSet<u64>>,
 }
 
-impl TimerSchedulerActor {
+impl TimersActor {
     pub(crate) fn new(myself: ActorRef) -> Self {
         let waker = futures::task::waker(Arc::new(SchedulerWaker { scheduler: myself }));
         Self {
@@ -42,7 +42,7 @@ impl TimerSchedulerActor {
 }
 
 #[async_trait]
-impl Actor for TimerSchedulerActor {
+impl Actor for TimersActor {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{} started", context.myself);
         Ok(())
@@ -102,7 +102,7 @@ enum Schedule {
 
 #[async_trait]
 impl Message for Schedule {
-    type A = TimerSchedulerActor;
+    type A = TimersActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match &*self {
@@ -141,13 +141,13 @@ impl Message for Schedule {
 }
 
 impl Schedule {
-    fn once(self: Box<Self>, actor: &mut TimerSchedulerActor, index: u64, delay: Duration) {
+    fn once(self: Box<Self>, actor: &mut TimersActor, index: u64, delay: Duration) {
         let delay_key = actor.queue.insert(*self, delay);
         debug_assert!(!actor.index.contains_key(&index));
         actor.index.insert(index, delay_key);
     }
 
-    fn fixed_delay(self: Box<Self>, actor: &mut TimerSchedulerActor, index: u64, initial_delay: Option<Duration>, interval: Duration) {
+    fn fixed_delay(self: Box<Self>, actor: &mut TimersActor, index: u64, initial_delay: Option<Duration>, interval: Duration) {
         let delay_key = match initial_delay {
             None => {
                 let delay = interval;
@@ -209,7 +209,7 @@ struct CancelSchedule {
 
 #[async_trait]
 impl Message for CancelSchedule {
-    type A = TimerSchedulerActor;
+    type A = TimersActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match actor.index.remove(&self.index) {
@@ -240,7 +240,7 @@ struct CancelAllSchedule;
 
 #[async_trait]
 impl Message for CancelAllSchedule {
-    type A = TimerSchedulerActor;
+    type A = TimersActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.index.clear();
@@ -259,7 +259,7 @@ struct PollExpired;
 
 #[async_trait]
 impl Message for PollExpired {
-    type A = TimerSchedulerActor;
+    type A = TimersActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let waker = &actor.waker;
@@ -322,7 +322,7 @@ struct ReceiverTerminated(ActorRef);
 
 #[async_trait]
 impl Message for ReceiverTerminated {
-    type A = TimerSchedulerActor;
+    type A = TimersActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if let Some(index_set) = actor.watching_receivers.remove(&self.0) {
@@ -355,28 +355,28 @@ impl ArcWake for SchedulerWaker {
     }
 }
 
-#[derive(Debug)]
-pub struct TimerScheduler {
-    index: AtomicU64,
+#[derive(Debug, Clone)]
+pub struct Timers {
+    index: Arc<AtomicU64>,
     scheduler_actor: ActorRef,
 }
 
-impl TimerScheduler {
+impl Timers {
     pub fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
         let scheduler_actor = context
             .spawn(
-                Props::create(move |context| Ok(TimerSchedulerActor::new(context.myself.clone()))),
-                "timer_scheduler",
+                Props::create(move |context| Ok(TimersActor::new(context.myself.clone()))),
+                "timers",
             )?;
         Ok(Self {
-            index: AtomicU64::new(0),
+            index: AtomicU64::new(0).into(),
             scheduler_actor,
         })
     }
 
     pub fn with_actor(timers: ActorRef) -> Self {
         Self {
-            index: AtomicU64::new(0),
+            index: AtomicU64::new(0).into(),
             scheduler_actor: timers,
         }
     }

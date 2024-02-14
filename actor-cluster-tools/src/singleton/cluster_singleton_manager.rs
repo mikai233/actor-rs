@@ -5,6 +5,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use etcd_client::LockOptions;
+use serde::{Deserialize, Serialize};
 use tokio::task::AbortHandle;
 use tracing::{debug, error, info, trace, warn};
 use typed_builder::TypedBuilder;
@@ -25,12 +26,21 @@ use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::message::terminated::WatchTerminated;
 use actor_derive::EmptyCodec;
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone, Serialize, Deserialize, TypedBuilder)]
 pub struct ClusterSingletonManagerSettings {
     #[builder(default = "singleton".to_string())]
     pub singleton_name: String,
     #[builder(default = None)]
     pub role: Option<String>,
+}
+
+impl Default for ClusterSingletonManagerSettings {
+    fn default() -> Self {
+        Self {
+            singleton_name: "singleton".to_string(),
+            role: None,
+        }
+    }
 }
 
 #[derive(Debug)]

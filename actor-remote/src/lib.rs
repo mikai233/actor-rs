@@ -6,6 +6,7 @@ pub mod net;
 pub mod remote_actor_ref;
 pub mod remote_setting;
 pub mod config;
+mod remote_watcher;
 
 #[cfg(test)]
 mod test {

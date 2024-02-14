@@ -65,11 +65,10 @@ impl EtcdWatcher {
                 context.myself().cast_ns(PollMessage);
             }
             Err(error) => {
-                warn!("{} watch {} {:?}, sleep 3s and try rewatch it", context.myself(), self.key, error);
+                let retry = Duration::from_secs(3);
+                warn!("{} watch {} {:?}, retry after {:?}", context.myself(), self.key, error, retry);
                 let myself = context.myself().clone();
-                context.system().scheduler().schedule_once(Duration::from_secs(3), move || {
-                    myself.cast_ns(RetryWatch);
-                });
+                context.system().scheduler().schedule_once(retry, move || { myself.cast_ns(RetryWatch); });
             }
         };
     }

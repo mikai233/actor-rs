@@ -171,7 +171,10 @@ impl<'de> BorrowDecode<'de> for ActorRef {
     }
 }
 
-pub(crate) fn get_child_default(actor_ref: impl Into<ActorRef>, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+pub(crate) fn get_child_default(
+    actor_ref: impl Into<ActorRef>,
+    names: &mut Peekable<&mut dyn Iterator<Item=&str>>,
+) -> Option<ActorRef> {
     match names.next() {
         None => {
             Some(actor_ref.into())
