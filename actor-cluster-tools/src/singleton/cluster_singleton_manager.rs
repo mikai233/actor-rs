@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -61,10 +61,9 @@ impl ClusterSingletonManager {
     pub fn new(
         context: &mut ActorContext,
         props: Props,
-        termination_message: Arc<Mutex<DynMessage>>,
+        termination_message: DynMessage,
         settings: ClusterSingletonManagerSettings,
     ) -> anyhow::Result<Self> {
-        let termination_message = termination_message.lock().unwrap();
         let cluster = Cluster::get(context.system()).clone();
         let myself = context.myself().clone();
         let mut coordinate_shutdown = CoordinatedShutdown::get_mut(context.system());
@@ -82,7 +81,7 @@ impl ClusterSingletonManager {
         let myself = Self {
             cluster,
             singleton_props: props,
-            termination_message: termination_message.dyn_clone().unwrap(),
+            termination_message,
             settings,
             client,
             lease_id: 0,
@@ -154,9 +153,10 @@ impl ClusterSingletonManager {
         if !termination_message.is_cloneable() {
             return Err(anyhow!("termination message {} require cloneable", termination_message.name()));
         }
-        let termination_message = Arc::new(Mutex::new(termination_message));
+        let termination_message = Mutex::new(termination_message);
         let props = Props::create(move |context| {
-            Self::new(context, props.clone(), termination_message.clone(), settings.clone())
+            let termination_message = termination_message.lock().unwrap().dyn_clone().unwrap();
+            Self::new(context, props.clone(), termination_message, settings.clone())
         });
         Ok(props)
     }

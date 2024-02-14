@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_ref::ActorRef;
@@ -67,7 +67,7 @@ impl ShardRegion {
         handoff_stop_message: DynMessage,
     ) -> Props {
         debug_assert!(handoff_stop_message.is_cloneable(), "message {} is not cloneable", handoff_stop_message.name);
-        let handoff_stop_message = Arc::new(Mutex::new(handoff_stop_message));
+        let handoff_stop_message = Mutex::new(handoff_stop_message);
         Props::create(move |context| {
             let handoff_stop_message = handoff_stop_message.lock().unwrap().dyn_clone().unwrap();
             Self::new(

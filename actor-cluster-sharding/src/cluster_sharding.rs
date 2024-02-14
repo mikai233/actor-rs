@@ -146,7 +146,7 @@ impl ClusterSharding {
         }
     }
 
-    fn proxy_name(type_name: &str) -> String {
+    pub(crate) fn proxy_name(type_name: &str) -> String {
         format!("{}_proxy", type_name)
     }
 }

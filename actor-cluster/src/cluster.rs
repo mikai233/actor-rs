@@ -172,4 +172,8 @@ impl Cluster {
     pub fn is_terminated(&self) -> bool {
         self.is_terminated.load(Ordering::Relaxed)
     }
+
+    pub fn client(&self) -> &EtcdClient {
+        &self.client
+    }
 }
