@@ -143,7 +143,7 @@ impl Patterns {
     }
 }
 
-pub trait AskExt {
+pub trait PatternsExt {
     fn ask<Req, Resp>(
         &self,
         message: Req,
@@ -154,7 +154,7 @@ pub trait AskExt {
             Resp: OrphanMessage;
 }
 
-impl AskExt for ActorRef {
+impl PatternsExt for ActorRef {
     fn ask<Req, Resp>(
         &self,
         message: Req,
@@ -167,7 +167,7 @@ impl AskExt for ActorRef {
     }
 }
 
-impl AskExt for ActorSelection {
+impl PatternsExt for ActorSelection {
     fn ask<Req, Resp>(
         &self,
         message: Req,

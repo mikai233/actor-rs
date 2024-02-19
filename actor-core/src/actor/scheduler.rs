@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::ops::Sub;
+use std::ops::{Deref, Sub};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
@@ -220,10 +221,23 @@ impl ScheduleKey {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SchedulerSender {
+    inner: Arc<Inner>,
+}
+
+#[derive(Debug)]
+pub struct Inner {
     index: AtomicU64,
     sender: UnboundedSender<Schedule>,
+}
+
+impl Deref for SchedulerSender {
+    type Target = Arc<Inner>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl SchedulerSender {
@@ -266,8 +280,7 @@ impl SchedulerSender {
     }
 
     pub fn cancel_all(&self) {
-        let SchedulerSender { sender, .. } = self;
-        if sender.send(Schedule::cancel_all()).is_err() {
+        if self.sender.send(Schedule::cancel_all()).is_err() {
             warn!("cancel all failed, scheduler closed");
         }
     }
@@ -282,8 +295,12 @@ pub fn scheduler() -> SchedulerSender {
     };
     scheduler.run();
     let sender = SchedulerSender {
-        index: AtomicU64::new(0),
-        sender: tx,
+        inner: Arc::new(
+            Inner {
+                index: AtomicU64::new(0),
+                sender: tx,
+            }
+        )
     };
     sender
 }
@@ -302,7 +319,7 @@ mod tests {
         init_logger(Level::DEBUG);
         let scheduler = scheduler();
         let (tx, rx) = tokio::sync::oneshot::channel::<()>();
-        let key = scheduler.schedule_once(Duration::from_secs(1), move || {
+        scheduler.schedule_once(Duration::from_secs(1), move || {
             let _ = tx.send(());
         });
         tokio::time::timeout(Duration::from_millis(1050), rx).await??;

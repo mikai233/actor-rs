@@ -16,7 +16,7 @@ use actor_core::actor::extension::Extension;
 use actor_core::actor::props::Props;
 use actor_core::config::Config;
 use actor_core::DynMessage;
-use actor_core::pattern::patterns::AskExt;
+use actor_core::pattern::patterns::PatternsExt;
 use actor_derive::AsAny;
 
 use crate::{CLUSTER_SHARDING_CONFIG, CLUSTER_SHARDING_CONFIG_NAME};
