@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use dyn_clone::DynClone;
@@ -6,7 +7,7 @@ use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
 
-pub trait SupervisorStrategy: Send + Sync + DynClone + 'static {
+pub trait SupervisorStrategy: Send + Sync + DynClone + Debug + 'static {
     fn directive(&self) -> &Directive;
 
     #[allow(unused_variables)]
