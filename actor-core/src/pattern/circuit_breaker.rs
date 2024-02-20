@@ -1,10 +1,11 @@
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use anyhow::anyhow;
 use rand::random;
+use tracing::debug;
 
 use crate::actor::scheduler::SchedulerSender;
 
@@ -18,14 +19,29 @@ pub struct CircuitBreaker {
     exponential_backoff_factor: f64,
     random_factor: f64,
     current_reset_timeout: Duration,
-    on_open_listeners: Vec<Box<dyn Fn()>>,
-    on_half_open_listeners: Vec<Box<dyn Fn()>>,
-    on_close_listeners: Vec<Box<dyn Fn()>>,
-    call_failure_listeners: Vec<Box<dyn Fn(SystemTime)>>,
-    call_timeout_listeners: Vec<Box<dyn Fn(SystemTime)>>,
-    call_breaker_open_listeners: Vec<Box<dyn Fn()>>,
-    call_success_listeners: Vec<Box<dyn Fn()>>,
+    on_open_listeners: Vec<Box<dyn Fn() + Send>>,
+    on_half_open_listeners: Vec<Box<dyn Fn() + Send>>,
+    on_close_listeners: Vec<Box<dyn Fn() + Send>>,
+    call_failure_listeners: Vec<Box<dyn Fn(SystemTime) + Send>>,
+    call_timeout_listeners: Vec<Box<dyn Fn(SystemTime) + Send>>,
+    call_breaker_open_listeners: Vec<Box<dyn Fn() + Send>>,
+    call_success_listeners: Vec<Box<dyn Fn() + Send>>,
     change_to_half_open: Arc<Box<dyn Fn() + Send + Sync>>,
+}
+
+impl Debug for CircuitBreaker {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CircuitBreaker")
+            .field("state", &self.state)
+            .field("max_failures", &self.max_failures)
+            .field("call_timeout", &self.call_timeout)
+            .field("reset_timeout", &self.reset_timeout)
+            .field("max_reset_timeout", &self.max_reset_timeout)
+            .field("exponential_backoff_factor", &self.exponential_backoff_factor)
+            .field("random_factor", &self.random_factor)
+            .field("current_reset_timeout", &self.current_reset_timeout)
+            .finish_non_exhaustive()
+    }
 }
 
 impl CircuitBreaker {
@@ -67,7 +83,7 @@ impl CircuitBreaker {
         Ok(myself)
     }
 
-    fn transition_listeners(&self, state: State) -> &Vec<Box<dyn Fn()>> {
+    fn transition_listeners(&self, state: State) -> &Vec<Box<dyn Fn() + Send>> {
         match state {
             State::Closed { .. } => {
                 &self.on_close_listeners
@@ -81,7 +97,7 @@ impl CircuitBreaker {
         }
     }
 
-    fn transition_listeners_mut(&mut self, state: State) -> &mut Vec<Box<dyn Fn()>> {
+    fn transition_listeners_mut(&mut self, state: State) -> &mut Vec<Box<dyn Fn() + Send>> {
         match state {
             State::Closed { .. } => {
                 &mut self.on_close_listeners
@@ -156,8 +172,8 @@ impl CircuitBreaker {
             State::Open { open_time, current_reset_timeout } => {
                 let duration_from_opened = SystemTime::now().duration_since(open_time)
                     .expect("open_time is later than now");
-                if current_reset_timeout >= duration_from_opened {
-                    Err(anyhow!("breaker is open, will change to half open immdeately"))
+                if duration_from_opened >= current_reset_timeout {
+                    Err(anyhow!("breaker is open, will change to half open immediately"))
                 } else {
                     let remain = current_reset_timeout - duration_from_opened;
                     Err(anyhow!("breaker is open, wll change to half open after {:?}", remain))
@@ -180,6 +196,7 @@ impl CircuitBreaker {
     }
 
     fn call_fails(&mut self) {
+        debug!("{:?}", self);
         match &mut self.state {
             State::Closed { failure_counter } => {
                 *failure_counter += 1;
@@ -188,7 +205,7 @@ impl CircuitBreaker {
                         self.state.clone(),
                         State::Open {
                             open_time: SystemTime::now(),
-                            current_reset_timeout: Duration::ZERO,
+                            current_reset_timeout: self.reset_timeout,
                         },
                     );
                 }
@@ -198,7 +215,7 @@ impl CircuitBreaker {
                     self.state.clone(),
                     State::Open {
                         open_time: SystemTime::now(),
-                        current_reset_timeout: Duration::ZERO,
+                        current_reset_timeout: self.reset_timeout,
                     },
                 );
             }
@@ -207,7 +224,7 @@ impl CircuitBreaker {
     }
 
     fn transition(&mut self, from_state: State, to_state: State) {
-        if from_state == to_state {
+        if self.state == from_state {
             self.state = to_state;
             self.enter();
             self.notify_transition_listeners(to_state);
@@ -246,37 +263,37 @@ impl CircuitBreaker {
         self.call_fails();
     }
 
-    pub fn on_open<F>(&mut self, f: F) -> &mut Self where F: Fn() + 'static {
+    pub fn on_open<F>(&mut self, f: F) -> &mut Self where F: Fn() + Send + 'static {
         self.on_open_listeners.push(Box::new(f));
         self
     }
 
-    pub fn on_half_open<F>(&mut self, f: F) -> &mut Self where F: Fn() + 'static {
+    pub fn on_half_open<F>(&mut self, f: F) -> &mut Self where F: Fn() + Send + 'static {
         self.on_half_open_listeners.push(Box::new(f));
         self
     }
 
-    pub fn on_close<F>(&mut self, f: F) -> &mut Self where F: Fn() + 'static {
+    pub fn on_close<F>(&mut self, f: F) -> &mut Self where F: Fn() + Send + 'static {
         self.on_close_listeners.push(Box::new(f));
         self
     }
 
-    pub fn call_failure<F>(&mut self, f: F) -> &mut Self where F: Fn(SystemTime) + 'static {
+    pub fn call_failure<F>(&mut self, f: F) -> &mut Self where F: Fn(SystemTime) + Send + 'static {
         self.call_failure_listeners.push(Box::new(f));
         self
     }
 
-    pub fn call_timeout<F>(&mut self, f: F) -> &mut Self where F: Fn(SystemTime) + 'static {
+    pub fn call_timeout<F>(&mut self, f: F) -> &mut Self where F: Fn(SystemTime) + Send + 'static {
         self.call_timeout_listeners.push(Box::new(f));
         self
     }
 
-    pub fn call_breaker_open<F>(&mut self, f: F) -> &mut Self where F: Fn() + 'static {
+    pub fn call_breaker_open<F>(&mut self, f: F) -> &mut Self where F: Fn() + Send + 'static {
         self.call_breaker_open_listeners.push(Box::new(f));
         self
     }
 
-    pub fn call_success<F>(&mut self, f: F) -> &mut Self where F: Fn() + 'static {
+    pub fn call_success<F>(&mut self, f: F) -> &mut Self where F: Fn() + Send + 'static {
         self.call_success_listeners.push(Box::new(f));
         self
     }
@@ -311,5 +328,142 @@ impl Display for State {
                 write!(f, "Open")
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::time::Duration;
+    use anyhow::anyhow;
+    use async_trait::async_trait;
+    use tracing::info;
+    use actor_derive::EmptyCodec;
+    use crate::{Actor, Message};
+    use crate::actor::actor_ref::ActorRefExt;
+    use crate::actor::actor_ref_factory::ActorRefFactory;
+    use crate::actor::actor_system::ActorSystem;
+    use crate::actor::context::{ActorContext, Context};
+    use crate::actor::props::Props;
+    use crate::config::actor_setting::ActorSetting;
+    use crate::pattern::circuit_breaker::CircuitBreaker;
+
+    struct LogicActor {
+        breaker: CircuitBreaker,
+        counter: usize,
+    }
+
+    impl LogicActor {
+        fn new_breaker(context: &mut ActorContext) -> anyhow::Result<CircuitBreaker> {
+            let myself = context.myself().clone();
+            let breaker = CircuitBreaker::new(
+                context.system().scheduler().clone(),
+                10,
+                Duration::from_secs(1),
+                Duration::from_secs(3),
+                Duration::from_secs(10),
+                1.0,
+                0.2,
+                move || {
+                    myself.cast_ns(ChangeToHalfOpen);
+                },
+            );
+            breaker
+        }
+    }
+
+    #[async_trait]
+    impl Actor for LogicActor {
+        async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+            self.breaker.on_open(|| {
+                info!("breaker now open");
+            });
+            self.breaker.on_close(|| {
+                info!("breaker now close");
+            });
+            self.breaker.on_half_open(|| {
+                info!("breaker now half open");
+            });
+            self.breaker.call_success(|| {
+                info!("breaker call success");
+            });
+            self.breaker.call_failure(|_| {
+                info!("breaker call failure");
+            });
+            self.breaker.call_timeout(|_| {
+                info!("breaker call timeout");
+            });
+            Ok(())
+        }
+    }
+
+    #[derive(Debug, EmptyCodec)]
+    struct ChangeToHalfOpen;
+
+    #[async_trait]
+    impl Message for ChangeToHalfOpen {
+        type A = LogicActor;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+            actor.breaker.change_to_half_open();
+            Ok(())
+        }
+    }
+
+    #[derive(Debug, EmptyCodec)]
+    struct SuccessCall(usize);
+
+    #[async_trait]
+    impl Message for SuccessCall {
+        type A = LogicActor;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+            for _ in 0..self.0 {
+                let _ = actor.breaker.invoke(async {
+                    actor.counter += 1;
+                    Ok(())
+                }).await;
+            }
+            info!("after success call, counter is {}", actor.counter);
+            Ok(())
+        }
+    }
+
+    #[derive(Debug, EmptyCodec)]
+    struct FailCall(usize);
+
+    #[async_trait]
+    impl Message for FailCall {
+        type A = LogicActor;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+            for _ in 0..self.0 {
+                let _ = actor.breaker.invoke::<_, ()>(async {
+                    Err(anyhow!("test error"))
+                }).await;
+            }
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_breaker() -> anyhow::Result<()> {
+        let system = ActorSystem::create("mikai233", ActorSetting::default())?;
+        let actor = system.spawn_anonymous(Props::create(|ctx| {
+            let breaker = LogicActor::new_breaker(ctx)?;
+            Ok(LogicActor {
+                breaker,
+                counter: 0,
+            })
+        }))?;
+        actor.cast_ns(SuccessCall(10));
+        actor.cast_ns(FailCall(10));
+        actor.cast_ns(SuccessCall(10));
+        tokio::time::sleep(Duration::from_secs(4)).await;
+        actor.cast_ns(SuccessCall(10));
+        actor.cast_ns(FailCall(10));
+        tokio::time::sleep(Duration::from_secs(4)).await;
+        actor.cast_ns(FailCall(1));
+        system.await?;
+        Ok(())
     }
 }

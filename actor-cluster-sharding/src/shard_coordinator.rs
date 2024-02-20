@@ -8,7 +8,7 @@ use actor_core::{Actor, Message};
 use actor_core::actor::actor_ref::ActorRef;
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::ActorContext;
-use actor_derive::CMessageCodec;
+use actor_derive::{CMessageCodec, MessageCodec};
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
@@ -67,3 +67,30 @@ impl Message for TerminateCoordinator {
     }
 }
 
+#[derive(Debug, Encode, Decode, MessageCodec)]
+pub(crate) struct Register {
+    pub(crate) shard_region: ActorRef,
+}
+
+#[async_trait]
+impl Message for Register {
+    type A = ShardCoordinator;
+
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        todo!()
+    }
+}
+
+#[derive(Debug, Encode, Decode, MessageCodec)]
+pub(crate) struct RegisterProxy {
+    pub(crate) shard_region_proxy: ActorRef,
+}
+
+#[async_trait]
+impl Message for RegisterProxy {
+    type A = ShardCoordinator;
+
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        todo!()
+    }
+}

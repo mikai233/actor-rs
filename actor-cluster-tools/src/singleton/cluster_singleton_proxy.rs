@@ -128,6 +128,7 @@ impl ClusterSingletonProxy {
         }
     }
 
+    // TODO 这里是否可以优化为将当前singleton存入etcd，然后所有proxy监听此地址以此来感知singleton的变化？
     fn identify_singleton(&mut self, context: &mut ActorContext) {
         let myself = context.myself().clone();
         let scheduler = context.system().scheduler();
