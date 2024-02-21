@@ -12,4 +12,5 @@ pub mod failed;
 pub mod identify;
 pub mod message_registration;
 pub mod stop_child;
+pub mod message_buffer;
 

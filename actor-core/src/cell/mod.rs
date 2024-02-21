@@ -7,7 +7,7 @@ use crate::actor::actor_ref::ActorRef;
 use crate::actor::fault_handing::ChildRestartStats;
 use crate::actor::function_ref::FunctionRef;
 
-pub(crate) mod envelope;
+pub mod envelope;
 pub(crate) mod runtime;
 
 #[derive(Debug, Clone)]

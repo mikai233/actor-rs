@@ -27,6 +27,8 @@ use crate::shard_coordinator::{Register, RegisterProxy};
 
 pub type ShardId = String;
 
+pub type EntityId = String;
+
 pub struct ShardRegion {
     type_name: String,
     entity_props: Option<Props>,

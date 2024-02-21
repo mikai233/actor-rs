@@ -3,4 +3,6 @@ use crate::Message;
 
 pub trait WatchTerminated: Message {
     fn watch_actor(&self) -> &ActorRef;
+
+    //TODO address terminated
 }

@@ -9,6 +9,7 @@ pub mod shard_coordinator;
 mod shard_allocation_strategy;
 mod cluster_sharding_settings;
 mod message_extractor;
+mod shard;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
