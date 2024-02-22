@@ -20,13 +20,14 @@ use crate::actor::function_ref::{FunctionRef, Inner};
 use crate::actor::local_ref::LocalActorRef;
 use crate::actor::props::Props;
 use crate::actor::state::ActorState;
+use crate::cell::envelope::Envelope;
 use crate::ext::option_ext::OptionExt;
 use crate::ext::random_name;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::execute::Execute;
 use crate::message::failed::Failed;
 use crate::message::terminate::Terminate;
-use crate::message::terminated::WatchTerminated;
+use crate::message::terminated::Terminated;
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
 
@@ -41,7 +42,7 @@ pub trait Context: ActorRefFactory {
 
     fn parent(&self) -> Option<&ActorRef>;
 
-    fn watch<T>(&mut self, terminate: T) where T: WatchTerminated;
+    fn watch<T>(&mut self, terminated: T) where T: Terminated;
 
     fn unwatch(&mut self, subject: &ActorRef);
 
@@ -63,7 +64,7 @@ pub struct ActorContext {
     pub(crate) state: ActorState,
     pub(crate) myself: ActorRef,
     pub(crate) sender: Option<ActorRef>,
-    pub(crate) stash: VecDeque<(DynMessage, Option<ActorRef>)>,
+    pub(crate) stash: VecDeque<Envelope>,
     pub(crate) fut_handle: Vec<JoinHandle<()>>,
     pub(crate) system: ActorSystem,
     pub(crate) watching: HashMap<ActorRef, DynMessage>,
@@ -141,22 +142,22 @@ impl Context for ActorContext {
         self.myself().local().unwrap().cell.parent()
     }
 
-    fn watch<T>(&mut self, terminate: T) where T: WatchTerminated {
-        let watch_actor = terminate.watch_actor().clone();
-        if &watch_actor != self.myself() {
-            let message = DynMessage::user(terminate);
-            match self.watching.get(&watch_actor) {
+    fn watch<T>(&mut self, terminated: T) where T: Terminated {
+        let watchee = terminated.actor().clone();
+        if &watchee != self.myself() {
+            let message = DynMessage::user(terminated);
+            match self.watching.get(&watchee) {
                 None => {
                     let watch = Watch {
-                        watchee: watch_actor.clone(),
+                        watchee: watchee.clone(),
                         watcher: self.myself.clone(),
                     };
-                    watch_actor.cast_system(watch, ActorRef::no_sender());
-                    self.watching.insert(watch_actor, message);
+                    watchee.cast_system(watch, ActorRef::no_sender());
+                    self.watching.insert(watchee, message);
                 }
                 Some(previous) => {
                     warn!("drop previous watch message {} and insert new watch message {}", previous.name(), message.name());
-                    self.watching.insert(watch_actor, message);
+                    self.watching.insert(watchee, message);
                 }
             }
         }
@@ -217,10 +218,10 @@ impl ActorContext {
     }
     pub fn stash<M>(&mut self, message: M) where M: Message {
         let sender = self.sender.clone();
-        self.stash.push_back((DynMessage::user(message), sender));
+        self.stash.push_back(Envelope::new(DynMessage::user(message), sender));
         if let Some(stash_capacity) = self.stash_capacity {
             if self.stash.len() > stash_capacity {
-                if let Some((oldest, _)) = self.stash.pop_front() {
+                if let Some(oldest) = self.stash.pop_front() {
                     let name = oldest.name();
                     warn!("stash buffer reach max size {}, drop oldest message {}", stash_capacity, name);
                 }
@@ -229,7 +230,9 @@ impl ActorContext {
     }
 
     pub fn unstash(&mut self) -> bool {
-        if let Some((message, sender)) = self.stash.pop_front() {
+        if let Some(envelope) = self.stash.pop_front() {
+            let message = envelope.message;
+            let sender = envelope.sender;
             self.myself.tell(message, sender);
             return true;
         }
@@ -240,7 +243,9 @@ impl ActorContext {
         if self.stash.is_empty() {
             return false;
         }
-        for (message, sender) in self.stash.drain(..) {
+        for envelope in self.stash.drain(..) {
+            let message = envelope.message;
+            let sender = envelope.sender;
             self.myself.tell(message, sender);
         }
         return true;

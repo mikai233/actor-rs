@@ -22,7 +22,7 @@ use actor_core::message::poison_pill::PoisonPill;
 use actor_derive::EmptyCodec;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
-use crate::message_extractor::MessageExtractor;
+use crate::message_extractor::{MessageExtractor, ShardingEnvelope};
 use crate::shard_coordinator::{Register, RegisterProxy};
 
 pub type ShardId = String;
@@ -271,6 +271,15 @@ struct RegisterRetry;
 
 #[async_trait]
 impl Message for RegisterRetry {
+    type A = ShardRegion;
+
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        todo!()
+    }
+}
+
+#[async_trait]
+impl Message for ShardingEnvelope {
     type A = ShardRegion;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {

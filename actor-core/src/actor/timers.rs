@@ -19,7 +19,7 @@ use crate::actor::actor_ref::ActorRefExt;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::props::Props;
-use crate::message::terminated::WatchTerminated;
+use crate::message::terminated::Terminated;
 
 #[derive(Debug)]
 pub(crate) struct TimersActor {
@@ -338,8 +338,8 @@ impl Message for ReceiverTerminated {
     }
 }
 
-impl WatchTerminated for ReceiverTerminated {
-    fn watch_actor(&self) -> &ActorRef {
+impl Terminated for ReceiverTerminated {
+    fn actor(&self) -> &ActorRef {
         &self.0
     }
 }

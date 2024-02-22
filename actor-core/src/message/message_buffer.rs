@@ -1,24 +1,22 @@
 use std::collections::VecDeque;
 use std::ops::{Deref, DerefMut};
-use ahash::HashMap;
-use crate::cell::envelope::Envelope;
 
-type MessageBuffer = VecDeque<Envelope>;
+use ahash::HashMap;
 
 #[derive(Debug, Default)]
-pub struct MessageBufferMap<I> {
-    pub buffer: HashMap<I, MessageBuffer>,
+pub struct MessageBufferMap<I, M> {
+    pub buffer: HashMap<I, VecDeque<M>>,
 }
 
-impl<I> Deref for MessageBufferMap<I> {
-    type Target = HashMap<I, MessageBuffer>;
+impl<I, M> Deref for MessageBufferMap<I, M> {
+    type Target = HashMap<I, VecDeque<M>>;
 
     fn deref(&self) -> &Self::Target {
         &self.buffer
     }
 }
 
-impl<I> DerefMut for MessageBufferMap<I> {
+impl<I, M> DerefMut for MessageBufferMap<I, M> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.buffer
     }

@@ -21,7 +21,7 @@ use actor_core::actor::props::Props;
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::ext::type_name_of;
 use actor_core::message::identify::{ActorIdentity, Identify};
-use actor_core::message::terminated::WatchTerminated;
+use actor_core::message::terminated::Terminated;
 use actor_derive::EmptyCodec;
 
 static ALL_PROXY_MESSAGE: OnceLock<HashSet<&'static str>> = OnceLock::new();
@@ -289,8 +289,8 @@ impl Message for SingletonTerminated {
     }
 }
 
-impl WatchTerminated for SingletonTerminated {
-    fn watch_actor(&self) -> &ActorRef {
+impl Terminated for SingletonTerminated {
+    fn actor(&self) -> &ActorRef {
         &self.0
     }
 }

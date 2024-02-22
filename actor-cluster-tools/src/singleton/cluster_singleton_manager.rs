@@ -23,7 +23,7 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_EXITING};
 use actor_core::actor::props::Props;
 use actor_core::ext::etcd_client::EtcdClient;
-use actor_core::message::terminated::WatchTerminated;
+use actor_core::message::terminated::Terminated;
 use actor_derive::EmptyCodec;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TypedBuilder)]
@@ -272,8 +272,8 @@ impl Message for SingletonTerminated {
     }
 }
 
-impl WatchTerminated for SingletonTerminated {
-    fn watch_actor(&self) -> &ActorRef {
+impl Terminated for SingletonTerminated {
+    fn actor(&self) -> &ActorRef {
         &self.0
     }
 }

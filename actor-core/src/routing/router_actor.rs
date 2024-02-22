@@ -12,7 +12,7 @@ use crate::actor::context::ActorContext;
 use crate::actor::fault_handing::SupervisorStrategy;
 use crate::actor::props::Props;
 use crate::ext::as_any::AsAny;
-use crate::message::terminated::WatchTerminated;
+use crate::message::terminated::Terminated;
 use crate::routing::router::Router;
 use crate::routing::router_config::{RouterConfig, TRouterConfig};
 
@@ -101,8 +101,8 @@ impl Message for WatchRouteeTerminated {
     }
 }
 
-impl WatchTerminated for WatchRouteeTerminated {
-    fn watch_actor(&self) -> &ActorRef {
+impl Terminated for WatchRouteeTerminated {
+    fn actor(&self) -> &ActorRef {
         &self.0
     }
 }
