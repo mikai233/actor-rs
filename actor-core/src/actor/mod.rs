@@ -28,3 +28,4 @@ pub mod actor_selection;
 pub(crate) mod empty_local_ref;
 pub mod coordinated_shutdown;
 pub mod scheduler;
+pub mod dead_letter_listener;

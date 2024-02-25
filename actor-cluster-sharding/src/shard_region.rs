@@ -1,29 +1,33 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::ops::{Mul, Not};
 use std::sync::Mutex;
 use std::time::Duration;
+
 use async_trait::async_trait;
+use bincode::{Decode, Encode};
 use tracing::{debug, warn};
+
 use actor_cluster::cluster::Cluster;
 use actor_cluster::cluster_event::ClusterEvent;
 use actor_cluster::member::{Member, MemberStatus};
 use actor_cluster::unique_address::UniqueAddress;
-
 use actor_core::{Actor, DynMessage, Message};
 use actor_core::actor::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor::actor_path::TActorPath;
-use actor_core::actor::actor_ref::ActorRef;
+use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor::timers::{ScheduleKey, Timers};
+use actor_core::ext::option_ext::OptionExt;
+use actor_core::message::message_buffer::{BufferEnvelope as TBufferEnvelope, MessageBufferMap};
 use actor_core::message::poison_pill::PoisonPill;
-use actor_derive::EmptyCodec;
+use actor_derive::{EmptyCodec, MessageCodec};
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::message_extractor::{MessageExtractor, ShardingEnvelope};
-use crate::shard_coordinator::{Register, RegisterProxy};
+use crate::shard_coordinator::{Register, RegisterProxy, ShardStopped};
 
 pub type ShardId = String;
 
@@ -39,10 +43,11 @@ pub struct ShardRegion {
     timers: Timers,
     regions: HashMap<ActorRef, HashSet<ShardId>>,
     region_by_shard: HashMap<ShardId, ActorRef>,
-    shard_buffers: HashMap<ShardId, VecDeque<(DynMessage, Option<ActorRef>)>>,
+    shard_buffers: MessageBufferMap<ShardId, BufferEnvelope>,
     shards: HashMap<ShardId, ActorRef>,
     shards_by_ref: HashMap<ActorRef, ShardId>,
     starting_shards: HashSet<ShardId>,
+    handing_off: HashSet<ActorRef>,
     retry_count: usize,
     init_registration_delay: Duration,
     next_registration_delay: Duration,
@@ -78,6 +83,7 @@ impl ShardRegion {
             shards: Default::default(),
             shards_by_ref: Default::default(),
             starting_shards: Default::default(),
+            handing_off: Default::default(),
             retry_count: 0,
             init_registration_delay: Duration::from_secs(1),
             next_registration_delay: Duration::from_secs(1),
@@ -241,6 +247,27 @@ impl Actor for ShardRegion {
     }
 }
 
+#[derive(Debug)]
+struct BufferEnvelope {
+    envelope: ShardingEnvelope,
+    sender: Option<ActorRef>,
+}
+
+impl TBufferEnvelope for BufferEnvelope {
+    fn message(&self) -> &DynMessage {
+        &self.envelope.message
+    }
+
+    fn sender(&self) -> &Option<ActorRef> {
+        &self.sender
+    }
+
+    fn into_inner(self) -> (DynMessage, Option<ActorRef>) {
+        let Self { envelope, sender } = self;
+        (DynMessage::user(envelope), sender)
+    }
+}
+
 #[derive(Debug, EmptyCodec)]
 struct ClusterEventWrap(ClusterEvent);
 
@@ -284,5 +311,44 @@ impl Message for ShardingEnvelope {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         todo!()
+    }
+}
+
+#[derive(Debug, Encode, Decode, MessageCodec)]
+struct Handoff {
+    shard: ShardId,
+}
+
+#[async_trait]
+impl Message for Handoff {
+    type A = ShardRegion;
+
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        let type_name = &actor.type_name;
+        let shard_id = self.shard;
+        debug!("{type_name}: Handoff shard [{shard_id}]");
+        if actor.shard_buffers.contains_key(&shard_id) {
+            let dropped = actor.shard_buffers.drop(
+                &shard_id,
+                "Avoiding reordering of buffered messages at shard handoff".to_string(),
+                context.system().dead_letters(),
+            );
+            if dropped > 0 {
+                let type_name = &actor.type_name;
+                warn!("{type_name}: Dropping [{dropped}] buffered messages to shard [{shard_id}] during hand off to avoid re-ordering")
+            }
+        }
+        match actor.shards.get(&shard_id) {
+            None => {
+                context.sender().foreach(|sender| {
+                    sender.cast_ns(ShardStopped { shard: shard_id });
+                });
+            }
+            Some(shard) => {
+                actor.handing_off.insert(shard.clone());
+                shard.cast(crate::shard::Handoff { shard: shard_id }, context.sender().cloned());
+            }
+        }
+        Ok(())
     }
 }

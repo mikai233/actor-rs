@@ -184,6 +184,10 @@ impl CoordinatedShutdown {
         self.run_with_result(reason, Ok(()))
     }
 
+    pub fn is_terminating(&self) -> bool {
+        self.run_started.load(Ordering::Relaxed)
+    }
+
     fn init_phase_actor_system_terminate(&mut self) -> anyhow::Result<()> {
         let system = self.system.clone();
         self.add_task(PHASE_ACTOR_SYSTEM_TERMINATE, "terminate-system", async move {

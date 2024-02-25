@@ -14,6 +14,7 @@ use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
 use crate::routing::router_config::RouterConfig;
 
+// TODO Props需要重构为FnOnce和Fn两种类型的Spawner，有的Actor只会创建一次，有些参数不支持Clone，使用不方便
 pub type Spawner = Arc<Box<dyn Fn(ActorRef, Mailbox, ActorSystem, Props) -> anyhow::Result<()> + Send + Sync + 'static>>;
 
 #[derive(Clone)]

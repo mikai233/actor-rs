@@ -12,6 +12,7 @@ use actor_derive::{CMessageCodec, MessageCodec};
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
+use crate::shard_region::ShardId;
 
 #[derive(Debug)]
 pub struct ShardCoordinator {
@@ -88,6 +89,20 @@ pub(crate) struct RegisterProxy {
 
 #[async_trait]
 impl Message for RegisterProxy {
+    type A = ShardCoordinator;
+
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        todo!()
+    }
+}
+
+#[derive(Debug, Decode, Encode, MessageCodec)]
+pub(crate) struct ShardStopped {
+    pub(crate) shard: ShardId,
+}
+
+#[async_trait]
+impl Message for ShardStopped {
     type A = ShardCoordinator;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {

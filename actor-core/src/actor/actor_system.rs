@@ -222,6 +222,10 @@ impl ActorSystem {
     pub fn core_config(&self) -> MappedRef<&'static str, Box<dyn Config>, CoreConfig> {
         self.get_config()
     }
+
+    pub fn dead_letters(&self) -> ActorRef {
+        self.provider().dead_letters().clone()
+    }
 }
 
 impl ActorRefFactory for ActorSystem {
