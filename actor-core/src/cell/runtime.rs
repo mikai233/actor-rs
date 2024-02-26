@@ -147,7 +147,7 @@ impl<A> ActorRuntime<A> where A: Actor {
     }
 
     fn handle_failure(context: &mut ActorContext, error: Error) {
-        let name = std::any::type_name::<A>();
+        let name = type_name_of::<A>();
         let myself = context.myself.clone();
         context.handle_invoke_failure(myself, name, error);
     }
