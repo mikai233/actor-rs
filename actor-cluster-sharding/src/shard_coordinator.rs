@@ -109,3 +109,17 @@ impl Message for ShardStopped {
         todo!()
     }
 }
+
+#[derive(Debug, Encode, Decode, MessageCodec)]
+pub(crate) struct GetShardHome {
+    pub(crate) shard: ShardId,
+}
+
+#[async_trait]
+impl Message for GetShardHome {
+    type A = ShardCoordinator;
+
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        todo!()
+    }
+}

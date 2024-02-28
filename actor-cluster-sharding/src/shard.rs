@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::collections::hash_map::Entry;
 use std::fmt::{Display, Formatter};
 use std::ops::Not;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -25,7 +26,7 @@ use actor_derive::EmptyCodec;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::handoff_stopper::HandoffStopper;
-use crate::message_extractor::{MessageExtractor, ShardingEnvelope};
+use crate::message_extractor::{MessageExtractor, ShardEntityEnvelope};
 use crate::shard_coordinator::ShardStopped;
 use crate::shard_region::{EntityId, ShardId};
 
@@ -46,6 +47,36 @@ pub struct Shard {
 }
 
 impl Shard {
+    pub(crate) fn props(
+        type_name: String,
+        shard_id: ShardId,
+        entity_props: Props,
+        settings: ClusterShardingSettings,
+        extractor: Box<dyn MessageExtractor>,
+        handoff_stop_message: DynMessage,
+    ) -> Props {
+        let handoff_stop_message = Mutex::new(handoff_stop_message);
+        Props::create(move |context| {
+            let cluster_adapter = context.message_adapter(|m| DynMessage::user(ClusterEventWrap(m)));
+            let handoff_stop_message = handoff_stop_message.lock().unwrap().dyn_clone().into_result()?;
+            let shard = Self {
+                type_name: type_name.clone(),
+                shard_id: shard_id.clone(),
+                entity_props: entity_props.clone(),
+                settings: settings.clone(),
+                extractor: extractor.clone(),
+                handoff_stop_message,
+                entities: Default::default(),
+                message_buffers: Default::default(),
+                handoff_stopper: None,
+                passivate_interval_task: None,
+                preparing_for_shutdown: false,
+                cluster_adapter,
+            };
+            Ok(shard)
+        })
+    }
+
     fn passivate(&mut self, entity: &ActorRef, stop_message: DynMessage) -> anyhow::Result<()> {
         let type_name = &self.type_name;
         match self.entities.entity_id(&entity) {
@@ -113,7 +144,7 @@ impl Shard {
     }
 
     fn send_message_buffer(&mut self, context: &mut ActorContext, entity_id: &EntityId) -> anyhow::Result<()> {
-        if let Some(messages) = self.message_buffers.remove(entity_id) {
+        if let Some(messages) = self.message_buffers.remove_buffer(entity_id) {
             if messages.is_empty().not() {
                 self.get_or_create_entity(context, entity_id)?;
                 debug!("{}: Sending message buffer for entity [{}] ([{}] messages)", self.type_name, entity_id, messages.len());
@@ -184,7 +215,7 @@ impl Display for EntityState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Entities {
     entities: HashMap<EntityId, EntityState>,
     by_ref: HashMap<ActorRef, EntityId>,
@@ -313,7 +344,7 @@ impl Message for Passivate {
 }
 
 #[derive(Debug, EmptyCodec)]
-struct ShardEnvelope(ShardingEnvelope);
+pub(crate) struct ShardEnvelope(pub(crate) ShardEntityEnvelope);
 
 #[async_trait]
 impl Message for ShardEnvelope {
@@ -331,17 +362,19 @@ struct BufferEnvelope {
 }
 
 impl TBufferEnvelope for BufferEnvelope {
-    fn message(&self) -> &DynMessage {
-        &self.envelope.0.message
+    type M = ShardEnvelope;
+
+    fn message(&self) -> &Self::M {
+        &self.envelope
     }
 
     fn sender(&self) -> &Option<ActorRef> {
         &self.sender
     }
 
-    fn into_inner(self) -> (DynMessage, Option<ActorRef>) {
+    fn into_inner(self) -> (Self::M, Option<ActorRef>) {
         let Self { envelope, sender } = self;
-        (DynMessage::user(envelope), sender)
+        (envelope, sender)
     }
 }
 
@@ -375,7 +408,7 @@ impl Message for EntityTerminated {
                         actor.entities.remove_entity(&entity_id);
                     }
                     EntityState::Passivation(_) => {
-                        if let Some(messages) = actor.message_buffers.remove(&entity_id) {
+                        if let Some(messages) = actor.message_buffers.remove_buffer(&entity_id) {
                             if messages.is_empty().not() {
                                 debug!("{}: [{}] terminated after passivating, buffered messages found, restarting", actor.type_name, entity_id);
                                 actor.entities.remove_entity(&entity_id);

@@ -15,6 +15,13 @@ pub struct RecencyList<V> where V: Eq + Hash + Clone {
 }
 
 impl<V> RecencyList<V> where V: Eq + Hash + Clone {
+    pub fn new() -> Self {
+        Self {
+            recency: Default::default(),
+            lookup_node: Default::default(),
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.lookup_node.len()
     }
@@ -93,7 +100,7 @@ impl<V> RecencyList<V> where V: Eq + Hash + Clone {
         nodes
     }
 
-    pub fn remove_least_recent_outside(&mut self, duration: Duration) -> Vec<Node<V>> {
+    pub fn remove_least_recent_outside(&mut self, duration: Duration) -> Vec<V> {
         let min = Self::current_millis() - duration.as_millis();
         let nodes = self.recency.iter()
             .filter(|n| n.timestamp < min)
@@ -102,10 +109,10 @@ impl<V> RecencyList<V> where V: Eq + Hash + Clone {
         for node in &nodes {
             self.remove(&node.value);
         }
-        nodes
+        nodes.into_iter().map(|n| n.value).collect()
     }
 
-    pub fn remove_most_recent_within(&mut self, duration: Duration) -> Vec<Node<V>> {
+    pub fn remove_most_recent_within(&mut self, duration: Duration) -> Vec<V> {
         let max = Self::current_millis() - duration.as_millis();
         let nodes = self.recency.iter()
             .rev()
@@ -115,10 +122,10 @@ impl<V> RecencyList<V> where V: Eq + Hash + Clone {
         for node in &nodes {
             self.remove(&node.value);
         }
-        nodes
+        nodes.into_iter().map(|n| n.value).collect()
     }
 
-    fn remove_node(&mut self, value: &V) -> Option<Node<V>> {
+    fn remove_node(&mut self, value: &V) -> Option<V> {
         match self.lookup_node.remove(value) {
             None => {
                 None
@@ -127,7 +134,7 @@ impl<V> RecencyList<V> where V: Eq + Hash + Clone {
                 self.recency.retain(|n| {
                     &node != n
                 });
-                Some(node)
+                Some(node.value)
             }
         }
     }
@@ -139,7 +146,7 @@ impl<V> RecencyList<V> where V: Eq + Hash + Clone {
     }
 }
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct Node<V> where V: Eq + Hash + Clone {
     value: V,
     timestamp: u128,
@@ -151,15 +158,65 @@ impl<V> Debug for Node<V> where V: Debug + Eq + Hash + Clone {
         f.debug_struct(&format!("Node<{ty}>"))
             .field("value", &self.value)
             .field("timestamp", &self.timestamp)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
-impl<V> Clone for Node<V> where V: Eq + Hash + Clone {
-    fn clone(&self) -> Self {
-        Self {
-            value: self.value.clone(),
-            timestamp: self.timestamp,
-        }
+// impl<V> Clone for Node<V> where V: Eq + Hash + Clone {
+//     fn clone(&self) -> Self {
+//         Self {
+//             value: self.value.clone(),
+//             timestamp: self.timestamp,
+//             prev: self.prev.clone(),
+//             next: self.next.clone(),
+//         }
+//     }
+// }
+
+#[cfg(test)]
+mod tests {
+    use std::hash::Hash;
+    use crate::entity_passivation_strategy::recency_list::RecencyList;
+
+    #[test]
+    fn test() {
+        let mut list = RecencyList::new();
+        list.update(1);
+        list.update(2);
+        list.update(3);
+        let v = value(&list);
+        assert_eq!(v, vec![1, 2, 3]);
+        list.update(2);
+        let v = value(&list);
+        assert_eq!(v, vec![1, 3, 2]);
+        list.update(4);
+        let v = value(&list);
+        assert_eq!(v, vec![1, 3, 2, 4]);
+        list.update(4);
+        let v = value(&list);
+        assert_eq!(v, vec![1, 3, 2, 4]);
+        assert_eq!(list.least_recent().unwrap().value, 1);
+        assert_eq!(list.most_recent().unwrap().value, 4);
+        let v = list.least_to_most_recent().map(|n| n.value).collect::<Vec<_>>();
+        assert_eq!(v, vec![1, 3, 2, 4]);
+        let v = list.most_to_least_recent().map(|n| n.value).collect::<Vec<_>>();
+        assert_eq!(v, vec![4, 2, 3, 1]);
+        list.remove_least_recent(2);
+        let v = value(&list);
+        assert_eq!(v, vec![2, 4]);
+        list.update(1);
+        list.update(3);
+        let v = value(&list);
+        assert_eq!(v, vec![2, 4, 1, 3]);
+        list.remove_most_recent(2);
+        let v = value(&list);
+        assert_eq!(v, vec![2, 4]);
+        list.remove_most_recent(10);
+        let v = value(&list);
+        assert!(v.is_empty());
+    }
+
+    fn value<V>(list: &RecencyList<V>) -> Vec<V> where V: Eq + Hash + Clone {
+        list.recency.iter().map(|n| n.value.clone()).collect()
     }
 }

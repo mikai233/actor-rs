@@ -1,11 +1,12 @@
 use std::collections::{HashMap, HashSet};
+use std::collections::hash_map::Entry;
 use std::ops::{Mul, Not};
 use std::sync::Mutex;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use actor_cluster::cluster::Cluster;
 use actor_cluster::cluster_event::ClusterEvent;
@@ -23,11 +24,13 @@ use actor_core::actor::timers::{ScheduleKey, Timers};
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_buffer::{BufferEnvelope as TBufferEnvelope, MessageBufferMap};
 use actor_core::message::poison_pill::PoisonPill;
+use actor_core::message::terminated::Terminated;
 use actor_derive::{EmptyCodec, MessageCodec};
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
-use crate::message_extractor::{MessageExtractor, ShardingEnvelope};
-use crate::shard_coordinator::{Register, RegisterProxy, ShardStopped};
+use crate::message_extractor::{MessageExtractor, ShardEntityEnvelope};
+use crate::shard::{Shard, ShardEnvelope};
+use crate::shard_coordinator::{GetShardHome, Register, RegisterProxy, ShardStopped};
 
 pub type ShardId = String;
 
@@ -55,6 +58,7 @@ pub struct ShardRegion {
     cluster_event_adapter: ActorRef,
     register_retry_key: Option<ScheduleKey>,
     members: HashMap<UniqueAddress, Member>,
+    coordinator: Option<ActorRef>,
 }
 
 impl ShardRegion {
@@ -91,6 +95,7 @@ impl ShardRegion {
             cluster_event_adapter: context.message_adapter(|m| { DynMessage::user(ClusterEventWrap(m)) }),
             register_retry_key: None,
             members: Default::default(),
+            coordinator: None,
         };
         Ok(myself)
     }
@@ -155,7 +160,7 @@ impl ShardRegion {
                 let all_up_members = self.members.values().
                     filter(|m| matches!(m.status, MemberStatus::Up))
                     .collect::<Vec<_>>();
-                let buffer_size = self.shard_buffer_total_size();
+                let buffer_size = self.shard_buffers.total_size();
                 let type_name = &self.type_name;
                 let selections_str = actor_selections
                     .iter()
@@ -222,8 +227,117 @@ impl ShardRegion {
         }
     }
 
-    fn shard_buffer_total_size(&self) -> usize {
-        self.shard_buffers.values().fold(0, |acc, buffer| { acc + buffer.len() })
+    fn deliver_message(&mut self, context: &mut ActorContext, envelope: ShardEntityEnvelope) -> anyhow::Result<()> {
+        let shard_id = self.extractor.shard_id(&envelope);
+        let type_name = &self.type_name;
+        match self.region_by_shard.get(&shard_id) {
+            None => {
+                if !self.shard_buffers.contains_key(&shard_id) {
+                    match &self.coordinator {
+                        None => {
+                            debug!("{type_name}: Request shard [{shard_id}] home, Coordinator [None]");
+                        }
+                        Some(coordinator) => {
+                            debug!("{type_name}: Request shard [{shard_id}] home, Coordinator [{coordinator}]");
+                            coordinator.cast_ns(GetShardHome { shard: shard_id.clone() });
+                        }
+                    }
+                }
+                self.buffer_message(shard_id, envelope, context.sender().cloned());
+            }
+            Some(shard_region_ref) if shard_region_ref == context.myself() => {
+                if let Some(shard) = self.get_shard(context, shard_id.clone())? {
+                    if self.shard_buffers.contains_key(&shard_id) {
+                        self.buffer_message(shard_id.clone(), envelope, context.sender().cloned());
+                        self.deliver_buffered_messages(&shard_id, &shard);
+                    } else {
+                        shard.cast(ShardEnvelope(envelope), context.sender().cloned());
+                    }
+                }
+            }
+            Some(shard_region_ref) => {
+                debug!("{type_name}: Forwarding message for shard [{shard_id}] to [{shard_region_ref}]");
+                shard_region_ref.cast(envelope, context.sender().cloned());
+            }
+        }
+        Ok(())
+    }
+
+    fn buffer_message(&mut self, shard_id: ShardId, msg: ShardEntityEnvelope, sender: Option<ActorRef>) {
+        let total_buf_size = self.shard_buffers.total_size();
+        //TODO buffer size
+        let buffer_size = 5000;
+        let type_name = &self.type_name;
+        if total_buf_size >= buffer_size {
+            warn!("{type_name}: Buffer is full, dropping message for shard [{shard_id}]");
+            //TODO send to dead letter
+        } else {
+            let envelop = BufferEnvelope {
+                envelope: msg,
+                sender,
+            };
+            self.shard_buffers.push(shard_id, envelop);
+            let total = total_buf_size + 1;
+            if total % (buffer_size / 10) == 0 {
+                let cap = 100.0 * total as f64 / buffer_size as f64;
+                let log_msg = format!("{type_name}: ShardRegion is using [{cap} %] of its buffer capacity.");
+                if total <= buffer_size / 2 {
+                    info!(log_msg);
+                } else {
+                    warn!("{} The coordinator might not be available. You might want to check cluster membership status.", log_msg);
+                }
+            }
+        }
+    }
+
+    fn deliver_buffered_messages(&mut self, shard_id: &ShardId, receiver: &ActorRef) {
+        if self.shard_buffers.contains_key(shard_id) {
+            if let Some(buffers) = self.shard_buffers.remove_buffer(shard_id) {
+                let type_name = &self.type_name;
+                let buf_size = buffers.len();
+                debug!("{type_name}: Deliver [{buf_size}] buffered messages for shard [{shard_id}]");
+                for envelope in buffers {
+                    let (msg, sender) = envelope.into_inner();
+                    receiver.cast(ShardEnvelope(msg), sender);
+                }
+            }
+        }
+        self.retry_count = 0;
+    }
+
+    fn get_shard(&mut self, context: &mut ActorContext, id: ShardId) -> anyhow::Result<Option<ActorRef>> {
+        if self.starting_shards.contains(&id) {
+            Ok(None)
+        } else {
+            if let Some(shard) = self.shards.get(&id) {
+                Ok(Some(shard.clone()))
+            } else {
+                match &self.entity_props {
+                    None => {
+                        panic!("Shard must not be allocated to a proxy only ShardRegion");
+                    }
+                    Some(props) if self.shards_by_ref.values().find(|r| **r == id).is_none() => {
+                        debug!("{}: Starting shard [{}] in region", self.type_name, id);
+                        let shard_props = Shard::props(
+                            self.type_name.clone(),
+                            id.clone(),
+                            props.clone(),
+                            self.settings.clone(),
+                            self.extractor.clone(),
+                            self.handoff_stop_message.dyn_clone().into_result()?,
+                        );
+                        let shard = context.spawn(shard_props, id.clone())?;
+                        context.watch(ShardTerminated(shard.clone()));
+                        self.shards_by_ref.insert(shard.clone(), id.clone());
+                        self.shards.insert(id.clone(), shard.clone());
+                        self.starting_shards.insert(id);
+                        //TODO passivation strategy
+                        Ok(None)
+                    }
+                    Some(_) => Ok(None)
+                }
+            }
+        }
     }
 }
 
@@ -249,22 +363,24 @@ impl Actor for ShardRegion {
 
 #[derive(Debug)]
 struct BufferEnvelope {
-    envelope: ShardingEnvelope,
+    envelope: ShardEntityEnvelope,
     sender: Option<ActorRef>,
 }
 
 impl TBufferEnvelope for BufferEnvelope {
-    fn message(&self) -> &DynMessage {
-        &self.envelope.message
+    type M = ShardEntityEnvelope;
+
+    fn message(&self) -> &Self::M {
+        &self.envelope
     }
 
     fn sender(&self) -> &Option<ActorRef> {
         &self.sender
     }
 
-    fn into_inner(self) -> (DynMessage, Option<ActorRef>) {
+    fn into_inner(self) -> (Self::M, Option<ActorRef>) {
         let Self { envelope, sender } = self;
-        (DynMessage::user(envelope), sender)
+        (envelope, sender)
     }
 }
 
@@ -306,11 +422,12 @@ impl Message for RegisterRetry {
 }
 
 #[async_trait]
-impl Message for ShardingEnvelope {
+impl Message for ShardEntityEnvelope {
     type A = ShardRegion;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        todo!()
+        actor.deliver_message(context, *self)?;
+        Ok(())
     }
 }
 
@@ -347,6 +464,54 @@ impl Message for Handoff {
             Some(shard) => {
                 actor.handing_off.insert(shard.clone());
                 shard.cast(crate::shard::Handoff { shard: shard_id }, context.sender().cloned());
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, EmptyCodec)]
+struct ShardTerminated(ActorRef);
+
+impl Terminated for ShardTerminated {
+    fn actor(&self) -> &ActorRef {
+        &self.0
+    }
+}
+
+#[async_trait]
+impl Message for ShardTerminated {
+    type A = ShardRegion;
+
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        let actor_ref = self.0;
+        if actor.coordinator.as_ref().is_some_and(|coordinator| coordinator == &actor_ref) {
+            actor.coordinator = None;
+            actor.start_registration(context)?;
+        } else if actor.regions.contains_key(&actor_ref) {
+            if let Some(shards) = actor.regions.remove(&actor_ref) {
+                for shard in &shards {
+                    actor.region_by_shard.remove(shard);
+                }
+                let type_name = &actor.type_name;
+                let size = shards.len();
+                let shard_str = shards.into_iter().collect::<Vec<_>>().join(", ");
+                debug!("{type_name}: Region [{actor_ref}] terminated with [{size}] shards [{shard_str}]");
+            }
+        } else if actor.shards_by_ref.contains_key(&actor_ref) {
+            if let Some(shard_id) = actor.shards_by_ref.remove(&actor_ref) {
+                actor.shards.remove(&shard_id);
+                actor.starting_shards.remove(&shard_id);
+                //TODO passivation strategy
+                let type_name = &actor.type_name;
+                match actor.handing_off.remove(&actor_ref) {
+                    true => {
+                        debug!("{type_name}: Shard [{shard_id}] handoff complete")
+                    }
+                    false => {
+                        debug!("{type_name}: Shard [{shard_id}] terminated while not being handed off");
+                    }
+                }
             }
         }
         Ok(())

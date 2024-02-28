@@ -8,22 +8,22 @@ use actor_derive::EmptyCodec;
 use crate::shard_region::{EntityId, ShardId};
 
 pub trait MessageExtractor: Send + Sync + DynClone + Debug {
-    fn entity_id(&self, message: &ShardingEnvelope) -> String;
+    fn entity_id(&self, message: &ShardEntityEnvelope) -> String;
 
-    fn shard_id(&self, entity_id: &EntityId) -> ShardId;
+    fn shard_id(&self, message: &ShardEntityEnvelope) -> ShardId;
 
-    fn unwrap_message(&self, message: ShardingEnvelope) -> DynMessage;
+    fn unwrap_message(&self, message: ShardEntityEnvelope) -> DynMessage;
 }
 
 dyn_clone::clone_trait_object!(MessageExtractor);
 
 #[derive(Debug, EmptyCodec)]
-pub struct ShardingEnvelope {
+pub struct ShardEntityEnvelope {
     pub entity_id: EntityId,
     pub message: DynMessage,
 }
 
-impl Display for ShardingEnvelope {
+impl Display for ShardEntityEnvelope {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "ShardingEnvelope {{ entity_id: {}, message: {} }}", self.entity_id, self.message.name)
     }
