@@ -1,36 +1,47 @@
 use std::collections::{HashMap, HashSet};
-use std::collections::hash_map::Entry;
 use std::ops::{Mul, Not};
-use std::sync::Mutex;
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use bincode::{Decode, Encode};
 use tracing::{debug, info, warn};
 
 use actor_cluster::cluster::Cluster;
-use actor_cluster::cluster_event::ClusterEvent;
 use actor_cluster::member::{Member, MemberStatus};
 use actor_cluster::unique_address::UniqueAddress;
-use actor_core::{Actor, DynMessage, Message};
+use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor::actor_path::TActorPath;
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor::props::Props;
+use actor_core::actor::props::{Props, PropsBuilderSync};
 use actor_core::actor::timers::{ScheduleKey, Timers};
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::message::message_buffer::{BufferEnvelope as TBufferEnvelope, MessageBufferMap};
+use actor_core::message::message_buffer::{BufferEnvelope, MessageBufferMap};
 use actor_core::message::poison_pill::PoisonPill;
-use actor_core::message::terminated::Terminated;
-use actor_derive::{EmptyCodec, MessageCodec};
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::message_extractor::{MessageExtractor, ShardEntityEnvelope};
-use crate::shard::{Shard, ShardEnvelope};
-use crate::shard_coordinator::{GetShardHome, Register, RegisterProxy, ShardStopped};
+use crate::shard::Shard;
+use crate::shard::shard_envelope::ShardEnvelope;
+use crate::shard_coordinator::get_shard_home::GetShardHome;
+use crate::shard_coordinator::register::Register;
+use crate::shard_coordinator::register_proxy::RegisterProxy;
+use crate::shard_region::cluster_event_wrap::ClusterEventWrap;
+use crate::shard_region::register_retry::RegisterRetry;
+use crate::shard_region::retry::Retry;
+use crate::shard_region::shard_region_buffer_envelope::ShardRegionBufferEnvelope;
+use crate::shard_region::shard_terminated::ShardTerminated;
+
+mod shard_region_buffer_envelope;
+mod shard_terminated;
+mod handoff;
+mod register_retry;
+mod retry;
+mod cluster_event_wrap;
+mod shard_entity_envelope;
 
 pub type ShardId = String;
 
@@ -38,15 +49,15 @@ pub type EntityId = String;
 
 pub struct ShardRegion {
     type_name: String,
-    entity_props: Option<Props>,
-    settings: ClusterShardingSettings,
+    entity_props: Option<Arc<PropsBuilderSync<EntityId>>>,
+    settings: Arc<ClusterShardingSettings>,
     coordinator_path: String,
     extractor: Box<dyn MessageExtractor>,
     handoff_stop_message: DynMessage,
     timers: Timers,
     regions: HashMap<ActorRef, HashSet<ShardId>>,
     region_by_shard: HashMap<ShardId, ActorRef>,
-    shard_buffers: MessageBufferMap<ShardId, BufferEnvelope>,
+    shard_buffers: MessageBufferMap<ShardId, ShardRegionBufferEnvelope>,
     shards: HashMap<ShardId, ActorRef>,
     shards_by_ref: HashMap<ActorRef, ShardId>,
     starting_shards: HashSet<ShardId>,
@@ -65,8 +76,8 @@ impl ShardRegion {
     fn new(
         context: &mut ActorContext,
         type_name: String,
-        entity_props: Option<Props>,
-        settings: ClusterShardingSettings,
+        entity_props: Option<Arc<PropsBuilderSync<EntityId>>>,
+        settings: Arc<ClusterShardingSettings>,
         coordinator_path: String,
         extractor: Box<dyn MessageExtractor>,
         handoff_stop_message: DynMessage,
@@ -102,23 +113,21 @@ impl ShardRegion {
 
     pub(crate) fn props(
         type_name: String,
-        entity_props: Props,
-        settings: ClusterShardingSettings,
+        entity_props: Arc<PropsBuilderSync<EntityId>>,
+        settings: Arc<ClusterShardingSettings>,
         coordinator_path: String,
         extractor: Box<dyn MessageExtractor>,
         handoff_stop_message: DynMessage,
     ) -> Props {
         debug_assert!(handoff_stop_message.is_cloneable(), "message {} is not cloneable", handoff_stop_message.name);
-        let handoff_stop_message = Mutex::new(handoff_stop_message);
-        Props::create(move |context| {
-            let handoff_stop_message = handoff_stop_message.lock().unwrap().dyn_clone().unwrap();
+        Props::new_with_ctx(move |context| {
             Self::new(
                 context,
-                type_name.clone(),
-                Some(entity_props.clone()),
-                settings.clone(),
-                coordinator_path.clone(),
-                extractor.clone(),
+                type_name,
+                Some(entity_props),
+                settings,
+                coordinator_path,
+                extractor,
                 handoff_stop_message,
             )
         })
@@ -126,18 +135,18 @@ impl ShardRegion {
 
     pub(crate) fn proxy_props(
         type_name: String,
-        settings: ClusterShardingSettings,
+        settings: Arc<ClusterShardingSettings>,
         coordinator_path: String,
         extractor: Box<dyn MessageExtractor>,
     ) -> Props {
-        Props::create(move |context| {
+        Props::new_with_ctx(move |context| {
             Self::new(
                 context,
-                type_name.clone(),
+                type_name,
                 None,
-                settings.clone(),
-                coordinator_path.clone(),
-                extractor.clone(),
+                settings,
+                coordinator_path,
+                extractor,
                 DynMessage::system(PoisonPill),
             )
         })
@@ -272,7 +281,7 @@ impl ShardRegion {
             warn!("{type_name}: Buffer is full, dropping message for shard [{shard_id}]");
             //TODO send to dead letter
         } else {
-            let envelop = BufferEnvelope {
+            let envelop = ShardRegionBufferEnvelope {
                 envelope: msg,
                 sender,
             };
@@ -316,12 +325,12 @@ impl ShardRegion {
                     None => {
                         panic!("Shard must not be allocated to a proxy only ShardRegion");
                     }
-                    Some(props) if self.shards_by_ref.values().find(|r| **r == id).is_none() => {
+                    Some(props_builder) if self.shards_by_ref.values().find(|r| **r == id).is_none() => {
                         debug!("{}: Starting shard [{}] in region", self.type_name, id);
                         let shard_props = Shard::props(
                             self.type_name.clone(),
                             id.clone(),
-                            props.clone(),
+                            props_builder.clone(),
                             self.settings.clone(),
                             self.extractor.clone(),
                             self.handoff_stop_message.dyn_clone().into_result()?,
@@ -357,163 +366,6 @@ impl Actor for ShardRegion {
 
     async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         self.cluster.unsubscribe_cluster_event(&self.cluster_event_adapter);
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-struct BufferEnvelope {
-    envelope: ShardEntityEnvelope,
-    sender: Option<ActorRef>,
-}
-
-impl TBufferEnvelope for BufferEnvelope {
-    type M = ShardEntityEnvelope;
-
-    fn message(&self) -> &Self::M {
-        &self.envelope
-    }
-
-    fn sender(&self) -> &Option<ActorRef> {
-        &self.sender
-    }
-
-    fn into_inner(self) -> (Self::M, Option<ActorRef>) {
-        let Self { envelope, sender } = self;
-        (envelope, sender)
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-struct ClusterEventWrap(ClusterEvent);
-
-#[async_trait]
-impl Message for ClusterEventWrap {
-    type A = ShardRegion;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        todo!()
-    }
-}
-
-#[derive(Debug, Clone, EmptyCodec)]
-struct Retry;
-
-#[async_trait]
-impl Message for Retry {
-    type A = ShardRegion;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        todo!()
-    }
-}
-
-
-#[derive(Debug, Clone, EmptyCodec)]
-struct RegisterRetry;
-
-#[async_trait]
-impl Message for RegisterRetry {
-    type A = ShardRegion;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        todo!()
-    }
-}
-
-#[async_trait]
-impl Message for ShardEntityEnvelope {
-    type A = ShardRegion;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.deliver_message(context, *self)?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, Encode, Decode, MessageCodec)]
-struct Handoff {
-    shard: ShardId,
-}
-
-#[async_trait]
-impl Message for Handoff {
-    type A = ShardRegion;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let type_name = &actor.type_name;
-        let shard_id = self.shard;
-        debug!("{type_name}: Handoff shard [{shard_id}]");
-        if actor.shard_buffers.contains_key(&shard_id) {
-            let dropped = actor.shard_buffers.drop(
-                &shard_id,
-                "Avoiding reordering of buffered messages at shard handoff".to_string(),
-                context.system().dead_letters(),
-            );
-            if dropped > 0 {
-                let type_name = &actor.type_name;
-                warn!("{type_name}: Dropping [{dropped}] buffered messages to shard [{shard_id}] during hand off to avoid re-ordering")
-            }
-        }
-        match actor.shards.get(&shard_id) {
-            None => {
-                context.sender().foreach(|sender| {
-                    sender.cast_ns(ShardStopped { shard: shard_id });
-                });
-            }
-            Some(shard) => {
-                actor.handing_off.insert(shard.clone());
-                shard.cast(crate::shard::Handoff { shard: shard_id }, context.sender().cloned());
-            }
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-struct ShardTerminated(ActorRef);
-
-impl Terminated for ShardTerminated {
-    fn actor(&self) -> &ActorRef {
-        &self.0
-    }
-}
-
-#[async_trait]
-impl Message for ShardTerminated {
-    type A = ShardRegion;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let actor_ref = self.0;
-        if actor.coordinator.as_ref().is_some_and(|coordinator| coordinator == &actor_ref) {
-            actor.coordinator = None;
-            actor.start_registration(context)?;
-        } else if actor.regions.contains_key(&actor_ref) {
-            if let Some(shards) = actor.regions.remove(&actor_ref) {
-                for shard in &shards {
-                    actor.region_by_shard.remove(shard);
-                }
-                let type_name = &actor.type_name;
-                let size = shards.len();
-                let shard_str = shards.into_iter().collect::<Vec<_>>().join(", ");
-                debug!("{type_name}: Region [{actor_ref}] terminated with [{size}] shards [{shard_str}]");
-            }
-        } else if actor.shards_by_ref.contains_key(&actor_ref) {
-            if let Some(shard_id) = actor.shards_by_ref.remove(&actor_ref) {
-                actor.shards.remove(&shard_id);
-                actor.starting_shards.remove(&shard_id);
-                //TODO passivation strategy
-                let type_name = &actor.type_name;
-                match actor.handing_off.remove(&actor_ref) {
-                    true => {
-                        debug!("{type_name}: Shard [{shard_id}] handoff complete")
-                    }
-                    false => {
-                        debug!("{type_name}: Shard [{shard_id}] terminated while not being handed off");
-                    }
-                }
-            }
-        }
         Ok(())
     }
 }

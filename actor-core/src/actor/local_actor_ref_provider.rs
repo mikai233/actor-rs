@@ -52,16 +52,35 @@ impl LocalActorRefProvider {
         let (termination_tx, _) = channel(1);
         let root_path = RootActorPath::new(address, "/");
         let termination_tx_c = termination_tx.clone();
-        let root_props = Props::create(move |_| { Ok(RootGuardian::new(termination_tx_c.clone())) });
+        let root_props = Props::new(move || { Ok(RootGuardian::new(termination_tx_c)) });
         let (sender, mailbox) = root_props.mailbox(system)?;
         let root_guardian = LocalActorRef::new(system.clone(), root_path.clone().into(), sender, ActorCell::new(None));
-        spawns.push(Box::new(ActorDeferredSpawn::new(root_guardian.clone().into(), mailbox, root_props)));
+        spawns.push(
+            Box::new(
+                ActorDeferredSpawn::new(
+                    root_guardian.clone().into(),
+                    mailbox,
+                    root_props.spawner,
+                    root_props.handle,
+                ),
+            ),
+        );
         let (system_guardian, deferred) = root_guardian
-            .attach_child(Props::create(|_| Ok(SystemGuardian)), Some("system".to_string()), false)?;
+            .attach_child(
+                Props::new(|| Ok(SystemGuardian)),
+                Some("system".to_string()),
+                Some(ActorPath::undefined_uid()),
+                false,
+            )?;
         deferred.into_foreach(|d| spawns.push(Box::new(d)));
         let system_guardian = system_guardian.local().unwrap();
         let (user_guardian, deferred) = root_guardian
-            .attach_child(Props::create(|_| Ok(UserGuardian)), Some("user".to_string()), false)?;
+            .attach_child(
+                Props::new(|| Ok(UserGuardian)),
+                Some("user".to_string()),
+                Some(ActorPath::undefined_uid()),
+                false,
+            )?;
         deferred.into_foreach(|d| spawns.push(Box::new(d)));
         let user_guardian = user_guardian.local().unwrap();
         let dead_letters = DeadLetterActorRef::new(system.clone(), root_path.child("dead_letters"));
@@ -138,7 +157,9 @@ impl TActorRefProvider for LocalActorRefProvider {
     }
 
     fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
-        supervisor.local().unwrap().attach_child(props, None, true).map(|(actor, _)| actor)
+        supervisor.local().unwrap()
+            .attach_child(props, None, None, true)
+            .map(|(actor, _)| actor)
     }
 
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {

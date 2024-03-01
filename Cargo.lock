@@ -86,6 +86,7 @@ dependencies = [
  "rand",
  "regex",
  "serde",
+ "thiserror",
  "tokio",
  "tokio-util",
  "toml",

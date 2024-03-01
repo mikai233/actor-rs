@@ -258,7 +258,7 @@ mod test {
     #[tokio::test]
     async fn test() -> anyhow::Result<()> {
         let system_a = ActorSystem::create("game", build_setting("127.0.0.1:12121".parse()?))?;
-        let props = Props::create(|_| PingPongActor);
+        let props = Props::new_with_ctx(|_| PingPongActor);
         let actor_a = system_a.spawn(props.clone(), "actor_a")?;
         let system_b = ActorSystem::create("game", build_setting("127.0.0.1:12122".parse()?))?;
         let _ = system_b.spawn(props.clone(), "actor_b")?;
@@ -292,7 +292,7 @@ mod test {
     async fn test_remote_ask() -> anyhow::Result<()> {
         let system1 = ActorSystem::create("mikai233", build_setting("127.0.0.1:12121".parse()?))?;
         let system2 = ActorSystem::create("mikai233", build_setting("127.0.0.1:12123".parse()?))?;
-        let actor_a = system1.spawn_anonymous(Props::create(|_| EmptyTestActor))?;
+        let actor_a = system1.spawn_anonymous(Props::new_with_ctx(|_| EmptyTestActor))?;
         let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
         let _: MessageToAns = Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;
         let start = SystemTime::now();

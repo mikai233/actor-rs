@@ -69,8 +69,8 @@ impl ClusterSingletonProxy {
 
     pub fn props(singleton_mgr_path: impl Into<String>, settings: ClusterSingletonProxySettings) -> Props {
         let singleton_mgr_path = singleton_mgr_path.into();
-        Props::create(move |context| {
-            Ok(Self::new(context, singleton_mgr_path.clone(), settings.clone()))
+        Props::new_with_ctx(move |context| {
+            Ok(Self::new(context, singleton_mgr_path, settings))
         })
     }
 

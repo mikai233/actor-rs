@@ -45,11 +45,11 @@ impl Actor for ClusterDaemon {
         let cluster = Cluster::get(context.system()).clone();
         self.cluster = Some(cluster);
         context.spawn(
-            Props::create(|context| Ok(ClusterHeartbeatSender::new(context))),
+            Props::new_with_ctx(|context| Ok(ClusterHeartbeatSender::new(context))),
             ClusterHeartbeatSender::name(),
         )?;
         context.spawn(
-            Props::create(|context| Ok(ClusterHeartbeatReceiver::new(context))),
+            Props::new_with_ctx(|context| Ok(ClusterHeartbeatReceiver::new(context))),
             ClusterHeartbeatReceiver::name(),
         )?;
         let watcher_adapter = context.message_adapter(|m| DynMessage::user(WatchRespWrap(m)));
@@ -78,7 +78,7 @@ impl ClusterDaemon {
     }
 
     fn spawn_watcher(context: &mut ActorContext, name: impl Into<String>, adapter: ActorRef, key: String, options: Option<WatchOptions>, client: EtcdClient) -> anyhow::Result<()> {
-        context.spawn(Props::create(move |ctx| {
+        context.spawn(Props::new_with_ctx(move |ctx| {
             Ok(EtcdWatcher::new(
                 ctx.myself().clone(),
                 client.clone(),
@@ -96,7 +96,7 @@ impl ClusterDaemon {
         let client = self.client.clone();
         let receiver = context.message_adapter::<LeaseKeepAliveFailed>(|_| DynMessage::user(LeaseFailed));
         context.spawn(
-            Props::create(move |_| { Ok(EtcdLeaseKeeper::new(client.clone(), resp.id(), receiver.clone(), Duration::from_secs(3))) }),
+            Props::new_with_ctx(move |_| { Ok(EtcdLeaseKeeper::new(client.clone(), resp.id(), receiver.clone(), Duration::from_secs(3))) }),
             "lease_keeper",
         )?;
         Ok(lease_id)
@@ -334,7 +334,7 @@ impl Message for AddOnMemberUpListener {
     type A = ClusterDaemon;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-        let listener = context.spawn_anonymous(Props::create(|context| {
+        let listener = context.spawn_anonymous(Props::new_with_ctx(|context| {
             Ok(OnMemberStatusChangedListener::new(context, MemberStatus::Up))
         }))?;
         listener.cast_ns(AddStatusCallback(self.0));
@@ -351,7 +351,7 @@ impl Message for AddOnMemberRemovedListener {
     type A = ClusterDaemon;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-        let listener = context.spawn_anonymous(Props::create(|context| {
+        let listener = context.spawn_anonymous(Props::new_with_ctx(|context| {
             Ok(OnMemberStatusChangedListener::new(context, MemberStatus::Removed))
         }))?;
         listener.cast_ns(AddStatusCallback(self.0));

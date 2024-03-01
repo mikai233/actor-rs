@@ -1,3 +1,4 @@
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -16,12 +17,25 @@ pub struct CoreConfig {
 
 impl Config for CoreConfig {
     fn with_fallback(&self, other: Self) -> Self {
+        let mut self_phases = self.phases.clone();
         let CoreConfig { mut mailbox, mut phases } = other;
         mailbox.extend(self.mailbox.clone());
-        phases.extend(self.phases.clone());
+        for (key, phase) in phases {
+            match self_phases.entry(key) {
+                Entry::Occupied(mut o) => {
+                    let p = o.get_mut();
+                    p.timeout = phase.timeout;
+                    p.enabled = phase.enabled;
+                    p.depends_on.extend(phase.depends_on);
+                }
+                Entry::Vacant(v) => {
+                    v.insert(phase);
+                }
+            }
+        }
         Self {
             mailbox,
-            phases,
+            phases: self_phases,
         }
     }
 }

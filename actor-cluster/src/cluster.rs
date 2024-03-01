@@ -65,7 +65,7 @@ impl Cluster {
         let unique_address_c = self_unique_address.clone();
         let roles_c = roles.clone();
         let transport = cluster_provider.remote.transport.clone();
-        let daemon = system.spawn_system(Props::create(move |_| {
+        let daemon = system.spawn_system(Props::new_with_ctx(move |_| {
             Ok(ClusterDaemon {
                 client: client_clone.clone(),
                 self_addr: unique_address_c.clone(),

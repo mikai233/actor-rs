@@ -29,6 +29,7 @@ pub mod routing;
 pub mod actor;
 pub mod config;
 pub mod pattern;
+pub mod error;
 
 #[async_trait]
 pub trait Actor: Send + Any {
@@ -285,7 +286,7 @@ mod actor_test {
                 for _ in 0..3 {
                     let n = self.depth - 1;
                     if n > 0 {
-                        context.spawn_anonymous(Props::create(move |_| Ok(DeathWatchActor { depth: n })))?;
+                        context.spawn_anonymous(Props::new_with_ctx(move |_| Ok(DeathWatchActor { depth: n })))?;
                     }
                 }
                 Ok(())
@@ -298,7 +299,7 @@ mod actor_test {
         }
 
         let system = ActorSystem::create("mikai233", ActorSetting::default())?;
-        let actor = system.spawn_anonymous(Props::create(|_| Ok(DeathWatchActor { depth: 3 })))?;
+        let actor = system.spawn_anonymous(Props::new_with_ctx(|_| Ok(DeathWatchActor { depth: 3 })))?;
         tokio::time::sleep(Duration::from_secs(1)).await;
         system.stop(&actor);
         tokio::time::sleep(Duration::from_secs(3)).await;
@@ -440,7 +441,7 @@ mod actor_test {
             }
         }
         let system = ActorSystem::create("mikai233", ActorSetting::default())?;
-        system.spawn_anonymous(Props::create(|_| Ok(AdapterActor)))?;
+        system.spawn_anonymous(Props::new_with_ctx(|_| Ok(AdapterActor)))?;
         tokio::time::sleep(Duration::from_secs(1)).await;
         system.terminate().await;
         Ok(())

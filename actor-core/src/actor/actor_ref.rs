@@ -39,8 +39,6 @@ pub trait TActorRef: Debug + Send + Sync + Any + AsAny {
     fn resume(&self) {}
 
     fn suspend(&self) {}
-
-    fn restart(&self) {}
 }
 
 impl<T: ?Sized> ActorRefExt for T where T: TActorRef {}

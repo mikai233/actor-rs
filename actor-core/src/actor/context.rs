@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use arc_swap::Guard;
+use tokio::runtime::Handle;
 use tokio::task::{AbortHandle, JoinHandle};
 use tracing::{debug, error, warn};
 
@@ -69,7 +70,7 @@ pub struct ActorContext {
     pub(crate) system: ActorSystem,
     pub(crate) watching: HashMap<ActorRef, DynMessage>,
     pub(crate) watched_by: HashSet<ActorRef>,
-    pub(crate) props: Props,
+    pub(crate) handle: Option<Handle>,
     pub(crate) stash_capacity: Option<usize>,
 }
 
@@ -101,7 +102,9 @@ impl ActorRefFactory for ActorContext {
                 self.myself
             ));
         }
-        self.myself.local().unwrap().attach_child(props, Some(name.into()), true).map(|(actor, _)| actor)
+        self.myself.local().unwrap()
+            .attach_child(props, Some(name.into()), None, true)
+            .map(|(actor, _)| actor)
     }
 
     fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
@@ -111,7 +114,9 @@ impl ActorRefFactory for ActorContext {
                 self.myself
             ));
         }
-        self.myself.local().unwrap().attach_child(props, None, true).map(|(actor, _)| actor)
+        self.myself.local().unwrap()
+            .attach_child(props, None, None, true)
+            .map(|(actor, _)| actor)
     }
 
     fn stop(&self, actor: &ActorRef) {
@@ -202,7 +207,7 @@ impl Context for ActorContext {
 }
 
 impl ActorContext {
-    pub(crate) fn new(myself: ActorRef, system: ActorSystem, props: Props) -> Self {
+    pub(crate) fn new(myself: ActorRef, system: ActorSystem, handle: Option<Handle>) -> Self {
         Self {
             state: ActorState::Init,
             myself,
@@ -212,10 +217,11 @@ impl ActorContext {
             system,
             watching: HashMap::new(),
             watched_by: HashSet::new(),
-            props,
+            handle,
             stash_capacity: None,
         }
     }
+
     pub fn stash<M>(&mut self, message: M) where M: Message {
         let sender = self.sender.clone();
         self.stash.push_back(Envelope::new(DynMessage::user(message), sender));
@@ -314,7 +320,7 @@ impl ActorContext {
         where
             F: Future<Output=()> + Send + 'static,
     {
-        let handle = match &self.props.handle {
+        let handle = match &self.handle {
             None => {
                 self.system.handle().spawn(future)
             }
@@ -359,11 +365,14 @@ impl ActorContext {
         self.myself.local().unwrap().underlying().remove_function_ref(name).is_some()
     }
 
-    pub fn execute<F, A>(&self, f: F) where F: FnOnce(&mut ActorContext, &mut A) -> anyhow::Result<()> + Send + 'static, A: Actor {
+    pub fn execute<F, A>(&self, f: F)
+        where
+            F: FnOnce(&mut ActorContext, &mut A) -> anyhow::Result<()> + Send + 'static,
+            A: Actor {
         let execute = Execute {
             closure: Box::new(f),
         };
-        self.myself.cast(execute, ActorRef::no_sender());
+        self.myself.cast_ns(execute);
     }
 
     pub(crate) fn handle_invoke_failure(&mut self, child: ActorRef, name: &str, error: anyhow::Error) {

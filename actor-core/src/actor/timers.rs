@@ -365,7 +365,7 @@ impl Timers {
     pub fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
         let scheduler_actor = context
             .spawn(
-                Props::create(move |context| Ok(TimersActor::new(context.myself.clone()))),
+                Props::new_with_ctx(move |context| Ok(TimersActor::new(context.myself.clone()))),
                 "timers",
             )?;
         Ok(Self {

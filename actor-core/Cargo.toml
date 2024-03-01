@@ -28,6 +28,7 @@ dyn-clone = { workspace = true }
 regex = { workspace = true }
 toml = { workspace = true }
 pin-project = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
 ctor = { workspace = true }

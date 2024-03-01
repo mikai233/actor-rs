@@ -17,9 +17,9 @@ use actor_core::actor::actor_ref::ActorRefExt;
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor::props::Props;
+use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::config::actor_setting::ActorSetting;
-use actor_core::ext::init_logger_with_filter;
+use actor_core::ext::{init_logger_with_filter, type_name_of};
 use actor_derive::{CEmptyCodec, MessageCodec};
 use actor_remote::config::RemoteConfig;
 use actor_remote::config::transport::Transport;
@@ -111,7 +111,11 @@ async fn main() -> anyhow::Result<()> {
         let settings = ClusterSingletonManagerSettings::builder()
             .build();
         let singleton_props = ClusterSingletonManager::props(
-            Props::create(|_| { Ok(SingletonActor) }),
+            PropsBuilder::new(
+                type_name_of::<SingletonActor>(),
+                |()| {
+                    Props::new(|| { Ok(SingletonActor) })
+                }),
             DynMessage::user(StopSingleton),
             settings,
         )?;

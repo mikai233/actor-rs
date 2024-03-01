@@ -6,7 +6,7 @@ use anyhow::anyhow;
 
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::fault_handing::{Directive, OneForOneStrategy};
-use crate::actor::props::Props;
+use crate::actor::props::{Props, PropsBuilder};
 use crate::DynMessage;
 use crate::ext::maybe_ref::MaybeRef;
 
@@ -61,7 +61,7 @@ trait BackoffOnFailureOptions: ExtendedBackoffOptions {}
 
 #[derive(Clone)]
 struct BackoffOnStopOptionsImpl {
-    child_props: Props,
+    child_props: Arc<PropsBuilder<()>>,
     child_name: String,
     min_backoff: Duration,
     max_backoff: Duration,
@@ -75,7 +75,6 @@ struct BackoffOnStopOptionsImpl {
 impl Debug for BackoffOnStopOptionsImpl {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BackoffOnStopOptionsImpl")
-            .field("child_props", &self.child_props)
             .field("child_name", &self.child_name)
             .field("min_backoff", &self.min_backoff)
             .field("max_backoff", &self.max_backoff)
@@ -84,7 +83,7 @@ impl Debug for BackoffOnStopOptionsImpl {
             .field("supervisor_strategy", &self.supervisor_strategy)
             .field("handling_while_stopped", &self.handling_while_stopped)
             .field("final_stop_message", &"..")
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 

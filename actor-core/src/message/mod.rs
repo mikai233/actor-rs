@@ -7,7 +7,6 @@ pub mod poison_pill;
 pub mod execute;
 pub mod suspend;
 pub mod resume;
-pub mod recreate;
 pub mod failed;
 pub mod identify;
 pub mod message_registration;

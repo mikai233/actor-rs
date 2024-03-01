@@ -87,7 +87,7 @@ async fn main() -> anyhow::Result<()> {
     //     system2.terminate().await;
     // });
     for i in 0..10 {
-        system1.spawn(Props::create(|_| Ok(EmptyTestActor)), format!("test_actor_{}", i))?;
+        system1.spawn(Props::new_with_ctx(|_| Ok(EmptyTestActor)), format!("test_actor_{}", i))?;
     }
     let sel = system1.actor_selection(ActorSelectionPath::RelativePath("/user/../user/test_actor_*".to_string()))?;
     let which = sel.resolve_one(Duration::from_secs(3)).await?;

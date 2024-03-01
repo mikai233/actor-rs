@@ -4,7 +4,6 @@ pub(crate) enum ActorState {
     Started,
     Suspend,
     CanTerminate,
-    Recreate,
     Terminating,
     Terminated,
 }

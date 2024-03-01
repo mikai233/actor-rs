@@ -1,8 +1,8 @@
-use std::ops::Deref;
+use std::ops::{Deref, Not};
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use dashmap::DashMap;
 use dashmap::mapref::entry::Entry;
 use dashmap::mapref::one::MappedRef;
@@ -13,18 +13,23 @@ use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::extension::Extension;
-use actor_core::actor::props::Props;
+use actor_core::actor::props::{Props, PropsBuilderSync};
 use actor_core::config::Config;
 use actor_core::DynMessage;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_derive::AsAny;
 
 use crate::{CLUSTER_SHARDING_CONFIG, CLUSTER_SHARDING_CONFIG_NAME};
-use crate::cluster_sharding_guardian::{ClusterShardingGuardian, Start, StartCoordinatorIfNeeded, Started, StartProxy};
+use crate::cluster_sharding_guardian::ClusterShardingGuardian;
+use crate::cluster_sharding_guardian::start::Start;
+use crate::cluster_sharding_guardian::start_coordinator_if_needed::StartCoordinatorIfNeeded;
+use crate::cluster_sharding_guardian::start_proxy::StartProxy;
+use crate::cluster_sharding_guardian::started::Started;
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::config::ClusterShardingConfig;
 use crate::message_extractor::MessageExtractor;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
+use crate::shard_region::EntityId;
 
 #[derive(Debug, Clone, AsAny)]
 pub struct ClusterSharding {
@@ -54,7 +59,7 @@ impl ClusterSharding {
         let sharding_config = config.with_fallback(default_config);
         let guardian_name = sharding_config.guardian_name.clone();
         system.add_config(sharding_config)?;
-        let guardian = system.spawn_system(Props::create(|context| {
+        let guardian = system.spawn_system(Props::new_with_ctx(|context| {
             Ok(ClusterShardingGuardian { cluster: Cluster::get(context.system()).clone() })
         }), Some(guardian_name))?;
         let cluster = Cluster::get(&system).clone();
@@ -75,8 +80,8 @@ impl ClusterSharding {
     pub async fn start<E, S>(
         &self,
         type_name: impl Into<String>,
-        entity_props: Props,
-        settings: ClusterShardingSettings,
+        entity_props: PropsBuilderSync<EntityId>,
+        settings: Arc<ClusterShardingSettings>,
         extractor: E,
         allocation_strategy: S,
         handoff_message: DynMessage,
@@ -84,6 +89,10 @@ impl ClusterSharding {
         E: MessageExtractor + 'static,
         S: ShardAllocationStrategy + 'static {
         let type_name = type_name.into();
+        if handoff_message.is_cloneable().not() {
+            let msg_name = handoff_message.name;
+            return Err(anyhow!("entity {type_name} handoff message {msg_name} must be cloneable"));
+        }
         if settings.should_host_shard(&self.cluster) {
             match self.regions.entry(type_name.clone()) {
                 Entry::Occupied(o) => {
@@ -133,6 +142,7 @@ impl ClusterSharding {
             Entry::Vacant(v) => {
                 let mut settings = ClusterShardingSettings::create(&self.system);
                 settings.role = role;
+                let settings = Arc::new(settings);
                 let start_msg = StartProxy {
                     type_name: type_name.clone(),
                     settings,

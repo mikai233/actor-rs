@@ -1,5 +1,4 @@
 use std::fmt::{Debug, Formatter};
-use std::sync::Arc;
 
 use anyhow::anyhow;
 use tokio::runtime::Handle;
@@ -12,61 +11,82 @@ use crate::actor::context::ActorContext;
 use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
-use crate::routing::router_config::RouterConfig;
+use crate::ext::type_name_of;
 
 // TODO Props需要重构为FnOnce和Fn两种类型的Spawner，有的Actor只会创建一次，有些参数不支持Clone，使用不方便
-pub type Spawner = Arc<Box<dyn Fn(ActorRef, Mailbox, ActorSystem, Props) -> anyhow::Result<()> + Send + Sync + 'static>>;
+type ActorSpawner = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem, Option<Handle>) -> anyhow::Result<()> + Send>;
 
-#[derive(Clone)]
 pub struct Props {
-    pub(crate) spawner: Spawner,
+    pub(crate) actor_name: &'static str,
+    pub(crate) spawner: ActorSpawner,
     pub(crate) handle: Option<Handle>,
-    pub(crate) router_config: Option<RouterConfig>,
     pub(crate) mailbox: Option<String>,
 }
 
 impl Debug for Props {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("Props")
-            .field("spawner", &"..")
+            .field("actor_name", &self.actor_name)
             .field("handle", &self.handle)
-            .field("router_config", &self.router_config)
             .field("mailbox", &self.mailbox)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
 impl Props {
-    pub fn create<F, A>(f: F) -> Self where
-        F: Fn(&mut ActorContext) -> anyhow::Result<A> + Send + Sync + 'static,
-        A: Actor {
-        let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem, props: Props| {
-            let handle = props.handle.clone();
-            let mut context = ActorContext::new(myself, system, props);
-            let system = context.system.clone();
-            let actor = f(&mut context)?;
-            let runtime = ActorRuntime {
-                actor,
-                context,
-                mailbox,
-            };
-            match handle {
-                None => {
-                    system.handle().spawn(runtime.run());
-                }
-                Some(handle) => {
-                    handle.spawn(runtime.run());
-                }
-            }
+    pub fn new<F, A>(func: F) -> Self
+        where
+            F: FnOnce() -> anyhow::Result<A> + Send + 'static,
+            A: Actor {
+        let actor_name = type_name_of::<A>();
+        let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem, handle: Option<Handle>| {
+            let mut context = ActorContext::new(myself, system, handle.clone());
+            let handle = handle.unwrap_or(context.system.handle().clone());
+            let actor = func()?;
+            let runtime = ActorRuntime { actor, context, mailbox };
+            handle.spawn(runtime.run());
             Ok::<_, anyhow::Error>(())
         };
         Self {
-            spawner: Arc::new(Box::new(spawner)),
+            actor_name,
+            spawner: Box::new(spawner),
             handle: None,
-            router_config: None,
             mailbox: None,
         }
     }
+
+    pub fn new_with_ctx<F, A>(func: F) -> Self
+        where
+            F: FnOnce(&mut ActorContext) -> anyhow::Result<A> + Send + 'static,
+            A: Actor {
+        let actor_name = type_name_of::<A>();
+        let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem, handle: Option<Handle>| {
+            let mut context = ActorContext::new(myself, system, handle.clone());
+            let handle = handle.unwrap_or(context.system.handle().clone());
+            let actor = func(&mut context)?;
+            let runtime = ActorRuntime { actor, context, mailbox };
+            handle.spawn(runtime.run());
+            Ok::<_, anyhow::Error>(())
+        };
+        Self {
+            actor_name,
+            spawner: Box::new(spawner),
+            handle: None,
+            mailbox: None,
+        }
+    }
+
+    fn run<A>(handle: Option<Handle>, system: ActorSystem, runtime: ActorRuntime<A>) where A: Actor {
+        match handle {
+            None => {
+                system.handle().spawn(runtime.run());
+            }
+            Some(handle) => {
+                handle.spawn(runtime.run());
+            }
+        }
+    }
+
     pub(crate) fn mailbox(&self, system: &ActorSystem) -> anyhow::Result<(MailboxSender, Mailbox)> {
         let core_config = system.core_config();
         let mailbox_name = self.mailbox.as_ref().map(|m| m.as_str()).unwrap_or("default");
@@ -86,19 +106,13 @@ impl Props {
         Ok((sender, mailbox))
     }
 
-    pub fn with_router(&self, r: Option<RouterConfig>) -> Props {
-        let mut props = self.clone();
-        props.router_config = r;
-        props
-    }
-
-    pub fn router_config(&self) -> Option<&RouterConfig> {
-        self.router_config.as_ref()
-    }
-
     pub fn with_mailbox(&mut self, mailbox: impl Into<String>) -> &mut Self {
         self.mailbox = Some(mailbox.into());
         self
+    }
+
+    pub fn spawn(self, myself: ActorRef, mailbox: Mailbox, system: ActorSystem) -> anyhow::Result<()> {
+        (self.spawner)(myself, mailbox, system, self.handle)
     }
 }
 
@@ -109,25 +123,25 @@ pub trait DeferredSpawn {
 pub struct ActorDeferredSpawn {
     pub actor_ref: ActorRef,
     pub mailbox: Mailbox,
-    pub props: Props,
+    pub spawner: ActorSpawner,
+    pub handle: Option<Handle>,
 }
 
 impl ActorDeferredSpawn {
-    pub fn new(actor_ref: ActorRef, mailbox: Mailbox, props: Props) -> Self {
+    pub fn new(actor_ref: ActorRef, mailbox: Mailbox, spawner: ActorSpawner, handle: Option<Handle>) -> Self {
         Self {
             actor_ref,
             mailbox,
-            props,
+            spawner,
+            handle,
         }
     }
 }
 
 impl DeferredSpawn for ActorDeferredSpawn {
     fn spawn(self: Box<Self>, system: ActorSystem) -> anyhow::Result<()> {
-        let Self { actor_ref, mailbox, props } = *self;
-        let spawner = props.spawner.clone();
-        spawner(actor_ref, mailbox, system, props)?;
-        Ok(())
+        let Self { actor_ref, mailbox, spawner, handle } = *self;
+        spawner(actor_ref, mailbox, system, handle)
     }
 }
 
@@ -148,5 +162,57 @@ impl DeferredSpawn for FuncDeferredSpawn {
         let Self { func } = *self;
         func(system)?;
         Ok(())
+    }
+}
+
+pub struct PropsBuilder<A> {
+    pub name: &'static str,
+    pub builder: Box<dyn Fn(A) -> Props + Send>,
+}
+
+impl<A> PropsBuilder<A> {
+    pub fn new<F>(name: &'static str, func: F) -> Self where F: Fn(A) -> Props + Send + 'static {
+        Self {
+            name,
+            builder: Box::new(func),
+        }
+    }
+
+    pub fn props(&self, arg: A) -> Props {
+        (self.builder)(arg)
+    }
+}
+
+impl<A> Debug for PropsBuilder<A> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PropsBuilder")
+            .field("name", &self.name)
+            .finish_non_exhaustive()
+    }
+}
+
+pub struct PropsBuilderSync<A> {
+    pub name: &'static str,
+    pub builder: Box<dyn Fn(A) -> Props + Send + Sync>,
+}
+
+impl<A> PropsBuilderSync<A> {
+    pub fn new<F>(name: &'static str, func: F) -> Self where F: Fn(A) -> Props + Send + Sync + 'static {
+        Self {
+            name,
+            builder: Box::new(func),
+        }
+    }
+
+    pub fn props(&self, arg: A) -> Props {
+        (self.builder)(arg)
+    }
+}
+
+impl<A> Debug for PropsBuilderSync<A> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PropsBuilderSync")
+            .field("name", &self.name)
+            .finish_non_exhaustive()
     }
 }

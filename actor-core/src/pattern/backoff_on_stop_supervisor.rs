@@ -5,12 +5,12 @@ use async_trait::async_trait;
 use crate::{Actor, DynMessage};
 use crate::actor::actor_ref::ActorRef;
 use crate::actor::fault_handing::SupervisorStrategy;
-use crate::actor::props::Props;
+use crate::actor::props::{Props, PropsBuilder};
 use crate::pattern::backoff_opts::{BackoffReset, HandlingWhileStopped};
 use crate::pattern::hand_backoff::HandBackoff;
 
 pub(crate) struct BackoffOnStopSupervisor {
-    child_props: Props,
+    child_props: PropsBuilder<()>,
     child_name: String,
     min_backoff: Duration,
     max_backoff: Duration,
@@ -26,7 +26,7 @@ pub(crate) struct BackoffOnStopSupervisor {
 
 impl HandBackoff for BackoffOnStopSupervisor {
     fn child_props(&self) -> Props {
-        self.child_props.clone()
+        self.child_props.props(())
     }
 
     fn child_name(&self) -> &str {

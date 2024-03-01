@@ -4,8 +4,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use dyn_clone::DynClone;
 
 use crate::actor::actor_ref::ActorRef;
-use crate::actor::actor_ref_factory::ActorRefFactory;
-use crate::actor::context::{ActorContext, Context};
+use crate::actor::context::ActorContext;
 
 pub trait SupervisorStrategy: Send + Sync + DynClone + Debug + 'static {
     fn directive(&self) -> &Directive;
@@ -38,10 +37,6 @@ pub trait SupervisorStrategy: Send + Sync + DynClone + Debug + 'static {
 
     fn resume_child(&self, child: &ActorRef) {
         child.resume();
-    }
-
-    fn restart_child(&self, child: &ActorRef) {
-        child.restart();
     }
 }
 
@@ -109,25 +104,25 @@ impl SupervisorStrategy for AllForOneStrategy {
     }
 
     fn process_failure(&self, context: &mut ActorContext, restart: bool, _child: &ActorRef) {
-        let children = context.children();
-        let myself = context.myself.local().unwrap().cell.restart_stats();
-        if !children.is_empty() {
-            if restart && children.iter().all(|child| {
-                myself
-                    .get_mut(child)
-                    .unwrap()
-                    .value_mut()
-                    .request_restart_permission(self.retries_window())
-            }) {
-                for child in children {
-                    self.restart_child(&child);
-                }
-            } else {
-                for child in children {
-                    context.stop(&child);
-                }
-            }
-        }
+        // let children = context.children();
+        // let myself = context.myself.local().unwrap().cell.restart_stats();
+        // if !children.is_empty() {
+        //     if restart && children.iter().all(|child| {
+        //         myself
+        //             .get_mut(child)
+        //             .unwrap()
+        //             .value_mut()
+        //             .request_restart_permission(self.retries_window())
+        //     }) {
+        //         for child in children {
+        //             self.restart_child(&child);
+        //         }
+        //     } else {
+        //         for child in children {
+        //             context.stop(&child);
+        //         }
+        //     }
+        // }
     }
 }
 
@@ -160,14 +155,14 @@ impl SupervisorStrategy for OneForOneStrategy {
     }
 
     fn process_failure(&self, context: &mut ActorContext, restart: bool, child: &ActorRef) {
-        let myself = context.myself.local().unwrap();
-        let restart_stats = myself.cell.restart_stats();
-        let mut stats = restart_stats.get_mut(child).unwrap();
-        if restart && stats.value_mut().request_restart_permission(self.retries_window()) {
-            self.restart_child(child);
-        } else {
-            context.stop(child);
-        }
+        // let myself = context.myself.local().unwrap();
+        // let restart_stats = myself.cell.restart_stats();
+        // let mut stats = restart_stats.get_mut(child).unwrap();
+        // if restart && stats.value_mut().request_restart_permission(self.retries_window()) {
+        //     self.restart_child(child);
+        // } else {
+        //     context.stop(child);
+        // }
     }
 }
 

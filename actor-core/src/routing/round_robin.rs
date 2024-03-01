@@ -73,7 +73,8 @@ impl Pool for RoundRobinPool {
 
     fn props(&self, routee_props: Props) -> Props {
         let config = PoolRouterConfig::new(self.clone());
-        routee_props.with_router(Some(config.into()))
+        // routee_props.with_router(Some(config.into()))
+        todo!()
     }
 
     fn supervisor_strategy(&self) -> &Box<dyn SupervisorStrategy> {
@@ -127,12 +128,12 @@ mod test {
     async fn test_round_robin() -> anyhow::Result<()> {
         init_logger(Level::TRACE);
         let system = ActorSystem::create("mikai233", ActorSetting::default())?;
-        let router_props = RoundRobinPool::new(5, OneForOneStrategy::default()).props(Props::create(|_| Ok(TestActor)));
+        let router_props = RoundRobinPool::new(5, OneForOneStrategy::default()).props(Props::new_with_ctx(|_| Ok(TestActor)));
         let round_robin_router = system.spawn_anonymous(router_props)?;
         for _ in 0..10 {
             round_robin_router.cast_ns(TestMessage);
         }
-        let another_routee = system.spawn_anonymous(Props::create(|_| Ok(TestActor)))?;
+        let another_routee = system.spawn_anonymous(Props::new_with_ctx(|_| Ok(TestActor)))?;
         round_robin_router.cast_ns(AddRoutee { routee: Arc::new(Box::new(ActorRefRoutee(another_routee))) });
         tokio::time::sleep(Duration::from_secs(2)).await;
         Ok(())

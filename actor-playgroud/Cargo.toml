@@ -19,6 +19,7 @@ tracing-subscriber = { workspace = true, features = ["local-time", "env-filter"]
 bincode = { workspace = true }
 etcd-client = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
+rand = { workspace = true }
 
 [[bin]]
 name = "node"
@@ -31,3 +32,7 @@ path = "src/supervisor.rs"
 [[bin]]
 name = "singleton"
 path = "src/singleton.rs"
+
+[[bin]]
+name = "fibonacci"
+path = "src/fibonacci.rs"

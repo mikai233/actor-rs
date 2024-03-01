@@ -4,15 +4,12 @@ use std::panic::AssertUnwindSafe;
 use anyhow::{anyhow, Error};
 use futures::FutureExt;
 use tokio::task::yield_now;
-use tracing::{error, warn};
+use tracing::error;
 
 use crate::{Actor, Message};
-use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_factory::ActorRefFactory;
-use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::mailbox::Mailbox;
-use crate::actor::props::Props;
 use crate::actor::state::ActorState;
 use crate::cell::envelope::Envelope;
 use crate::ext::type_name_of;
@@ -46,7 +43,7 @@ impl<A> ActorRuntime<A> where A: Actor {
                 biased;
                 Some(message) = mailbox.system.recv() => {
                     Self::handle_system(&mut context, &mut actor, message).await;
-                    if matches!(context.state, ActorState::CanTerminate | ActorState::Recreate) {
+                    if matches!(context.state, ActorState::CanTerminate) {
                         break;
                     }
                     context.remove_finished_tasks();
@@ -77,24 +74,20 @@ impl<A> ActorRuntime<A> where A: Actor {
         if let Some(err) = actor.stopped(&mut context).await.err() {
             error!("actor {:?} post stop error {:?}", actor_name, err);
         }
-        if matches!(context.state, ActorState::Recreate) {
-            Self::recreate(context.myself, mailbox, context.system, context.props);
-        } else {
-            mailbox.close();
-        }
+        mailbox.close();
         context.state = ActorState::Terminated;
         for task in context.fut_handle {
             task.abort();
         }
     }
 
-    pub(crate) fn recreate(myself: ActorRef, mailbox: Mailbox, system: ActorSystem, props: Props) {
-        let spawner = props.spawner.clone();
-        let myself_display = myself.to_string();
-        if let Some(error) = spawner(myself, mailbox, system, props).err() {
-            warn!("{} recreate error {:?}", myself_display, error);
-        }
-    }
+    // pub(crate) fn recreate(myself: ActorRef, mailbox: Mailbox, system: ActorSystem, props: Props) {
+    //     let spawner = props.spawner.clone();
+    //     let myself_display = myself.to_string();
+    //     if let Some(error) = spawner(myself, mailbox, system, props).err() {
+    //         warn!("{} recreate error {:?}", myself_display, error);
+    //     }
+    // }
 
     async fn handle_system(context: &mut ActorContext, actor: &mut A, envelope: Envelope) {
         let Envelope { message, sender } = envelope;

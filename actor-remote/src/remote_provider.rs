@@ -74,11 +74,17 @@ impl RemoteActorRefProvider {
     pub(crate) fn spawn_transport(provider: &LocalActorRefProvider, transport: Transport) -> anyhow::Result<(ActorRef, Option<ActorDeferredSpawn>)> {
         match transport {
             Transport::Tcp(tcp) => {
-                provider.system_guardian().attach_child(
-                    Props::create(move |context| Ok(TcpTransportActor::new(context.system().clone(), tcp.clone()))),
-                    Some("tcp_transport".to_string()),
-                    false,
-                )
+                provider.system_guardian()
+                    .attach_child(
+                        Props::new_with_ctx(
+                            move |context| {
+                                Ok(TcpTransportActor::new(context.system().clone(), tcp))
+                            },
+                        ),
+                        Some("tcp_transport".to_string()),
+                        None,
+                        false,
+                    )
             }
             Transport::Kcp(_) => {
                 unimplemented!("kcp transport not unimplemented");

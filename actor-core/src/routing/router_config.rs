@@ -19,7 +19,7 @@ use crate::ext::option_ext::OptionExt;
 use crate::routing::group_router_config::GroupRouterConfig;
 use crate::routing::pool_router_config::PoolRouterConfig;
 use crate::routing::router::{ActorRefRoutee, Routee, Router};
-use crate::routing::router_actor::{TRouterActor, WatchRouteeTerminated};
+use crate::routing::router_actor::{TRouterActor, RouteeTerminated};
 
 #[enum_dispatch(RouterConfig)]
 pub trait TRouterConfig: Send + Sync + DynClone + 'static {
@@ -29,7 +29,7 @@ pub trait TRouterConfig: Send + Sync + DynClone + 'static {
 
     fn is_management_message(&self, message: &DynMessage) -> bool {
         if matches!(message.message_type, MessageType::System)
-            || message.name == std::any::type_name::<WatchRouteeTerminated>()
+            || message.name == std::any::type_name::<RouteeTerminated>()
             || message.name == std::any::type_name::<GetRoutees>()
             || message.name == std::any::type_name::<AddRoutee>()
             || message.name == std::any::type_name::<RemoveRoutee>() {

@@ -177,7 +177,9 @@ impl ActorSystem {
     }
 
     pub fn spawn_system(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
-        self.system_guardian().attach_child(props, name, true).map(|(actor, _)| actor)
+        self.system_guardian()
+            .attach_child(props, name, None, true)
+            .map(|(actor, _)| actor)
     }
 
     pub fn event_stream(&self) -> &EventStream {
@@ -250,11 +252,15 @@ impl ActorRefFactory for ActorSystem {
     }
 
     fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
-        self.guardian().attach_child(props, Some(name.into()), true).map(|(actor, _)| actor)
+        self.guardian()
+            .attach_child(props, Some(name.into()), None, true)
+            .map(|(actor, _)| actor)
     }
 
     fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
-        self.guardian().attach_child(props, None, true).map(|(actor, _)| actor)
+        self.guardian()
+            .attach_child(props, None, None, true)
+            .map(|(actor, _)| actor)
     }
 
     fn stop(&self, actor: &ActorRef) {

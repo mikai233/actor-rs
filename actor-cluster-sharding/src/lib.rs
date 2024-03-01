@@ -10,8 +10,8 @@ mod shard_allocation_strategy;
 mod cluster_sharding_settings;
 mod message_extractor;
 pub(crate) mod shard;
-mod handoff_stopper;
 mod entity_passivation_strategy;
+mod handoff_stopper;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right

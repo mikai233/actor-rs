@@ -21,7 +21,7 @@ use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_ref_provider::downcast_provider;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_EXITING};
-use actor_core::actor::props::Props;
+use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::message::terminated::Terminated;
 use actor_derive::EmptyCodec;
@@ -46,7 +46,7 @@ impl Default for ClusterSingletonManagerSettings {
 #[derive(Debug)]
 pub struct ClusterSingletonManager {
     cluster: Cluster,
-    singleton_props: Props,
+    singleton_props: PropsBuilder<()>,
     termination_message: DynMessage,
     settings: ClusterSingletonManagerSettings,
     client: EtcdClient,
@@ -60,7 +60,7 @@ pub struct ClusterSingletonManager {
 impl ClusterSingletonManager {
     pub fn new(
         context: &mut ActorContext,
-        props: Props,
+        props: PropsBuilder<()>,
         termination_message: DynMessage,
         settings: ClusterSingletonManagerSettings,
     ) -> anyhow::Result<Self> {
@@ -103,7 +103,15 @@ impl ClusterSingletonManager {
         let client = self.client.clone();
         let receiver = context.message_adapter::<LeaseKeepAliveFailed>(|_| DynMessage::user(LeaseFailed));
         context.spawn(
-            Props::create(move |_| { Ok(EtcdLeaseKeeper::new(client.clone(), resp.id(), receiver.clone(), Duration::from_secs(3))) }),
+            Props::new(move || {
+                let keeper = EtcdLeaseKeeper::new(
+                    client.clone(),
+                    resp.id(),
+                    receiver.clone(),
+                    Duration::from_secs(3),
+                );
+                Ok(keeper)
+            }),
             "lease_keeper",
         )?;
         Ok(lease_id)
@@ -149,14 +157,12 @@ impl ClusterSingletonManager {
         self.lock_handle = Some(handle);
     }
 
-    pub fn props(props: Props, termination_message: DynMessage, settings: ClusterSingletonManagerSettings) -> anyhow::Result<Props> {
+    pub fn props(props: PropsBuilder<()>, termination_message: DynMessage, settings: ClusterSingletonManagerSettings) -> anyhow::Result<Props> {
         if !termination_message.is_cloneable() {
             return Err(anyhow!("termination message {} require cloneable", termination_message.name()));
         }
-        let termination_message = Mutex::new(termination_message);
-        let props = Props::create(move |context| {
-            let termination_message = termination_message.lock().unwrap().dyn_clone().unwrap();
-            Self::new(context, props.clone(), termination_message, settings.clone())
+        let props = Props::new_with_ctx(move |context| {
+            Self::new(context, props, termination_message, settings)
         });
         Ok(props)
     }
@@ -220,7 +226,7 @@ impl Message for LockSuccess {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.lock_key = Some(self.0);
-        match context.spawn(actor.singleton_props.clone(), actor.singleton_name()) {
+        match context.spawn(actor.singleton_props.props(()), actor.singleton_name()) {
             Ok(singleton) => {
                 context.watch(SingletonTerminated(singleton.clone()));
                 info!("singleton manager start singleton actor {}", singleton);
