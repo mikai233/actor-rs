@@ -26,7 +26,7 @@ impl Message for Handoff {
         let shard_id = self.shard;
         debug!("{type_name}: Handoff shard [{shard_id}]");
         if actor.shard_buffers.contains_key(&shard_id) {
-            let dropped = actor.shard_buffers.drop(
+            let dropped = actor.shard_buffers.drop_to_dead_letters(
                 &shard_id,
                 "Avoiding reordering of buffered messages at shard handoff".to_string(),
                 context.system().dead_letters(),

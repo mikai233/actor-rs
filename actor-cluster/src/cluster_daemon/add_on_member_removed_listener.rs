@@ -10,7 +10,8 @@ use actor_derive::EmptyCodec;
 
 use crate::cluster_daemon::ClusterDaemon;
 use crate::member::MemberStatus;
-use crate::on_member_status_changed_listener::{AddStatusCallback, OnMemberStatusChangedListener};
+use crate::on_member_status_changed_listener::add_status_callback::AddStatusCallback;
+use crate::on_member_status_changed_listener::OnMemberStatusChangedListener;
 
 #[derive(EmptyCodec)]
 pub(crate) struct AddOnMemberRemovedListener(pub(crate) Box<dyn FnOnce() + Send>);

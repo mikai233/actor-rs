@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use etcd_client::{GetOptions, KeyValue, PutOptions, WatchOptions};
 use tracing::{debug, error, info, trace};
 
-use actor_core::{Actor, DynMessage, };
+use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
@@ -25,7 +25,8 @@ use crate::cluster_event::ClusterEvent;
 use crate::etcd_watcher::EtcdWatcher;
 use crate::heartbeat::cluster_heartbeat_receiver::ClusterHeartbeatReceiver;
 use crate::heartbeat::cluster_heartbeat_sender::ClusterHeartbeatSender;
-use crate::lease_keeper::{EtcdLeaseKeeper, LeaseKeepAliveFailed};
+use crate::lease_keeper::EtcdLeaseKeeper;
+use crate::lease_keeper::lease_keep_alive_failed::LeaseKeepAliveFailed;
 use crate::member::{Member, MemberStatus};
 use crate::unique_address::UniqueAddress;
 

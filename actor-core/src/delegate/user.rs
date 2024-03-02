@@ -60,7 +60,7 @@ impl<A> CodecMessage for UserDelegate<A> where A: 'static + Actor + Send {
         self.message.encode(message_registration)
     }
 
-    fn dyn_clone(&self) -> Option<DynMessage> {
+    fn dyn_clone(&self) -> anyhow::Result<DynMessage> {
         self.message.dyn_clone()
     }
 
@@ -82,8 +82,8 @@ impl<A> Into<DynMessage> for UserDelegate<A> where A: Actor {
     fn into(self) -> DynMessage {
         DynMessage {
             name: self.name,
-            message_type: MessageType::User,
-            boxed: Box::new(self),
+            ty: MessageType::User,
+            message: Box::new(self),
         }
     }
 }

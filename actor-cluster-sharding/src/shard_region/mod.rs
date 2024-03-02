@@ -18,7 +18,6 @@ use actor_core::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::{Props, PropsBuilderSync};
 use actor_core::actor::timers::{ScheduleKey, Timers};
-use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_buffer::{BufferEnvelope, MessageBufferMap};
 use actor_core::message::poison_pill::PoisonPill;
 
@@ -119,7 +118,7 @@ impl ShardRegion {
         extractor: Box<dyn MessageExtractor>,
         handoff_stop_message: DynMessage,
     ) -> Props {
-        debug_assert!(handoff_stop_message.is_cloneable(), "message {} is not cloneable", handoff_stop_message.name);
+        debug_assert!(handoff_stop_message.is_cloneable(), "message {} is not cloneable", handoff_stop_message.name());
         Props::new_with_ctx(move |context| {
             Self::new(
                 context,
@@ -282,7 +281,7 @@ impl ShardRegion {
             //TODO send to dead letter
         } else {
             let envelop = ShardRegionBufferEnvelope {
-                envelope: msg,
+                message: msg,
                 sender,
             };
             self.shard_buffers.push(shard_id, envelop);
@@ -301,7 +300,7 @@ impl ShardRegion {
 
     fn deliver_buffered_messages(&mut self, shard_id: &ShardId, receiver: &ActorRef) {
         if self.shard_buffers.contains_key(shard_id) {
-            if let Some(buffers) = self.shard_buffers.remove_buffer(shard_id) {
+            if let Some(buffers) = self.shard_buffers.remove(shard_id) {
                 let type_name = &self.type_name;
                 let buf_size = buffers.len();
                 debug!("{type_name}: Deliver [{buf_size}] buffered messages for shard [{shard_id}]");
@@ -333,7 +332,7 @@ impl ShardRegion {
                             props_builder.clone(),
                             self.settings.clone(),
                             self.extractor.clone(),
-                            self.handoff_stop_message.dyn_clone().into_result()?,
+                            self.handoff_stop_message.dyn_clone()?,
                         );
                         let shard = context.spawn(shard_props, id.clone())?;
                         context.watch(ShardTerminated(shard.clone()));

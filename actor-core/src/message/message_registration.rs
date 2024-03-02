@@ -70,8 +70,8 @@ impl MessageRegistration {
 
 
     pub fn encode_boxed(&self, message: &DynMessage) -> Result<IDPacket, EncodeError> {
-        let DynMessage { name, boxed: boxed_message, .. } = message;
-        self.encode(name, &**boxed_message)
+        let DynMessage { name, message, .. } = message;
+        self.encode(name, &**message)
     }
 
     pub fn encode(&self, name: &'static str, message: &dyn CodecMessage) -> Result<IDPacket, EncodeError> {

@@ -112,7 +112,7 @@ impl Shard {
             }
             EntityState::Active(entity) => {
                 let payload = self.extractor.unwrap_message(message.0);
-                let message_name = payload.name;
+                let message_name = payload.name();
                 debug!("{}: Delivering message of type [{}] to [{}]", type_name, message_name, entity_id);
                 entity.tell(payload, sender);
             }
@@ -121,7 +121,7 @@ impl Shard {
             }
             EntityState::WaitingForRestart => {
                 let payload = self.extractor.unwrap_message(message.0);
-                let message_name = payload.name;
+                let message_name = payload.name();
                 debug!("{}: Delivering message of type [{}] to [{}] (starting because [WaitingForRestart])", type_name, message_name, entity_id);
                 self.get_or_create_entity(context, &entity_id)?.tell(payload, sender);
             }
@@ -132,7 +132,7 @@ impl Shard {
     fn append_to_message_buffer(&mut self, id: EntityId, message: ShardEnvelope, sender: Option<ActorRef>) {
         // TODO buffer size overflow
         let envelop = ShardBufferEnvelope {
-            envelope: message,
+            message: message,
             sender,
         };
         match self.message_buffers.entry(id) {
@@ -148,12 +148,12 @@ impl Shard {
     }
 
     fn send_message_buffer(&mut self, context: &mut ActorContext, entity_id: &EntityId) -> anyhow::Result<()> {
-        if let Some(messages) = self.message_buffers.remove_buffer(entity_id) {
+        if let Some(messages) = self.message_buffers.remove(entity_id) {
             if messages.is_empty().not() {
                 self.get_or_create_entity(context, entity_id)?;
                 debug!("{}: Sending message buffer for entity [{}] ([{}] messages)", self.type_name, entity_id, messages.len());
                 for message in messages {
-                    let ShardBufferEnvelope { envelope, sender } = message;
+                    let ShardBufferEnvelope { message: envelope, sender } = message;
                     self.deliver_message(context, envelope, sender)?;
                 }
             }

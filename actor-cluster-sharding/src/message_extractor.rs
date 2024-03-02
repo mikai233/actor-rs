@@ -25,6 +25,6 @@ pub struct ShardEntityEnvelope {
 
 impl Display for ShardEntityEnvelope {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ShardingEnvelope {{ entity_id: {}, message: {} }}", self.entity_id, self.message.name)
+        write!(f, "ShardingEnvelope {{ entity_id: {}, message: {} }}", self.entity_id, self.message.name())
     }
 }

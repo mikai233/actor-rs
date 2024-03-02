@@ -8,4 +8,6 @@ pub enum Error {
     DuplicateActorName(String),
     #[error("cannot spawn child actor while parent actor is terminating")]
     SpawnActorWhileTerminating,
+    #[error("message {0} is not cloneable")]
+    MessageCannotClone(String),
 }

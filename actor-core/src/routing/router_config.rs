@@ -28,7 +28,7 @@ pub trait TRouterConfig: Send + Sync + DynClone + 'static {
     fn create_router_actor(&self, routee_props: Props) -> anyhow::Result<Box<dyn TRouterActor>>;
 
     fn is_management_message(&self, message: &DynMessage) -> bool {
-        if matches!(message.message_type, MessageType::System)
+        if matches!(message.ty, MessageType::System)
             || message.name == std::any::type_name::<RouteeTerminated>()
             || message.name == std::any::type_name::<GetRoutees>()
             || message.name == std::any::type_name::<AddRoutee>()

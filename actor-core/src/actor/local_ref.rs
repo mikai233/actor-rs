@@ -68,7 +68,7 @@ impl TActorRef for LocalActorRef {
     }
 
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
-        match &message.message_type {
+        match &message.ty {
             MessageType::User => {
                 let envelop = Envelope { message, sender };
                 if let Some(error) = self.sender.message.try_send(envelop).err() {

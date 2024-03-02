@@ -190,7 +190,7 @@ impl Context for ActorContext {
     fn message_adapter<M>(&mut self, f: impl Fn(M) -> DynMessage + Send + Sync + 'static) -> ActorRef where M: OrphanMessage {
         let myself = self.myself.clone();
         self.add_function_ref(move |message, sender| {
-            let DynMessage { name, message_type, boxed } = message;
+            let DynMessage { name, ty: message_type, message: boxed } = message;
             let downcast_name = std::any::type_name::<M>();
             if matches!(message_type, MessageType::Orphan) {
                 match boxed.into_any().downcast::<M>() {

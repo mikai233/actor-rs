@@ -42,7 +42,7 @@ impl Message for EntityTerminated {
                         actor.entities.remove_entity(&entity_id);
                     }
                     EntityState::Passivation(_) => {
-                        if let Some(messages) = actor.message_buffers.remove_buffer(&entity_id) {
+                        if let Some(messages) = actor.message_buffers.remove(&entity_id) {
                             if messages.is_empty().not() {
                                 debug!("{}: [{}] terminated after passivating, buffered messages found, restarting", actor.type_name, entity_id);
                                 actor.entities.remove_entity(&entity_id);

@@ -16,7 +16,8 @@ use actor_core::message::resume::Resume;
 use actor_core::message::suspend::Suspend;
 use actor_derive::AsAny;
 
-use crate::net::message::{OutboundMessage, RemoteEnvelope};
+use crate::net::remote_envelope::RemoteEnvelope;
+use crate::net::tcp_transport::outbound_message::OutboundMessage;
 
 #[derive(Clone, AsAny)]
 pub struct RemoteActorRef {

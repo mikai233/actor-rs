@@ -5,7 +5,6 @@ pub mod cluster;
 mod cluster_daemon;
 pub mod cluster_provider;
 pub mod cluster_setting;
-mod region;
 pub mod unique_address;
 mod message;
 pub mod etcd_watcher;

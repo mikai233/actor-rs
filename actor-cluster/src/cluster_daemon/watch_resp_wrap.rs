@@ -12,7 +12,7 @@ use crate::cluster_daemon::ClusterDaemon;
 use crate::cluster_daemon::self_down::SelfDown;
 use crate::cluster_daemon::self_removed::SelfRemoved;
 use crate::cluster_event::ClusterEvent;
-use crate::etcd_watcher::WatchResp;
+use crate::etcd_watcher::watch_resp::WatchResp;
 use crate::member::MemberStatus;
 
 #[derive(Debug, EmptyCodec)]

@@ -5,7 +5,12 @@ use syn::{ImplGenerics, parse_str, TypeGenerics, WhereClause};
 use crate::metadata::{CodecType, MessageImpl};
 use crate::with_crate;
 
-pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: CodecType, cloneable: bool) -> TokenStream {
+pub fn expand(
+    ast: syn::DeriveInput,
+    message_impl: MessageImpl,
+    codec_type: CodecType,
+    cloneable: bool,
+) -> TokenStream {
     let message_ty = ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     let codec_trait = with_crate(parse_str("CodecMessage").unwrap());
@@ -15,7 +20,7 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
     let reg = with_crate(parse_str("message::message_registration::MessageRegistration").unwrap());
     let decoder = expand_decoder(&message_ty, &message_impl, &codec_type, &ext_path, &dy_message, &reg);
     let encode = expand_encode(&codec_type, &ext_path);
-    let dyn_clone = expand_dyn_clone(&dy_message, &message_impl, cloneable);
+    let dyn_clone = expand_dyn_clone(&message_ty, &ty_generics, &dy_message, &message_impl, cloneable);
     let codec_impl = quote! {
         impl #impl_generics #codec_trait for #message_ty #ty_generics #where_clause {
             fn into_any(self: Box<Self>) -> Box<dyn std::any::Any> {
@@ -34,7 +39,7 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
                 #encode
             }
 
-            fn dyn_clone(&self) -> Option<#dy_message> {
+            fn dyn_clone(&self) -> anyhow::Result<#dy_message> {
                 #dyn_clone
             }
 
@@ -64,7 +69,14 @@ pub fn expand(ast: syn::DeriveInput, message_impl: MessageImpl, codec_type: Code
     }
 }
 
-pub(crate) fn expand_decoder(message_ty: &Ident, message_impl: &MessageImpl, codec_type: &CodecType, ext_path: &TokenStream, dy_message: &TokenStream, reg: &TokenStream) -> TokenStream {
+pub(crate) fn expand_decoder(
+    message_ty: &Ident,
+    message_impl: &MessageImpl,
+    codec_type: &CodecType,
+    ext_path: &TokenStream,
+    dy_message: &TokenStream,
+    reg: &TokenStream,
+) -> TokenStream {
     let decoder_trait = with_crate(parse_str("actor::decoder::MessageDecoder").unwrap());
     match codec_type {
         CodecType::NoneSerde => {
@@ -104,7 +116,12 @@ pub(crate) fn expand_decoder(message_ty: &Ident, message_impl: &MessageImpl, cod
     }
 }
 
-pub(crate) fn decoder<F>(decoder_trait: &TokenStream, dy_message: &TokenStream, reg: &TokenStream, fn_body: F) -> TokenStream where F: FnOnce() -> TokenStream {
+pub(crate) fn decoder<F>(
+    decoder_trait: &TokenStream,
+    dy_message: &TokenStream,
+    reg: &TokenStream,
+    fn_body: F,
+) -> TokenStream where F: FnOnce() -> TokenStream {
     let body = fn_body();
     quote! {
         #[derive(Clone)]
@@ -133,29 +150,35 @@ pub(crate) fn expand_encode(codec_type: &CodecType, ext_path: &TokenStream) -> T
     }
 }
 
-pub(crate) fn expand_dyn_clone(dy_message: &TokenStream, message_impl: &MessageImpl, cloneable: bool) -> TokenStream {
+pub(crate) fn expand_dyn_clone(
+    message_ty: &Ident,
+    ty_generics: &TypeGenerics,
+    dy_message: &TokenStream,
+    message_impl: &MessageImpl,
+    cloneable: bool,
+) -> TokenStream {
     if !cloneable {
         quote! {
-            None
+            Err(anyhow::anyhow!("message {} is not cloneable", std::any::type_name::<#message_ty #ty_generics>()))
         }
     } else {
         match message_impl {
             MessageImpl::Message => {
                 quote! {
                     let message = #dy_message::user(Clone::clone(self));
-                    Some(message)
+                    Ok(message)
                 }
             }
             MessageImpl::SystemMessage => {
                 quote! {
                     let message = #dy_message::system(Clone::clone(self));
-                    Some(message)
+                    Ok(message)
                 }
             }
             MessageImpl::OrphanMessage => {
                 quote! {
                     let message = #dy_message::orphan(Clone::clone(self));
-                    Some(message)
+                    Ok(message)
                 }
             }
         }

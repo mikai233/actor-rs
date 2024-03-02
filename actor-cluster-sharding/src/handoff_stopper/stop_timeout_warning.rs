@@ -22,7 +22,7 @@ impl Message for StopTimeoutWarning {
         let remaining_size = actor.remaining_entities.len();
         let shard = &actor.shard;
         let timeout = &STOP_TIMEOUT_WARNING_AFTER;
-        let stop_msg = actor.stop_message.name;
+        let stop_msg = actor.stop_message.name();
         if is_terminating {
             warn!( "{type_name}: [{remaining_size}] of the entities in shard [{shard}] not stopped after [{timeout:?}]. Maybe the handoff stop message [{stop_msg}] is not handled?");
         } else {

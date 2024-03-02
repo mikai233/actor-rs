@@ -8,7 +8,6 @@ use actor_core::actor::actor_ref::ActorRef;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor::timers::{ScheduleKey, Timers};
-use actor_core::ext::option_ext::OptionExt;
 
 use crate::handoff_stopper::entity_terminated::EntityTerminated;
 use crate::handoff_stopper::stop_timeout::StopTimeout;
@@ -72,7 +71,7 @@ impl HandoffStopper {
         for entity in &entities {
             let entity_terminated = EntityTerminated(entity.clone());
             context.watch(entity_terminated);
-            entity.tell(stop_message.dyn_clone().into_result()?, ActorRef::no_sender());
+            entity.tell(stop_message.dyn_clone()?, ActorRef::no_sender());
         }
         let stopper = Self {
             type_name,

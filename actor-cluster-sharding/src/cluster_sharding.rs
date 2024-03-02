@@ -90,7 +90,7 @@ impl ClusterSharding {
         S: ShardAllocationStrategy + 'static {
         let type_name = type_name.into();
         if handoff_message.is_cloneable().not() {
-            let msg_name = handoff_message.name;
+            let msg_name = handoff_message.name();
             return Err(anyhow!("entity {type_name} handoff message {msg_name} must be cloneable"));
         }
         if settings.should_host_shard(&self.cluster) {

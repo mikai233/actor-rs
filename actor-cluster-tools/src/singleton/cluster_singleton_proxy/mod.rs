@@ -22,7 +22,7 @@ use crate::singleton::cluster_singleton_proxy::cluster_singleton_proxy_settings:
 use crate::singleton::cluster_singleton_proxy::singleton_terminated::SingletonTerminated;
 use crate::singleton::cluster_singleton_proxy::try_to_identify_singleton::TryToIdentifySingleton;
 
-mod cluster_singleton_proxy_settings;
+pub mod cluster_singleton_proxy_settings;
 mod cluster_event_wrap;
 mod try_to_identify_singleton;
 mod actor_identity_wrap;

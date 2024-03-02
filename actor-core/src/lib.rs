@@ -62,7 +62,7 @@ pub trait CodecMessage: Any + Send {
 
     fn encode(&self, reg: &MessageRegistration) -> Result<Vec<u8>, EncodeError>;
 
-    fn dyn_clone(&self) -> Option<DynMessage>;
+    fn dyn_clone(&self) -> anyhow::Result<DynMessage>;
 
     fn is_cloneable(&self) -> bool;
 }
@@ -89,18 +89,17 @@ pub enum MessageType {
 }
 
 pub struct DynMessage {
-    pub name: &'static str,
-    pub message_type: MessageType,
-    pub boxed: Box<dyn CodecMessage>,
+    name: &'static str,
+    ty: MessageType,
+    message: Box<dyn CodecMessage>,
 }
 
 impl Debug for DynMessage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DynMessage")
             .field("name", &self.name)
-            .field("message_type", &self.message_type)
-            .field("boxed", &"..")
-            .finish()
+            .field("ty", &self.ty)
+            .finish_non_exhaustive()
     }
 }
 
@@ -109,20 +108,32 @@ impl DynMessage {
         self.name
     }
 
-    pub fn new<M>(name: &'static str, message_type: MessageType, message: M) -> Self where M: CodecMessage {
+    pub fn ty(&self) -> &MessageType {
+        &self.ty
+    }
+
+    pub fn message(&self) -> &Box<dyn CodecMessage> {
+        &self.message
+    }
+
+    pub fn into_inner(self) -> Box<dyn CodecMessage> {
+        self.message
+    }
+
+    pub fn new<M>(name: &'static str, ty: MessageType, message: M) -> Self where M: CodecMessage {
         DynMessage {
             name,
-            message_type,
-            boxed: Box::new(message),
+            ty,
+            message: Box::new(message),
         }
     }
 
-    pub fn dyn_clone(&self) -> Option<DynMessage> {
-        self.boxed.dyn_clone()
+    pub fn dyn_clone(&self) -> anyhow::Result<DynMessage> {
+        self.message.dyn_clone()
     }
 
     pub fn is_cloneable(&self) -> bool {
-        self.boxed.is_cloneable()
+        self.message.is_cloneable()
     }
 
     pub fn user<M>(message: M) -> Self where M: Message {
@@ -148,7 +159,7 @@ impl DynMessage {
     }
 
     pub fn downcast_user_delegate<A>(self) -> anyhow::Result<Box<UserDelegate<A>>> where A: Actor {
-        let Self { name, message_type, boxed } = self;
+        let Self { name, ty: message_type, message: boxed } = self;
         let message = boxed.into_any();
         let user_delegate = if matches!(message_type, MessageType::User) {
             message.downcast::<UserDelegate<A>>()
@@ -160,7 +171,7 @@ impl DynMessage {
     }
 
     pub fn downcast_system_delegate(self) -> anyhow::Result<Box<SystemDelegate>> {
-        let Self { name, message_type, boxed } = self;
+        let Self { name, ty: message_type, message: boxed } = self;
         let message = boxed.into_any();
         let system_delegate = if matches!(message_type, MessageType::System) {
             message.downcast::<SystemDelegate>()
@@ -172,7 +183,7 @@ impl DynMessage {
     }
 
     pub fn downcast_user_delegate_ref<A>(&self) -> Option<&UserDelegate<A>> where A: Actor {
-        let Self { message_type, boxed, .. } = self;
+        let Self { ty: message_type, message: boxed, .. } = self;
         let message = boxed.as_any();
         if matches!(message_type, MessageType::User) {
             message.downcast_ref::<UserDelegate<A>>()
@@ -182,7 +193,7 @@ impl DynMessage {
     }
 
     pub fn downcast_system_delegate_ref(&self) -> Option<&SystemDelegate> {
-        let Self { message_type, boxed, .. } = self;
+        let Self { ty: message_type, message: boxed, .. } = self;
         let message = boxed.as_any();
         if matches!(message_type, MessageType::System) {
             message.downcast_ref::<SystemDelegate>()
@@ -210,12 +221,12 @@ impl DynMessage {
     }
 
     pub fn downcast_orphan<M>(self) -> anyhow::Result<M> where M: OrphanMessage {
-        let Self { name, boxed, .. } = self;
+        let Self { name, message: boxed, .. } = self;
         downcast_box_message(name, boxed.into_any())
     }
 
     pub fn downcast_orphan_ref<M>(&self) -> Option<&M> where M: OrphanMessage {
-        let Self { boxed, .. } = self;
+        let Self { message: boxed, .. } = self;
         boxed.as_any().downcast_ref()
     }
 }

@@ -1,15 +1,15 @@
 use actor_core::actor::actor_ref::ActorRef;
+use actor_core::DynMessage;
 use actor_core::message::message_buffer::BufferEnvelope;
-use crate::shard::shard_envelope::ShardEnvelope;
 
 #[derive(Debug)]
-pub(super) struct ShardBufferEnvelope {
-    pub(super) message: ShardEnvelope,
+pub(super) struct TransportBufferEnvelope {
+    pub(super) message: DynMessage,
     pub(super) sender: Option<ActorRef>,
 }
 
-impl BufferEnvelope for ShardBufferEnvelope {
-    type M = ShardEnvelope;
+impl BufferEnvelope for TransportBufferEnvelope {
+    type M = DynMessage;
 
     fn message(&self) -> &Self::M {
         &self.message
@@ -20,7 +20,7 @@ impl BufferEnvelope for ShardBufferEnvelope {
     }
 
     fn into_inner(self) -> (Self::M, Option<ActorRef>) {
-        let Self { message, sender } = self;
-        (message, sender)
+        let Self { message: envelope, sender } = self;
+        (envelope, sender)
     }
 }

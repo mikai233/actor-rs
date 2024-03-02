@@ -113,8 +113,8 @@ impl Patterns {
             Resp: OrphanMessage {
         match resp {
             Ok(Some(resp)) => {
-                let message = resp.boxed.into_any();
-                let message_type = resp.message_type;
+                let message = resp.message.into_any();
+                let message_type = resp.ty;
                 if matches!(message_type, MessageType::Orphan) {
                     match message.downcast::<Resp>() {
                         Ok(resp) => {

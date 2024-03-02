@@ -50,7 +50,7 @@ impl CodecMessage for SystemDelegate {
         self.message.encode(reg)
     }
 
-    fn dyn_clone(&self) -> Option<DynMessage> {
+    fn dyn_clone(&self) -> anyhow::Result<DynMessage> {
         self.message.dyn_clone()
     }
 
@@ -70,8 +70,8 @@ impl Into<DynMessage> for SystemDelegate {
     fn into(self) -> DynMessage {
         DynMessage {
             name: self.name,
-            message_type: MessageType::System,
-            boxed: Box::new(self),
+            ty: MessageType::System,
+            message: Box::new(self),
         }
     }
 }

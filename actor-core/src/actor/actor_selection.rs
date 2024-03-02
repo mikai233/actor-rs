@@ -399,7 +399,7 @@ impl CodecMessage for ActorSelectionMessage {
         encode_bytes(&message)
     }
 
-    fn dyn_clone(&self) -> Option<DynMessage> {
+    fn dyn_clone(&self) -> anyhow::Result<DynMessage> {
         self.message.dyn_clone().map(|m| {
             let message = ActorSelectionMessage {
                 message: m,
@@ -411,7 +411,7 @@ impl CodecMessage for ActorSelectionMessage {
     }
 
     fn is_cloneable(&self) -> bool {
-        self.message.boxed.is_cloneable()
+        self.message.message.is_cloneable()
     }
 }
 

@@ -11,7 +11,8 @@ use typed_builder::TypedBuilder;
 
 use actor_cluster::cluster::Cluster;
 use actor_cluster::cluster_provider::ClusterActorRefProvider;
-use actor_cluster::lease_keeper::{EtcdLeaseKeeper, LeaseKeepAliveFailed};
+use actor_cluster::lease_keeper::EtcdLeaseKeeper;
+use actor_cluster::lease_keeper::lease_keep_alive_failed::LeaseKeepAliveFailed;
 use actor_cluster::member::MemberStatus;
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_path::TActorPath;

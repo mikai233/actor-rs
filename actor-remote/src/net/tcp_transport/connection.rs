@@ -11,21 +11,27 @@ use actor_core::actor::address::Address;
 use actor_core::ext::encode_bytes;
 
 use crate::net::codec::{Packet, PacketCodec};
-use crate::net::message::{Disconnect, RemoteEnvelope, RemotePacket};
+use crate::net::remote_envelope::RemoteEnvelope;
+use crate::net::remote_packet::RemotePacket;
+use crate::net::tcp_transport::disconnect::Disconnect;
 
 pub type ConnectionTx = tokio::sync::mpsc::Sender<RemoteEnvelope>;
 pub type ConnectionRx = tokio::sync::mpsc::Receiver<RemoteEnvelope>;
 
-pub struct Connection {
-    pub peer: SocketAddr,
-    pub myself: Address,
-    pub framed: Framed<StubbornIo<TcpStream, SocketAddr>, PacketCodec>,
-    pub rx: ConnectionRx,
-    pub transport: ActorRef,
+pub(super) struct Connection {
+    pub(super) peer: SocketAddr,
+    pub(super) myself: Address,
+    pub(super) framed: Framed<StubbornIo<TcpStream, SocketAddr>, PacketCodec>,
+    pub(super) rx: ConnectionRx,
+    pub(super) transport: ActorRef,
 }
 
 impl Connection {
-    pub fn new(addr: SocketAddr, framed: Framed<StubbornIo<TcpStream, SocketAddr, >, PacketCodec>, transport: ActorRef) -> (Self, ConnectionTx) {
+    pub fn new(
+        addr: SocketAddr,
+        framed: Framed<StubbornIo<TcpStream, SocketAddr>, PacketCodec>,
+        transport: ActorRef,
+    ) -> (Self, ConnectionTx) {
         let (tx, rx) = tokio::sync::mpsc::channel(10000);
         let myself = transport.system().address();
         let myself = Self {
@@ -57,6 +63,7 @@ impl Connection {
             }
         });
     }
+    
     fn disconnect(&self) {
         self.transport.cast(Disconnect { addr: self.peer }, None);
     }

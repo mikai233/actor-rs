@@ -42,7 +42,7 @@ impl EventBus for EventStream {
     }
 
     fn publish(&self, event: Self::Event) -> anyhow::Result<()> {
-        if matches!(event.message_type, MessageType::Orphan) {
+        if matches!(event.ty, MessageType::Orphan) {
             if event.is_cloneable() {
                 if let Some(subscribers) = self.subscriptions.get(event.name()) {
                     subscribers.iter().for_each(|s| {

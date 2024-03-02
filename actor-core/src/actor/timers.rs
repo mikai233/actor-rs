@@ -276,11 +276,11 @@ impl Message for PollExpired {
                 }
                 Schedule::FixedDelay { index, interval, message, receiver, .. } => {
                     match message.dyn_clone() {
-                        None => {
-                            error!("fixed delay with message {:?} not impl dyn_clone, message cannot be cloned", message);
-                        }
-                        Some(message) => {
+                        Ok(message) => {
                             receiver.tell(message, ActorRef::no_sender());
+                        }
+                        Err(_) => {
+                            error!("fixed delay with message {:?} not impl dyn_clone, message cannot be cloned", message);
                         }
                     }
                     let next_delay = interval;

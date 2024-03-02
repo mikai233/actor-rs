@@ -1,5 +1,5 @@
 mod codec;
-pub mod tcp_transport;
-mod connection;
-pub mod message;
+pub(crate) mod tcp_transport;
+pub(crate) mod remote_envelope;
+mod remote_packet;
 

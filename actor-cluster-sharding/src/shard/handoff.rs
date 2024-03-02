@@ -46,7 +46,7 @@ impl Message for Handoff {
                                 actor.type_name.clone(),
                                 actor.shard_id.clone(), reply_to.clone(),
                                 entities,
-                                actor.handoff_stop_message.dyn_clone().into_result()?,
+                                actor.handoff_stop_message.dyn_clone()?,
                                 Duration::from_secs(5),
                             ),
                             "handoff_stopper")?;

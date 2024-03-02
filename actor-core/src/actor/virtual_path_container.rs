@@ -56,7 +56,7 @@ impl TActorRef for VirtualPathContainer {
     }
 
     fn tell(&self, message: DynMessage, _sender: Option<ActorRef>) {
-        if matches!(message.message_type, MessageType::System) {
+        if matches!(message.ty, MessageType::System) {
             if message.name == std::any::type_name::<Terminate>() {
                 self.parent.cast_system(DeathWatchNotification(self.clone().into()), ActorRef::no_sender());
             }

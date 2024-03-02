@@ -17,7 +17,7 @@ impl Message for StopTimeout {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let type_name = &actor.type_name;
-        let stop_msg = actor.stop_message.name;
+        let stop_msg = actor.stop_message.name();
         let shard = &actor.shard;
         let timeout = &actor.entity_handoff_timeout;
         let remaining_size = actor.remaining_entities.len();

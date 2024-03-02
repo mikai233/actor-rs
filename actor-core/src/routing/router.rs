@@ -37,8 +37,8 @@ impl Router {
     }
 
     pub fn route(&self, system: &ActorSystem, message: DynMessage, sender: Option<ActorRef>) {
-        if message.boxed.as_any().is::<Broadcast>() {
-            let broadcast = message.boxed.into_any().downcast::<Broadcast>().unwrap();
+        if message.message.as_any().is::<Broadcast>() {
+            let broadcast = message.message.into_any().downcast::<Broadcast>().unwrap();
             let message = broadcast.message;
             SeveralRoutees { routees: self.routees.clone() }.send(message, sender);
         } else {
@@ -131,11 +131,11 @@ impl Routee for SeveralRoutees {
     fn send(&self, message: DynMessage, sender: Option<ActorRef>) {
         for routee in &self.routees {
             match message.dyn_clone() {
-                None => {
-                    error!("route message {} not impl dyn_clone", message.name())
-                }
-                Some(message) => {
+                Ok(message) => {
                     routee.send(message, sender.clone());
+                }
+                Err(_) => {
+                    error!("route message {} not impl dyn_clone", message.name())
                 }
             }
         }
