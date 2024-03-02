@@ -24,9 +24,10 @@ use actor_remote::remote_setting::RemoteSetting;
 
 use crate::{CLUSTER_CONFIG, CLUSTER_CONFIG_NAME};
 use crate::cluster::Cluster;
-use crate::cluster_heartbeat::{Heartbeat, HeartbeatRsp};
 use crate::cluster_setting::ClusterSetting;
 use crate::config::ClusterConfig;
+use crate::heartbeat::cluster_heartbeat_receiver::heartbeat::Heartbeat;
+use crate::heartbeat::cluster_heartbeat_sender::heartbeat_rsp::HeartbeatRsp;
 
 #[derive(Debug, AsAny)]
 pub struct ClusterActorRefProvider {

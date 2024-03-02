@@ -5,28 +5,37 @@ use std::sync::RwLockWriteGuard;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use etcd_client::{EventType, GetOptions, KeyValue, PutOptions, WatchOptions, WatchResponse};
+use etcd_client::{GetOptions, KeyValue, PutOptions, WatchOptions};
 use tracing::{debug, error, info, trace};
 
-use actor_core::{Actor, DynMessage, Message};
+use actor_core::{Actor, DynMessage, };
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
-use actor_core::actor::address::Address;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::event::EventBus;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
-use actor_derive::EmptyCodec;
 
 use crate::cluster::Cluster;
+use crate::cluster_daemon::lease_failed::LeaseFailed;
+use crate::cluster_daemon::self_removed::SelfRemoved;
+use crate::cluster_daemon::watch_resp_wrap::WatchRespWrap;
 use crate::cluster_event::ClusterEvent;
-use crate::cluster_heartbeat::{ClusterHeartbeatReceiver, ClusterHeartbeatSender};
-use crate::etcd_watcher::{EtcdWatcher, WatchResp};
+use crate::etcd_watcher::EtcdWatcher;
+use crate::heartbeat::cluster_heartbeat_receiver::ClusterHeartbeatReceiver;
+use crate::heartbeat::cluster_heartbeat_sender::ClusterHeartbeatSender;
 use crate::lease_keeper::{EtcdLeaseKeeper, LeaseKeepAliveFailed};
 use crate::member::{Member, MemberStatus};
-use crate::on_member_status_changed_listener::{AddStatusCallback, OnMemberStatusChangedListener};
 use crate::unique_address::UniqueAddress;
+
+pub(crate) mod leave_cluster;
+pub(crate) mod add_on_member_up_listener;
+pub(crate) mod add_on_member_removed_listener;
+mod self_down;
+mod self_removed;
+mod lease_failed;
+mod watch_resp_wrap;
 
 #[derive(Debug)]
 pub struct ClusterDaemon {
@@ -233,154 +242,5 @@ impl ClusterDaemon {
                 true
             }
         }
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-struct WatchRespWrap(WatchResp);
-
-#[async_trait]
-impl Message for WatchRespWrap {
-    type A = ClusterDaemon;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let WatchResp { key, resp } = self.0;
-        if key == actor.lease_path() {
-            Self::update_member_status(context, actor, resp).await?;
-        }
-        Ok(())
-    }
-}
-
-impl WatchRespWrap {
-    /// update local member status form etcd
-    async fn update_member_status(context: &mut ActorContext, actor: &mut ClusterDaemon, resp: WatchResponse) -> anyhow::Result<()> {
-        for event in resp.events() {
-            if let Some(kv) = event.kv() {
-                match event.event_type() {
-                    EventType::Put => {
-                        actor.update_local_member_status(context, kv)?;
-                    }
-                    EventType::Delete => {
-                        if let Some(addr) = actor.key_addr.remove(kv.key_str()?) {
-                            let cluster = actor.cluster.as_ref().unwrap();
-                            let stream = context.system().event_stream();
-                            if let Some(mut member) = cluster.members_write().remove(&addr) {
-                                member.status = MemberStatus::Removed;
-                                if addr == actor.self_addr {
-                                    context.myself().cast_ns(SelfRemoved);
-                                }
-                                stream.publish(DynMessage::orphan(ClusterEvent::member_removed(member.clone())))?;
-                                member.status = MemberStatus::Down;
-                                if addr == actor.self_addr {
-                                    context.myself().cast_ns(SelfDown);
-                                }
-                                stream.publish(DynMessage::orphan(ClusterEvent::member_downed(member)))?;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-struct LeaseFailed;
-
-#[async_trait]
-impl Message for LeaseFailed {
-    type A = ClusterDaemon;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        trace!("{} lease failed", context.myself());
-        actor.respawn_lease_keeper(context).await;
-        Ok(())
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-struct SelfRemoved;
-
-#[async_trait]
-impl Message for SelfRemoved {
-    type A = ClusterDaemon;
-
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.self_removed().await?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-struct SelfDown;
-
-#[async_trait]
-impl Message for SelfDown {
-    type A = ClusterDaemon;
-
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.self_down().await?;
-        Ok(())
-    }
-}
-
-#[derive(EmptyCodec)]
-pub(crate) struct AddOnMemberUpListener(Box<dyn FnOnce() + Send>);
-
-#[async_trait]
-impl Message for AddOnMemberUpListener {
-    type A = ClusterDaemon;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-        let listener = context.spawn_anonymous(Props::new_with_ctx(|context| {
-            Ok(OnMemberStatusChangedListener::new(context, MemberStatus::Up))
-        }))?;
-        listener.cast_ns(AddStatusCallback(self.0));
-        trace!("{} add callback on member up", context.myself());
-        Ok(())
-    }
-}
-
-#[derive(EmptyCodec)]
-pub(crate) struct AddOnMemberRemovedListener(pub(crate) Box<dyn FnOnce() + Send>);
-
-#[async_trait]
-impl Message for AddOnMemberRemovedListener {
-    type A = ClusterDaemon;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-        let listener = context.spawn_anonymous(Props::new_with_ctx(|context| {
-            Ok(OnMemberStatusChangedListener::new(context, MemberStatus::Removed))
-        }))?;
-        listener.cast_ns(AddStatusCallback(self.0));
-        trace!("{} add callback on member removed", context.myself());
-        Ok(())
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-pub(crate) struct LeaveCluster(pub(crate) Address);
-
-#[async_trait]
-impl Message for LeaveCluster {
-    type A = ClusterDaemon;
-
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let member = {
-            actor.cluster.as_mut()
-                .unwrap()
-                .members()
-                .iter()
-                .find(|(_, m)| m.addr.address == self.0)
-                .map(|(_, m)| m)
-                .cloned()
-        };
-        if let Some(mut member) = member {
-            member.status = MemberStatus::Leaving;
-            actor.update_member_to_etcd(&member).await?;
-        }
-        Ok(())
     }
 }

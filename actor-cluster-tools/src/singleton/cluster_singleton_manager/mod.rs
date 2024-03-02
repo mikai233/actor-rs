@@ -1,5 +1,4 @@
 use std::fmt::Debug;
-use std::sync::Mutex;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -7,14 +6,14 @@ use async_trait::async_trait;
 use etcd_client::LockOptions;
 use serde::{Deserialize, Serialize};
 use tokio::task::AbortHandle;
-use tracing::{debug, error, info, trace, warn};
+use tracing::trace;
 use typed_builder::TypedBuilder;
 
 use actor_cluster::cluster::Cluster;
 use actor_cluster::cluster_provider::ClusterActorRefProvider;
 use actor_cluster::lease_keeper::{EtcdLeaseKeeper, LeaseKeepAliveFailed};
 use actor_cluster::member::MemberStatus;
-use actor_core::{Actor, DynMessage, Message};
+use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_path::TActorPath;
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
@@ -23,8 +22,17 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_EXITING};
 use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::ext::etcd_client::EtcdClient;
-use actor_core::message::terminated::Terminated;
-use actor_derive::EmptyCodec;
+
+use crate::singleton::cluster_singleton_manager::lease_failed::LeaseFailed;
+use crate::singleton::cluster_singleton_manager::lock_failed::LockFailed;
+use crate::singleton::cluster_singleton_manager::lock_success::LockSuccess;
+use crate::singleton::cluster_singleton_manager::shutdown_singleton::ShutdownSingleton;
+
+mod shutdown_singleton;
+mod singleton_terminated;
+mod lock_failed;
+mod lock_success;
+mod lease_failed;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TypedBuilder)]
 pub struct ClusterSingletonManagerSettings {
@@ -183,121 +191,6 @@ impl Actor for ClusterSingletonManager {
 
     async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
         self.unlock().await?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-struct LeaseFailed;
-
-#[async_trait]
-impl Message for LeaseFailed {
-    type A = ClusterSingletonManager;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        match actor.spawn_lease_keeper(context).await {
-            Ok(lease_id) => {
-                actor.lease_id = lease_id;
-                if let Some(handle) = actor.lock_handle.take() {
-                    handle.abort();
-                }
-                actor.lock(context);
-            }
-            Err(error) => {
-                let myself = context.myself().clone();
-                let name = myself.path().name();
-                let retry = Duration::from_secs(1);
-                warn!("{} lease failed {:?}, retry after {:?}", name, error, retry);
-                context.system().scheduler().schedule_once(retry, move || {
-                    myself.cast_ns(LeaseFailed);
-                });
-            }
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-struct LockSuccess(Vec<u8>);
-
-#[async_trait]
-impl Message for LockSuccess {
-    type A = ClusterSingletonManager;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.lock_key = Some(self.0);
-        match context.spawn(actor.singleton_props.props(()), actor.singleton_name()) {
-            Ok(singleton) => {
-                context.watch(SingletonTerminated(singleton.clone()));
-                info!("singleton manager start singleton actor {}", singleton);
-                actor.singleton = Some(singleton);
-            }
-            Err(error) => {
-                let name = context.myself().path().name();
-                error!("spawn singleton {} error {:?}", name, error);
-                actor.unlock().await?;
-            }
-        };
-        Ok(())
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-struct LockFailed {
-    path: String,
-    error: etcd_client::Error,
-}
-
-#[async_trait]
-impl Message for LockFailed {
-    type A = ClusterSingletonManager;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let Self { path, error } = *self;
-        error!("lock singleton {} failed {:?}, retry it", path, error);
-        actor.lock(context);
-        Ok(())
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-struct SingletonTerminated(ActorRef);
-
-#[async_trait]
-impl Message for SingletonTerminated {
-    type A = ClusterSingletonManager;
-
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        debug!("singleton manager watch singleton actor {} terminated", self.0);
-        actor.singleton = None;
-        if let Some(notifier) = actor.singleton_shutdown_notifier.take() {
-            let _ = notifier.send(());
-        }
-        actor.unlock().await?;
-        Ok(())
-    }
-}
-
-impl Terminated for SingletonTerminated {
-    fn actor(&self) -> &ActorRef {
-        &self.0
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-struct ShutdownSingleton(tokio::sync::oneshot::Sender<()>);
-
-#[async_trait]
-impl Message for ShutdownSingleton {
-    type A = ClusterSingletonManager;
-
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        if let Some(singleton) = &actor.singleton {
-            actor.singleton_shutdown_notifier = Some(self.0);
-            singleton.tell(actor.termination_message.dyn_clone().unwrap(), ActorRef::no_sender());
-        } else {
-            let _ = self.0.send(());
-        }
         Ok(())
     }
 }

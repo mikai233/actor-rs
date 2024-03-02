@@ -1,40 +1,35 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::OnceLock;
-use std::time::Duration;
 
 use async_trait::async_trait;
 use tracing::{debug, warn};
-use typed_builder::TypedBuilder;
 
 use actor_cluster::cluster::Cluster;
-use actor_cluster::cluster_event::ClusterEvent;
-use actor_cluster::member::{Member, MemberStatus};
+use actor_cluster::member::Member;
 use actor_cluster::unique_address::UniqueAddress;
-use actor_core::{Actor, DynMessage, Message};
-use actor_core::actor::actor_path::root_actor_path::RootActorPath;
+use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_path::TActorPath;
 use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
-use actor_core::actor::actor_selection::ActorSelectionPath;
 use actor_core::actor::context::{ActorContext, Context, ContextExt};
 use actor_core::actor::props::Props;
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::ext::type_name_of;
-use actor_core::message::identify::{ActorIdentity, Identify};
-use actor_core::message::terminated::Terminated;
-use actor_derive::EmptyCodec;
+
+use crate::singleton::cluster_singleton_proxy::actor_identity_wrap::ActorIdentityWrap;
+use crate::singleton::cluster_singleton_proxy::cluster_event_wrap::ClusterEventWrap;
+use crate::singleton::cluster_singleton_proxy::cluster_singleton_proxy_settings::ClusterSingletonProxySettings;
+use crate::singleton::cluster_singleton_proxy::singleton_terminated::SingletonTerminated;
+use crate::singleton::cluster_singleton_proxy::try_to_identify_singleton::TryToIdentifySingleton;
+
+mod cluster_singleton_proxy_settings;
+mod cluster_event_wrap;
+mod try_to_identify_singleton;
+mod actor_identity_wrap;
+mod singleton_terminated;
 
 static ALL_PROXY_MESSAGE: OnceLock<HashSet<&'static str>> = OnceLock::new();
 
-#[derive(Debug, Clone, TypedBuilder)]
-pub struct ClusterSingletonProxySettings {
-    #[builder(default = "singleton".to_string())]
-    pub singleton_name: String,
-    #[builder(default = None)]
-    pub role: Option<String>,
-    pub singleton_identification_interval: Duration,
-    pub buffer_size: usize,
-}
 
 #[derive(Debug)]
 pub struct ClusterSingletonProxy {
@@ -179,118 +174,5 @@ impl Actor for ClusterSingletonProxy {
             }
             None
         }
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-struct ClusterEventWrap(ClusterEvent);
-
-#[async_trait]
-impl Message for ClusterEventWrap {
-    type A = ClusterSingletonProxy;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        match self.0 {
-            ClusterEvent::MemberUp(m) => {
-                debug!("member up {:?}", m);
-                if actor.matching_role(&m) {
-                    actor.host_singleton_members.insert(m.addr.clone(), m);
-                    actor.identify_singleton(context);
-                }
-            }
-            ClusterEvent::MemberPrepareForLeaving(_) => {}
-            ClusterEvent::MemberLeaving(_) => {}
-            ClusterEvent::MemberRemoved(m) => {
-                debug!("member removed {:?}", m);
-                if m.addr == actor.cluster.self_member().addr {
-                    context.stop(context.myself());
-                } else if actor.matching_role(&m) {
-                    actor.host_singleton_members.remove(&m.addr);
-                    actor.identify_singleton(context);
-                }
-            }
-            ClusterEvent::MemberDowned(m) => {
-                debug!("member downed {:?}", m);
-                actor.host_singleton_members.remove(&m.addr);
-                //TODO 或许只需要观察到Singleton terminated的时候才需要执行identify_singleton ?
-                actor.identify_singleton(context);
-            }
-            ClusterEvent::CurrentClusterState { members, .. } => {
-                let host_members = members
-                    .into_iter()
-                    .filter(|(_, m)| { m.status == MemberStatus::Up && actor.matching_role(m) })
-                    .collect::<HashMap<_, _>>();
-                actor.host_singleton_members.extend(host_members);
-                actor.identify_singleton(context);
-            }
-            ClusterEvent::EtcdUnreachable => {}
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-struct TryToIdentifySingleton;
-
-#[async_trait]
-impl Message for TryToIdentifySingleton {
-    type A = ClusterSingletonProxy;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        if actor.identify_timer.is_some() {
-            let paths = actor.singleton_paths();
-            let paths_str = paths.iter().map(|p| p.as_str()).collect::<Vec<_>>();
-            for (_, member) in &actor.host_singleton_members {
-                let singleton_path = RootActorPath::new(member.address().clone(), "/").descendant(paths_str.clone());
-                let selection = context.actor_selection(ActorSelectionPath::FullPath(singleton_path))?;
-                debug!("try to identify singleton at [{}]", selection);
-                selection.tell(DynMessage::system(Identify), Some(actor.identify_adapter.clone()));
-            }
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-struct ActorIdentityWrap(ActorIdentity);
-
-#[async_trait]
-impl Message for ActorIdentityWrap {
-    type A = ClusterSingletonProxy;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        if let Some(singleton) = self.0.actor_ref {
-            if !context.is_watching(&singleton) {
-                context.watch(SingletonTerminated(singleton.clone()));
-            }
-            actor.singleton = Some(singleton);
-            actor.cancel_timer();
-            actor.send_buffered();
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, EmptyCodec)]
-struct SingletonTerminated(ActorRef);
-
-#[async_trait]
-impl Message for SingletonTerminated {
-    type A = ClusterSingletonProxy;
-
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        if let Some(singleton) = &actor.singleton {
-            if *singleton == self.0 {
-                debug!("singleton {} terminated", singleton);
-                actor.singleton = None;
-            }
-        }
-        Ok(())
-    }
-}
-
-impl Terminated for SingletonTerminated {
-    fn actor(&self) -> &ActorRef {
-        &self.0
     }
 }
