@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 
@@ -44,5 +45,25 @@ impl<'a, T> Display for MaybeRef<'a, T> where T: Display {
                 write!(f, "own:{}", value)
             }
         }
+    }
+}
+
+impl<'a, T> PartialEq for MaybeRef<'a, T> where T: PartialEq {
+    fn eq(&self, other: &Self) -> bool {
+        self.deref().eq(other)
+    }
+}
+
+impl<'a, T> Eq for MaybeRef<'a, T> where T: Eq {}
+
+impl<'a, T> PartialOrd for MaybeRef<'a, T> where T: PartialOrd {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.deref().partial_cmp(other)
+    }
+}
+
+impl<'a, T> Ord for MaybeRef<'a, T> where T: Ord {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.deref().cmp(other)
     }
 }

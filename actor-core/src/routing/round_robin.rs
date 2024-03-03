@@ -1,90 +1,57 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-
+use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::fault_handing::SupervisorStrategy;
-use crate::actor::props::Props;
-use crate::DynMessage;
-use crate::ext::maybe_ref::MaybeRef;
-use crate::routing::pool_router_config::PoolRouterConfig;
-use crate::routing::router::{NoRoutee, Routee, Router, RoutingLogic};
-use crate::routing::router_actor::{RouterActor, TRouterActor};
-use crate::routing::router_config::{Pool, TRouterConfig};
+use crate::actor::context::ActorContext;
+use crate::actor::props::{Props, PropsBuilder};
+use crate::routing::routee::{ActorRefRoutee, Routee};
+use crate::routing::router_config::pool::Pool;
+use crate::routing::router_config::TRouterConfig;
+use crate::routing::routing_logic::round_robin_routing_logic::RoundRobinRoutingLogic;
+use crate::routing::routing_logic::RoutingLogic;
 
-#[derive(Debug, Default)]
-pub struct RoundRobinRoutingLogic {
-    next: AtomicUsize,
-}
-
-impl Clone for RoundRobinRoutingLogic {
-    fn clone(&self) -> Self {
-        Self {
-            next: AtomicUsize::default(),
-        }
-    }
-}
-
-impl RoutingLogic for RoundRobinRoutingLogic {
-    fn select<'a>(&self, _message: &DynMessage, routees: &'a Vec<Arc<Box<dyn Routee>>>) -> MaybeRef<'a, Box<dyn Routee>> {
-        if !routees.is_empty() {
-            let size = routees.len();
-            let index = self.next.fetch_add(1, Ordering::Relaxed) % size;
-            MaybeRef::Ref(&routees[index])
-        } else {
-            MaybeRef::Own(Box::new(NoRoutee))
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct RoundRobinPool {
+pub struct RoundRobinPool<A> where A: Clone + Send {
     pub nr_of_instances: usize,
-    pub supervisor_strategy: Box<dyn SupervisorStrategy>,
+    pub routee_props: PropsBuilder<A>,
+    pub arg: A,
 }
 
-impl RoundRobinPool {
-    pub fn new<S>(n: usize, strategy: S) -> Self where S: SupervisorStrategy {
+impl<A> RoundRobinPool<A> where A: Clone + Send {
+    pub fn new(n: usize, routee_props: PropsBuilder<A>, arg: A) -> Self {
         Self {
             nr_of_instances: n,
-            supervisor_strategy: Box::new(strategy),
+            routee_props,
+            arg,
         }
     }
 }
 
-impl TRouterConfig for RoundRobinPool {
-    fn create_router(&self) -> Router {
-        Router::new(RoundRobinRoutingLogic::default())
+impl<A> TRouterConfig for RoundRobinPool<A> where A: Clone + Send {
+    fn routing_logic(&self) -> Box<dyn RoutingLogic> {
+        Box::new(RoundRobinRoutingLogic::default())
     }
 
-    fn create_router_actor(&self, routee_props: Props) -> anyhow::Result<Box<dyn TRouterActor>> {
-        let router = self.create_router();
-        let router_actor = RouterActor {
-            router,
-            props: routee_props,
-        };
-        Ok(Box::new(router_actor))
+    fn props(&self) -> Props {
+        todo!()
+        // let router_config = PoolRouterConfig::new(self).into();
+        // Props::new(move || {
+        //     Ok(RouterActor::new(router_config))
+        // })
     }
 }
 
-impl Pool for RoundRobinPool {
+impl<A> Pool for RoundRobinPool<A> where A: Clone + Send {
     fn nr_of_instances(&self, _sys: &ActorSystem) -> usize {
         self.nr_of_instances
     }
 
-    fn props(&self, routee_props: Props) -> Props {
-        let config = PoolRouterConfig::new(self.clone());
-        // routee_props.with_router(Some(config.into()))
-        todo!()
-    }
-
-    fn supervisor_strategy(&self) -> &Box<dyn SupervisorStrategy> {
-        &self.supervisor_strategy
+    fn new_routee(&self, context: &mut ActorContext) -> anyhow::Result<Box<dyn Routee>> {
+        let routee_props = self.routee_props.props(self.arg.clone());
+        let routee = context.spawn_anonymous(routee_props)?;
+        Ok(Box::new(ActorRefRoutee(routee)))
     }
 }
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
     use std::time::Duration;
 
     use async_trait::async_trait;
@@ -97,13 +64,11 @@ mod test {
     use crate::actor::actor_ref_factory::ActorRefFactory;
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
-    use crate::actor::fault_handing::OneForOneStrategy;
-    use crate::actor::props::Props;
+    use crate::actor::props::{Props, PropsBuilder};
     use crate::config::actor_setting::ActorSetting;
-    use crate::ext::init_logger;
+    use crate::ext::{init_logger, type_name_of};
     use crate::routing::round_robin::RoundRobinPool;
-    use crate::routing::router::ActorRefRoutee;
-    use crate::routing::router_config::{AddRoutee, Pool};
+    use crate::routing::router_config::TRouterConfig;
 
     #[derive(Debug)]
     struct TestActor;
@@ -128,13 +93,17 @@ mod test {
     async fn test_round_robin() -> anyhow::Result<()> {
         init_logger(Level::TRACE);
         let system = ActorSystem::create("mikai233", ActorSetting::default())?;
-        let router_props = RoundRobinPool::new(5, OneForOneStrategy::default()).props(Props::new_with_ctx(|_| Ok(TestActor)));
+        let router_props = RoundRobinPool::new(
+            5,
+            PropsBuilder::new(type_name_of::<TestActor>(), |()| { Props::new(|| { Ok(TestActor) }) }),
+            (),
+        ).props();
         let round_robin_router = system.spawn_anonymous(router_props)?;
         for _ in 0..10 {
             round_robin_router.cast_ns(TestMessage);
         }
-        let another_routee = system.spawn_anonymous(Props::new_with_ctx(|_| Ok(TestActor)))?;
-        round_robin_router.cast_ns(AddRoutee { routee: Arc::new(Box::new(ActorRefRoutee(another_routee))) });
+        // let another_routee = system.spawn_anonymous(Props::new_with_ctx(|_| Ok(TestActor)))?;
+        // round_robin_router.cast_ns(AddRoutee { routee: Arc::new(Box::new(ActorRefRoutee(another_routee))) });
         tokio::time::sleep(Duration::from_secs(2)).await;
         Ok(())
     }

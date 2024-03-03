@@ -24,7 +24,7 @@ use crate::message::identify::{ActorIdentity, Identify};
 use crate::message::message_registration::{IDPacket, MessageRegistration};
 use crate::pattern::patterns::Patterns;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ActorSelection {
     pub(crate) anchor: ActorRef,
     pub(crate) path: Vec<SelectionPathElement>,
