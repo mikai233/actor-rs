@@ -1,23 +1,26 @@
 use async_trait::async_trait;
 
 use crate::{Actor, DynMessage};
+use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::ActorContext;
 use crate::actor::fault_handing::SupervisorStrategy;
 use crate::routing::routee::Routee;
+use crate::routing::router_config::pool::Pool;
 use crate::routing::router_config::RouterConfig;
 
-mod routee_envelope;
+pub mod routee_envelope;
 mod routee_terminated;
 mod get_routees;
 mod add_routee;
 mod remove_routee;
 mod broadcast;
-mod get_routees_resp;
 
 pub trait Router: Actor {
     fn router_config(&self) -> &RouterConfig;
 
-    fn routees(&mut self) -> &mut Vec<Box<dyn Routee>>;
+    fn routees_mut(&mut self) -> &mut Vec<Box<dyn Routee>>;
+
+    fn routees(&self) -> &Vec<Box<dyn Routee>>;
 }
 
 #[derive(Debug)]
@@ -38,21 +41,16 @@ impl RouterActor {
 #[async_trait]
 impl Actor for RouterActor {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        // let routee_props = self.props.with_router(None);
-        // match self.props.router_config.as_ref().unwrap() {
-        //     RouterConfig::PoolRouterConfig(pool) => {
-        //         let nr_of_routees = pool.nr_of_instances(context.system());
-        //         let mut routees = vec![];
-        //         for _ in 0..nr_of_routees {
-        //             let routee = pool.new_routee(routee_props.clone(), context)?;
-        //             routees.push(Arc::new(routee));
-        //         }
-        //         self.router().routees.extend(routees);
-        //     }
-        //     RouterConfig::GroupRouterConfig(_group) => {
-        //         todo!()
-        //     }
-        // }
+        match &self.router_config {
+            RouterConfig::PoolRouterConfig(pool) => {
+                let n = pool.nr_of_instances(context.system());
+                for _ in 0..n {
+                    let routee = pool.new_routee(context)?;
+                    self.routees.push(routee);
+                }
+            }
+            RouterConfig::GroupRouterConfig(_) => {}
+        }
         Ok(())
     }
 }
@@ -62,8 +60,12 @@ impl Router for RouterActor {
         &self.router_config
     }
 
-    fn routees(&mut self) -> &mut Vec<Box<dyn Routee>> {
+    fn routees_mut(&mut self) -> &mut Vec<Box<dyn Routee>> {
         &mut self.routees
+    }
+
+    fn routees(&self) -> &Vec<Box<dyn Routee>> {
+        &self.routees
     }
 }
 

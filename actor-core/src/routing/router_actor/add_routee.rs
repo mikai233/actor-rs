@@ -19,7 +19,7 @@ impl Message for AddRoutee {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { routee, .. } = *self;
-        actor.routees().push(routee);
+        actor.routees_mut().push(routee);
         trace!("{} add routee", context.myself);
         Ok(())
     }

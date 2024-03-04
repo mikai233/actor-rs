@@ -12,13 +12,11 @@ pub mod group;
 
 #[enum_dispatch(RouterConfig)]
 pub trait TRouterConfig: Send {
-    fn routing_logic(&self) -> Box<dyn RoutingLogic>;
+    fn routing_logic(&self) -> &dyn RoutingLogic;
 
     fn stop_router_when_all_routees_removed(&self) -> bool {
         true
     }
-
-    fn props(&self) -> Props;
 }
 
 #[enum_dispatch]
@@ -40,4 +38,8 @@ impl Debug for RouterConfig {
             }
         }
     }
+}
+
+pub trait RouterProps: Sized {
+    fn props(self) -> Props;
 }

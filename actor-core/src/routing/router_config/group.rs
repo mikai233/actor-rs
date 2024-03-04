@@ -2,7 +2,6 @@ use std::ops::Deref;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
-use crate::actor::props::Props;
 use crate::routing::routee::Routee;
 use crate::routing::router_config::TRouterConfig;
 use crate::routing::routing_logic::RoutingLogic;
@@ -34,16 +33,12 @@ impl Deref for GroupRouterConfig {
 }
 
 impl TRouterConfig for GroupRouterConfig {
-    fn routing_logic(&self) -> Box<dyn RoutingLogic> {
+    fn routing_logic(&self) -> &dyn RoutingLogic {
         self.group.routing_logic()
     }
 
     fn stop_router_when_all_routees_removed(&self) -> bool {
         self.group.stop_router_when_all_routees_removed()
-    }
-
-    fn props(&self) -> Props {
-        self.group.props()
     }
 }
 

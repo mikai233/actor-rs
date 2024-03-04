@@ -40,7 +40,7 @@ impl Props {
             A: Actor {
         let actor_name = type_name_of::<A>();
         let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem, handle: Option<Handle>| {
-            let mut context = ActorContext::new(myself, system, handle.clone());
+            let context = ActorContext::new(myself, system, handle.clone());
             let handle = handle.unwrap_or(context.system.handle().clone());
             let actor = func()?;
             let runtime = ActorRuntime { actor, context, mailbox };

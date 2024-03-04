@@ -1,12 +1,12 @@
 use async_trait::async_trait;
 
-use actor_derive::EmptyCodec;
+use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
 use crate::actor::actor_ref::ActorRefExt;
 use crate::actor::context::ActorContext;
 use crate::ext::option_ext::OptionExt;
 use crate::Message;
-use crate::routing::router_actor::get_routees_resp::GetRouteesResp;
+use crate::routing::routee::Routee;
 use crate::routing::router_actor::Router;
 
 #[derive(Debug, EmptyCodec)]
@@ -23,4 +23,9 @@ impl Message for GetRoutees {
         });
         Ok(())
     }
+}
+
+#[derive(OrphanEmptyCodec)]
+pub struct GetRouteesResp {
+    pub routees: Vec<Box<dyn Routee>>,
 }

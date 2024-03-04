@@ -3,20 +3,23 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
 use crate::actor::props::{Props, PropsBuilder};
 use crate::routing::routee::{ActorRefRoutee, Routee};
-use crate::routing::router_config::pool::Pool;
-use crate::routing::router_config::TRouterConfig;
+use crate::routing::router_actor::{Router, RouterActor};
+use crate::routing::router_config::{RouterConfig, RouterProps, TRouterConfig};
+use crate::routing::router_config::pool::{Pool, PoolRouterConfig};
 use crate::routing::routing_logic::round_robin_routing_logic::RoundRobinRoutingLogic;
 use crate::routing::routing_logic::RoutingLogic;
 
-pub struct RoundRobinPool<A> where A: Clone + Send {
+pub struct RoundRobinPool<A> where A: Clone + Send + 'static {
+    routing_logic: RoundRobinRoutingLogic,
     pub nr_of_instances: usize,
     pub routee_props: PropsBuilder<A>,
     pub arg: A,
 }
 
-impl<A> RoundRobinPool<A> where A: Clone + Send {
+impl<A> RoundRobinPool<A> where A: Clone + Send + 'static {
     pub fn new(n: usize, routee_props: PropsBuilder<A>, arg: A) -> Self {
         Self {
+            routing_logic: RoundRobinRoutingLogic::default(),
             nr_of_instances: n,
             routee_props,
             arg,
@@ -24,21 +27,13 @@ impl<A> RoundRobinPool<A> where A: Clone + Send {
     }
 }
 
-impl<A> TRouterConfig for RoundRobinPool<A> where A: Clone + Send {
-    fn routing_logic(&self) -> Box<dyn RoutingLogic> {
-        Box::new(RoundRobinRoutingLogic::default())
-    }
-
-    fn props(&self) -> Props {
-        todo!()
-        // let router_config = PoolRouterConfig::new(self).into();
-        // Props::new(move || {
-        //     Ok(RouterActor::new(router_config))
-        // })
+impl<A> TRouterConfig for RoundRobinPool<A> where A: Clone + Send + 'static {
+    fn routing_logic(&self) -> &dyn RoutingLogic {
+        &self.routing_logic
     }
 }
 
-impl<A> Pool for RoundRobinPool<A> where A: Clone + Send {
+impl<A> Pool for RoundRobinPool<A> where A: Clone + Send + 'static {
     fn nr_of_instances(&self, _sys: &ActorSystem) -> usize {
         self.nr_of_instances
     }
@@ -50,12 +45,22 @@ impl<A> Pool for RoundRobinPool<A> where A: Clone + Send {
     }
 }
 
+impl<A> RouterProps for RoundRobinPool<A> where A: Clone + Send + 'static {
+    fn props(self) -> Props {
+        let router_config = RouterConfig::PoolRouterConfig(PoolRouterConfig::new(self));
+        Props::new(move || {
+            let router: Box<dyn Router> = Box::new(RouterActor::new(router_config));
+            Ok(router)
+        })
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::time::Duration;
 
     use async_trait::async_trait;
-    use tracing::{info, Level};
+    use tracing::info;
 
     use actor_derive::EmptyCodec;
 
@@ -66,14 +71,21 @@ mod test {
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::{Props, PropsBuilder};
     use crate::config::actor_setting::ActorSetting;
-    use crate::ext::{init_logger, type_name_of};
+    use crate::ext::type_name_of;
     use crate::routing::round_robin::RoundRobinPool;
-    use crate::routing::router_config::TRouterConfig;
+    use crate::routing::router_actor::routee_envelope::RouteeEnvelope;
+    use crate::routing::router_config::RouterProps;
 
     #[derive(Debug)]
     struct TestActor;
 
-    impl Actor for TestActor {}
+    #[async_trait]
+    impl Actor for TestActor {
+        async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+            info!("{} started", context.myself());
+            Ok(())
+        }
+    }
 
     #[derive(Debug, EmptyCodec)]
     struct TestMessage;
@@ -91,7 +103,6 @@ mod test {
 
     #[tokio::test]
     async fn test_round_robin() -> anyhow::Result<()> {
-        init_logger(Level::TRACE);
         let system = ActorSystem::create("mikai233", ActorSetting::default())?;
         let router_props = RoundRobinPool::new(
             5,
@@ -99,11 +110,10 @@ mod test {
             (),
         ).props();
         let round_robin_router = system.spawn_anonymous(router_props)?;
-        for _ in 0..10 {
-            round_robin_router.cast_ns(TestMessage);
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        for _ in 0..200 {
+            round_robin_router.cast_ns(RouteeEnvelope::new(TestMessage));
         }
-        // let another_routee = system.spawn_anonymous(Props::new_with_ctx(|_| Ok(TestActor)))?;
-        // round_robin_router.cast_ns(AddRoutee { routee: Arc::new(Box::new(ActorRefRoutee(another_routee))) });
         tokio::time::sleep(Duration::from_secs(2)).await;
         Ok(())
     }
