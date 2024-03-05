@@ -9,7 +9,7 @@ use crate::routing::router_actor::Router;
 
 #[derive(EmptyCodec)]
 pub struct RemoveRoutee {
-    pub routee: Box<dyn Routee>,
+    pub routee: Routee,
 }
 
 #[async_trait]
@@ -18,7 +18,7 @@ impl Message for RemoveRoutee {
 
     async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { routee: remove_routee } = *self;
-        // actor.routees().retain(|routee| *routee != remove_routee);
+        actor.routees_mut().retain(|routee| *routee != remove_routee);
         Ok(())
     }
 }

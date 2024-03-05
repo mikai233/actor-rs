@@ -1,13 +1,13 @@
-use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
 use crate::actor::props::{Props, PropsBuilder};
-use crate::routing::routee::{ActorRefRoutee, Routee};
+use crate::routing::routee::Routee;
 use crate::routing::router_actor::{Router, RouterActor};
 use crate::routing::router_config::{RouterConfig, RouterProps, TRouterConfig};
 use crate::routing::router_config::pool::{Pool, PoolRouterConfig};
 use crate::routing::routing_logic::round_robin_routing_logic::RoundRobinRoutingLogic;
 use crate::routing::routing_logic::RoutingLogic;
+use crate::routing::spawn_actor_routee;
 
 pub struct RoundRobinPool<A> where A: Clone + Send + 'static {
     routing_logic: RoundRobinRoutingLogic,
@@ -38,10 +38,9 @@ impl<A> Pool for RoundRobinPool<A> where A: Clone + Send + 'static {
         self.nr_of_instances
     }
 
-    fn new_routee(&self, context: &mut ActorContext) -> anyhow::Result<Box<dyn Routee>> {
-        let routee_props = self.routee_props.props(self.arg.clone());
-        let routee = context.spawn_anonymous(routee_props)?;
-        Ok(Box::new(ActorRefRoutee(routee)))
+    fn new_routee(&self, context: &mut ActorContext) -> anyhow::Result<Routee> {
+        let routee = spawn_actor_routee(context, &self.routee_props, self.arg.clone())?;
+        Ok(routee.into())
     }
 }
 
@@ -71,8 +70,7 @@ mod test {
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::{Props, PropsBuilder};
     use crate::config::actor_setting::ActorSetting;
-    use crate::ext::type_name_of;
-    use crate::routing::round_robin::RoundRobinPool;
+    use crate::routing::round_robin_pool::RoundRobinPool;
     use crate::routing::router_actor::routee_envelope::RouteeEnvelope;
     use crate::routing::router_config::RouterProps;
 
@@ -106,7 +104,7 @@ mod test {
         let system = ActorSystem::create("mikai233", ActorSetting::default())?;
         let router_props = RoundRobinPool::new(
             5,
-            PropsBuilder::new(type_name_of::<TestActor>(), |()| { Props::new(|| { Ok(TestActor) }) }),
+            PropsBuilder::new::<TestActor, _>(|()| { Props::new(|| { Ok(TestActor) }) }),
             (),
         ).props();
         let round_robin_router = system.spawn_anonymous(router_props)?;

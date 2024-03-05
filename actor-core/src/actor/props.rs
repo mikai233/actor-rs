@@ -76,17 +76,6 @@ impl Props {
         }
     }
 
-    fn run<A>(handle: Option<Handle>, system: ActorSystem, runtime: ActorRuntime<A>) where A: Actor {
-        match handle {
-            None => {
-                system.handle().spawn(runtime.run());
-            }
-            Some(handle) => {
-                handle.spawn(runtime.run());
-            }
-        }
-    }
-
     pub(crate) fn mailbox(&self, system: &ActorSystem) -> anyhow::Result<(MailboxSender, Mailbox)> {
         let core_config = system.core_config();
         let mailbox_name = self.mailbox.as_ref().map(|m| m.as_str()).unwrap_or("default");
@@ -165,25 +154,28 @@ impl DeferredSpawn for FuncDeferredSpawn {
     }
 }
 
-pub struct PropsBuilder<A> {
+pub struct PropsBuilder<Arg> {
     pub name: &'static str,
-    pub builder: Box<dyn Fn(A) -> Props + Send>,
+    pub builder: Box<dyn Fn(Arg) -> Props + Send>,
 }
 
-impl<A> PropsBuilder<A> {
-    pub fn new<F>(name: &'static str, func: F) -> Self where F: Fn(A) -> Props + Send + 'static {
+impl<Arg> PropsBuilder<Arg> {
+    pub fn new<A, Builder>(builder: Builder) -> Self
+        where
+            Builder: Fn(Arg) -> Props + Send + 'static,
+            A: Actor {
         Self {
-            name,
-            builder: Box::new(func),
+            name: type_name_of::<A>(),
+            builder: Box::new(builder),
         }
     }
 
-    pub fn props(&self, arg: A) -> Props {
+    pub fn props(&self, arg: Arg) -> Props {
         (self.builder)(arg)
     }
 }
 
-impl<A> Debug for PropsBuilder<A> {
+impl<Arg> Debug for PropsBuilder<Arg> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PropsBuilder")
             .field("name", &self.name)
@@ -191,20 +183,23 @@ impl<A> Debug for PropsBuilder<A> {
     }
 }
 
-pub struct PropsBuilderSync<A> {
+pub struct PropsBuilderSync<Arg> {
     pub name: &'static str,
-    pub builder: Box<dyn Fn(A) -> Props + Send + Sync>,
+    pub builder: Box<dyn Fn(Arg) -> Props + Send + Sync>,
 }
 
-impl<A> PropsBuilderSync<A> {
-    pub fn new<F>(name: &'static str, func: F) -> Self where F: Fn(A) -> Props + Send + Sync + 'static {
+impl<Arg> PropsBuilderSync<Arg> {
+    pub fn new<A, Builder>(builder: Builder) -> Self
+        where
+            Builder: Fn(Arg) -> Props + Send + Sync + 'static,
+            A: Actor {
         Self {
-            name,
-            builder: Box::new(func),
+            name: type_name_of::<A>(),
+            builder: Box::new(builder),
         }
     }
 
-    pub fn props(&self, arg: A) -> Props {
+    pub fn props(&self, arg: Arg) -> Props {
         (self.builder)(arg)
     }
 }

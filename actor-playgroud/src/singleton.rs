@@ -112,11 +112,9 @@ async fn main() -> anyhow::Result<()> {
         let settings = ClusterSingletonManagerSettings::builder()
             .build();
         let singleton_props = ClusterSingletonManager::props(
-            PropsBuilder::new(
-                type_name_of::<SingletonActor>(),
-                |()| {
-                    Props::new(|| { Ok(SingletonActor) })
-                }),
+            PropsBuilder::new::<SingletonActor, _>(|()| {
+                Props::new(|| { Ok(SingletonActor) })
+            }),
             DynMessage::user(StopSingleton),
             settings,
         )?;

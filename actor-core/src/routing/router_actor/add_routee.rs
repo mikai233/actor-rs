@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use tracing::trace;
 
 use actor_derive::EmptyCodec;
 
@@ -10,7 +9,7 @@ use crate::routing::router_actor::Router;
 
 #[derive(EmptyCodec)]
 pub struct AddRoutee {
-    pub routee: Box<dyn Routee>,
+    pub routee: Routee,
 }
 
 #[async_trait]
@@ -20,7 +19,6 @@ impl Message for AddRoutee {
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { routee, .. } = *self;
         actor.routees_mut().push(routee);
-        trace!("{} add routee", context.myself);
         Ok(())
     }
 }

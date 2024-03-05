@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::fmt::{Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::time::Duration;
 
@@ -24,7 +25,7 @@ use crate::message::identify::{ActorIdentity, Identify};
 use crate::message::message_registration::{IDPacket, MessageRegistration};
 use crate::pattern::patterns::Patterns;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ActorSelection {
     pub(crate) anchor: ActorRef,
     pub(crate) path: Vec<SelectionPathElement>,
@@ -190,7 +191,7 @@ impl Display for ActorSelection {
 pub(crate) trait TSelectionPathElement: Display {}
 
 #[enum_dispatch]
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Encode, Decode)]
 pub(crate) enum SelectionPathElement {
     SelectChildName,
     SelectChildPattern,
@@ -213,7 +214,7 @@ impl Display for SelectionPathElement {
     }
 }
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Encode, Decode)]
 pub(crate) struct SelectChildName {
     name: String,
 }
@@ -291,7 +292,21 @@ impl Display for SelectChildPattern {
 
 impl TSelectionPathElement for SelectChildPattern {}
 
-#[derive(Debug, Clone, Encode, Decode)]
+impl PartialEq for SelectChildPattern {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str().eq(other.as_str())
+    }
+}
+
+impl Eq for SelectChildPattern {}
+
+impl Hash for SelectChildPattern {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_str().hash(state)
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Encode, Decode)]
 pub(crate) struct SelectParent;
 
 impl Display for SelectParent {

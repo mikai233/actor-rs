@@ -53,7 +53,7 @@ impl ClusterShardingGuardian {
             let mut singleton_settings = settings.coordinator_singleton_settings.clone();
             singleton_settings.singleton_name = "singleton".to_string();
             singleton_settings.role = settings.role.clone();
-            let coordinator_props = PropsBuilder::new(type_name_of::<ShardCoordinator>(), move |()| {
+            let coordinator_props = PropsBuilder::new::<ShardCoordinator, _>(move |()| {
                 let type_name = type_name.clone();
                 let settings = settings.clone();
                 let allocation_strategy = allocation_strategy.clone();

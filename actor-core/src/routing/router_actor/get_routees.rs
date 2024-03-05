@@ -27,5 +27,5 @@ impl Message for GetRoutees {
 
 #[derive(OrphanEmptyCodec)]
 pub struct GetRouteesResp {
-    pub routees: Vec<Box<dyn Routee>>,
+    pub routees: Vec<Routee>,
 }

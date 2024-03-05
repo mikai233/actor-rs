@@ -18,14 +18,14 @@ mod broadcast;
 pub trait Router: Actor {
     fn router_config(&self) -> &RouterConfig;
 
-    fn routees_mut(&mut self) -> &mut Vec<Box<dyn Routee>>;
+    fn routees_mut(&mut self) -> &mut Vec<Routee>;
 
-    fn routees(&self) -> &Vec<Box<dyn Routee>>;
+    fn routees(&self) -> &Vec<Routee>;
 }
 
 #[derive(Debug)]
 pub struct RouterActor {
-    routees: Vec<Box<dyn Routee>>,
+    routees: Vec<Routee>,
     router_config: RouterConfig,
 }
 
@@ -60,11 +60,11 @@ impl Router for RouterActor {
         &self.router_config
     }
 
-    fn routees_mut(&mut self) -> &mut Vec<Box<dyn Routee>> {
+    fn routees_mut(&mut self) -> &mut Vec<Routee> {
         &mut self.routees
     }
 
-    fn routees(&self) -> &Vec<Box<dyn Routee>> {
+    fn routees(&self) -> &Vec<Routee> {
         &self.routees
     }
 }

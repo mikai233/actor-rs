@@ -9,7 +9,7 @@ use crate::routing::routing_logic::RoutingLogic;
 pub trait Pool: TRouterConfig {
     fn nr_of_instances(&self, sys: &ActorSystem) -> usize;
 
-    fn new_routee(&self, context: &mut ActorContext) -> anyhow::Result<Box<dyn Routee>>;
+    fn new_routee(&self, context: &mut ActorContext) -> anyhow::Result<Routee>;
 }
 
 pub struct PoolRouterConfig {
@@ -43,7 +43,7 @@ impl Pool for PoolRouterConfig {
         self.pool.nr_of_instances(sys)
     }
 
-    fn new_routee(&self, context: &mut ActorContext) -> anyhow::Result<Box<dyn Routee>> {
+    fn new_routee(&self, context: &mut ActorContext) -> anyhow::Result<Routee> {
         self.pool.new_routee(context)
     }
 }
