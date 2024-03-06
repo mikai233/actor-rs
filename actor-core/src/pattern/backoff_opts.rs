@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 
-use crate::actor::fault_handing::{Directive, OneForOneStrategy};
 use crate::actor::props::{Props, PropsBuilder};
 use crate::actor_ref::ActorRef;
 use crate::DynMessage;
@@ -40,8 +39,6 @@ trait ExtendedBackoffOptions {
 
     fn with_manual_reset(&self) -> Self;
 
-    fn with_supervisor_strategy(&self, supervisor_strategy: OneForOneStrategy) -> Self;
-
     fn with_max_nr_of_retries(&self, max_nr_of_retries: usize) -> Self;
 
     fn with_reply_while_stopped(&self, reply_while_stopped: DynMessage) -> Self;
@@ -67,7 +64,6 @@ struct BackoffOnStopOptionsImpl {
     max_backoff: Duration,
     random_factor: f64,
     reset: Option<BackoffReset>,
-    supervisor_strategy: OneForOneStrategy,
     handling_while_stopped: HandlingWhileStopped,
     final_stop_message: Option<Arc<Box<dyn Fn(DynMessage) -> bool>>>,
 }
@@ -80,7 +76,6 @@ impl Debug for BackoffOnStopOptionsImpl {
             .field("max_backoff", &self.max_backoff)
             .field("random_factor", &self.random_factor)
             .field("reset", &self.reset)
-            .field("supervisor_strategy", &self.supervisor_strategy)
             .field("handling_while_stopped", &self.handling_while_stopped)
             .field("final_stop_message", &"..")
             .finish_non_exhaustive()
@@ -107,12 +102,6 @@ impl BackoffOnStopOptionsImpl {
         myself
     }
 
-    fn with_supervisor_strategy(&self, supervisor_strategy: OneForOneStrategy) -> Self {
-        let mut myself = self.clone();
-        myself.supervisor_strategy = supervisor_strategy;
-        myself
-    }
-
     fn with_reply_while_stopped(&self, reply_while_stopped: DynMessage) -> anyhow::Result<Self> {
         if !reply_while_stopped.is_cloneable() {
             return Err(anyhow!("message {} require cloneable", reply_while_stopped.name));
@@ -130,13 +119,11 @@ impl BackoffOnStopOptionsImpl {
 
     fn with_max_nr_of_retries(&self, max_nr_of_retries: i32) -> Self {
         let mut myself = self.clone();
-        myself.supervisor_strategy.max_nr_of_retries = max_nr_of_retries;
         myself
     }
 
     fn with_default_stopping_strategy(&self) -> Self {
         let mut myself = self.clone();
-        myself.supervisor_strategy.directive = Directive::Stop;
         myself
     }
 

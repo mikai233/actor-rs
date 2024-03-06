@@ -376,10 +376,13 @@ impl ActorContext {
     }
 
     pub(crate) fn handle_invoke_failure(&mut self, child: ActorRef, name: &str, error: anyhow::Error) {
-        error!("{} handle message error {:?}", name, error);
+        error!("{} handle message error {:#?}", name, error);
         self.state = ActorState::Suspend;
+        for child in self.children() {
+            child.suspend();
+        }
         self.parent().foreach(move |p| {
-            p.cast_system(Failed { child }, ActorRef::no_sender());
+            p.cast_system(Failed { child, error }, ActorRef::no_sender());
         });
     }
 }

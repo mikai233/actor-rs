@@ -10,7 +10,8 @@ use tracing::info;
 use actor_derive::MessageCodec;
 
 use crate::actor::context::{ActorContext, Context};
-use crate::actor::fault_handing::{default_strategy, SupervisorStrategy};
+use crate::actor::directive::Directive;
+use crate::actor_ref::ActorRef;
 use crate::delegate::downcast_box_message;
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::UserDelegate;
@@ -46,8 +47,9 @@ pub trait Actor: Send + Any {
         Ok(())
     }
 
-    fn supervisor_strategy(&self) -> Box<dyn SupervisorStrategy> {
-        default_strategy()
+    #[allow(unused_variables)]
+    fn on_child_failure(&mut self, context: &mut ActorContext, child: &ActorRef, error: &anyhow::Error) -> Directive {
+        Directive::Resume
     }
 
     #[allow(unused_variables)]

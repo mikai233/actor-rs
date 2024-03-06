@@ -1,9 +1,11 @@
+use anyhow::Error;
 use async_trait::async_trait;
 
 use crate::{Actor, DynMessage};
 use crate::actor::context::ActorContext;
-use crate::actor::fault_handing::SupervisorStrategy;
+use crate::actor::directive::Directive;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
+use crate::actor_ref::ActorRef;
 use crate::routing::routee::Routee;
 use crate::routing::router_config::pool::Pool;
 use crate::routing::router_config::RouterConfig;
@@ -79,8 +81,8 @@ impl Actor for Box<dyn Router> {
         (&mut **self).stopped(context).await
     }
 
-    fn supervisor_strategy(&self) -> Box<dyn SupervisorStrategy> {
-        (&**self).supervisor_strategy()
+    fn on_child_failure(&mut self, context: &mut ActorContext, child: &ActorRef, error: &Error) -> Directive {
+        (&mut **self).on_child_failure(context, child, error)
     }
 
     fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {

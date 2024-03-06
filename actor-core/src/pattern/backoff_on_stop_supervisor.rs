@@ -3,7 +3,6 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use crate::{Actor, DynMessage};
-use crate::actor::fault_handing::SupervisorStrategy;
 use crate::actor::props::{Props, PropsBuilder};
 use crate::actor_ref::ActorRef;
 use crate::pattern::backoff_opts::{BackoffReset, HandlingWhileStopped};
@@ -16,7 +15,6 @@ pub(crate) struct BackoffOnStopSupervisor {
     max_backoff: Duration,
     reset: BackoffReset,
     random_factor: f64,
-    strategy: Box<dyn SupervisorStrategy>,
     handling_while_stopped: HandlingWhileStopped,
     final_stop_message: Option<Box<dyn Fn(DynMessage) -> bool + Send>>,
     child: Option<ActorRef>,

@@ -81,14 +81,6 @@ impl<A> ActorRuntime<A> where A: Actor {
         }
     }
 
-    // pub(crate) fn recreate(myself: ActorRef, mailbox: Mailbox, system: ActorSystem, props: Props) {
-    //     let spawner = props.spawner.clone();
-    //     let myself_display = myself.to_string();
-    //     if let Some(error) = spawner(myself, mailbox, system, props).err() {
-    //         warn!("{} recreate error {:?}", myself_display, error);
-    //     }
-    // }
-
     async fn handle_system(context: &mut ActorContext, actor: &mut A, envelope: Envelope) {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
