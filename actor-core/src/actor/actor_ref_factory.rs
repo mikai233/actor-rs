@@ -2,13 +2,13 @@ use std::sync::Arc;
 
 use arc_swap::Guard;
 
-use crate::actor::actor_path::TActorPath;
-use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::local_ref::LocalActorRef;
 use crate::actor::props::Props;
+use crate::actor_path::TActorPath;
+use crate::actor_ref::ActorRef;
+use crate::actor_ref::local_ref::LocalActorRef;
 
 pub trait ActorRefFactory {
     fn system(&self) -> &ActorSystem;

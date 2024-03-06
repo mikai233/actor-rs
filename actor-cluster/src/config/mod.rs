@@ -1,5 +1,7 @@
 use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
+
 use actor_core::config::Config;
 use actor_derive::AsAny;
 use actor_remote::config::RemoteConfig;
@@ -25,6 +27,7 @@ impl Config for ClusterConfig {
 #[cfg(test)]
 mod tests {
     use actor_remote::config::transport::{TcpTransport, Transport};
+
     use crate::config::{ClusterConfig, RemoteConfig};
 
     #[test]

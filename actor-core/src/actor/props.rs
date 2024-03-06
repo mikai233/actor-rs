@@ -5,10 +5,10 @@ use tokio::runtime::Handle;
 use tokio::sync::mpsc::channel;
 
 use crate::Actor;
-use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
 use crate::actor::mailbox::{Mailbox, MailboxSender};
+use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
 use crate::ext::type_name_of;

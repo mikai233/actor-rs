@@ -2,11 +2,11 @@ use async_trait::async_trait;
 use tracing::debug;
 
 use actor_core::{DynMessage, Message};
-use actor_core::actor::actor_path::root_actor_path::RootActorPath;
-use actor_core::actor::actor_path::TActorPath;
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_selection::ActorSelectionPath;
 use actor_core::actor::context::ActorContext;
+use actor_core::actor_path::root_actor_path::RootActorPath;
+use actor_core::actor_path::TActorPath;
 use actor_core::message::identify::Identify;
 use actor_derive::EmptyCodec;
 

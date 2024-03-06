@@ -6,9 +6,9 @@ use std::ops::{Deref, DerefMut};
 
 use ahash::HashMap;
 
-use crate::actor::actor_ref::{ActorRef, ActorRefExt};
-use crate::actor::dead_letter_listener::Dropped;
 use crate::{DynMessage, Message};
+use crate::actor::dead_letter_listener::Dropped;
+use crate::actor_ref::{ActorRef, ActorRefExt};
 
 pub trait BufferEnvelope {
     type M;

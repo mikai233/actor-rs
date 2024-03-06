@@ -6,8 +6,8 @@ use tokio::net::TcpStream;
 use tokio_util::codec::Framed;
 use tracing::warn;
 
-use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::address::Address;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::encode_bytes;
 
 use crate::net::codec::{Packet, PacketCodec};
@@ -63,7 +63,7 @@ impl Connection {
             }
         });
     }
-    
+
     fn disconnect(&self) {
         self.transport.cast(Disconnect { addr: self.peer }, None);
     }

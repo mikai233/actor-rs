@@ -1,10 +1,12 @@
 use async_trait::async_trait;
-use actor_core::actor::actor_ref::ActorRef;
+
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_ref::ActorRef;
 use actor_core::Message;
 use actor_core::message::terminated::Terminated;
 use actor_derive::EmptyCodec;
+
 use crate::shard::Shard;
 
 #[derive(Debug, EmptyCodec)]

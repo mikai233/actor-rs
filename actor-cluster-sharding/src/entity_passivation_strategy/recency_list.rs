@@ -176,6 +176,7 @@ impl<V> Debug for Node<V> where V: Debug + Eq + Hash + Clone {
 #[cfg(test)]
 mod tests {
     use std::hash::Hash;
+
     use crate::entity_passivation_strategy::recency_list::RecencyList;
 
     #[test]

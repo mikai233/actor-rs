@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
-use actor_core::actor::actor_ref::ActorRef;
+
+use actor_core::actor_ref::ActorRef;
 
 #[derive(Debug)]
 pub(super) enum EntityState {

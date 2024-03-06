@@ -3,8 +3,8 @@ use bincode::{Decode, Encode};
 
 use actor_derive::MessageCodec;
 
-use crate::actor::actor_ref::ActorRef;
 use crate::actor::context::ActorContext;
+use crate::actor_ref::ActorRef;
 use crate::Message;
 use crate::message::terminated::Terminated;
 use crate::routing::router_actor::RouterActor;

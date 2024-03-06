@@ -4,9 +4,9 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 
-use crate::actor::actor_ref::ActorRef;
 use crate::actor::fault_handing::{Directive, OneForOneStrategy};
 use crate::actor::props::{Props, PropsBuilder};
+use crate::actor_ref::ActorRef;
 use crate::DynMessage;
 use crate::ext::maybe_ref::MaybeRef;
 

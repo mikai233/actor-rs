@@ -4,17 +4,17 @@ use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 
-use crate::actor::actor_path::{ActorPath, TActorPath};
-use crate::actor::actor_path::root_actor_path::RootActorPath;
 use crate::actor::address::Address;
+use crate::actor_path::{ActorPath, TActorPath};
+use crate::actor_path::root_actor_path::RootActorPath;
 
 #[derive(Debug, Clone)]
 pub struct ChildActorPath {
-    pub(crate) inner: Arc<ChildInner>,
+    pub(crate) inner: Arc<Inner>,
 }
 
 impl Deref for ChildActorPath {
-    type Target = Arc<ChildInner>;
+    type Target = Arc<Inner>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -35,7 +35,7 @@ impl Display for ChildActorPath {
 }
 
 #[derive(Debug)]
-pub struct ChildInner {
+pub struct Inner {
     pub(crate) parent: ActorPath,
     pub(crate) name: Arc<String>,
     pub(crate) uid: i32,
@@ -127,7 +127,7 @@ impl ChildActorPath {
             name
         );
         Self {
-            inner: Arc::new(ChildInner { parent, name, uid, cached_hash: AtomicU64::default() }),
+            inner: Arc::new(Inner { parent, name, uid, cached_hash: AtomicU64::default() }),
         }
     }
 

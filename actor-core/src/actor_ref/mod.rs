@@ -13,11 +13,19 @@ use bincode::error::{DecodeError, EncodeError};
 use tokio::task_local;
 
 use crate::{DynMessage, Message, OrphanMessage, SystemMessage};
-use crate::actor::actor_path::{ActorPath, TActorPath};
 use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::local_ref::LocalActorRef;
+use crate::actor_path::ActorPath;
+use crate::actor_path::TActorPath;
+use crate::actor_ref::local_ref::LocalActorRef;
 use crate::ext::as_any::AsAny;
+
+pub(crate) mod virtual_path_container;
+pub mod local_ref;
+pub(crate) mod empty_local_ref;
+pub(crate) mod dead_letter_ref;
+pub(crate) mod function_ref;
+pub mod deferred_ref;
 
 task_local! {
     pub static PROVIDER: Arc<ActorRefProvider>;

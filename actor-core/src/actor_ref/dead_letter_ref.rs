@@ -3,25 +3,34 @@ use std::iter::Peekable;
 use std::ops::Deref;
 use std::sync::Arc;
 
+use tracing::info;
+
 use actor_derive::AsAny;
 
-use crate::actor::actor_path::ActorPath;
-use crate::actor::actor_ref::{ActorRef, TActorRef};
 use crate::actor::actor_system::ActorSystem;
+use crate::actor_path::ActorPath;
+use crate::actor_ref::{ActorRef, TActorRef};
 use crate::DynMessage;
 
 #[derive(Clone, AsAny)]
-pub struct FunctionRef {
+pub struct DeadLetterActorRef {
     pub(crate) inner: Arc<Inner>,
 }
 
 pub struct Inner {
     pub(crate) system: ActorSystem,
     pub(crate) path: ActorPath,
-    pub(crate) message_handler: Arc<Box<dyn Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static>>,
 }
 
-impl Deref for FunctionRef {
+impl DeadLetterActorRef {
+    pub(crate) fn new(system: ActorSystem, path: ActorPath) -> Self {
+        Self {
+            inner: Arc::new(Inner { system, path }),
+        }
+    }
+}
+
+impl Deref for DeadLetterActorRef {
     type Target = Arc<Inner>;
 
     fn deref(&self) -> &Self::Target {
@@ -29,17 +38,16 @@ impl Deref for FunctionRef {
     }
 }
 
-impl Debug for FunctionRef {
+impl Debug for DeadLetterActorRef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FunctionRef")
+        f.debug_struct("DeadLetterActorRef")
             .field("system", &"..")
             .field("path", &self.path)
-            .field("message_handler", &"..")
             .finish()
     }
 }
 
-impl TActorRef for FunctionRef {
+impl TActorRef for DeadLetterActorRef {
     fn system(&self) -> &ActorSystem {
         &self.system
     }
@@ -49,30 +57,29 @@ impl TActorRef for FunctionRef {
     }
 
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
-        (self.message_handler)(message, sender);
+        let name = message.name();
+        match sender {
+            None => {
+                info!("dead letter recv message {}", name);
+            }
+            Some(sender) => {
+                info!("dead letter recv message {} from {}", name, sender);
+            }
+        }
     }
 
-    fn stop(&self) {
-        todo!()
-    }
+    fn stop(&self) {}
 
     fn parent(&self) -> Option<&ActorRef> {
         None
     }
 
-    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
-        match names.next() {
-            None => {
-                Some(self.clone().into())
-            }
-            Some(_) => {
-                None
-            }
-        }
+    fn get_child(&self, _names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+        None
     }
 }
 
-impl Into<ActorRef> for FunctionRef {
+impl Into<ActorRef> for DeadLetterActorRef {
     fn into(self) -> ActorRef {
         ActorRef::new(self)
     }

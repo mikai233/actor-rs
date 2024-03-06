@@ -4,8 +4,8 @@ use bincode::{Decode, Encode};
 use actor_derive::{CSystemCodec, OrphanCodec};
 
 use crate::{Actor, SystemMessage};
-use crate::actor::actor_ref::{ActorRef, ActorRefExt};
 use crate::actor::context::{ActorContext, Context};
+use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::ext::option_ext::OptionExt;
 
 #[derive(Debug, Clone, Encode, Decode, CSystemCodec)]

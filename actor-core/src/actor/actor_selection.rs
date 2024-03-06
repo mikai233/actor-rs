@@ -14,12 +14,13 @@ use regex::Regex;
 use tracing::error;
 
 use crate::{CodecMessage, DynMessage, OrphanMessage};
-use crate::actor::actor_path::{ActorPath, TActorPath};
-use crate::actor::actor_ref::{ActorRef, TActorRef};
-use crate::actor::cell::Cell;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::decoder::MessageDecoder;
-use crate::actor::empty_local_ref::EmptyLocalActorRef;
+use crate::actor_path::ActorPath;
+use crate::actor_path::TActorPath;
+use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor_ref::empty_local_ref::EmptyLocalActorRef;
+use crate::cell::Cell;
 use crate::ext::{decode_bytes, encode_bytes};
 use crate::message::identify::{ActorIdentity, Identify};
 use crate::message::message_registration::{IDPacket, MessageRegistration};

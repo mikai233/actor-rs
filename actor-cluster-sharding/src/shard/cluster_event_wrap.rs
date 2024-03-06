@@ -1,8 +1,10 @@
 use async_trait::async_trait;
+
 use actor_cluster::cluster_event::ClusterEvent;
 use actor_core::actor::context::ActorContext;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
+
 use crate::shard::Shard;
 
 #[derive(Debug, EmptyCodec)]

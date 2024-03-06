@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
+
 use actor_core::config::Config;
 use actor_derive::AsAny;
-
 
 use crate::config::transport::Transport;
 

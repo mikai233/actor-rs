@@ -5,8 +5,8 @@ use futures::StreamExt;
 use tracing::warn;
 
 use actor_core::{DynMessage, Message};
-use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_derive::EmptyCodec;
 
 use crate::etcd_watcher::EtcdWatcher;

@@ -1,5 +1,5 @@
-use crate::actor::actor_ref::ActorRef;
 use crate::actor::props::Props;
+use crate::actor_ref::ActorRef;
 use crate::DynMessage;
 use crate::pattern::backoff_opts::BackoffReset;
 

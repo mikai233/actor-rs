@@ -7,9 +7,9 @@ use futures::task::ArcWake;
 use tracing::{debug, warn};
 
 use actor_core::Actor;
-use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::etcd_client::EtcdClient;
 
 use crate::etcd_watcher::poll_message::PollMessage;

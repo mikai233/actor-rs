@@ -9,10 +9,10 @@ use etcd_client::{GetOptions, KeyValue, PutOptions, WatchOptions};
 use tracing::{debug, error, info, trace};
 
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::event::EventBus;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;

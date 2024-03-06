@@ -133,8 +133,10 @@ pub trait Message: CodecMessage {
 pub trait OrphanMessage: CodecMessage {}
 ```
 
-actor与actor之间的通信方式除了fire and forget（tell）方式之外，还支持request response（ask）模式，这个时候返回的消息需要实现 `OrphanMessage`
-这个 `trait`， 这个 `trait` 仅仅时作为标记作用，以确保使用者正确的使用框架的接口。 `CodeMessage` 这个 `trait` 提供了过程宏来快速实现这个 `trait` ，
+actor与actor之间的通信方式除了fire and forget（tell）方式之外，还支持request
+response（ask）模式，这个时候返回的消息需要实现 `OrphanMessage`
+这个 `trait`， 这个 `trait` 仅仅时作为标记作用，以确保使用者正确的使用框架的接口。 `CodeMessage` 这个 `trait`
+提供了过程宏来快速实现这个 `trait` ，
 以减少样板代码（参见下文）。
 
 ## 序列化与DyMessage

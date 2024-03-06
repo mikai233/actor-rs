@@ -30,6 +30,8 @@ pub mod actor;
 pub mod config;
 pub mod pattern;
 pub mod error;
+pub mod actor_path;
+pub mod actor_ref;
 
 #[async_trait]
 pub trait Actor: Send + Any {
@@ -270,11 +272,11 @@ mod actor_test {
     use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
     use crate::{Actor, DynMessage, EmptyTestActor, Message};
-    use crate::actor::actor_ref::ActorRef;
     use crate::actor::actor_ref_factory::ActorRefFactory;
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::Props;
+    use crate::actor_ref::ActorRef;
     use crate::config::actor_setting::ActorSetting;
     use crate::ext::init_logger;
 

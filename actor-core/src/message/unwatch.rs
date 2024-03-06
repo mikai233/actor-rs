@@ -5,8 +5,8 @@ use tracing::{debug, error};
 use actor_derive::SystemCodec;
 
 use crate::{Actor, SystemMessage};
-use crate::actor::actor_ref::ActorRef;
 use crate::actor::context::{ActorContext, Context};
+use crate::actor_ref::ActorRef;
 
 #[derive(Debug, Encode, Decode, SystemCodec)]
 pub struct Unwatch {

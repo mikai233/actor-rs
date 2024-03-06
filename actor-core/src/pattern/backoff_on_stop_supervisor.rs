@@ -3,9 +3,9 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use crate::{Actor, DynMessage};
-use crate::actor::actor_ref::ActorRef;
 use crate::actor::fault_handing::SupervisorStrategy;
 use crate::actor::props::{Props, PropsBuilder};
+use crate::actor_ref::ActorRef;
 use crate::pattern::backoff_opts::{BackoffReset, HandlingWhileStopped};
 use crate::pattern::hand_backoff::HandBackoff;
 

@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::actor_ref::ActorRef;
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_ref::ActorRef;
 use actor_core::ext::option_ext::OptionExt;
 
 use crate::cluster::Cluster;

@@ -5,10 +5,10 @@ use std::sync::Arc;
 
 use tracing::error;
 
-use actor_core::actor::actor_path::ActorPath;
-use actor_core::actor::actor_path::TActorPath;
-use actor_core::actor::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
 use actor_core::actor::actor_system::ActorSystem;
+use actor_core::actor_path::ActorPath;
+use actor_core::actor_path::TActorPath;
+use actor_core::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
 use actor_core::DynMessage;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_core::message::poison_pill::PoisonPill;
@@ -32,7 +32,12 @@ pub struct Inner {
 }
 
 impl RemoteActorRef {
-    pub(crate) fn new(system: ActorSystem, path: ActorPath, transport: ActorRef, registration: Arc<MessageRegistration>) -> Self {
+    pub(crate) fn new(
+        system: ActorSystem,
+        path: ActorPath,
+        transport: ActorRef,
+        registration: Arc<MessageRegistration>,
+    ) -> Self {
         Self {
             inner: Arc::new(Inner {
                 system,

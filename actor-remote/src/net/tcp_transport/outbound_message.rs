@@ -5,9 +5,9 @@ use async_trait::async_trait;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::{debug, warn};
 
-use actor_core::actor::actor_path::TActorPath;
-use actor_core::actor::actor_ref::ActorRefExt;
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_path::TActorPath;
+use actor_core::actor_ref::ActorRefExt;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 

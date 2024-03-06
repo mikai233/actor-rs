@@ -7,8 +7,8 @@ use stubborn_io::{ReconnectOptions, StubbornTcpStream};
 use tokio_util::codec::Framed;
 use tracing::{error, warn};
 
-use actor_core::actor::actor_ref::ActorRefExt;
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_ref::ActorRefExt;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 

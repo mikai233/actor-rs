@@ -4,9 +4,9 @@ use async_trait::async_trait;
 use tracing::warn;
 
 use actor_core::{DynMessage, Message};
-use actor_core::actor::actor_ref::ActorRef;
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_ref::ActorRef;
 use actor_derive::CEmptyCodec;
 
 use crate::lease_keeper::EtcdLeaseKeeper;

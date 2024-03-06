@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use anyhow::anyhow;
 use tracing::debug;
 
-use actor_core::actor::actor_ref::ActorRef;
+use actor_core::actor_ref::ActorRef;
 use actor_core::ext::maybe_ref::MaybeRef;
 
 use crate::shard::entity_state::EntityState;

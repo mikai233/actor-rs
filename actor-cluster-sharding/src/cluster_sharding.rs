@@ -9,11 +9,11 @@ use dashmap::mapref::one::MappedRef;
 use tracing::debug;
 
 use actor_cluster::cluster::Cluster;
-use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::{Props, PropsBuilderSync};
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::config::Config;
 use actor_core::DynMessage;
 use actor_core::pattern::patterns::PatternsExt;

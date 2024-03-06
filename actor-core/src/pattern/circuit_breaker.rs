@@ -334,16 +334,19 @@ impl Display for State {
 #[cfg(test)]
 mod test {
     use std::time::Duration;
+
     use anyhow::anyhow;
     use async_trait::async_trait;
     use tracing::info;
+
     use actor_derive::EmptyCodec;
+
     use crate::{Actor, Message};
-    use crate::actor::actor_ref::ActorRefExt;
     use crate::actor::actor_ref_factory::ActorRefFactory;
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::Props;
+    use crate::actor_ref::ActorRefExt;
     use crate::config::actor_setting::ActorSetting;
     use crate::pattern::circuit_breaker::CircuitBreaker;
 

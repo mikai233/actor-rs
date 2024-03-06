@@ -1,5 +1,6 @@
 use std::rc::Rc;
 use std::time::Duration;
+
 use crate::entity_passivation_strategy::{PassivateEntities, TEntityPassivationStrategy};
 use crate::shard_region::EntityId;
 

@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
+
 use etcd_client::Client;
 
 #[derive(Clone)]

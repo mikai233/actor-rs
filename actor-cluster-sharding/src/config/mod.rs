@@ -1,8 +1,9 @@
 use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
+
 use actor_cluster_tools::singleton::cluster_singleton_manager::ClusterSingletonManagerSettings;
 use actor_core::config::Config;
-
 use actor_derive::AsAny;
 
 mod passivation;

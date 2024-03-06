@@ -1,4 +1,5 @@
 use std::time::Duration;
+
 use typed_builder::TypedBuilder;
 
 #[derive(Debug, Clone, TypedBuilder)]

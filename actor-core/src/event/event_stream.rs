@@ -4,7 +4,7 @@ use dashmap::mapref::entry::Entry;
 use tracing::trace;
 
 use crate::{DynMessage, MessageType};
-use crate::actor::actor_ref::ActorRef;
+use crate::actor_ref::ActorRef;
 use crate::event::EventBus;
 
 #[derive(Debug, Default)]

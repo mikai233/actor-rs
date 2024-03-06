@@ -15,13 +15,13 @@ use actor_cluster::lease_keeper::EtcdLeaseKeeper;
 use actor_cluster::lease_keeper::lease_keep_alive_failed::LeaseKeepAliveFailed;
 use actor_cluster::member::MemberStatus;
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::actor_path::TActorPath;
-use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_ref_provider::downcast_provider;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_EXITING};
 use actor_core::actor::props::{Props, PropsBuilder};
+use actor_core::actor_path::TActorPath;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::etcd_client::EtcdClient;
 
 use crate::singleton::cluster_singleton_manager::lease_failed::LeaseFailed;

@@ -1,4 +1,4 @@
-use crate::actor::actor_ref::ActorRef;
+use crate::actor_ref::ActorRef;
 use crate::DynMessage;
 
 #[derive(Debug)]

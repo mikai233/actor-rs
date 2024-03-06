@@ -5,10 +5,10 @@ use async_trait::async_trait;
 use tracing::trace;
 
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::scheduler::ScheduleKey;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 
 use crate::cluster::Cluster;
 use crate::heartbeat::cluster_heartbeat_sender::heartbeat_sender_cluster_event::HeartbeatSenderClusterEvent;

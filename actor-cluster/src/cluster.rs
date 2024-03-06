@@ -6,21 +6,21 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use dashmap::mapref::one::MappedRef;
 
-use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_ref_provider::{downcast_provider, TActorRefProvider};
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::Props;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::DynMessage;
 use actor_core::event::EventBus;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::type_name_of;
 use actor_derive::AsAny;
+
 use crate::cluster_daemon::add_on_member_removed_listener::AddOnMemberRemovedListener;
 use crate::cluster_daemon::add_on_member_up_listener::AddOnMemberUpListener;
-
 use crate::cluster_daemon::ClusterDaemon;
 use crate::cluster_daemon::leave_cluster::LeaveCluster;
 use crate::cluster_event::ClusterEvent;

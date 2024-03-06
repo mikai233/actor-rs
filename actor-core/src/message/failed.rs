@@ -4,8 +4,8 @@ use bincode::{Decode, Encode};
 use actor_derive::SystemCodec;
 
 use crate::{Actor, SystemMessage};
-use crate::actor::actor_ref::ActorRef;
 use crate::actor::context::ActorContext;
+use crate::actor_ref::ActorRef;
 
 #[derive(Debug, Encode, Decode, SystemCodec)]
 pub struct Failed {

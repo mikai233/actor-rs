@@ -14,11 +14,10 @@ use tracing::{debug, error, trace, warn};
 use actor_derive::EmptyCodec;
 
 use crate::{Actor, DynMessage, Message};
-use crate::actor::actor_ref::ActorRef;
-use crate::actor::actor_ref::ActorRefExt;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::props::Props;
+use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::message::terminated::Terminated;
 
 #[derive(Debug)]

@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use tracing::error;
 
-use crate::actor::actor_ref::ActorRef;
+use crate::actor_ref::ActorRef;
 use crate::DynMessage;
 use crate::routing::routee::{Routee, TRoutee};
 

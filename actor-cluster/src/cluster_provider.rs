@@ -6,13 +6,13 @@ use anyhow::Context;
 use etcd_client::Client;
 use tokio::sync::broadcast::Receiver;
 
-use actor_core::actor::actor_path::ActorPath;
-use actor_core::actor::actor_ref::ActorRef;
 use actor_core::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
-use actor_core::actor::local_ref::LocalActorRef;
 use actor_core::actor::props::{DeferredSpawn, FuncDeferredSpawn, Props};
+use actor_core::actor_path::ActorPath;
+use actor_core::actor_ref::ActorRef;
+use actor_core::actor_ref::local_ref::LocalActorRef;
 use actor_core::CodecMessage;
 use actor_core::config::Config;
 use actor_core::ext::etcd_client::EtcdClient;

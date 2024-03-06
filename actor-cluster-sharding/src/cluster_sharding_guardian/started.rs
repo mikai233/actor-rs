@@ -1,4 +1,4 @@
-use actor_core::actor::actor_ref::ActorRef;
+use actor_core::actor_ref::ActorRef;
 use actor_derive::OrphanEmptyCodec;
 
 #[derive(Debug, OrphanEmptyCodec)]

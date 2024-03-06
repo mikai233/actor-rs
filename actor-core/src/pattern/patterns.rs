@@ -6,11 +6,11 @@ use anyhow::anyhow;
 use tokio::time::error::Elapsed;
 
 use crate::{CodecMessage, DynMessage, Message, MessageType, OrphanMessage, SystemMessage};
-use crate::actor::actor_path::TActorPath;
-use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_selection::ActorSelection;
+use crate::actor_path::TActorPath;
+use crate::actor_ref::ActorRef;
+use crate::actor_ref::deferred_ref::DeferredActorRef;
 use crate::ext::type_name_of;
-use crate::pattern::deferred_ref::DeferredActorRef;
 
 #[derive(Debug)]
 pub struct Patterns;

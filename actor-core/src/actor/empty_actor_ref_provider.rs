@@ -1,15 +1,16 @@
 use std::fmt::Debug;
 use std::sync::Arc;
+
 use tokio::sync::broadcast::Receiver;
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_path::ActorPath;
-use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
 use crate::actor::address::Address;
-use crate::actor::local_ref::LocalActorRef;
 use crate::actor::props::Props;
+use crate::actor_path::ActorPath;
+use crate::actor_ref::ActorRef;
+use crate::actor_ref::local_ref::LocalActorRef;
 use crate::message::message_registration::MessageRegistration;
 
 #[derive(Debug, Default, Clone, Copy, AsAny)]

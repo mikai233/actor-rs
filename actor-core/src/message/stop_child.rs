@@ -1,10 +1,13 @@
 use std::marker::PhantomData;
+
 use async_trait::async_trait;
+
 use actor_derive::EmptyCodec;
+
 use crate::{Actor, Message};
-use crate::actor::actor_ref::ActorRef;
 use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::ActorContext;
+use crate::actor_ref::ActorRef;
 
 #[derive(EmptyCodec)]
 pub(crate) struct StopChild<A: Actor> {

@@ -3,16 +3,17 @@ use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
-use crate::actor::actor_path::{ActorPath, TActorPath};
+
 use crate::actor::address::Address;
+use crate::actor_path::{ActorPath, TActorPath};
 
 #[derive(Debug, Clone)]
 pub struct RootActorPath {
-    pub inner: Arc<RootInner>,
+    pub inner: Arc<Inner>,
 }
 
 impl Deref for RootActorPath {
-    type Target = Arc<RootInner>;
+    type Target = Arc<Inner>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -26,7 +27,7 @@ impl Display for RootActorPath {
 }
 
 #[derive(Debug)]
-pub struct RootInner {
+pub struct Inner {
     address: Address,
     name: String,
     cached_hash: AtomicU64,
@@ -101,7 +102,7 @@ impl RootActorPath {
             name
         );
         Self {
-            inner: Arc::new(RootInner { address, name, cached_hash: AtomicU64::default() }),
+            inner: Arc::new(Inner { address, name, cached_hash: AtomicU64::default() }),
         }
     }
 

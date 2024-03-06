@@ -1,12 +1,14 @@
+use std::rc::Rc;
+use std::time::Duration;
+
+use enum_dispatch::enum_dispatch;
+
+use crate::entity_passivation_strategy::disabled_entity_passivation_strategy::DisabledEntityPassivationStrategy;
+use crate::shard_region::EntityId;
+
 mod disabled_entity_passivation_strategy;
 mod idle_entity_passivation_strategy;
 mod recency_list;
-
-use std::rc::Rc;
-use std::time::Duration;
-use enum_dispatch::enum_dispatch;
-use crate::entity_passivation_strategy::disabled_entity_passivation_strategy::DisabledEntityPassivationStrategy;
-use crate::shard_region::EntityId;
 
 pub(crate) type PassivateEntities = Vec<Rc<EntityId>>;
 

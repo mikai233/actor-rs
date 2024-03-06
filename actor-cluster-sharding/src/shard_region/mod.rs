@@ -10,14 +10,14 @@ use actor_cluster::cluster::Cluster;
 use actor_cluster::member::{Member, MemberStatus};
 use actor_cluster::unique_address::UniqueAddress;
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::actor_path::root_actor_path::RootActorPath;
-use actor_core::actor::actor_path::TActorPath;
-use actor_core::actor::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::{Props, PropsBuilderSync};
 use actor_core::actor::timers::{ScheduleKey, Timers};
+use actor_core::actor_path::root_actor_path::RootActorPath;
+use actor_core::actor_path::TActorPath;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::message::message_buffer::{BufferEnvelope, MessageBufferMap};
 use actor_core::message::poison_pill::PoisonPill;
 

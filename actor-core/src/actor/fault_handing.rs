@@ -3,8 +3,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use dyn_clone::DynClone;
 
-use crate::actor::actor_ref::ActorRef;
 use crate::actor::context::ActorContext;
+use crate::actor_ref::ActorRef;
 
 pub trait SupervisorStrategy: Send + Sync + DynClone + Debug + 'static {
     fn directive(&self) -> &Directive;

@@ -4,10 +4,10 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::actor_ref::ActorRef;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor::timers::{ScheduleKey, Timers};
+use actor_core::actor_ref::ActorRef;
 
 use crate::handoff_stopper::entity_terminated::EntityTerminated;
 use crate::handoff_stopper::stop_timeout::StopTimeout;

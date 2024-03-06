@@ -14,11 +14,11 @@ use actor_cluster_tools::singleton::cluster_singleton_manager::{ClusterSingleton
 use actor_cluster_tools::singleton::cluster_singleton_proxy::cluster_singleton_proxy_settings::ClusterSingletonProxySettings;
 use actor_cluster_tools::singleton::cluster_singleton_proxy::ClusterSingletonProxy;
 use actor_core::{Actor, DynMessage, Message};
-use actor_core::actor::actor_ref::ActorRefExt;
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::{Props, PropsBuilder};
+use actor_core::actor_ref::ActorRefExt;
 use actor_core::config::actor_setting::ActorSetting;
 use actor_core::ext::{init_logger_with_filter, type_name_of};
 use actor_derive::{CEmptyCodec, MessageCodec};

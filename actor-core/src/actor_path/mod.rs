@@ -13,9 +13,9 @@ use enum_dispatch::enum_dispatch;
 use rand::random;
 use url::Url;
 
-use crate::actor::actor_path::child_actor_path::{ChildActorPath, ChildInner};
-use crate::actor::actor_path::root_actor_path::RootActorPath;
 use crate::actor::address::Address;
+use crate::actor_path::child_actor_path::{ChildActorPath, Inner};
+use crate::actor_path::root_actor_path::RootActorPath;
 
 pub mod child_actor_path;
 pub mod root_actor_path;
@@ -33,7 +33,7 @@ pub trait TActorPath {
     fn child(&self, child: &str) -> ActorPath {
         let (child_name, uid) = ActorPath::split_name_and_uid(&child);
         ChildActorPath {
-            inner: Arc::new(ChildInner {
+            inner: Arc::new(Inner {
                 parent: self.myself(),
                 name: child_name.into(),
                 uid,
@@ -236,8 +236,10 @@ mod test {
 
     use anyhow::Ok;
 
-    use crate::actor::actor_path::{ActorPath, ChildActorPath, RootActorPath, TActorPath};
     use crate::actor::address::Address;
+    use crate::actor_path::{ActorPath, TActorPath};
+    use crate::actor_path::child_actor_path::ChildActorPath;
+    use crate::actor_path::root_actor_path::RootActorPath;
 
     fn build_address() -> Address {
         Address {

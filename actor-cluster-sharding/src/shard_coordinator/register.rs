@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 
-use actor_core::actor::actor_ref::ActorRef;
 use actor_core::actor::context::ActorContext;
+use actor_core::actor_ref::ActorRef;
 use actor_core::Message;
 use actor_derive::MessageCodec;
 

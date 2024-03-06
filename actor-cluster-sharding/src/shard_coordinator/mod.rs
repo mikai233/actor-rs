@@ -5,9 +5,9 @@ use async_trait::async_trait;
 
 use actor_cluster::cluster::Cluster;
 use actor_core::Actor;
-use actor_core::actor::actor_ref::ActorRef;
 use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::ActorContext;
+use actor_core::actor_ref::ActorRef;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
