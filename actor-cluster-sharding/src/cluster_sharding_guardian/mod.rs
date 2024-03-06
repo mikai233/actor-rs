@@ -6,10 +6,10 @@ use tracing::trace;
 use actor_cluster::cluster::Cluster;
 use actor_cluster_tools::singleton::cluster_singleton_manager::ClusterSingletonManager;
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor_path::TActorPath;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRef;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;

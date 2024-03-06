@@ -5,8 +5,8 @@ use tracing::debug;
 use actor_derive::SystemCodec;
 
 use crate::{Actor, SystemMessage};
-use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
+use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 
 #[derive(Debug, Encode, Decode, SystemCodec)]
 pub struct PoisonPill;

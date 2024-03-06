@@ -5,9 +5,9 @@ use bincode::error::EncodeError;
 
 use crate::{Actor, CodecMessage, DynMessage, MessageType, SystemMessage};
 use crate::actor::context::ActorContext;
-use crate::actor::decoder::MessageDecoder;
 use crate::delegate::downcast_box_message;
 use crate::message::message_registration::MessageRegistration;
+use crate::message::MessageDecoder;
 
 pub struct SystemDelegate {
     pub(crate) name: &'static str,

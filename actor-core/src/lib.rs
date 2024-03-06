@@ -7,7 +7,6 @@ use bincode::{Decode, Encode};
 use bincode::error::EncodeError;
 use tracing::info;
 
-use actor::decoder::MessageDecoder;
 use actor_derive::MessageCodec;
 
 use crate::actor::context::{ActorContext, Context};
@@ -16,6 +15,7 @@ use crate::delegate::downcast_box_message;
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::UserDelegate;
 use crate::message::message_registration::MessageRegistration;
+use crate::message::MessageDecoder;
 
 pub(crate) const CORE_CONFIG_NAME: &'static str = "core.toml";
 pub(crate) const CORE_CONFIG: &'static str = include_str!("../core.toml");
@@ -32,6 +32,7 @@ pub mod pattern;
 pub mod error;
 pub mod actor_path;
 pub mod actor_ref;
+pub mod provider;
 
 #[async_trait]
 pub trait Actor: Send + Any {
@@ -272,10 +273,10 @@ mod actor_test {
     use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
     use crate::{Actor, DynMessage, EmptyTestActor, Message};
-    use crate::actor::actor_ref_factory::ActorRefFactory;
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::Props;
+    use crate::actor_ref::actor_ref_factory::ActorRefFactory;
     use crate::actor_ref::ActorRef;
     use crate::config::actor_setting::ActorSetting;
     use crate::ext::init_logger;

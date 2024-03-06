@@ -8,10 +8,10 @@ use tracing::debug;
 
 use actor_cluster::cluster::Cluster;
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::{Props, PropsBuilderSync};
 use actor_core::actor::scheduler::ScheduleKey;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRef;
 use actor_core::message::message_buffer::MessageBufferMap;
 

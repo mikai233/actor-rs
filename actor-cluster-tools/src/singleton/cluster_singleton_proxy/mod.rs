@@ -8,12 +8,12 @@ use actor_cluster::cluster::Cluster;
 use actor_cluster::member::Member;
 use actor_cluster::unique_address::UniqueAddress;
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context, ContextExt};
 use actor_core::actor::props::Props;
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::type_name_of;
 
 use crate::singleton::cluster_singleton_proxy::actor_identity_wrap::ActorIdentityWrap;

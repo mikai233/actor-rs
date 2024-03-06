@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 
-use crate::actor::fault_handing::ChildRestartStats;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::ActorRef;
@@ -18,7 +17,6 @@ impl ActorCell {
         let inner = Inner {
             parent,
             children: DashMap::with_hasher(ahash::RandomState::new()),
-            restart_stats: DashMap::with_hasher(ahash::RandomState::new()),
             function_refs: DashMap::with_hasher(ahash::RandomState::new()),
         };
         Self {
@@ -69,14 +67,9 @@ impl ActorCell {
         self.inner.function_refs.get(name).map(|v| v.value().clone())
     }
 
-    pub(crate) fn restart_stats(&self) -> &DashMap<ActorRef, ChildRestartStats, ahash::RandomState> {
-        &self.inner.restart_stats
-    }
-
     pub(crate) fn insert_child(&self, name: String, child: impl Into<ActorRef>) {
         let child = child.into();
         self.inner.children.insert(name, child.clone());
-        self.inner.restart_stats.insert(child, ChildRestartStats::default());
     }
 
     pub(crate) fn remove_child(&self, name: &String) -> Option<ActorRef> {
@@ -85,7 +78,6 @@ impl ActorCell {
                 None
             }
             Some((_, child)) => {
-                self.inner.restart_stats.remove(&child);
                 Some(child)
             }
         }
@@ -96,6 +88,5 @@ impl ActorCell {
 pub(crate) struct Inner {
     parent: Option<ActorRef>,
     children: DashMap<String, ActorRef, ahash::RandomState>,
-    restart_stats: DashMap<ActorRef, ChildRestartStats, ahash::RandomState>,
     function_refs: DashMap<String, FunctionRef, ahash::RandomState>,
 }

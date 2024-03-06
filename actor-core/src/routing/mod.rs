@@ -1,6 +1,6 @@
-use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::ActorContext;
 use crate::actor::props::PropsBuilder;
+use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::routing::routee::actor_ref_routee::ActorRefRoutee;
 
 pub mod router_config;

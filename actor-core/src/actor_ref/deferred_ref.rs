@@ -10,13 +10,13 @@ use tokio::time::error::Elapsed;
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_ref_factory::ActorRefFactory;
-use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::actor_selection::ActorSelection;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, get_child_default, TActorRef};
+use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::DynMessage;
+use crate::provider::ActorRefProvider;
 
 #[derive(Clone, AsAny)]
 pub struct DeferredActorRef {

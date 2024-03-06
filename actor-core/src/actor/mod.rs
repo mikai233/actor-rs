@@ -1,11 +1,6 @@
 pub use bincode;
 
-pub mod extension;
 pub(crate) mod mailbox;
-pub mod actor_ref_provider;
-pub mod actor_ref_factory;
-pub mod empty_actor_ref_provider;
-pub mod local_actor_ref_provider;
 pub mod context;
 pub(crate) mod state;
 pub mod root_guardian;
@@ -13,11 +8,11 @@ pub(crate) mod system_guardian;
 pub(crate) mod user_guardian;
 pub mod timers;
 pub mod actor_system;
-pub mod decoder;
 pub mod address;
 pub mod props;
 pub mod fault_handing;
 pub mod actor_selection;
-pub mod coordinated_shutdown;
 pub mod scheduler;
 pub mod dead_letter_listener;
+pub mod extension;
+pub mod coordinated_shutdown;

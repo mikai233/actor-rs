@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::{debug, warn};
 
-use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;

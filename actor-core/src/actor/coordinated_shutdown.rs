@@ -18,23 +18,23 @@ use tracing::{debug, error, info, warn};
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::extension::Extension;
+use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::ext::as_any::AsAny;
 
-pub const PHASE_BEFORE_SERVICE_UNBIND: &'static str = "before-service-unbind";
-pub const PHASE_SERVICE_UNBIND: &'static str = "service-unbind";
-pub const PHASE_SERVICE_REQUESTS_DONE: &'static str = "service-requests-done";
-pub const PHASE_SERVICE_STOP: &'static str = "service-stop";
-pub const PHASE_BEFORE_CLUSTER_SHUTDOWN: &'static str = "before-cluster-shutdown";
-pub const PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION: &'static str = "cluster-sharding-shutdown-region";
-pub const PHASE_CLUSTER_LEAVE: &'static str = "cluster-leave";
-pub const PHASE_CLUSTER_EXITING: &'static str = "cluster-exiting";
-pub const PHASE_CLUSTER_EXITING_DONE: &'static str = "cluster-exiting-done";
-pub const PHASE_CLUSTER_SHUTDOWN: &'static str = "cluster-shutdown";
-pub const PHASE_BEFORE_ACTOR_SYSTEM_TERMINATE: &'static str = "before-actor-system-terminate";
-pub const PHASE_ACTOR_SYSTEM_TERMINATE: &'static str = "actor-system-terminate";
+pub const PHASE_BEFORE_SERVICE_UNBIND: &str = "before-service-unbind";
+pub const PHASE_SERVICE_UNBIND: &str = "service-unbind";
+pub const PHASE_SERVICE_REQUESTS_DONE: &str = "service-requests-done";
+pub const PHASE_SERVICE_STOP: &str = "service-stop";
+pub const PHASE_BEFORE_CLUSTER_SHUTDOWN: &str = "before-cluster-shutdown";
+pub const PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION: &str = "cluster-sharding-shutdown-region";
+pub const PHASE_CLUSTER_LEAVE: &str = "cluster-leave";
+pub const PHASE_CLUSTER_EXITING: &str = "cluster-exiting";
+pub const PHASE_CLUSTER_EXITING_DONE: &str = "cluster-exiting-done";
+pub const PHASE_CLUSTER_SHUTDOWN: &str = "cluster-shutdown";
+pub const PHASE_BEFORE_ACTOR_SYSTEM_TERMINATE: &str = "before-actor-system-terminate";
+pub const PHASE_ACTOR_SYSTEM_TERMINATE: &str = "actor-system-terminate";
 
 #[derive(Debug, AsAny)]
 pub struct CoordinatedShutdown {

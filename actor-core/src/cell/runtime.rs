@@ -7,10 +7,10 @@ use tokio::task::yield_now;
 use tracing::error;
 
 use crate::{Actor, Message};
-use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::mailbox::Mailbox;
 use crate::actor::state::ActorState;
+use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::cell::envelope::Envelope;
 use crate::ext::type_name_of;
 

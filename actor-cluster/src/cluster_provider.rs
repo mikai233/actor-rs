@@ -6,7 +6,6 @@ use anyhow::Context;
 use etcd_client::Client;
 use tokio::sync::broadcast::Receiver;
 
-use actor_core::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
 use actor_core::actor::props::{DeferredSpawn, FuncDeferredSpawn, Props};
@@ -18,6 +17,7 @@ use actor_core::config::Config;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_registration::MessageRegistration;
+use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_derive::AsAny;
 use actor_remote::remote_provider::RemoteActorRefProvider;
 use actor_remote::remote_setting::RemoteSetting;

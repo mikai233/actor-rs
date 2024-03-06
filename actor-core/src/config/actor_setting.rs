@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use tokio::runtime::Handle;
 
-use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::local_actor_ref_provider::LocalActorRefProvider;
 use crate::actor::props::DeferredSpawn;
 use crate::config::core_config::CoreConfig;
+use crate::provider::ActorRefProvider;
+use crate::provider::local_actor_ref_provider::LocalActorRefProvider;
 
 #[derive(Clone)]
 pub struct ActorSetting {

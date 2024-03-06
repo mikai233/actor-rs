@@ -15,7 +15,6 @@ use tracing::error;
 
 use crate::{CodecMessage, DynMessage, OrphanMessage};
 use crate::actor::context::{ActorContext, Context};
-use crate::actor::decoder::MessageDecoder;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
@@ -24,6 +23,7 @@ use crate::cell::Cell;
 use crate::ext::{decode_bytes, encode_bytes};
 use crate::message::identify::{ActorIdentity, Identify};
 use crate::message::message_registration::{IDPacket, MessageRegistration};
+use crate::message::MessageDecoder;
 use crate::pattern::patterns::Patterns;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]

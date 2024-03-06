@@ -17,11 +17,8 @@ use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 
 use crate::{CORE_CONFIG, CORE_CONFIG_NAME};
-use crate::actor::actor_ref_factory::ActorRefFactory;
-use crate::actor::actor_ref_provider::ActorRefProvider;
 use crate::actor::address::Address;
 use crate::actor::coordinated_shutdown::{ActorSystemTerminateReason, CoordinatedShutdown};
-use crate::actor::empty_actor_ref_provider::EmptyActorRefProvider;
 use crate::actor::extension::{ActorExtension, Extension};
 use crate::actor::props::Props;
 use crate::actor::scheduler::{scheduler, SchedulerSender};
@@ -30,6 +27,7 @@ use crate::actor::user_guardian::UserGuardian;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
+use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::config::{ActorConfig, Config};
 use crate::config::actor_setting::ActorSetting;
@@ -38,6 +36,8 @@ use crate::event::event_stream::EventStream;
 use crate::ext::maybe_ref::MaybeRef;
 use crate::ext::type_name_of;
 use crate::message::stop_child::StopChild;
+use crate::provider::ActorRefProvider;
+use crate::provider::empty_actor_ref_provider::EmptyActorRefProvider;
 
 #[derive(Debug, Clone)]
 pub struct ActorSystem {

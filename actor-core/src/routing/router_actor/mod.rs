@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 
 use crate::{Actor, DynMessage};
-use crate::actor::actor_ref_factory::ActorRefFactory;
 use crate::actor::context::ActorContext;
 use crate::actor::fault_handing::SupervisorStrategy;
+use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::routing::routee::Routee;
 use crate::routing::router_config::pool::Pool;
 use crate::routing::router_config::RouterConfig;

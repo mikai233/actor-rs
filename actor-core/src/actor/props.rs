@@ -13,7 +13,6 @@ use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
 use crate::ext::type_name_of;
 
-// TODO Props需要重构为FnOnce和Fn两种类型的Spawner，有的Actor只会创建一次，有些参数不支持Clone，使用不方便
 type ActorSpawner = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem, Option<Handle>) -> anyhow::Result<()> + Send>;
 
 pub struct Props {

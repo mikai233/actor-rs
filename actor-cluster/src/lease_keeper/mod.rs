@@ -3,10 +3,10 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::actor_ref_factory::ActorRefFactory;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
 

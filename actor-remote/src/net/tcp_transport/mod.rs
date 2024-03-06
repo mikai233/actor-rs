@@ -13,15 +13,15 @@ use tokio_util::codec::Framed;
 use tracing::{info, warn};
 
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::actor_ref_factory::ActorRefFactory;
-use actor_core::actor::actor_ref_provider::ActorRefProvider;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::coordinated_shutdown::{ActorSystemStartFailedReason, CoordinatedShutdown};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::decode_bytes;
 use actor_core::message::message_buffer::MessageBufferMap;
 use actor_core::message::message_registration::MessageRegistration;
+use actor_core::provider::ActorRefProvider;
 
 use crate::config::transport::TcpTransport;
 use crate::net::codec::PacketCodec;
@@ -187,10 +187,10 @@ mod test {
     use tracing::info;
 
     use actor_core::{Actor, EmptyTestActor, Message};
-    use actor_core::actor::actor_ref_factory::ActorRefFactory;
     use actor_core::actor::actor_system::ActorSystem;
     use actor_core::actor::context::{ActorContext, Context};
     use actor_core::actor::props::Props;
+    use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
     use actor_core::actor_ref::ActorRefExt;
     use actor_core::config::actor_setting::ActorSetting;
     use actor_core::pattern::patterns::Patterns;

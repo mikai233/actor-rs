@@ -6,7 +6,6 @@ use tokio::sync::broadcast::{channel, Receiver, Sender};
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_ref_provider::{ActorRefProvider, TActorRefProvider};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::address::Address;
 use crate::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
@@ -23,6 +22,7 @@ use crate::cell::actor_cell::ActorCell;
 use crate::ext::base64;
 use crate::ext::option_ext::OptionExt;
 use crate::message::message_registration::MessageRegistration;
+use crate::provider::{ActorRefProvider, TActorRefProvider};
 
 #[derive(Debug, AsAny)]
 pub struct LocalActorRefProvider {

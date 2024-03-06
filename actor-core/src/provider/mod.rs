@@ -16,6 +16,9 @@ use crate::ext::as_any::AsAny;
 use crate::ext::type_name_of;
 use crate::message::message_registration::MessageRegistration;
 
+pub mod local_actor_ref_provider;
+pub mod empty_actor_ref_provider;
+
 pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
     fn root_guardian(&self) -> &LocalActorRef;
 

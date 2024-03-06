@@ -14,7 +14,7 @@ pub fn expand(
     let message_ty = ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     let codec_trait = with_crate(parse_str("CodecMessage").unwrap());
-    let decoder_trait = with_crate(parse_str("actor::decoder::MessageDecoder").unwrap());
+    let decoder_trait = with_crate(parse_str("message::MessageDecoder").unwrap());
     let ext_path = with_crate(parse_str("ext").unwrap());
     let dy_message = with_crate(parse_str("DynMessage").unwrap());
     let reg = with_crate(parse_str("message::message_registration::MessageRegistration").unwrap());
@@ -77,7 +77,7 @@ pub(crate) fn expand_decoder(
     dy_message: &TokenStream,
     reg: &TokenStream,
 ) -> TokenStream {
-    let decoder_trait = with_crate(parse_str("actor::decoder::MessageDecoder").unwrap());
+    let decoder_trait = with_crate(parse_str("message::MessageDecoder").unwrap());
     match codec_type {
         CodecType::NoneSerde => {
             quote!(None)
