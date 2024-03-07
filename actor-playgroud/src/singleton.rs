@@ -91,7 +91,7 @@ async fn main() -> anyhow::Result<()> {
                 .build(system.clone())
         })
         .build();
-    let system = ActorSystem::create(args.system_name, setting)?;
+    let system = ActorSystem::new(args.system_name, setting)?;
     if args.proxy {
         let path = format!("/user/{}", args.name);
         let settings = ClusterSingletonProxySettings::builder()

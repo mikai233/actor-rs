@@ -69,7 +69,7 @@ impl Deref for ActorSystem {
 }
 
 impl ActorSystem {
-    pub fn create(name: impl Into<String>, setting: ActorSetting) -> anyhow::Result<ActorSystemRunner> {
+    pub fn new(name: impl Into<String>, setting: ActorSetting) -> anyhow::Result<ActorSystemRunner> {
         let ActorSetting { provider_fn, config, handle } = setting;
         let default_config: CoreConfig = toml::from_str(CORE_CONFIG).context(format!("failed to load {}", CORE_CONFIG_NAME))?;
         let core_config = config.with_fallback(default_config);

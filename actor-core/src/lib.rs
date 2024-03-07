@@ -314,7 +314,7 @@ mod actor_test {
             }
         }
 
-        let system = ActorSystem::create("mikai233", ActorSetting::default())?;
+        let system = ActorSystem::new("mikai233", ActorSetting::default())?;
         let actor = system.spawn_anonymous(Props::new_with_ctx(|_| Ok(DeathWatchActor { depth: 3 })))?;
         tokio::time::sleep(Duration::from_secs(1)).await;
         system.stop(&actor);
@@ -456,7 +456,7 @@ mod actor_test {
                 Ok(())
             }
         }
-        let system = ActorSystem::create("mikai233", ActorSetting::default())?;
+        let system = ActorSystem::new("mikai233", ActorSetting::default())?;
         system.spawn_anonymous(Props::new_with_ctx(|_| Ok(AdapterActor)))?;
         tokio::time::sleep(Duration::from_secs(1)).await;
         system.terminate().await;

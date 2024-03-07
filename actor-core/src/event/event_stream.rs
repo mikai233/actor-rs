@@ -122,7 +122,7 @@ mod event_tests {
 
     #[tokio::test]
     async fn test_event_stream() -> anyhow::Result<()> {
-        let system = ActorSystem::create("mikai233", ActorSetting::default())?;
+        let system = ActorSystem::new("mikai233", ActorSetting::default())?;
         let props_builder = PropsBuilder::new::<EmptyTestActor, _>(|()| {
             Props::new(|| Ok(EmptyTestActor))
         });

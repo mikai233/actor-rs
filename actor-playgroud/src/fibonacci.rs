@@ -73,7 +73,7 @@ impl Message for Fib {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     init_logger_with_filter("actor=info");
-    let system = ActorSystem::create("mikai233", ActorSetting::default())?;
+    let system = ActorSystem::new("mikai233", ActorSetting::default())?;
     system.spawn_anonymous(Props::new_with_ctx(|ctx| { FibActor::new(ctx) }))?;
     tokio::signal::ctrl_c().await?;
     Ok(())

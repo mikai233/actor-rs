@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
                 .build(system.clone())
         })
         .build();
-    let system = ActorSystem::create(args.system_name, setting)?;
+    let system = ActorSystem::new(args.system_name, setting)?;
     system.await?;
     Ok(())
 }

@@ -50,7 +50,7 @@ impl Message for NormalMessage {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     init_logger(Level::DEBUG);
-    let system = ActorSystem::create("mikai233", ActorSetting::default())?;
+    let system = ActorSystem::new("mikai233", ActorSetting::default())?;
     let test_actor = system.spawn_anonymous(Props::new_with_ctx(|_| Ok(TestActor)))?;
     test_actor.cast_ns(ErrorMessage);
     test_actor.cast_ns(NormalMessage);

@@ -450,7 +450,7 @@ mod test {
 
     #[tokio::test]
     async fn test_breaker() -> anyhow::Result<()> {
-        let system = ActorSystem::create("mikai233", ActorSetting::default())?;
+        let system = ActorSystem::new("mikai233", ActorSetting::default())?;
         let actor = system.spawn_anonymous(Props::new_with_ctx(|ctx| {
             let breaker = LogicActor::new_breaker(ctx)?;
             Ok(LogicActor {

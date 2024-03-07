@@ -273,9 +273,9 @@ mod test {
 
     #[tokio::test]
     async fn test() -> anyhow::Result<()> {
-        let system_a = ActorSystem::create("game", build_setting("127.0.0.1:12121".parse()?))?;
+        let system_a = ActorSystem::new("game", build_setting("127.0.0.1:12121".parse()?))?;
         let actor_a = system_a.spawn(Props::new(|| { Ok(PingPongActor) }), "actor_a")?;
-        let system_b = ActorSystem::create("game", build_setting("127.0.0.1:12122".parse()?))?;
+        let system_b = ActorSystem::new("game", build_setting("127.0.0.1:12122".parse()?))?;
         let _ = system_b.spawn(Props::new(|| Ok(PingPongActor)), "actor_b")?;
         loop {
             actor_a.cast(PingTo { to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string() }, None);
@@ -305,8 +305,8 @@ mod test {
 
     #[tokio::test]
     async fn test_remote_ask() -> anyhow::Result<()> {
-        let system1 = ActorSystem::create("mikai233", build_setting("127.0.0.1:12121".parse()?))?;
-        let system2 = ActorSystem::create("mikai233", build_setting("127.0.0.1:12123".parse()?))?;
+        let system1 = ActorSystem::new("mikai233", build_setting("127.0.0.1:12121".parse()?))?;
+        let system2 = ActorSystem::new("mikai233", build_setting("127.0.0.1:12123".parse()?))?;
         let actor_a = system1.spawn_anonymous(Props::new(|| Ok(EmptyTestActor)))?;
         let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
         let _: MessageToAns = Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;

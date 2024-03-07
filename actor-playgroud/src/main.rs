@@ -80,8 +80,8 @@ fn build_setting(addr: SocketAddrV4, client: Client) -> ActorSetting {
 async fn main() -> anyhow::Result<()> {
     init_logger_with_filter("actor=trace");
     let client = Client::connect(["localhost:2379"], None).await?;
-    let system1 = ActorSystem::create("mikai233", build_setting("127.0.0.1:12121".parse()?, client.clone()))?;
-    let system2 = ActorSystem::create("mikai233", build_setting("127.0.0.1:12123".parse()?, client.clone()))?;
+    let system1 = ActorSystem::new("mikai233", build_setting("127.0.0.1:12121".parse()?, client.clone()))?;
+    let system2 = ActorSystem::new("mikai233", build_setting("127.0.0.1:12123".parse()?, client.clone()))?;
     // tokio::spawn(async move {
     //     tokio::time::sleep(Duration::from_secs(10)).await;
     //     system2.terminate().await;

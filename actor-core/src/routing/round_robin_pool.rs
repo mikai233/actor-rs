@@ -101,7 +101,7 @@ mod test {
 
     #[tokio::test]
     async fn test_round_robin() -> anyhow::Result<()> {
-        let system = ActorSystem::create("mikai233", ActorSetting::default())?;
+        let system = ActorSystem::new("mikai233", ActorSetting::default())?;
         let router_props = RoundRobinPool::new(
             5,
             PropsBuilder::new::<TestActor, _>(|()| { Props::new(|| { Ok(TestActor) }) }),
