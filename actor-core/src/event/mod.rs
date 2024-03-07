@@ -1,4 +1,5 @@
 pub mod event_stream;
+mod actor_subscriber;
 
 pub trait EventBus {
     type Event;

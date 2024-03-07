@@ -21,8 +21,8 @@ impl Message for AddOnMemberUpListener {
     type A = ClusterDaemon;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-        let listener = context.spawn_anonymous(Props::new_with_ctx(|context| {
-            Ok(OnMemberStatusChangedListener::new(context, MemberStatus::Up))
+        let listener = context.spawn_anonymous(Props::new(|| {
+            Ok(OnMemberStatusChangedListener::new(MemberStatus::Up))
         }))?;
         listener.cast_ns(AddStatusCallback(self.0));
         trace!("{} add callback on member up", context.myself());

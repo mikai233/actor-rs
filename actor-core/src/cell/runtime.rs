@@ -26,7 +26,7 @@ impl<A> ActorRuntime<A> where A: Actor {
         context.stash_capacity = mailbox.stash_capacity;
         let actor_name = std::any::type_name::<A>();
         if let Err(err) = actor.started(&mut context).await {
-            error!("actor {} pre start error {:?}", actor_name, err);
+            error!("actor {} start error {:#?}", actor_name, err);
             context.stop(&context.myself());
             while let Some(message) = mailbox.system.recv().await {
                 Self::handle_system(&mut context, &mut actor, message).await;

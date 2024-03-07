@@ -64,10 +64,10 @@ mod test {
     use actor_derive::EmptyCodec;
 
     use crate::{Actor, Message};
-    use crate::actor::actor_ref_factory::ActorRefFactory;
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::{Props, PropsBuilder};
+    use crate::actor_ref::actor_ref_factory::ActorRefFactory;
     use crate::actor_ref::ActorRefExt;
     use crate::config::actor_setting::ActorSetting;
     use crate::routing::round_robin_pool::RoundRobinPool;

@@ -4,11 +4,12 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tracing::trace;
 
-use actor_core::{Actor, DynMessage};
+use actor_core::Actor;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::scheduler::ScheduleKey;
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::ActorRefExt;
+use actor_core::ext::message_ext::UserMessageExt;
 
 use crate::cluster::Cluster;
 use crate::heartbeat::cluster_heartbeat_sender::heartbeat_sender_cluster_event::HeartbeatSenderClusterEvent;
@@ -24,7 +25,6 @@ pub(crate) mod heartbeat_rsp;
 pub(crate) struct ClusterHeartbeatSender {
     self_member: Option<Member>,
     active_receivers: HashSet<UniqueAddress>,
-    event_adapter: ActorRef,
     key: Option<ScheduleKey>,
 }
 
@@ -32,11 +32,16 @@ pub(crate) struct ClusterHeartbeatSender {
 impl Actor for ClusterHeartbeatSender {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         trace!("{} started", context.myself());
-        Cluster::get(context.system()).subscribe_cluster_event(self.event_adapter.clone());
+        Cluster::get(context.system()).subscribe_cluster_event(
+            context.myself().clone(),
+            |event| { HeartbeatSenderClusterEvent(event).into_dyn() },
+        );
         let myself = context.myself().clone();
-        let key = context.system().scheduler().schedule_with_fixed_delay(None, Duration::from_secs(5), move || {
-            myself.cast_ns(HeartbeatTick);
-        });
+        let key = context.system().scheduler().schedule_with_fixed_delay(
+            None,
+            Duration::from_secs(5),
+            move || { myself.cast_ns(HeartbeatTick); },
+        );
         self.key = Some(key);
         Ok(())
     }
@@ -46,17 +51,15 @@ impl Actor for ClusterHeartbeatSender {
         if let Some(key) = self.key.take() {
             key.cancel();
         }
-        Cluster::get(context.system()).unsubscribe_cluster_event(&self.event_adapter);
+        Cluster::get(context.system()).unsubscribe_cluster_event(context.myself());
         Ok(())
     }
 }
 
 impl ClusterHeartbeatSender {
-    pub(crate) fn new(context: &mut ActorContext) -> Self {
-        let event_adapter = context.message_adapter(|m| DynMessage::user(HeartbeatSenderClusterEvent(m)));
+    pub(crate) fn new() -> Self {
         Self {
             active_receivers: Default::default(),
-            event_adapter,
             self_member: None,
             key: None,
         }

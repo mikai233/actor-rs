@@ -13,9 +13,7 @@ use actor_core::actor::props::Props;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::DynMessage;
-use actor_core::event::EventBus;
 use actor_core::ext::etcd_client::EtcdClient;
-use actor_core::ext::type_name_of;
 use actor_core::provider::{downcast_provider, TActorRefProvider};
 use actor_derive::AsAny;
 
@@ -97,15 +95,19 @@ impl Cluster {
         system.get_extension::<Self>().expect("Cluster extension not found")
     }
 
-    pub fn subscribe_cluster_event(&self, subscriber: ActorRef) {
+    pub fn subscribe_cluster_event<T>(&self, subscriber: ActorRef, transform: T)
+        where
+            T: Fn(ClusterEvent) -> DynMessage + Send + Sync + 'static,
+    {
         let members = self.members().clone();
         let self_member = self.self_member().clone();
-        subscriber.tell(DynMessage::orphan(ClusterEvent::current_cluster_state(members, self_member)), ActorRef::no_sender());
-        self.system.event_stream().subscribe(subscriber, type_name_of::<ClusterEvent>());
+        let state = transform(ClusterEvent::current_cluster_state(members, self_member));
+        subscriber.tell(state, ActorRef::no_sender());
+        self.system.event_stream().subscribe(subscriber, transform);
     }
 
     pub fn unsubscribe_cluster_event(&self, subscriber: &ActorRef) {
-        self.system.event_stream().unsubscribe(subscriber, type_name_of::<ClusterEvent>());
+        self.system.event_stream().unsubscribe::<ClusterEvent>(subscriber);
     }
 
     pub fn leave(&self, address: Address) {

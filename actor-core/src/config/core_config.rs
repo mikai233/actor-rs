@@ -19,7 +19,7 @@ pub struct CoreConfig {
 impl Config for CoreConfig {
     fn with_fallback(&self, other: Self) -> Self {
         let mut self_phases = self.phases.clone();
-        let CoreConfig { mut mailbox, mut phases } = other;
+        let CoreConfig { mut mailbox, phases } = other;
         mailbox.extend(self.mailbox.clone());
         for (key, phase) in phases {
             match self_phases.entry(key) {

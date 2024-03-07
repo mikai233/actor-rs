@@ -13,8 +13,8 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::event::EventBus;
 use actor_core::ext::etcd_client::EtcdClient;
+use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::ext::option_ext::OptionExt;
 
 use crate::cluster::Cluster;
@@ -55,14 +55,14 @@ impl Actor for ClusterDaemon {
         let cluster = Cluster::get(context.system()).clone();
         self.cluster = Some(cluster);
         context.spawn(
-            Props::new_with_ctx(|context| Ok(ClusterHeartbeatSender::new(context))),
+            Props::new(|| Ok(ClusterHeartbeatSender::new())),
             ClusterHeartbeatSender::name(),
         )?;
         context.spawn(
-            Props::new_with_ctx(|context| Ok(ClusterHeartbeatReceiver::new(context))),
+            Props::new(|| Ok(ClusterHeartbeatReceiver::new())),
             ClusterHeartbeatReceiver::name(),
         )?;
-        let watcher_adapter = context.message_adapter(|m| DynMessage::user(WatchRespWrap(m)));
+        let watcher_adapter = context.adapter(|m| DynMessage::user(WatchRespWrap(m)));
         self.spawn_member_watcher(context, watcher_adapter)?;
         self.get_all_members(context).await?;
         let lease_id = self.spawn_lease_keeper(context).await?;
@@ -104,7 +104,7 @@ impl ClusterDaemon {
         let resp = self.client.lease_grant(60, None).await?;
         let lease_id = resp.id();
         let client = self.client.clone();
-        let receiver = context.message_adapter::<LeaseKeepAliveFailed>(|_| DynMessage::user(LeaseFailed));
+        let receiver = context.adapter::<LeaseKeepAliveFailed>(|_| LeaseFailed.into_dyn());
         context.spawn(
             Props::new_with_ctx(move |_| { Ok(EtcdLeaseKeeper::new(client.clone(), resp.id(), receiver.clone(), Duration::from_secs(3))) }),
             "lease_keeper",
@@ -200,17 +200,17 @@ impl ClusterDaemon {
         match member.status {
             MemberStatus::Up => {
                 if Self::update_member(member.clone(), cluster.members_write()) {
-                    stream.publish(DynMessage::orphan(ClusterEvent::member_up(member)))?;
+                    stream.publish(ClusterEvent::member_up(member))?;
                 }
             }
             MemberStatus::PrepareForLeaving => {
                 if Self::update_member(member.clone(), cluster.members_write()) {
-                    stream.publish(DynMessage::orphan(ClusterEvent::member_prepare_for_leaving(member)))?;
+                    stream.publish(ClusterEvent::member_prepare_for_leaving(member))?;
                 }
             }
             MemberStatus::Leaving => {
                 if Self::update_member(member.clone(), cluster.members_write()) {
-                    stream.publish(DynMessage::orphan(ClusterEvent::member_leaving(member)))?;
+                    stream.publish(ClusterEvent::member_leaving(member))?;
                 }
             }
             MemberStatus::Removed => {
@@ -218,11 +218,11 @@ impl ClusterDaemon {
                     if member.addr == self.self_addr {
                         context.myself().cast_ns(SelfRemoved);
                     }
-                    stream.publish(DynMessage::orphan(ClusterEvent::member_removed(member)))?;
+                    stream.publish(ClusterEvent::member_removed(member))?;
                 }
             }
             MemberStatus::Down => {
-                stream.publish(DynMessage::orphan(ClusterEvent::member_downed(member)))?;
+                stream.publish(ClusterEvent::member_downed(member))?;
             }
         }
         Ok(())

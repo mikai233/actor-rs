@@ -1,11 +1,10 @@
 use async_trait::async_trait;
 use etcd_client::{EventType, WatchResponse};
 
-use actor_core::{DynMessage, Message};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
-use actor_core::event::EventBus;
+use actor_core::Message;
 use actor_derive::EmptyCodec;
 
 use crate::cluster_daemon::ClusterDaemon;
@@ -49,12 +48,12 @@ impl WatchRespWrap {
                                 if addr == actor.self_addr {
                                     context.myself().cast_ns(SelfRemoved);
                                 }
-                                stream.publish(DynMessage::orphan(ClusterEvent::member_removed(member.clone())))?;
+                                stream.publish(ClusterEvent::member_removed(member.clone()))?;
                                 member.status = MemberStatus::Down;
                                 if addr == actor.self_addr {
                                     context.myself().cast_ns(SelfDown);
                                 }
-                                stream.publish(DynMessage::orphan(ClusterEvent::member_downed(member)))?;
+                                stream.publish(ClusterEvent::member_downed(member))?;
                             }
                         }
                     }

@@ -449,7 +449,7 @@ mod actor_test {
         #[async_trait]
         impl Actor for AdapterActor {
             async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-                let adapter = context.message_adapter::<TestOrphanMessage>(|_| {
+                let adapter = context.adapter::<TestOrphanMessage>(|_| {
                     DynMessage::user(TestMessage)
                 });
                 adapter.tell(DynMessage::orphan(TestOrphanMessage), ActorRef::no_sender());

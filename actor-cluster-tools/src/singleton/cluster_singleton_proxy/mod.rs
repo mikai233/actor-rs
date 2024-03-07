@@ -14,6 +14,7 @@ use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::ext::type_name_of;
 
 use crate::singleton::cluster_singleton_proxy::actor_identity_wrap::ActorIdentityWrap;
@@ -40,14 +41,12 @@ pub struct ClusterSingletonProxy {
     buffer: VecDeque<(DynMessage, Option<ActorRef>)>,
     identify_timer: Option<ScheduleKey>,
     cluster: Cluster,
-    cluster_adapter: ActorRef,
     identify_adapter: ActorRef,
 }
 
 impl ClusterSingletonProxy {
     fn new(context: &mut ActorContext, singleton_mgr_path: String, settings: ClusterSingletonProxySettings) -> Self {
-        let cluster_adapter = context.message_adapter(|m| DynMessage::user(ClusterEventWrap(m)));
-        let identify_adapter = context.message_adapter(|m| DynMessage::user(ActorIdentityWrap(m)));
+        let identify_adapter = context.adapter(|m| DynMessage::user(ActorIdentityWrap(m)));
         let cluster = Cluster::get(context.system()).clone();
         Self {
             singleton_mgr_path,
@@ -57,7 +56,6 @@ impl ClusterSingletonProxy {
             buffer: Default::default(),
             identify_timer: None,
             cluster,
-            cluster_adapter,
             identify_adapter,
         }
     }
@@ -144,7 +142,10 @@ impl ClusterSingletonProxy {
 #[async_trait]
 impl Actor for ClusterSingletonProxy {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        self.cluster.subscribe_cluster_event(self.cluster_adapter.clone());
+        self.cluster.subscribe_cluster_event(
+            context.myself().clone(),
+            |event| { ClusterEventWrap(event).into_dyn() },
+        );
         self.identify_singleton(context);
         Ok(())
     }
@@ -152,7 +153,7 @@ impl Actor for ClusterSingletonProxy {
 
     async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         self.cancel_timer();
-        self.cluster.unsubscribe_cluster_event(&self.cluster_adapter);
+        self.cluster.unsubscribe_cluster_event(context.myself());
         if let Some(singleton) = &self.singleton {
             context.unwatch(singleton);
         }

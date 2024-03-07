@@ -13,6 +13,7 @@ use actor_core::actor::props::{Props, PropsBuilderSync};
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRef;
+use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::message::message_buffer::MessageBufferMap;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
@@ -49,7 +50,6 @@ pub struct Shard {
     handoff_stopper: Option<ActorRef>,
     passivate_interval_task: Option<ScheduleKey>,
     preparing_for_shutdown: bool,
-    cluster_adapter: ActorRef,
 }
 
 impl Shard {
@@ -61,8 +61,7 @@ impl Shard {
         extractor: Box<dyn MessageExtractor>,
         handoff_stop_message: DynMessage,
     ) -> Props {
-        Props::new_with_ctx(move |context| {
-            let cluster_adapter = context.message_adapter(|m| DynMessage::user(ClusterEventWrap(m)));
+        Props::new(move || {
             let shard = Self {
                 type_name,
                 shard_id,
@@ -75,7 +74,6 @@ impl Shard {
                 handoff_stopper: None,
                 passivate_interval_task: None,
                 preparing_for_shutdown: false,
-                cluster_adapter,
             };
             Ok(shard)
         })
@@ -178,12 +176,15 @@ impl Shard {
 #[async_trait]
 impl Actor for Shard {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        Cluster::get(context.system()).subscribe_cluster_event(self.cluster_adapter.clone());
+        Cluster::get(context.system()).subscribe_cluster_event(
+            context.myself().clone(),
+            |event| { ClusterEventWrap(event).into_dyn() },
+        );
         Ok(())
     }
 
     async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        Cluster::get(context.system()).unsubscribe_cluster_event(&self.cluster_adapter);
+        Cluster::get(context.system()).unsubscribe_cluster_event(context.myself());
         if let Some(key) = self.passivate_interval_task.take() {
             key.cancel();
         }

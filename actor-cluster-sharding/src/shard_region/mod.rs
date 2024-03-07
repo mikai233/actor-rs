@@ -18,6 +18,7 @@ use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::message::message_buffer::{BufferEnvelope, MessageBufferMap};
 use actor_core::message::poison_pill::PoisonPill;
 
@@ -65,7 +66,6 @@ pub struct ShardRegion {
     init_registration_delay: Duration,
     next_registration_delay: Duration,
     cluster: Cluster,
-    cluster_event_adapter: ActorRef,
     register_retry_key: Option<ScheduleKey>,
     members: HashMap<UniqueAddress, Member>,
     coordinator: Option<ActorRef>,
@@ -102,7 +102,6 @@ impl ShardRegion {
             init_registration_delay: Duration::from_secs(1),
             next_registration_delay: Duration::from_secs(1),
             cluster,
-            cluster_event_adapter: context.message_adapter(|m| { DynMessage::user(ClusterEventWrap(m)) }),
             register_retry_key: None,
             members: Default::default(),
             coordinator: None,
@@ -352,7 +351,10 @@ impl ShardRegion {
 #[async_trait]
 impl Actor for ShardRegion {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        self.cluster.subscribe_cluster_event(self.cluster_event_adapter.clone());
+        self.cluster.subscribe_cluster_event(
+            context.myself().clone(),
+            |event| { ClusterEventWrap(event).into_dyn() },
+        );
         self.timers.start_timer_with_fixed_delay(
             None,
             self.settings.retry_interval,
@@ -364,7 +366,7 @@ impl Actor for ShardRegion {
     }
 
     async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        self.cluster.unsubscribe_cluster_event(&self.cluster_event_adapter);
+        self.cluster.unsubscribe_cluster_event(context.myself());
         Ok(())
     }
 }

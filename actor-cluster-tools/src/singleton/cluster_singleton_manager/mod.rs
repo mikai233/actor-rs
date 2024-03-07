@@ -110,7 +110,7 @@ impl ClusterSingletonManager {
         let resp = self.client.lease_grant(30, None).await?;
         let lease_id = resp.id();
         let client = self.client.clone();
-        let receiver = context.message_adapter::<LeaseKeepAliveFailed>(|_| DynMessage::user(LeaseFailed));
+        let receiver = context.adapter::<LeaseKeepAliveFailed>(|_| DynMessage::user(LeaseFailed));
         context.spawn(
             Props::new(move || {
                 let keeper = EtcdLeaseKeeper::new(

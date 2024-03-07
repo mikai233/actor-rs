@@ -9,7 +9,7 @@ use tokio::runtime::Handle;
 use tokio::task::{AbortHandle, JoinHandle};
 use tracing::{debug, error, warn};
 
-use crate::{Actor, DynMessage, Message, MessageType, OrphanMessage};
+use crate::{Actor, CodecMessage, DynMessage, Message};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::props::Props;
 use crate::actor::state::ActorState;
@@ -21,8 +21,8 @@ use crate::actor_ref::function_ref::{FunctionRef, Inner};
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::cell::Cell;
 use crate::cell::envelope::Envelope;
+use crate::ext::{random_name, type_name_of};
 use crate::ext::option_ext::OptionExt;
-use crate::ext::random_name;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::execute::Execute;
 use crate::message::failed::Failed;
@@ -49,7 +49,10 @@ pub trait Context: ActorRefFactory {
 
     fn is_watching(&self, subject: &ActorRef) -> bool;
 
-    fn message_adapter<M>(&mut self, f: impl Fn(M) -> DynMessage + Send + Sync + 'static) -> ActorRef where M: OrphanMessage;
+    fn adapter<T>(&mut self, func: impl Fn(T) -> DynMessage + Send + Sync + 'static) -> ActorRef
+        where
+            T: CodecMessage,
+    ;
 }
 
 impl<T: ?Sized> ContextExt for T where T: Context {}
@@ -187,19 +190,21 @@ impl Context for ActorContext {
         self.watching.contains_key(subject)
     }
 
-    fn message_adapter<M>(&mut self, f: impl Fn(M) -> DynMessage + Send + Sync + 'static) -> ActorRef where M: OrphanMessage {
+    fn adapter<T>(&mut self, func: impl Fn(T) -> DynMessage + Send + Sync + 'static) -> ActorRef
+        where
+            T: CodecMessage,
+    {
         let myself = self.myself.clone();
         self.add_function_ref(move |message, sender| {
-            let DynMessage { name, ty: message_type, message: boxed } = message;
-            let downcast_name = std::any::type_name::<M>();
-            if matches!(message_type, MessageType::Orphan) {
-                match boxed.into_any().downcast::<M>() {
-                    Ok(message) => {
-                        myself.tell(f(*message), sender);
-                    }
-                    Err(_) => {
-                        error!("message {} cannot downcast to {}", name, downcast_name);
-                    }
+            let name = message.name();
+            let message = message.into_inner();
+            let adapter_name = type_name_of::<T>();
+            match message.into_any().downcast::<T>() {
+                Ok(message) => {
+                    myself.tell(func(*message), sender);
+                }
+                Err(_) => {
+                    error!("message {} cannot downcast to {}", name, adapter_name);
                 }
             }
         }, None).into()
@@ -339,7 +344,7 @@ impl ActorContext {
         }
     }
 
-    pub(crate) fn add_function_ref<F>(&self, f: F, name: Option<String>) -> FunctionRef
+    pub(crate) fn add_function_ref<F>(&self, func: F, name: Option<String>) -> FunctionRef
         where
             F: Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static
     {
@@ -352,7 +357,7 @@ impl ActorContext {
         let inner = Inner {
             system: self.system.clone(),
             path: child_path.into(),
-            message_handler: Arc::new(Box::new(f)),
+            message_handler: Arc::new(Box::new(func)),
         };
         let function_ref = FunctionRef {
             inner: inner.into(),

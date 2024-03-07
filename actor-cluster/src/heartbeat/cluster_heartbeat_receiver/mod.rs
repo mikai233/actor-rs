@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 use tracing::trace;
 
-use actor_core::{Actor, DynMessage};
+use actor_core::Actor;
 use actor_core::actor::address::Address;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_path::{ActorPath, TActorPath};
 use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::actor_ref::ActorRef;
+use actor_core::ext::message_ext::UserMessageExt;
 
 use crate::cluster::Cluster;
 use crate::heartbeat::cluster_heartbeat_receiver::heartbeat_receiver_cluster_event::HeartbeatReceiverClusterEvent;
@@ -19,24 +19,24 @@ mod heartbeat_receiver_cluster_event;
 #[derive(Debug)]
 pub(crate) struct ClusterHeartbeatReceiver {
     self_member: Option<Member>,
-    event_adapter: ActorRef,
 }
 
 #[async_trait]
 impl Actor for ClusterHeartbeatReceiver {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         trace!("started {}", context.myself());
-        Cluster::get(context.system()).subscribe_cluster_event(self.event_adapter.clone());
+        Cluster::get(context.system()).subscribe_cluster_event(
+            context.myself().clone(),
+            |event| { HeartbeatReceiverClusterEvent(event).into_dyn() },
+        );
         Ok(())
     }
 }
 
 impl ClusterHeartbeatReceiver {
-    pub(crate) fn new(context: &mut ActorContext) -> Self {
-        let event_adapter = context.message_adapter(|m| DynMessage::user(HeartbeatReceiverClusterEvent(m)));
+    pub(crate) fn new() -> Self {
         Self {
             self_member: None,
-            event_adapter,
         }
     }
 

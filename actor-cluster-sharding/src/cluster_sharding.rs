@@ -115,15 +115,16 @@ impl ClusterSharding {
             }
         } else {
             debug!("starting shard region proxy [{}] (no actors will be hosted on this node)...", type_name);
+            let role = settings.role.clone();
             if settings.should_host_coordinator(&self.cluster) {
                 let start_coordinator_msg = StartCoordinatorIfNeeded {
-                    type_name,
+                    type_name: type_name.clone(),
                     settings,
                     allocation_strategy: Box::new(allocation_strategy),
                 };
                 self.guardian.cast_ns(start_coordinator_msg);
             }
-            todo!()
+            self.start_proxy(type_name, role, extractor).await
         }
     }
 
