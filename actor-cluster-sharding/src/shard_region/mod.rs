@@ -346,6 +346,18 @@ impl ShardRegion {
             }
         }
     }
+
+    fn try_request_shard_buffer_homes(&self) {
+        todo!()
+    }
+
+    fn send_graceful_shutdown_to_coordinator_if_in_progress(&self) {
+        todo!()
+    }
+
+    fn try_complete_graceful_shutdown_if_in_progress(&self, context: &mut ActorContext) {
+        todo!()
+    }
 }
 
 #[async_trait]

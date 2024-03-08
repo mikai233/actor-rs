@@ -14,6 +14,10 @@ impl Message for RegisterRetry {
     type A = ShardRegion;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        todo!()
+        if actor.coordinator.is_none() {
+            actor.register(context)?;
+            actor.scheduler_next_registration(context);
+        }
+        Ok(())
     }
 }

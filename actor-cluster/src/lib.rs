@@ -15,3 +15,4 @@ pub mod lease_keeper;
 pub mod config;
 mod on_member_status_changed_listener;
 mod heartbeat;
+pub mod etcd_actor;
