@@ -3,7 +3,7 @@ use tracing::debug;
 
 use actor_core::{DynMessage, Message};
 use actor_core::actor::actor_selection::ActorSelectionPath;
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::ActorContext;
 use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;

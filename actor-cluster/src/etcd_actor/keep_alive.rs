@@ -7,10 +7,9 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_derive::EmptyCodec;
+use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
 use crate::etcd_actor::EtcdActor;
-use crate::etcd_actor::keep_alive_failed::KeepAliveFailed;
 use crate::etcd_actor::keeper::Keeper;
 use crate::etcd_actor::lease::Lease;
 use crate::etcd_actor::poll_keep_alive_resp::PollKeepAliveResp;
@@ -49,4 +48,10 @@ impl Message for KeepAlive {
         }
         Ok(())
     }
+}
+
+#[derive(Debug, OrphanEmptyCodec)]
+pub struct KeepAliveFailed {
+    pub id: i64,
+    pub error: Option<etcd_client::Error>,
 }

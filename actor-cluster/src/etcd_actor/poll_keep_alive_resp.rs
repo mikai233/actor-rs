@@ -12,7 +12,7 @@ use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_derive::EmptyCodec;
 
 use crate::etcd_actor::EtcdActor;
-use crate::etcd_actor::keep_alive_failed::KeepAliveFailed;
+use crate::etcd_actor::keep_alive::KeepAliveFailed;
 
 #[derive(Debug, EmptyCodec)]
 pub(super) struct PollKeepAliveResp;

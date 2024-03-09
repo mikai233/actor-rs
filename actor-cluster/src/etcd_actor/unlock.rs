@@ -1,38 +1,34 @@
 use async_trait::async_trait;
-use etcd_client::{DeleteOptions, DeleteResponse};
+use etcd_client::UnlockResponse;
 
 use actor_core::{DynMessage, Message};
 use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::ActorRef;
-use actor_core::ext::option_ext::OptionExt;
 use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
 use crate::etcd_actor::EtcdActor;
 
 #[derive(Debug, EmptyCodec)]
-pub struct Delete {
+pub struct Unlock {
     pub key: Vec<u8>,
-    pub options: Option<DeleteOptions>,
-    pub applicant: Option<ActorRef>,
+    pub applicant: ActorRef,
 }
 
 #[async_trait]
-impl Message for Delete {
+impl Message for Unlock {
     type A = EtcdActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let mut client = actor.client.clone();
         context.spawn_fut(async move {
-            match client.delete(self.key, self.options).await {
+            match client.unlock(self.key).await {
                 Ok(resp) => {
-                    self.applicant.foreach(|applicant| {
-                        applicant.tell(DynMessage::orphan(DeleteResp::Success(resp)), ActorRef::no_sender());
-                    });
+                    let success = UnlockResult::Success(resp);
+                    self.applicant.tell(DynMessage::orphan(success), ActorRef::no_sender());
                 }
                 Err(error) => {
-                    self.applicant.foreach(|applicant| {
-                        applicant.tell(DynMessage::orphan(DeleteResp::Failed(error)), ActorRef::no_sender());
-                    });
+                    let failed = UnlockResult::Failed(error);
+                    self.applicant.tell(DynMessage::orphan(failed), ActorRef::no_sender());
                 }
             }
         });
@@ -41,7 +37,7 @@ impl Message for Delete {
 }
 
 #[derive(Debug, OrphanEmptyCodec)]
-pub enum DeleteResp {
-    Success(DeleteResponse),
+pub enum UnlockResult {
+    Success(UnlockResponse),
     Failed(etcd_client::Error),
 }
