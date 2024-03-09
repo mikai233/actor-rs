@@ -18,7 +18,6 @@ impl Message for CancelLock {
     type A = EtcdActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        
-        Ok(())
+        todo!()
     }
 }

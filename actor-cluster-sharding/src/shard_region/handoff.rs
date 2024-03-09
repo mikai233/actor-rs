@@ -5,7 +5,6 @@ use tracing::{debug, warn};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
-use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
 use actor_derive::MessageCodec;
 
@@ -38,9 +37,7 @@ impl Message for Handoff {
         }
         match actor.shards.get(&shard_id) {
             None => {
-                context.sender().foreach(|sender| {
-                    sender.cast_ns(ShardStopped { shard: shard_id });
-                });
+                context.sender().unwrap().cast_ns(ShardStopped { shard: shard_id });
             }
             Some(shard) => {
                 actor.handing_off.insert(shard.clone());

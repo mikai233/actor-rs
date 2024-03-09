@@ -1,8 +1,10 @@
 use std::collections::{HashMap, HashSet};
+use std::collections::hash_map::Entry;
 use std::ops::{Mul, Not};
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::anyhow;
 use async_trait::async_trait;
 use tracing::{debug, info, warn};
 
@@ -19,6 +21,7 @@ use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::message_ext::UserMessageExt;
+use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_buffer::{BufferEnvelope, MessageBufferMap};
 use actor_core::message::poison_pill::PoisonPill;
 
@@ -33,6 +36,7 @@ use crate::shard_region::cluster_event_wrap::ClusterEventWrap;
 use crate::shard_region::register_retry::RegisterRetry;
 use crate::shard_region::retry::Retry;
 use crate::shard_region::shard_region_buffer_envelope::ShardRegionBufferEnvelope;
+use crate::shard_region::shard_region_terminated::ShardRegionTerminated;
 use crate::shard_region::shard_terminated::ShardTerminated;
 
 mod shard_region_buffer_envelope;
@@ -42,6 +46,13 @@ mod register_retry;
 mod retry;
 mod cluster_event_wrap;
 mod shard_entity_envelope;
+mod host_shard;
+mod shard_home;
+mod shard_region_terminated;
+pub(crate) mod shard_homes;
+pub(crate) mod register_ack;
+mod coordinator_terminated;
+pub(crate) mod begin_handoff;
 
 pub type ShardId = String;
 
@@ -62,6 +73,8 @@ pub struct ShardRegion {
     shards_by_ref: HashMap<ActorRef, ShardId>,
     starting_shards: HashSet<ShardId>,
     handing_off: HashSet<ActorRef>,
+    graceful_shutdown_in_progress: bool,
+    preparing_for_shutdown: bool,
     retry_count: usize,
     init_registration_delay: Duration,
     next_registration_delay: Duration,
@@ -98,6 +111,8 @@ impl ShardRegion {
             shards_by_ref: Default::default(),
             starting_shards: Default::default(),
             handing_off: Default::default(),
+            graceful_shutdown_in_progress: false,
+            preparing_for_shutdown: false,
             retry_count: 0,
             init_registration_delay: Duration::from_secs(1),
             next_registration_delay: Duration::from_secs(1),
@@ -357,6 +372,38 @@ impl ShardRegion {
 
     fn try_complete_graceful_shutdown_if_in_progress(&self, context: &mut ActorContext) {
         todo!()
+    }
+
+    fn receive_shard_home(&mut self, context: &mut ActorContext, shard: ShardId, shard_region_ref: ActorRef) -> anyhow::Result<()> {
+        let type_name = &self.type_name;
+        debug!("{type_name}: Shard [{shard}] located at [{shard_region_ref}]");
+        if let Some(r) = self.region_by_shard.get(&shard) {
+            if r == context.myself() && &shard_region_ref != context.myself() {
+                return Err(anyhow!("{type_name}: Unexpected change of shard [{shard}] from self to [{shard_region_ref}]"));
+            }
+        }
+        self.region_by_shard.insert(shard.clone(), shard_region_ref.clone());
+        match self.regions.entry(shard_region_ref.clone()) {
+            Entry::Occupied(mut o) => {
+                o.get_mut().insert(shard.clone());
+            }
+            Entry::Vacant(v) => {
+                let mut shards = HashSet::new();
+                shards.insert(shard.clone());
+                v.insert(shards);
+            }
+        }
+        if &shard_region_ref != context.myself() {
+            context.watch(ShardRegionTerminated(shard_region_ref.clone()));
+        }
+        if &shard_region_ref == context.myself() {
+            self.get_shard(context, shard.clone())?.foreach(|region| {
+                self.deliver_buffered_messages(&shard, region);
+            });
+        } else {
+            self.deliver_buffered_messages(&shard, &shard_region_ref);
+        }
+        Ok(())
     }
 }
 

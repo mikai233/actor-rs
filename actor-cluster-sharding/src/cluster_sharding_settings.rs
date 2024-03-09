@@ -14,6 +14,7 @@ pub struct ClusterShardingSettings {
     pub shard_region_query_timeout: Duration,
     pub coordinator_singleton_settings: ClusterSingletonManagerSettings,
     pub retry_interval: Duration,
+    pub handoff_timeout: Duration,
 }
 
 impl ClusterShardingSettings {
@@ -24,6 +25,7 @@ impl ClusterShardingSettings {
             shard_region_query_timeout: sharding_config.shard_region_query_timeout,
             coordinator_singleton_settings: sharding_config.coordinator_singleton_settings.clone(),
             retry_interval: sharding_config.retry_interval,
+            handoff_timeout: sharding_config.handoff_timeout,
         };
         settings
     }
