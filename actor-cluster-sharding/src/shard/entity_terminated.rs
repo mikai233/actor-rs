@@ -37,11 +37,11 @@ impl Message for EntityTerminated {
                     EntityState::NoState => {
                         debug!("{}: Got a terminated for [{}], entity id [{}] which is in unexpected state NoState", actor.type_name, entity, entity_id);
                     }
-                    EntityState::Active(_) => {
+                    EntityState::Active(_, _) => {
                         debug!("{}: Entity [{}] terminated", actor.type_name, entity_id);
                         actor.entities.remove_entity(&entity_id);
                     }
-                    EntityState::Passivation(_) => {
+                    EntityState::Passivation(_, _) => {
                         if let Some(messages) = actor.message_buffers.remove(&entity_id) {
                             if messages.is_empty().not() {
                                 debug!("{}: [{}] terminated after passivating, buffered messages found, restarting", actor.type_name, entity_id);

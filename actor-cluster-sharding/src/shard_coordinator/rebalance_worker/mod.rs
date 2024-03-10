@@ -15,14 +15,14 @@ use actor_core::ext::option_ext::OptionExt;
 use crate::shard_coordinator::rebalance_done::RebalanceDone;
 use crate::shard_coordinator::rebalance_worker::receive_timeout::ReceiveTimeout;
 use crate::shard_region::begin_handoff::BeginHandoff;
-use crate::shard_region::ShardId;
+use crate::shard_region::ImShardId;
 
 mod receive_timeout;
 
 #[derive(Debug)]
 pub(super) struct RebalanceWorker {
     type_name: String,
-    shard: ShardId,
+    shard: ImShardId,
     shard_region_from: ActorRef,
     handoff_timeout: Duration,
     regions: HashSet<ActorRef>,
@@ -35,7 +35,7 @@ pub(super) struct RebalanceWorker {
 impl Actor for RebalanceWorker {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         for region in &self.regions {
-            region.cast(BeginHandoff { shard: self.shard.clone() }, Some(context.myself().clone()));
+            region.cast(BeginHandoff { shard: self.shard.clone().into() }, Some(context.myself().clone()));
         }
         if self.is_rebalance {
             debug!("{}: Rebalance [{}] from [{}] regions", self.type_name, self.shard, self.regions.len());

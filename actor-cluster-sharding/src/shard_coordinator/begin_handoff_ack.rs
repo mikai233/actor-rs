@@ -10,7 +10,7 @@ use crate::shard_region::ShardId;
 
 #[derive(Debug,Encode,Decode,MessageCodec)]
 pub(crate) struct BeginHandoffAck{
-   pub(crate) shard:ShardId, 
+   pub(crate) shard: ShardId, 
 }
 
 #[async_trait]

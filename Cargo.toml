@@ -32,5 +32,5 @@ serde_json = "1.0"
 clap = "4.4"
 toml = "0.8"
 pin-project = "1.1"
-imstr = "0.2"
+imstr = { git = "https://github.com/xfbs/imstr.git" }
 itertools = "0.12"

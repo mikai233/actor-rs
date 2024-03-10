@@ -29,7 +29,7 @@ use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::config::ClusterShardingConfig;
 use crate::message_extractor::MessageExtractor;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
-use crate::shard_region::EntityId;
+use crate::shard_region::ImEntityId;
 
 #[derive(Debug, Clone, AsAny)]
 pub struct ClusterSharding {
@@ -80,7 +80,7 @@ impl ClusterSharding {
     pub async fn start<E, S>(
         &self,
         type_name: impl Into<String>,
-        entity_props: PropsBuilderSync<EntityId>,
+        entity_props: PropsBuilderSync<ImEntityId>,
         settings: Arc<ClusterShardingSettings>,
         extractor: E,
         allocation_strategy: S,

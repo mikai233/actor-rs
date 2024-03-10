@@ -24,7 +24,7 @@ use crate::shard::entity_state::EntityState;
 use crate::shard::entity_terminated::EntityTerminated;
 use crate::shard::shard_buffer_envelope::ShardBufferEnvelope;
 use crate::shard::shard_envelope::ShardEnvelope;
-use crate::shard_region::{EntityId, ShardId};
+use crate::shard_region::{ImEntityId, ImShardId};
 
 mod cluster_event_wrap;
 mod passivate;
@@ -40,13 +40,13 @@ pub(crate) mod shard_envelope;
 #[derive(Debug)]
 pub struct Shard {
     type_name: String,
-    shard_id: ShardId,
-    entity_props: Arc<PropsBuilderSync<EntityId>>,
+    shard_id: ImShardId,
+    entity_props: Arc<PropsBuilderSync<ImEntityId>>,
     settings: Arc<ClusterShardingSettings>,
     extractor: Box<dyn MessageExtractor>,
     handoff_stop_message: DynMessage,
     entities: Entities,
-    message_buffers: MessageBufferMap<EntityId, ShardBufferEnvelope>,
+    message_buffers: MessageBufferMap<ImEntityId, ShardBufferEnvelope>,
     handoff_stopper: Option<ActorRef>,
     passivate_interval_task: Option<ScheduleKey>,
     preparing_for_shutdown: bool,
@@ -55,8 +55,8 @@ pub struct Shard {
 impl Shard {
     pub(crate) fn props(
         type_name: String,
-        shard_id: ShardId,
-        entity_props: Arc<PropsBuilderSync<EntityId>>,
+        shard_id: ImShardId,
+        entity_props: Arc<PropsBuilderSync<ImEntityId>>,
         settings: Arc<ClusterShardingSettings>,
         extractor: Box<dyn MessageExtractor>,
         handoff_stop_message: DynMessage,
@@ -105,32 +105,34 @@ impl Shard {
         match &*self.entities.entity_state(&entity_id) {
             EntityState::NoState => {
                 let payload = self.extractor.unwrap_message(message.0);
+                let entity_id: ImEntityId = entity_id.into();
                 let entity = self.get_or_create_entity(context, &entity_id)?;
                 entity.tell(payload, sender);
             }
-            EntityState::Active(entity) => {
+            EntityState::Active(entity_id, entity) => {
                 let payload = self.extractor.unwrap_message(message.0);
                 let message_name = payload.name();
                 debug!("{}: Delivering message of type [{}] to [{}]", type_name, message_name, entity_id);
                 entity.tell(payload, sender);
             }
-            EntityState::Passivation(_) => {
+            EntityState::Passivation(entity_id, _) => {
                 self.append_to_message_buffer(entity_id.clone(), message, sender);
             }
             EntityState::WaitingForRestart => {
                 let payload = self.extractor.unwrap_message(message.0);
                 let message_name = payload.name();
                 debug!("{}: Delivering message of type [{}] to [{}] (starting because [WaitingForRestart])", type_name, message_name, entity_id);
+                let entity_id: ImEntityId = entity_id.into();
                 self.get_or_create_entity(context, &entity_id)?.tell(payload, sender);
             }
         }
         Ok(())
     }
 
-    fn append_to_message_buffer(&mut self, id: EntityId, message: ShardEnvelope, sender: Option<ActorRef>) {
+    fn append_to_message_buffer(&mut self, id: ImEntityId, message: ShardEnvelope, sender: Option<ActorRef>) {
         // TODO buffer size overflow
         let envelop = ShardBufferEnvelope {
-            message: message,
+            message,
             sender,
         };
         match self.message_buffers.entry(id) {
@@ -145,7 +147,7 @@ impl Shard {
         }
     }
 
-    fn send_message_buffer(&mut self, context: &mut ActorContext, entity_id: &EntityId) -> anyhow::Result<()> {
+    fn send_message_buffer(&mut self, context: &mut ActorContext, entity_id: &ImEntityId) -> anyhow::Result<()> {
         if let Some(messages) = self.message_buffers.remove(entity_id) {
             if messages.is_empty().not() {
                 self.get_or_create_entity(context, entity_id)?;
@@ -159,10 +161,10 @@ impl Shard {
         Ok(())
     }
 
-    fn get_or_create_entity(&mut self, context: &mut ActorContext, entity_id: &EntityId) -> anyhow::Result<ActorRef> {
+    fn get_or_create_entity(&mut self, context: &mut ActorContext, entity_id: &ImEntityId) -> anyhow::Result<ActorRef> {
         match self.entities.entity(entity_id) {
             None => {
-                let entity = context.spawn(self.entity_props.props(entity_id.clone()), entity_id)?;
+                let entity = context.spawn(self.entity_props.props(entity_id.clone()), entity_id.as_str())?;
                 context.watch(EntityTerminated(entity.clone()));
                 debug!("{}: Started entity [{}] with entity id [{}] in shard [{}]", self.type_name, entity, entity_id, self.shard_id);
                 self.entities.add_entity(entity_id.clone(), entity.clone());

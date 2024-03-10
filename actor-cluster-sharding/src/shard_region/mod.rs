@@ -1,11 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
-use std::ops::{Mul, Not};
+use std::ops::{Deref, Mul, Not};
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
+use imstr::ImString;
 use tracing::{debug, info, warn};
 
 use actor_cluster::cluster::Cluster;
@@ -56,22 +57,26 @@ pub(crate) mod begin_handoff;
 
 pub type ShardId = String;
 
+pub type ImShardId = ImString;
+
 pub type EntityId = String;
+
+pub type ImEntityId = ImString;
 
 pub struct ShardRegion {
     type_name: String,
-    entity_props: Option<Arc<PropsBuilderSync<EntityId>>>,
+    entity_props: Option<Arc<PropsBuilderSync<ImEntityId>>>,
     settings: Arc<ClusterShardingSettings>,
     coordinator_path: String,
     extractor: Box<dyn MessageExtractor>,
     handoff_stop_message: DynMessage,
     timers: Timers,
-    regions: HashMap<ActorRef, HashSet<ShardId>>,
-    region_by_shard: HashMap<ShardId, ActorRef>,
-    shard_buffers: MessageBufferMap<ShardId, ShardRegionBufferEnvelope>,
-    shards: HashMap<ShardId, ActorRef>,
-    shards_by_ref: HashMap<ActorRef, ShardId>,
-    starting_shards: HashSet<ShardId>,
+    regions: HashMap<ActorRef, HashSet<ImShardId>>,
+    region_by_shard: HashMap<ImShardId, ActorRef>,
+    shard_buffers: MessageBufferMap<ImShardId, ShardRegionBufferEnvelope>,
+    shards: HashMap<ImShardId, ActorRef>,
+    shards_by_ref: HashMap<ActorRef, ImShardId>,
+    starting_shards: HashSet<ImShardId>,
     handing_off: HashSet<ActorRef>,
     graceful_shutdown_in_progress: bool,
     preparing_for_shutdown: bool,
@@ -88,7 +93,7 @@ impl ShardRegion {
     fn new(
         context: &mut ActorContext,
         type_name: String,
-        entity_props: Option<Arc<PropsBuilderSync<EntityId>>>,
+        entity_props: Option<Arc<PropsBuilderSync<ImEntityId>>>,
         settings: Arc<ClusterShardingSettings>,
         coordinator_path: String,
         extractor: Box<dyn MessageExtractor>,
@@ -126,7 +131,7 @@ impl ShardRegion {
 
     pub(crate) fn props(
         type_name: String,
-        entity_props: Arc<PropsBuilderSync<EntityId>>,
+        entity_props: Arc<PropsBuilderSync<ImEntityId>>,
         settings: Arc<ClusterShardingSettings>,
         coordinator_path: String,
         extractor: Box<dyn MessageExtractor>,
@@ -252,9 +257,9 @@ impl ShardRegion {
     fn deliver_message(&mut self, context: &mut ActorContext, envelope: ShardEntityEnvelope) -> anyhow::Result<()> {
         let shard_id = self.extractor.shard_id(&envelope);
         let type_name = &self.type_name;
-        match self.region_by_shard.get(&shard_id) {
+        match self.region_by_shard.get_key_value(shard_id.as_str()) {
             None => {
-                if !self.shard_buffers.contains_key(&shard_id) {
+                if !self.shard_buffers.contains_key(shard_id.as_str()) {
                     match &self.coordinator {
                         None => {
                             debug!("{type_name}: Request shard [{shard_id}] home, Coordinator [None]");
@@ -265,11 +270,12 @@ impl ShardRegion {
                         }
                     }
                 }
-                self.buffer_message(shard_id, envelope, context.sender().cloned());
+                self.buffer_message(shard_id.into(), envelope, context.sender().cloned());
             }
-            Some(shard_region_ref) if shard_region_ref == context.myself() => {
+            Some((shard_id, shard_region_ref)) if shard_region_ref == context.myself() => {
+                let shard_id = shard_id.clone();
                 if let Some(shard) = self.get_shard(context, shard_id.clone())? {
-                    if self.shard_buffers.contains_key(&shard_id) {
+                    if self.shard_buffers.contains_key(shard_id.as_str()) {
                         self.buffer_message(shard_id.clone(), envelope, context.sender().cloned());
                         self.deliver_buffered_messages(&shard_id, &shard);
                     } else {
@@ -277,7 +283,7 @@ impl ShardRegion {
                     }
                 }
             }
-            Some(shard_region_ref) => {
+            Some((shard_id, shard_region_ref)) => {
                 debug!("{type_name}: Forwarding message for shard [{shard_id}] to [{shard_region_ref}]");
                 shard_region_ref.cast(envelope, context.sender().cloned());
             }
@@ -285,7 +291,7 @@ impl ShardRegion {
         Ok(())
     }
 
-    fn buffer_message(&mut self, shard_id: ShardId, msg: ShardEntityEnvelope, sender: Option<ActorRef>) {
+    fn buffer_message(&mut self, shard_id: ImShardId, msg: ShardEntityEnvelope, sender: Option<ActorRef>) {
         let total_buf_size = self.shard_buffers.total_size();
         //TODO buffer size
         let buffer_size = 5000;
@@ -312,7 +318,7 @@ impl ShardRegion {
         }
     }
 
-    fn deliver_buffered_messages(&mut self, shard_id: &ShardId, receiver: &ActorRef) {
+    fn deliver_buffered_messages(&mut self, shard_id: &ImShardId, receiver: &ActorRef) {
         if self.shard_buffers.contains_key(shard_id) {
             if let Some(buffers) = self.shard_buffers.remove(shard_id) {
                 let type_name = &self.type_name;
@@ -327,7 +333,7 @@ impl ShardRegion {
         self.retry_count = 0;
     }
 
-    fn get_shard(&mut self, context: &mut ActorContext, id: ShardId) -> anyhow::Result<Option<ActorRef>> {
+    fn get_shard(&mut self, context: &mut ActorContext, id: ImShardId) -> anyhow::Result<Option<ActorRef>> {
         if self.starting_shards.contains(&id) {
             Ok(None)
         } else {
@@ -348,7 +354,7 @@ impl ShardRegion {
                             self.extractor.clone(),
                             self.handoff_stop_message.dyn_clone()?,
                         );
-                        let shard = context.spawn(shard_props, id.clone())?;
+                        let shard = context.spawn(shard_props, id.deref())?;
                         context.watch(ShardTerminated(shard.clone()));
                         self.shards_by_ref.insert(shard.clone(), id.clone());
                         self.shards.insert(id.clone(), shard.clone());
@@ -374,7 +380,7 @@ impl ShardRegion {
         todo!()
     }
 
-    fn receive_shard_home(&mut self, context: &mut ActorContext, shard: ShardId, shard_region_ref: ActorRef) -> anyhow::Result<()> {
+    fn receive_shard_home(&mut self, context: &mut ActorContext, shard: ImShardId, shard_region_ref: ActorRef) -> anyhow::Result<()> {
         let type_name = &self.type_name;
         debug!("{type_name}: Shard [{shard}] located at [{shard_region_ref}]");
         if let Some(r) = self.region_by_shard.get(&shard) {

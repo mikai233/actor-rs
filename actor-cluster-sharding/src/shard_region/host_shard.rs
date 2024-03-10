@@ -11,11 +11,11 @@ use actor_core::Message;
 use actor_derive::MessageCodec;
 
 use crate::shard_coordinator::shard_started::ShardStarted;
-use crate::shard_region::{ShardId, ShardRegion};
+use crate::shard_region::{ImShardId, ShardRegion};
 
 #[derive(Debug, Encode, Decode, MessageCodec)]
 pub(super) struct HostShard {
-    pub(super) shard: ShardId,
+    pub(super) shard: String,
 }
 
 #[async_trait]
@@ -24,7 +24,7 @@ impl Message for HostShard {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let type_name = &actor.type_name;
-        let shard = self.shard;
+        let shard: ImShardId = self.shard.into();
         if actor.graceful_shutdown_in_progress {
             debug!("{type_name}: Ignoring Host Shard request for [{shard}] as region is shutting down");
             actor.send_graceful_shutdown_to_coordinator_if_in_progress();
@@ -42,7 +42,7 @@ impl Message for HostShard {
                 }
             }
             actor.get_shard(context, shard.clone())?;
-            context.sender().unwrap().cast_ns(ShardStarted { shard });
+            context.sender().unwrap().cast_ns(ShardStarted { shard: shard.into() });
         }
         Ok(())
     }

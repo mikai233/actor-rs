@@ -22,7 +22,7 @@ impl Terminated for ShardRegionTerminated {
 impl Message for ShardRegionTerminated {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let shard_region = self.0;
         if actor.regions.contains_key(&shard_region) {
             if let Some(shards) = actor.regions.remove(&shard_region) {
@@ -31,7 +31,9 @@ impl Message for ShardRegionTerminated {
                 }
                 let type_name = &actor.type_name;
                 let size = shards.len();
-                let shard_str = shards.into_iter().collect::<Vec<_>>().join(", ");
+                let shard_str = shards.iter()
+                    .map(|shard| shard.as_str())
+                    .collect::<Vec<_>>().join(", ");
                 debug!("{type_name}: Region [{shard_region}] terminated with [{size}] shards [{shard_str}]");
             }
         }

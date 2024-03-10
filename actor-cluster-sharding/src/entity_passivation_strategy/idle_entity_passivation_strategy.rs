@@ -1,9 +1,8 @@
-use std::rc::Rc;
 use std::time::Duration;
 
 use crate::entity_passivation_strategy::{PassivateEntities, TEntityPassivationStrategy};
 use crate::entity_passivation_strategy::recency_list::RecencyList;
-use crate::shard_region::EntityId;
+use crate::shard_region::ImEntityId;
 
 #[derive(Debug)]
 pub(crate) struct IdleCheck {
@@ -13,7 +12,7 @@ pub(crate) struct IdleCheck {
 
 pub(crate) struct IdleEntityPassivationStrategy {
     idle_check: IdleCheck,
-    recency_list: RecencyList<Rc<EntityId>>,
+    recency_list: RecencyList<ImEntityId>,
     scheduled_interval: Duration,
 }
 
@@ -26,12 +25,12 @@ impl TEntityPassivationStrategy for IdleEntityPassivationStrategy {
         vec![]
     }
 
-    fn entity_touched(&mut self, id: Rc<EntityId>) -> PassivateEntities {
+    fn entity_touched(&mut self, id: ImEntityId) -> PassivateEntities {
         self.recency_list.update(id);
         vec![]
     }
 
-    fn entity_terminated(&mut self, id: Rc<EntityId>) {
+    fn entity_terminated(&mut self, id: ImEntityId) {
         self.recency_list.remove(&id);
     }
 

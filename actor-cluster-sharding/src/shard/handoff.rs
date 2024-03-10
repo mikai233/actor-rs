@@ -29,7 +29,7 @@ impl Message for Handoff {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let shard_id = self.shard;
-        if shard_id == actor.shard_id {
+        if shard_id.as_str() == actor.shard_id.as_str() {
             match &actor.handoff_stopper {
                 None => {
                     debug!("{}: Handoff shard [{}]", actor.type_name, actor.shard_id);

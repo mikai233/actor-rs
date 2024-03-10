@@ -15,12 +15,12 @@ use crate::cluster_sharding_guardian::started::Started;
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::message_extractor::MessageExtractor;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
-use crate::shard_region::{EntityId, ShardRegion};
+use crate::shard_region::{ImEntityId, ShardRegion};
 
 #[derive(Debug, EmptyCodec)]
 pub(crate) struct Start {
     pub(crate) type_name: String,
-    pub(crate) entity_props: PropsBuilderSync<EntityId>,
+    pub(crate) entity_props: PropsBuilderSync<ImEntityId>,
     pub(crate) settings: Arc<ClusterShardingSettings>,
     pub(crate) message_extractor: Box<dyn MessageExtractor>,
     pub(crate) allocation_strategy: Box<dyn ShardAllocationStrategy>,

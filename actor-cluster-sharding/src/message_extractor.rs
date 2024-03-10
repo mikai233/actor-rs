@@ -8,7 +8,7 @@ use actor_derive::EmptyCodec;
 use crate::shard_region::{EntityId, ShardId};
 
 pub trait MessageExtractor: Send + Sync + DynClone + Debug {
-    fn entity_id(&self, message: &ShardEntityEnvelope) -> String;
+    fn entity_id(&self, message: &ShardEntityEnvelope) -> EntityId;
 
     fn shard_id(&self, message: &ShardEntityEnvelope) -> ShardId;
 

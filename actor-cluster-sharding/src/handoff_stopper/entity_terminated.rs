@@ -27,7 +27,7 @@ impl Message for EntityTerminated {
         let entity = self.0;
         actor.remaining_entities.remove(&entity);
         if actor.remaining_entities.is_empty() {
-            actor.replay_to.cast_ns(ShardStopped { shard: actor.shard.clone() });
+            actor.replay_to.cast_ns(ShardStopped { shard: actor.shard.clone().into() });
             context.stop(context.myself());
         }
         Ok(())

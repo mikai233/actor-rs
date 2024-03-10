@@ -2,11 +2,13 @@ use std::fmt::{Display, Formatter};
 
 use actor_core::actor_ref::ActorRef;
 
+use crate::shard_region::ImEntityId;
+
 #[derive(Debug)]
 pub(super) enum EntityState {
     NoState,
-    Active(ActorRef),
-    Passivation(ActorRef),
+    Active(ImEntityId, ActorRef),
+    Passivation(ImEntityId, ActorRef),
     WaitingForRestart,
 }
 
@@ -16,11 +18,11 @@ impl Display for EntityState {
             EntityState::NoState => {
                 write!(f, "NoState")
             }
-            EntityState::Active(_) => {
-                write!(f, "Active")
+            EntityState::Active(_, entity) => {
+                write!(f, "Active {}", entity)
             }
-            EntityState::Passivation(_) => {
-                write!(f, "Passivation")
+            EntityState::Passivation(_, entity) => {
+                write!(f, "Passivation {}", entity)
             }
             EntityState::WaitingForRestart => {
                 write!(f, "WaitingForRestart")

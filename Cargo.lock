@@ -40,6 +40,7 @@ dependencies = [
  "dashmap",
  "dyn-clone",
  "enum_dispatch",
+ "imstr",
  "itertools 0.12.1",
  "serde",
  "toml",
@@ -800,6 +801,14 @@ checksum = "634d9b1461af396cad843f47fdba5597a4f9e6ddd4bfb6ff5d85028c25cb12f6"
 dependencies = [
  "unicode-bidi",
  "unicode-normalization",
+]
+
+[[package]]
+name = "imstr"
+version = "0.2.0"
+source = "git+https://github.com/xfbs/imstr.git#e9c1cf95efc403c84401e35db3a1dff8ee573a72"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
