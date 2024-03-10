@@ -22,7 +22,7 @@ impl Message for RegisterAck {
         context.watch(CoordinatorTerminated(self.coordinator.clone()));
         actor.coordinator = Some(self.coordinator);
         actor.finish_registration();
-        actor.try_request_shard_buffer_homes();
+        actor.try_request_shard_buffer_homes(context);
         Ok(())
     }
 }

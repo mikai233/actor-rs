@@ -27,7 +27,7 @@ impl Message for HostShard {
         let shard: ImShardId = self.shard.into();
         if actor.graceful_shutdown_in_progress {
             debug!("{type_name}: Ignoring Host Shard request for [{shard}] as region is shutting down");
-            actor.send_graceful_shutdown_to_coordinator_if_in_progress();
+            actor.send_graceful_shutdown_to_coordinator_if_in_progress(context)?;
         } else {
             debug!("{type_name}: Host Shard [{shard}]");
             actor.region_by_shard.insert(shard.clone(), context.myself().clone());

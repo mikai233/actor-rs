@@ -10,7 +10,7 @@ use crate::shard_region::ImShardId;
 pub(super) struct State {
     pub(super) shards: HashMap<ImShardId, ActorRef>,
     pub(super) regions: HashMap<ActorRef, HashSet<ImShardId>>,
-    pub(super) regions_proxies: HashSet<ActorRef>,
+    pub(super) region_proxies: HashSet<ActorRef>,
 }
 
 impl State {

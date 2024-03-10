@@ -38,6 +38,6 @@ impl Message for BeginHandoff {
         } else {
             debug!("{}: Ignoring begin handoff of shard [{}] as preparing to shutdown", actor.type_name, self.shard);
         }
-        todo!()
+        Ok(())
     }
 }

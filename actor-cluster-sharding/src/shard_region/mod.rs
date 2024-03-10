@@ -7,6 +7,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use imstr::ImString;
+use itertools::Itertools;
 use tracing::{debug, info, warn};
 
 use actor_cluster::cluster::Cluster;
@@ -31,6 +32,7 @@ use crate::message_extractor::{MessageExtractor, ShardEntityEnvelope};
 use crate::shard::Shard;
 use crate::shard::shard_envelope::ShardEnvelope;
 use crate::shard_coordinator::get_shard_home::GetShardHome;
+use crate::shard_coordinator::graceful_shutdown_req::GracefulShutdownReq;
 use crate::shard_coordinator::register::Register;
 use crate::shard_coordinator::register_proxy::RegisterProxy;
 use crate::shard_region::cluster_event_wrap::ClusterEventWrap;
@@ -209,7 +211,20 @@ impl ShardRegion {
                         all_up_members,
                     )
                 }
-            } else {}
+            } else {
+                let part_of_cluster = self.cluster.self_member().status != MemberStatus::Removed;
+                let possible_reason = if part_of_cluster {
+                    "Has Cluster Sharding been started on every node and nodes been configured with the correct role(s)?"
+                } else {
+                    "Probably, node not join to cluster"
+                };
+                let buffer_size = self.shard_buffers.total_size();
+                if buffer_size > 0 {
+                    warn!("{}: No coordinator found to register. {} Total [{}] buffered mesages.", self.type_name, possible_reason, buffer_size);
+                } else {
+                    debug!("{}: No coordinator found to register. {} No buffered messages yet.", self.type_name, possible_reason);
+                }
+            }
         }
         Ok(())
     }
@@ -368,12 +383,45 @@ impl ShardRegion {
         }
     }
 
-    fn try_request_shard_buffer_homes(&self) {
-        todo!()
+    fn try_request_shard_buffer_homes(&self, context: &mut ActorContext) {
+        self.coordinator.foreach(|coord| {
+            let mut total_buffered = 0;
+            let mut shards = vec![];
+            self.shard_buffers.iter().for_each(|(shard, buf)| {
+                total_buffered += buf.len();
+                shards.push(shard);
+                debug!(
+                    "{}: Requesting shard home for [{}] from coordinator at [{}]. [{}] buffered messages.",
+                    self.type_name,
+                    shard,
+                    coord,
+                    buf.len(),
+                );
+                coord.cast(GetShardHome { shard: shard.clone().into() }, Some(context.myself().clone()));
+            });
+            if self.retry_count >= 5 && self.retry_count % 5 == 0 {
+                let shards_str = shards.iter().map(|shard| shard.as_str()).join(", ");
+                warn!(
+                    "{}: Requested shard homes [{}] from coordinator at [{}]. [{}] total buffered messages.",
+                    self.type_name,
+                    shards_str,
+                    coord,
+                    total_buffered,
+                );
+            }
+        });
     }
 
-    fn send_graceful_shutdown_to_coordinator_if_in_progress(&self) {
-        todo!()
+    fn send_graceful_shutdown_to_coordinator_if_in_progress(&self, context: &mut ActorContext) -> anyhow::Result<()> {
+        if self.graceful_shutdown_in_progress {
+            let actor_selections = self.coordinator_selection(context)?;
+            let selection_str = actor_selections.iter().map(|selection| selection.to_string()).join(", ");
+            debug!("{}: Sending graceful shutdown to {}", self.type_name, selection_str);
+            for selection in actor_selections {
+                selection.tell(GracefulShutdownReq { shard_region: context.myself().clone() }.into_dyn(), ActorRef::no_sender());
+            }
+        }
+        Ok(())
     }
 
     fn try_complete_graceful_shutdown_if_in_progress(&self, context: &mut ActorContext) {

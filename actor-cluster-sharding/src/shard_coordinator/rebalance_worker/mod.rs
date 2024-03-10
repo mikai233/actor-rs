@@ -54,6 +54,30 @@ impl Actor for RebalanceWorker {
 }
 
 impl RebalanceWorker {
+    pub(super) fn new(
+        context: &mut ActorContext,
+        type_name: String,
+        shard: ImShardId,
+        shard_region_from: ActorRef,
+        handoff_timeout: Duration,
+        regions: HashSet<ActorRef>,
+        is_rebalance: bool,
+    ) -> anyhow::Result<Self> {
+        let timers = Timers::new(context)?;
+        let remaining = regions.clone();
+        let myself = Self {
+            type_name,
+            shard,
+            shard_region_from,
+            handoff_timeout,
+            regions,
+            is_rebalance,
+            remaining,
+            timers,
+        };
+        Ok(myself)
+    }
+
     fn done(&self, context: &mut ActorContext, ok: bool) {
         context.parent().foreach(|parent| {
             parent.cast(RebalanceDone { shard: self.shard.clone(), ok }, Some(context.myself().clone()));

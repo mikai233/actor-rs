@@ -2,20 +2,23 @@ use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
 use std::ops::Not;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use itertools::Itertools;
-use tracing::debug;
+use tracing::{debug, info};
 
 use actor_cluster::cluster::Cluster;
 use actor_core::Actor;
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::props::Props;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
 use crate::shard_coordinator::get_shard_home::GetShardHome;
+use crate::shard_coordinator::rebalance_worker::RebalanceWorker;
 use crate::shard_coordinator::state::State;
 use crate::shard_region::{ImShardId, ShardId};
 use crate::shard_region::shard_homes::ShardHomes;
@@ -30,6 +33,11 @@ pub(crate) mod begin_handoff_ack;
 mod rebalance_worker;
 mod rebalance_done;
 mod state;
+pub(crate) mod graceful_shutdown_req;
+mod rebalance_tick;
+mod rebalance_result;
+mod stop_shard_timeout;
+mod stop_shards;
 
 #[derive(Debug)]
 pub struct ShardCoordinator {
@@ -134,5 +142,75 @@ impl ShardCoordinator {
                     region.cast_ns(ShardHomes { homes: shards_sub_map });
                 });
         }
+    }
+
+    fn shutdown_shards(&mut self, context: &mut ActorContext, shutting_down_region: ActorRef, shards: HashSet<ImShardId>) -> anyhow::Result<()> {
+        if shards.is_empty().not() {
+            let shards_str = shards.iter().join(", ");
+            info!("{}: Starting shutting down shards [{}] due to region shutting down or explicit stopping of shards.", self.type_name, shards_str);
+            for shard in shards {
+                self.start_shard_rebalance_if_needed(
+                    context,
+                    shard,
+                    shutting_down_region.clone(),
+                    self.settings.handoff_timeout,
+                    false,
+                )?;
+            }
+        }
+        Ok(())
+    }
+
+    fn start_shard_rebalance_if_needed(
+        &mut self,
+        context: &mut ActorContext,
+        shard: ImShardId,
+        from: ActorRef,
+        handoff_timeout: Duration,
+        is_rebalance: bool,
+    ) -> anyhow::Result<()> {
+        if let Entry::Vacant(v) = self.rebalance_in_progress.entry(shard.clone()) {
+            v.insert(HashSet::new());
+            let regions = self.state.regions.keys().map(|region| region.clone()).collect::<HashSet<_>>();
+            let region_proxies = self.state.region_proxies.clone();
+            let regions = regions
+                .union(&self.state.region_proxies)
+                .into_iter()
+                .map(|region| region.clone())
+                .collect::<HashSet<_>>();
+            let worker = context.spawn_anonymous(
+                Self::rebalance_worker_props(
+                    self.type_name.clone(),
+                    shard,
+                    from,
+                    handoff_timeout,
+                    regions,
+                    is_rebalance,
+                ),
+            )?;
+            self.rebalance_workers.insert(worker);
+        }
+        Ok(())
+    }
+
+    fn rebalance_worker_props(
+        type_name: String,
+        shard: ImShardId,
+        shard_region_from: ActorRef,
+        handoff_timeout: Duration,
+        regions: HashSet<ActorRef>,
+        is_rebalance: bool,
+    ) -> Props {
+        Props::new_with_ctx(move |context| {
+            RebalanceWorker::new(
+                context,
+                type_name,
+                shard,
+                shard_region_from,
+                handoff_timeout,
+                regions,
+                is_rebalance,
+            )
+        })
     }
 }

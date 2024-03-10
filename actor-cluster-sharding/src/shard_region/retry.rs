@@ -22,9 +22,9 @@ impl Message for Retry {
         if actor.coordinator.is_none() {
             actor.register(context)?;
         } else {
-            actor.try_request_shard_buffer_homes();
+            actor.try_request_shard_buffer_homes(context);
         }
-        actor.send_graceful_shutdown_to_coordinator_if_in_progress();
+        actor.send_graceful_shutdown_to_coordinator_if_in_progress(context)?;
         actor.try_complete_graceful_shutdown_if_in_progress(context);
         Ok(())
     }
