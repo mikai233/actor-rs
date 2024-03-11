@@ -44,7 +44,7 @@ use crate::shard_region::shard_terminated::ShardTerminated;
 
 mod shard_region_buffer_envelope;
 mod shard_terminated;
-mod handoff;
+pub(crate) mod handoff;
 mod register_retry;
 mod retry;
 mod cluster_event_wrap;
@@ -66,7 +66,7 @@ pub type EntityId = String;
 pub type ImEntityId = ImString;
 
 pub struct ShardRegion {
-    type_name: String,
+    type_name: ImString,
     entity_props: Option<Arc<PropsBuilderSync<ImEntityId>>>,
     settings: Arc<ClusterShardingSettings>,
     coordinator_path: String,
@@ -94,7 +94,7 @@ pub struct ShardRegion {
 impl ShardRegion {
     fn new(
         context: &mut ActorContext,
-        type_name: String,
+        type_name: ImString,
         entity_props: Option<Arc<PropsBuilderSync<ImEntityId>>>,
         settings: Arc<ClusterShardingSettings>,
         coordinator_path: String,
@@ -132,7 +132,7 @@ impl ShardRegion {
     }
 
     pub(crate) fn props(
-        type_name: String,
+        type_name: ImString,
         entity_props: Arc<PropsBuilderSync<ImEntityId>>,
         settings: Arc<ClusterShardingSettings>,
         coordinator_path: String,
@@ -154,7 +154,7 @@ impl ShardRegion {
     }
 
     pub(crate) fn proxy_props(
-        type_name: String,
+        type_name: ImString,
         settings: Arc<ClusterShardingSettings>,
         coordinator_path: String,
         extractor: Box<dyn MessageExtractor>,

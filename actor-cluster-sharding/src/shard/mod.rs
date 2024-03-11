@@ -4,6 +4,7 @@ use std::ops::Not;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use imstr::ImString;
 use tracing::debug;
 
 use actor_cluster::cluster::Cluster;
@@ -29,7 +30,7 @@ use crate::shard_region::{ImEntityId, ImShardId};
 mod cluster_event_wrap;
 mod passivate;
 mod entities;
-mod handoff;
+pub(crate) mod handoff;
 mod passivate_interval_tick;
 mod entity_state;
 mod handoff_stopper_terminated;
@@ -39,7 +40,7 @@ pub(crate) mod shard_envelope;
 
 #[derive(Debug)]
 pub struct Shard {
-    type_name: String,
+    type_name: ImString,
     shard_id: ImShardId,
     entity_props: Arc<PropsBuilderSync<ImEntityId>>,
     settings: Arc<ClusterShardingSettings>,
@@ -54,7 +55,7 @@ pub struct Shard {
 
 impl Shard {
     pub(crate) fn props(
-        type_name: String,
+        type_name: ImString,
         shard_id: ImShardId,
         entity_props: Arc<PropsBuilderSync<ImEntityId>>,
         settings: Arc<ClusterShardingSettings>,

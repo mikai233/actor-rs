@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use imstr::ImString;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -18,7 +19,7 @@ use crate::shard_region::ShardRegion;
 
 #[derive(Debug, EmptyCodec)]
 pub(crate) struct StartProxy {
-    pub(crate) type_name: String,
+    pub(crate) type_name: ImString,
     pub(crate) settings: Arc<ClusterShardingSettings>,
     pub(crate) message_extractor: Box<dyn MessageExtractor>,
 }
@@ -27,7 +28,7 @@ pub(crate) struct StartProxy {
 impl Message for StartProxy {
     type A = ClusterShardingGuardian;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { type_name, settings, message_extractor } = *self;
         let enc_name = ClusterSharding::proxy_name(&type_name);
         let coordinator_path = ClusterShardingGuardian::coordinator_path(context.myself(), &enc_name);
@@ -35,7 +36,7 @@ impl Message for StartProxy {
             None => {
                 context.spawn(
                     ShardRegion::proxy_props(
-                        enc_name.clone(),
+                        enc_name.clone().into(),
                         settings,
                         coordinator_path,
                         message_extractor,

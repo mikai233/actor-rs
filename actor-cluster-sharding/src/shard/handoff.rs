@@ -15,7 +15,7 @@ use actor_derive::EmptyCodec;
 use crate::handoff_stopper::HandoffStopper;
 use crate::shard::handoff_stopper_terminated::HandoffStopperTerminated;
 use crate::shard::Shard;
-use crate::shard_coordinator::shard_stopped::ShardStopped;
+use crate::shard_coordinator::rebalance_worker::shard_stopped::ShardStopped;
 use crate::shard_region::ShardId;
 
 #[derive(Debug, EmptyCodec)]

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use imstr::ImString;
 
 use actor_core::actor::context::ActorContext;
 use actor_core::Message;
@@ -12,7 +13,7 @@ use crate::shard_allocation_strategy::ShardAllocationStrategy;
 
 #[derive(Debug, EmptyCodec)]
 pub(crate) struct StartCoordinatorIfNeeded {
-    pub(crate) type_name: String,
+    pub(crate) type_name: ImString,
     pub(crate) settings: Arc<ClusterShardingSettings>,
     pub(crate) allocation_strategy: Box<dyn ShardAllocationStrategy>,
 }

@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use imstr::ImString;
 use tracing::debug;
 
 use actor_core::Actor;
@@ -15,19 +16,24 @@ use actor_core::ext::option_ext::OptionExt;
 use crate::shard_coordinator::rebalance_done::RebalanceDone;
 use crate::shard_coordinator::rebalance_worker::receive_timeout::ReceiveTimeout;
 use crate::shard_region::begin_handoff::BeginHandoff;
+use crate::shard_region::handoff::Handoff;
 use crate::shard_region::ImShardId;
 
 mod receive_timeout;
+pub(crate) mod shard_stopped;
+mod shard_region_terminated;
+pub(crate) mod begin_handoff_ack;
 
 #[derive(Debug)]
-pub(super) struct RebalanceWorker {
-    type_name: String,
+pub(crate) struct RebalanceWorker {
+    type_name: ImString,
     shard: ImShardId,
     shard_region_from: ActorRef,
     handoff_timeout: Duration,
     regions: HashSet<ActorRef>,
     is_rebalance: bool,
     remaining: HashSet<ActorRef>,
+    stopping_shard: bool,
     timers: Timers,
 }
 
@@ -56,7 +62,7 @@ impl Actor for RebalanceWorker {
 impl RebalanceWorker {
     pub(super) fn new(
         context: &mut ActorContext,
-        type_name: String,
+        type_name: ImString,
         shard: ImShardId,
         shard_region_from: ActorRef,
         handoff_timeout: Duration,
@@ -73,6 +79,7 @@ impl RebalanceWorker {
             regions,
             is_rebalance,
             remaining,
+            stopping_shard: false,
             timers,
         };
         Ok(myself)
@@ -83,5 +90,21 @@ impl RebalanceWorker {
             parent.cast(RebalanceDone { shard: self.shard.clone(), ok }, Some(context.myself().clone()));
         });
         context.stop(context.myself());
+    }
+
+    fn acked(&mut self, context: &mut ActorContext, shard_region: &ActorRef) {
+        self.remaining.remove(shard_region);
+        if self.remaining.is_empty() {
+            debug!("{}: All shard regions acked, handing off shard [{}.]", self.type_name, self.shard);
+            let handoff = Handoff { shard: self.shard.clone().into() };
+            self.shard_region_from.cast(handoff, Some(context.myself().clone()));
+            self.stopping_shard = true;
+        } else {
+            debug!("{}: Remaining shard regions for shard [{}]: {}",
+                self.type_name,
+                self.shard,
+                self.remaining.len(),
+            );
+        }
     }
 }

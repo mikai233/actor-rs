@@ -7,7 +7,7 @@ use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 
-use crate::shard_coordinator::shard_stopped::ShardStopped;
+use crate::shard_coordinator::rebalance_worker::shard_stopped::ShardStopped;
 use crate::shard_coordinator::ShardCoordinator;
 use crate::shard_region::ImShardId;
 
@@ -27,7 +27,7 @@ impl Message for RebalanceDone {
         if self.ok {
             debug!("{}: Shard [{}] deallocation completed successfully.", actor.type_name, self.shard);
             if let Some(waiting) = actor.waiting_for_shards_to_stop.remove(self.shard.as_str()) {
-                for reply_to in waiting {
+                for (reply_to, _) in waiting {
                     reply_to.cast_ns(ShardStopped { shard: self.shard.clone().into() });
                 }
             }

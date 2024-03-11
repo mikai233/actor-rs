@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use imstr::ImString;
 use itertools::Itertools;
 use tracing::{debug, info};
 
@@ -12,6 +13,7 @@ use actor_cluster::cluster::Cluster;
 use actor_core::Actor;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
+use actor_core::actor::timers::Timers;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 
@@ -24,13 +26,11 @@ use crate::shard_region::{ImShardId, ShardId};
 use crate::shard_region::shard_homes::ShardHomes;
 
 pub(crate) mod get_shard_home;
-pub(crate) mod shard_stopped;
 pub(crate) mod terminate_coordinator;
 pub(crate) mod register;
 pub(crate) mod register_proxy;
 pub(crate) mod shard_started;
-pub(crate) mod begin_handoff_ack;
-mod rebalance_worker;
+pub(crate) mod rebalance_worker;
 mod rebalance_done;
 mod state;
 pub(crate) mod graceful_shutdown_req;
@@ -41,10 +41,11 @@ mod stop_shards;
 
 #[derive(Debug)]
 pub struct ShardCoordinator {
-    type_name: String,
+    type_name: ImString,
     settings: Arc<ClusterShardingSettings>,
     allocation_strategy: Box<dyn ShardAllocationStrategy>,
     cluster: Cluster,
+    timers: Timers,
     all_regions_registered: bool,
     state: State,
     preparing_for_shutdown: bool,
@@ -55,22 +56,24 @@ pub struct ShardCoordinator {
     waiting_for_local_region_to_terminate: bool,
     alive_regions: HashSet<ActorRef>,
     region_termination_in_progress: HashSet<ActorRef>,
-    waiting_for_shards_to_stop: HashMap<ImShardId, HashSet<ActorRef>>,//TODO
+    waiting_for_shards_to_stop: HashMap<ImShardId, HashSet<(ActorRef, uuid::Uuid)>>,
 }
 
 impl ShardCoordinator {
     pub(crate) fn new(
         context: &mut ActorContext,
-        type_name: String,
+        type_name: ImString,
         settings: Arc<ClusterShardingSettings>,
         allocation_strategy: Box<dyn ShardAllocationStrategy>,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         let cluster = Cluster::get(context.system()).clone();
-        Self {
+        let timers = Timers::new(context)?;
+        let coordinator = Self {
             type_name,
             settings,
             allocation_strategy,
             cluster,
+            timers,
             all_regions_registered: false,
             state: Default::default(),
             preparing_for_shutdown: false,
@@ -82,7 +85,8 @@ impl ShardCoordinator {
             alive_regions: Default::default(),
             region_termination_in_progress: Default::default(),
             waiting_for_shards_to_stop: Default::default(),
-        }
+        };
+        Ok(coordinator)
     }
 }
 
@@ -144,7 +148,12 @@ impl ShardCoordinator {
         }
     }
 
-    fn shutdown_shards(&mut self, context: &mut ActorContext, shutting_down_region: ActorRef, shards: HashSet<ImShardId>) -> anyhow::Result<()> {
+    fn shutdown_shards(
+        &mut self,
+        context: &mut ActorContext,
+        shutting_down_region: ActorRef,
+        shards: HashSet<ImShardId>,
+    ) -> anyhow::Result<()> {
         if shards.is_empty().not() {
             let shards_str = shards.iter().join(", ");
             info!("{}: Starting shutting down shards [{}] due to region shutting down or explicit stopping of shards.", self.type_name, shards_str);
@@ -194,7 +203,7 @@ impl ShardCoordinator {
     }
 
     fn rebalance_worker_props(
-        type_name: String,
+        type_name: ImString,
         shard: ImShardId,
         shard_region_from: ActorRef,
         handoff_timeout: Duration,
@@ -212,5 +221,19 @@ impl ShardCoordinator {
                 is_rebalance,
             )
         })
+    }
+
+    fn terminate(&mut self, context: &mut ActorContext) {
+        //TODO
+        if self.region_termination_in_progress.is_empty() {
+            debug!("{}: Received termination message.", self.type_name);
+        } else {
+            debug!(
+                "{}: Received termination message. Rebalance in progress of [{}] shards.",
+                self.type_name,
+                self.rebalance_in_progress.len(),
+            );
+            context.stop(context.myself());
+        }
     }
 }

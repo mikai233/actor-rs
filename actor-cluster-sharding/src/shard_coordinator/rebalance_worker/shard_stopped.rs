@@ -5,7 +5,7 @@ use actor_core::actor::context::ActorContext;
 use actor_core::Message;
 use actor_derive::MessageCodec;
 
-use crate::shard_coordinator::ShardCoordinator;
+use crate::shard_coordinator::rebalance_worker::RebalanceWorker;
 use crate::shard_region::ShardId;
 
 #[derive(Debug, Decode, Encode, MessageCodec)]
@@ -15,9 +15,10 @@ pub(crate) struct ShardStopped {
 
 #[async_trait]
 impl Message for ShardStopped {
-    type A = ShardCoordinator;
+    type A = RebalanceWorker;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        todo!()
+        actor.done(context, true);
+        Ok(())
     }
 }

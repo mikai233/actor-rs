@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use imstr::ImString;
 
 use actor_core::{DynMessage, Message};
 use actor_core::actor::context::{ActorContext, Context};
@@ -19,7 +20,7 @@ use crate::shard_region::{ImEntityId, ShardRegion};
 
 #[derive(Debug, EmptyCodec)]
 pub(crate) struct Start {
-    pub(crate) type_name: String,
+    pub(crate) type_name: ImString,
     pub(crate) entity_props: PropsBuilderSync<ImEntityId>,
     pub(crate) settings: Arc<ClusterShardingSettings>,
     pub(crate) message_extractor: Box<dyn MessageExtractor>,

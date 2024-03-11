@@ -2,18 +2,20 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::{debug, warn};
 
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext, Context, ContextExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
+use actor_core::ext::message_ext::UserMessageExt;
+use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
 use actor_derive::MessageCodec;
 
-use crate::shard_coordinator::shard_stopped::ShardStopped;
+use crate::shard_coordinator::rebalance_worker::shard_stopped::ShardStopped;
 use crate::shard_region::ShardRegion;
 
 #[derive(Debug, Encode, Decode, MessageCodec)]
-pub(super) struct Handoff {
-    pub(super) shard: String,
+pub(crate) struct Handoff {
+    pub(crate) shard: String,
 }
 
 #[async_trait]
@@ -37,11 +39,11 @@ impl Message for Handoff {
         }
         match actor.shards.get(&shard_id) {
             None => {
-                context.sender().unwrap().cast_ns(ShardStopped { shard: shard_id.into() });
+                context.sender().into_result()?.cast_ns(ShardStopped { shard: shard_id.into() });
             }
             Some(shard) => {
                 actor.handing_off.insert(shard.clone());
-                shard.cast(Handoff { shard: shard_id.into() }, context.sender().cloned());
+                context.forward(shard, crate::shard::handoff::Handoff { shard: shard_id.into() }.into_dyn());
             }
         }
         Ok(())

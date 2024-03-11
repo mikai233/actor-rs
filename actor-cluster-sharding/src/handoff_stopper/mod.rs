@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use imstr::ImString;
 
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
@@ -22,7 +23,7 @@ const STOP_TIMEOUT_WARNING_AFTER: Duration = Duration::from_secs(5);
 
 #[derive(Debug)]
 pub(crate) struct HandoffStopper {
-    type_name: String,
+    type_name: ImString,
     shard: ImShardId,
     replay_to: ActorRef,
     remaining_entities: HashSet<ActorRef>,
@@ -35,7 +36,7 @@ pub(crate) struct HandoffStopper {
 
 impl HandoffStopper {
     pub(crate) fn props(
-        type_name: String,
+        type_name: ImString,
         shard: ImShardId,
         replay_to: ActorRef,
         entities: HashSet<ActorRef>,
@@ -49,7 +50,7 @@ impl HandoffStopper {
 
     fn new(
         context: &mut ActorContext,
-        type_name: String,
+        type_name: ImString,
         shard: ImShardId,
         replay_to: ActorRef,
         entities: HashSet<ActorRef>,

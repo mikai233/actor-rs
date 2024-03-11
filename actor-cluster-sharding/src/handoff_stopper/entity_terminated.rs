@@ -8,7 +8,7 @@ use actor_core::message::terminated::Terminated;
 use actor_derive::EmptyCodec;
 
 use crate::handoff_stopper::HandoffStopper;
-use crate::shard_coordinator::shard_stopped::ShardStopped;
+use crate::shard_coordinator::rebalance_worker::shard_stopped::ShardStopped;
 
 #[derive(Debug, EmptyCodec)]
 pub(super) struct EntityTerminated(pub(super) ActorRef);

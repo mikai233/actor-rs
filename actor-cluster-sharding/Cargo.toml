@@ -23,3 +23,4 @@ dyn-clone = { workspace = true }
 enum_dispatch = { workspace = true }
 imstr = { workspace = true, features = ["serde"] }
 itertools = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }

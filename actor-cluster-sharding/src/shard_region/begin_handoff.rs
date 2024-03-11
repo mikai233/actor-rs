@@ -7,10 +7,11 @@ use tracing::debug;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;
+use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
 use actor_derive::MessageCodec;
 
-use crate::shard_coordinator::begin_handoff_ack::BeginHandoffAck;
+use crate::shard_coordinator::rebalance_worker::begin_handoff_ack::BeginHandoffAck;
 use crate::shard_region::{ShardId, ShardRegion};
 
 #[derive(Debug, Encode, Decode, MessageCodec)]
@@ -34,7 +35,7 @@ impl Message for BeginHandoff {
                     }
                 }
             }
-            context.sender().unwrap().cast_ns(BeginHandoffAck { shard: self.shard });
+            context.sender().into_result()?.cast(BeginHandoffAck { shard: self.shard }, Some(context.myself().clone()));
         } else {
             debug!("{}: Ignoring begin handoff of shard [{}] as preparing to shutdown", actor.type_name, self.shard);
         }

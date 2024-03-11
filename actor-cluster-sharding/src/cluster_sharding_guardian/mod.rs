@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use imstr::ImString;
 use tracing::trace;
 
 use actor_cluster::cluster::Cluster;
@@ -43,7 +44,7 @@ impl ClusterShardingGuardian {
     fn start_coordinator_if_needed(
         &self,
         context: &mut ActorContext,
-        type_name: String,
+        type_name: ImString,
         allocation_strategy: Box<dyn ShardAllocationStrategy>,
         settings: Arc<ClusterShardingSettings>,
     ) -> anyhow::Result<()> {
@@ -62,7 +63,7 @@ impl ClusterShardingGuardian {
                         type_name,
                         settings,
                         allocation_strategy,
-                    );
+                    )?;
                     Ok(coordinator)
                 })
             });
