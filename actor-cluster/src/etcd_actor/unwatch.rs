@@ -6,6 +6,7 @@ use actor_core::actor_ref::ActorRef;
 use actor_core::ext::option_ext::OptionExt;
 use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
+use crate::etcd_actor::etcd_cmd_resp::EtcdCmdResp;
 use crate::etcd_actor::EtcdActor;
 
 #[derive(Debug, EmptyCodec)]
@@ -22,7 +23,10 @@ impl Message for Unwatch {
         match actor.watcher.remove(&self.id) {
             None => {
                 self.applicant.foreach(|applicant| {
-                    applicant.tell(DynMessage::orphan(UnwatchResp::Failed(None)), ActorRef::no_sender());
+                    applicant.tell(
+                        DynMessage::orphan(EtcdCmdResp::UnwatchResp(UnwatchResp::Failed(None))),
+                        ActorRef::no_sender(),
+                    );
                 });
             }
             Some(mut watcher) => {
@@ -30,12 +34,18 @@ impl Message for Unwatch {
                     match watcher.watcher.cancel().await {
                         Ok(_) => {
                             self.applicant.foreach(|applicant| {
-                                applicant.tell(DynMessage::orphan(UnwatchResp::Success), ActorRef::no_sender());
+                                applicant.tell(
+                                    DynMessage::orphan(EtcdCmdResp::UnwatchResp(UnwatchResp::Success)),
+                                    ActorRef::no_sender(),
+                                );
                             });
                         }
                         Err(error) => {
                             self.applicant.foreach(|applicant| {
-                                applicant.tell(DynMessage::orphan(UnwatchResp::Failed(Some(error))), ActorRef::no_sender());
+                                applicant.tell(
+                                    DynMessage::orphan(EtcdCmdResp::UnwatchResp(UnwatchResp::Failed(Some(error)))),
+                                    ActorRef::no_sender(),
+                                );
                             });
                         }
                     }

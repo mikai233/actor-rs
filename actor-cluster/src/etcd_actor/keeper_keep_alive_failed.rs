@@ -4,6 +4,7 @@ use actor_core::{DynMessage, Message};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_derive::EmptyCodec;
 
+use crate::etcd_actor::etcd_cmd_resp::EtcdCmdResp;
 use crate::etcd_actor::EtcdActor;
 use crate::etcd_actor::keep_alive::KeepAliveFailed;
 
@@ -23,7 +24,10 @@ impl Message for KeeperKeepAliveFailed {
                 id: self.id,
                 error: Some(self.error),
             };
-            lease.watcher.tell(DynMessage::orphan(keep_alive_failed), Some(context.myself().clone()));
+            lease.watcher.tell(
+                DynMessage::orphan(EtcdCmdResp::KeepAliveFailed(keep_alive_failed)),
+                Some(context.myself().clone()),
+            );
         }
         Ok(())
     }

@@ -190,6 +190,7 @@ impl Context for ActorContext {
         self.watching.contains_key(subject)
     }
 
+    //TODO adapter 应该优化为按消息类型维护一个map
     fn adapter<T>(&mut self, func: impl Fn(T) -> DynMessage + Send + Sync + 'static) -> ActorRef
         where
             T: CodecMessage,

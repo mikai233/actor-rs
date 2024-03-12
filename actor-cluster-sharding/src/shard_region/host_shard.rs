@@ -14,8 +14,8 @@ use crate::shard_coordinator::shard_started::ShardStarted;
 use crate::shard_region::{ImShardId, ShardRegion};
 
 #[derive(Debug, Encode, Decode, MessageCodec)]
-pub(super) struct HostShard {
-    pub(super) shard: String,
+pub(crate) struct HostShard {
+    pub(crate) shard: String,
 }
 
 #[async_trait]

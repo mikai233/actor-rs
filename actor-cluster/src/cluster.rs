@@ -24,6 +24,7 @@ use crate::cluster_daemon::leave_cluster::LeaveCluster;
 use crate::cluster_event::ClusterEvent;
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::cluster_state::ClusterState;
+use crate::etcd_actor::EtcdActor;
 use crate::member::{Member, MemberStatus};
 use crate::unique_address::UniqueAddress;
 
@@ -35,7 +36,8 @@ pub struct Cluster {
 #[derive(Debug)]
 pub struct Inner {
     system: ActorSystem,
-    client: EtcdClient,
+    etcd_client: EtcdClient,
+    etcd_actor: ActorRef,
     self_unique_address: UniqueAddress,
     roles: HashSet<String>,
     daemon: ActorRef,
@@ -55,21 +57,26 @@ impl Cluster {
     pub fn new(system: ActorSystem) -> anyhow::Result<Self> {
         let provider = system.provider();
         let cluster_provider = downcast_provider::<ClusterActorRefProvider>(&provider);
-        let client = cluster_provider.client.clone();
+        let etcd_client = cluster_provider.client.clone();
+        let client_clone = etcd_client.clone();
+        let etcd_actor_props = Props::new_with_ctx(move |context| {
+            Ok(EtcdActor::new(context, client_clone))
+        });
+        let etcd_actor = system.spawn_system(etcd_actor_props, Some("etcd".to_string()))?;
         let roles = cluster_provider.roles.clone();
         let address = cluster_provider.get_default_address();
         let self_unique_address = UniqueAddress {
             address: address.clone(),
             uid: system.uid(),
         };
-        let client_clone = client.clone();
-        let unique_address_c = self_unique_address.clone();
+        let client_clone = etcd_client.clone();
+        let unique_address_clone = self_unique_address.clone();
         let roles_c = roles.clone();
         let transport = cluster_provider.remote.transport.clone();
         let daemon = system.spawn_system(Props::new_with_ctx(move |_| {
             Ok(ClusterDaemon {
                 client: client_clone.clone(),
-                self_addr: unique_address_c.clone(),
+                self_addr: unique_address_clone.clone(),
                 roles: roles_c.clone(),
                 transport: transport.clone(),
                 key_addr: HashMap::new(),
@@ -81,7 +88,8 @@ impl Cluster {
         );
         let inner = Inner {
             system,
-            client,
+            etcd_client,
+            etcd_actor,
             self_unique_address,
             roles,
             daemon,
@@ -178,7 +186,15 @@ impl Cluster {
         self.is_terminated.load(Ordering::Relaxed)
     }
 
-    pub fn client(&self) -> &EtcdClient {
-        &self.client
+    pub fn etcd_client(&self) -> &EtcdClient {
+        &self.etcd_client
+    }
+
+    pub fn etcd_actor(&self) -> &ActorRef {
+        &self.etcd_actor
+    }
+
+    pub fn system(&self) -> &ActorSystem {
+        &self.system
     }
 }

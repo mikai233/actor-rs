@@ -17,6 +17,7 @@ dashmap = { workspace = true, features = ["inline"] }
 tracing = { workspace = true }
 async-trait = { workspace = true }
 serde = { workspace = true, features = ["derive", "rc"] }
+serde_json = { workspace = true }
 typed-builder = { workspace = true }
 toml = { workspace = true }
 dyn-clone = { workspace = true }

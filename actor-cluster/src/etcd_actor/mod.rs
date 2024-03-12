@@ -5,10 +5,8 @@ use async_trait::async_trait;
 
 use actor_core::Actor;
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::etcd_client::EtcdClient;
 
-use crate::cluster::Cluster;
 use crate::etcd_actor::lease::Lease;
 use crate::etcd_actor::poll_keep_alive_resp::PollKeepAliveRespWaker;
 use crate::etcd_actor::poll_watch_resp::PollWatchRespWaker;
@@ -30,6 +28,8 @@ mod unwatch;
 mod watch_started;
 mod watcher;
 mod poll_watch_resp;
+pub mod get;
+pub mod etcd_cmd_resp;
 
 #[derive(Debug)]
 pub struct EtcdActor {
@@ -41,8 +41,7 @@ pub struct EtcdActor {
 }
 
 impl EtcdActor {
-    pub fn new(context: &mut ActorContext) -> Self {
-        let client = Cluster::get(context.system()).client().clone();
+    pub fn new(context: &mut ActorContext, client: EtcdClient) -> Self {
         let keep_alive_resp_waker = futures::task::waker(Arc::new(PollKeepAliveRespWaker { actor: context.myself().clone() }));
         let watch_resp_waker = futures::task::waker(Arc::new(PollWatchRespWaker { actor: context.myself().clone() }));
         Self {

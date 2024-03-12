@@ -3,6 +3,8 @@ use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use itertools::Itertools;
+
 use actor_core::ext::type_name_of;
 
 /// TODO 标准库里的LinkedList没有提供O(1)复杂度的移除操作，暂时用VecDeque代替
@@ -105,7 +107,7 @@ impl<V> RecencyList<V> where V: Eq + Hash + Clone {
         let nodes = self.recency.iter()
             .filter(|n| n.timestamp < min)
             .map(|n| n.clone())
-            .collect::<Vec<_>>();
+            .collect_vec();
         for node in &nodes {
             self.remove(&node.value);
         }
@@ -118,7 +120,7 @@ impl<V> RecencyList<V> where V: Eq + Hash + Clone {
             .rev()
             .filter(|n| n.timestamp > max)
             .map(|n| n.clone())
-            .collect::<Vec<_>>();
+            .collect_vec();
         for node in &nodes {
             self.remove(&node.value);
         }

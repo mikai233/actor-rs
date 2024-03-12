@@ -6,6 +6,7 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
+use crate::etcd_actor::etcd_cmd_resp::EtcdCmdResp;
 use crate::etcd_actor::EtcdActor;
 use crate::etcd_actor::watch_started::WatchStarted;
 
@@ -34,7 +35,10 @@ impl Message for Watch {
                     myself.cast_ns(started);
                 }
                 Err(error) => {
-                    self.applicant.tell(DynMessage::orphan(WatchResp::Failed(Some(error))), ActorRef::no_sender());
+                    self.applicant.tell(
+                        DynMessage::orphan(EtcdCmdResp::WatchResp(WatchResp::Failed(Some(error)))),
+                        ActorRef::no_sender(),
+                    );
                 }
             }
         });

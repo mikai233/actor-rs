@@ -49,7 +49,7 @@ mod register_retry;
 mod retry;
 mod cluster_event_wrap;
 mod shard_entity_envelope;
-mod host_shard;
+pub(crate) mod host_shard;
 mod shard_home;
 mod shard_region_terminated;
 pub(crate) mod shard_homes;

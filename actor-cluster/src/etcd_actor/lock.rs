@@ -8,6 +8,7 @@ use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::ActorRef;
 use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
+use crate::etcd_actor::etcd_cmd_resp::EtcdCmdResp;
 use crate::etcd_actor::EtcdActor;
 
 #[derive(Debug, EmptyCodec)]
@@ -29,12 +30,18 @@ impl Message for Lock {
                 None => {
                     match client.lock(self.name, self.options).await {
                         Ok(resp) => {
-                            let success = LockResult::Success(resp);
-                            self.applicant.tell(DynMessage::orphan(success), ActorRef::no_sender());
+                            let success = LockResp::Success(resp);
+                            self.applicant.tell(
+                                DynMessage::orphan(EtcdCmdResp::LockResp(success)),
+                                ActorRef::no_sender(),
+                            );
                         }
                         Err(error) => {
-                            let failed = LockResult::Failed(Some(error));
-                            self.applicant.tell(DynMessage::orphan(failed), ActorRef::no_sender());
+                            let failed = LockResp::Failed(Some(error));
+                            self.applicant.tell(
+                                DynMessage::orphan(EtcdCmdResp::LockResp(failed)),
+                                ActorRef::no_sender(),
+                            );
                         }
                     }
                 }
@@ -43,18 +50,27 @@ impl Message for Lock {
                         Ok(resp) => {
                             match resp {
                                 Ok(resp) => {
-                                    let success = LockResult::Success(resp);
-                                    self.applicant.tell(DynMessage::orphan(success), ActorRef::no_sender());
+                                    let success = LockResp::Success(resp);
+                                    self.applicant.tell(
+                                        DynMessage::orphan(EtcdCmdResp::LockResp(success)),
+                                        ActorRef::no_sender(),
+                                    );
                                 }
                                 Err(error) => {
-                                    let failed = LockResult::Failed(Some(error));
-                                    self.applicant.tell(DynMessage::orphan(failed), ActorRef::no_sender());
+                                    let failed = LockResp::Failed(Some(error));
+                                    self.applicant.tell(
+                                        DynMessage::orphan(EtcdCmdResp::LockResp(failed)),
+                                        ActorRef::no_sender(),
+                                    );
                                 }
                             }
                         }
                         Err(_) => {
-                            let failed = LockResult::Failed(None);
-                            self.applicant.tell(DynMessage::orphan(failed), ActorRef::no_sender());
+                            let failed = LockResp::Failed(None);
+                            self.applicant.tell(
+                                DynMessage::orphan(EtcdCmdResp::LockResp(failed)),
+                                ActorRef::no_sender(),
+                            );
                         }
                     }
                 }
@@ -65,7 +81,7 @@ impl Message for Lock {
 }
 
 #[derive(Debug, OrphanEmptyCodec)]
-pub enum LockResult {
+pub enum LockResp {
     Success(LockResponse),
     Failed(Option<etcd_client::Error>),
 }

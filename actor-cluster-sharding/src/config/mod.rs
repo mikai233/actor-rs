@@ -17,6 +17,7 @@ pub struct ClusterShardingConfig {
     pub shard_region_query_timeout: Duration,
     pub retry_interval: Duration,
     pub handoff_timeout: Duration,
+    pub shard_start_timeout: Duration,
 }
 
 impl Config for ClusterShardingConfig {

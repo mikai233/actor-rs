@@ -7,6 +7,7 @@ use actor_core::actor_ref::ActorRef;
 use actor_core::ext::option_ext::OptionExt;
 use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
+use crate::etcd_actor::etcd_cmd_resp::EtcdCmdResp;
 use crate::etcd_actor::EtcdActor;
 
 #[derive(Debug, EmptyCodec)]
@@ -26,12 +27,18 @@ impl Message for Delete {
             match client.delete(self.key, self.options).await {
                 Ok(resp) => {
                     self.applicant.foreach(|applicant| {
-                        applicant.tell(DynMessage::orphan(DeleteResp::Success(resp)), ActorRef::no_sender());
+                        applicant.tell(
+                            DynMessage::orphan(EtcdCmdResp::DeleteResp(DeleteResp::Success(resp))),
+                            ActorRef::no_sender(),
+                        );
                     });
                 }
                 Err(error) => {
                     self.applicant.foreach(|applicant| {
-                        applicant.tell(DynMessage::orphan(DeleteResp::Failed(error)), ActorRef::no_sender());
+                        applicant.tell(
+                            DynMessage::orphan(EtcdCmdResp::DeleteResp(DeleteResp::Failed(error))),
+                            ActorRef::no_sender(),
+                        );
                     });
                 }
             }

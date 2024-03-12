@@ -21,7 +21,7 @@ use crate::shard_region::ImShardId;
 
 mod receive_timeout;
 pub(crate) mod shard_stopped;
-mod shard_region_terminated;
+pub(crate) mod shard_region_terminated;
 pub(crate) mod begin_handoff_ack;
 
 #[derive(Debug)]

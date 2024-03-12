@@ -11,6 +11,7 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_derive::EmptyCodec;
 
+use crate::etcd_actor::etcd_cmd_resp::EtcdCmdResp;
 use crate::etcd_actor::EtcdActor;
 use crate::etcd_actor::keep_alive::KeepAliveFailed;
 
@@ -32,7 +33,10 @@ impl Message for PollKeepAliveResp {
                             id: *id,
                             error: None,
                         };
-                        lease.watcher.tell(DynMessage::orphan(keep_alive_failed), Some(context.myself().clone()));
+                        lease.watcher.tell(
+                            DynMessage::orphan(EtcdCmdResp::KeepAliveFailed(keep_alive_failed)),
+                            Some(context.myself().clone()),
+                        );
                         failed.push(*id);
                     }
                     Some(resp) => {
@@ -41,7 +45,10 @@ impl Message for PollKeepAliveResp {
                                 id: *id,
                                 error: Some(error),
                             };
-                            lease.watcher.tell(DynMessage::orphan(keep_alive_failed), Some(context.myself().clone()));
+                            lease.watcher.tell(
+                                DynMessage::orphan(EtcdCmdResp::KeepAliveFailed(keep_alive_failed)),
+                                Some(context.myself().clone()),
+                            );
                             failed.push(*id);
                         }
                     }

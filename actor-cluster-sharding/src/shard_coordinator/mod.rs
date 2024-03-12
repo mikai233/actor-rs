@@ -7,22 +7,28 @@ use std::time::Duration;
 use async_trait::async_trait;
 use imstr::ImString;
 use itertools::Itertools;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 use actor_cluster::cluster::Cluster;
 use actor_core::Actor;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
-use actor_core::actor::timers::Timers;
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::actor::timers::{ScheduleKey, Timers};
+use actor_core::actor_ref::{ActorRef, ActorRefExt, PROVIDER};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::ext::message_ext::UserMessageExt;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
+use crate::shard_coordinator::coordinator_state::CoordinatorState;
 use crate::shard_coordinator::get_shard_home::GetShardHome;
 use crate::shard_coordinator::rebalance_worker::RebalanceWorker;
+use crate::shard_coordinator::rebalance_worker::shard_region_terminated::ShardRegionTerminated;
+use crate::shard_coordinator::resend_shard_host::ResendShardHost;
 use crate::shard_coordinator::state::State;
+use crate::shard_coordinator::state_update::StateUpdate;
 use crate::shard_region::{ImShardId, ShardId};
+use crate::shard_region::host_shard::HostShard;
 use crate::shard_region::shard_homes::ShardHomes;
 
 pub(crate) mod get_shard_home;
@@ -38,6 +44,12 @@ mod rebalance_tick;
 mod rebalance_result;
 mod stop_shard_timeout;
 mod stop_shards;
+mod shard_region_terminated;
+mod state_update;
+mod etcd_resp;
+mod coordinator_state;
+mod shard_region_proxy_terminated;
+mod resend_shard_host;
 
 #[derive(Debug)]
 pub struct ShardCoordinator {
@@ -48,10 +60,11 @@ pub struct ShardCoordinator {
     timers: Timers,
     all_regions_registered: bool,
     state: State,
+    coordinator_state: CoordinatorState,
     preparing_for_shutdown: bool,
     rebalance_in_progress: HashMap<ImShardId, HashSet<ActorRef>>,
     rebalance_workers: HashSet<ActorRef>,
-    un_acked_host_shards: HashMap<ImShardId, ()>,
+    un_acked_host_shards: HashMap<ImShardId, ScheduleKey>,
     graceful_shutdown_in_progress: HashSet<ActorRef>,
     waiting_for_local_region_to_terminate: bool,
     alive_regions: HashSet<ActorRef>,
@@ -76,6 +89,7 @@ impl ShardCoordinator {
             timers,
             all_regions_registered: false,
             state: Default::default(),
+            coordinator_state: Default::default(),
             preparing_for_shutdown: false,
             rebalance_in_progress: Default::default(),
             rebalance_workers: Default::default(),
@@ -93,7 +107,9 @@ impl ShardCoordinator {
 #[async_trait]
 impl Actor for ShardCoordinator {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        todo!()
+        //TODO 从etcd获取持久化状态
+        self.coordinator_state = CoordinatorState::Active;
+        Ok(())
     }
 }
 
@@ -181,7 +197,6 @@ impl ShardCoordinator {
         if let Entry::Vacant(v) = self.rebalance_in_progress.entry(shard.clone()) {
             v.insert(HashSet::new());
             let regions = self.state.regions.keys().map(|region| region.clone()).collect::<HashSet<_>>();
-            let region_proxies = self.state.region_proxies.clone();
             let regions = regions
                 .union(&self.state.region_proxies)
                 .into_iter()
@@ -235,5 +250,75 @@ impl ShardCoordinator {
             );
             context.stop(context.myself());
         }
+    }
+
+    fn region_terminated(&mut self, context: &mut ActorContext, region: ActorRef) {
+        for worker in &self.rebalance_workers {
+            worker.cast_ns(ShardRegionTerminated { region: region.clone() });
+        }
+        if let Some(shards) = self.state.regions.get(&region) {
+            let gracefully = if self.graceful_shutdown_in_progress.contains(&region) {
+                " (gracefully)"
+            } else {
+                ""
+            };
+            debug!("{}: ShardRegion terminated{}: [{}]", self.type_name, gracefully, region);
+            self.region_termination_in_progress.insert(region.clone());
+            for shard in shards {
+                context.myself().cast(
+                    GetShardHome { shard: shard.clone().into() },
+                    Some(context.system().dead_letters()),
+                );//TODO ignore ref
+            }
+            self.update(StateUpdate::ShardRegionTerminated { region: region.clone() });
+            self.graceful_shutdown_in_progress.remove(&region);
+            self.region_termination_in_progress.remove(&region);
+            self.alive_regions.remove(&region);
+            //TODO
+        }
+    }
+
+    fn region_proxy_terminated(&mut self, proxy: ActorRef) {
+        for worker in &self.rebalance_workers {
+            worker.cast_ns(ShardRegionTerminated { region: proxy.clone() });
+        }
+        if self.state.region_proxies.contains(&proxy) {
+            debug!("{}: ShardRegion proxy terminated: [{}]", self.type_name, proxy);
+            self.update(StateUpdate::ShardRegionProxyTerminated { region_proxy: proxy });
+        }
+    }
+
+    fn update(&mut self, state: StateUpdate) {
+        self.state.updated(state);
+        let etcd_actor = self.cluster.etcd_actor();
+        PROVIDER.sync_scope(self.cluster.system().provider_full(), || {
+            match serde_json::to_string_pretty(&self.state) {
+                Ok(json_state) => {
+                    //TODO
+                }
+                Err(error) => {
+                    error!("ShardCoordinator state {:?} serialize to json error {:#?}", self.state, error);
+                }
+            }
+        });
+    }
+
+    fn coordinator_state_path(&self) -> String {
+        let system_name = &self.cluster.system().address().system;
+        format!("actor/{}/cluster/shard_coordinator_state", system_name)
+    }
+
+    fn send_host_shard_msg(&mut self, context: &mut ActorContext, shard: ImShardId, region: ActorRef) {
+        region.cast(HostShard { shard: shard.clone().into() }, Some(context.myself().clone()));
+        let resend_shard_host = ResendShardHost {
+            shard: shard.clone(),
+            region,
+        };
+        let key = self.timers.start_single_timer(
+            self.settings.shard_start_timeout,
+            resend_shard_host.into_dyn(),
+            context.myself().clone(),
+        );
+        self.un_acked_host_shards.insert(shard, key);
     }
 }

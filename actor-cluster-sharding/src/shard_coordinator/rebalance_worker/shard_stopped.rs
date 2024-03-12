@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
+use tracing::debug;
 
 use actor_core::actor::context::ActorContext;
 use actor_core::Message;
@@ -18,7 +19,16 @@ impl Message for ShardStopped {
     type A = RebalanceWorker;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.done(context, true);
+        let shard = self.shard;
+        if shard == actor.shard.as_str() {
+            if actor.stopping_shard {
+                actor.done(context, true);
+            } else {
+                debug!("{}: Ignore ShardStopped {} because RebalanceWorker not in stopping shard", actor.type_name, shard);
+            }
+        } else {
+            debug!("{}: Ignore unknown ShardStopped {} for shard {}", actor.type_name, shard, actor.shard);
+        }
         Ok(())
     }
 }

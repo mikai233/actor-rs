@@ -9,6 +9,7 @@ use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
 use actor_derive::EmptyCodec;
 
+use crate::etcd_actor::etcd_cmd_resp::EtcdCmdResp;
 use crate::etcd_actor::keeper_keep_alive_failed::KeeperKeepAliveFailed;
 
 #[derive(Debug)]

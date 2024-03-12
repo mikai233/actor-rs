@@ -11,6 +11,7 @@ use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_derive::EmptyCodec;
 
+use crate::etcd_actor::etcd_cmd_resp::EtcdCmdResp;
 use crate::etcd_actor::EtcdActor;
 use crate::etcd_actor::watch::WatchResp;
 
@@ -28,16 +29,25 @@ impl Message for PollWatchResp {
             while let Poll::Ready(resp) = watcher.stream.poll_next_unpin(&mut cx) {
                 match resp {
                     None => {
-                        watcher.applicant.tell(DynMessage::orphan(WatchResp::Failed(None)), ActorRef::no_sender());
+                        watcher.applicant.tell(
+                            DynMessage::orphan(EtcdCmdResp::WatchResp(WatchResp::Failed(None))),
+                            ActorRef::no_sender(),
+                        );
                         failed.push(*id);
                     }
                     Some(resp) => {
                         match resp {
                             Ok(resp) => {
-                                watcher.applicant.tell(DynMessage::orphan(WatchResp::Success(resp)), ActorRef::no_sender());
+                                watcher.applicant.tell(
+                                    DynMessage::orphan(EtcdCmdResp::WatchResp(WatchResp::Success(resp))),
+                                    ActorRef::no_sender(),
+                                );
                             }
                             Err(error) => {
-                                watcher.applicant.tell(DynMessage::orphan(WatchResp::Failed(Some(error))), ActorRef::no_sender());
+                                watcher.applicant.tell(
+                                    DynMessage::orphan(EtcdCmdResp::WatchResp(WatchResp::Failed(Some(error)))),
+                                    ActorRef::no_sender(),
+                                );
                                 failed.push(*id);
                             }
                         }

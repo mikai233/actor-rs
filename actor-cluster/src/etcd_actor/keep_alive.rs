@@ -9,6 +9,7 @@ use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
+use crate::etcd_actor::etcd_cmd_resp::EtcdCmdResp;
 use crate::etcd_actor::EtcdActor;
 use crate::etcd_actor::keeper::Keeper;
 use crate::etcd_actor::lease::Lease;
@@ -43,7 +44,10 @@ impl Message for KeepAlive {
                     id: self.id,
                     error: Some(error),
                 };
-                self.watcher.tell(DynMessage::orphan(keep_alive_failed), ActorRef::no_sender());
+                self.watcher.tell(
+                    DynMessage::orphan(EtcdCmdResp::KeepAliveFailed(keep_alive_failed)),
+                    ActorRef::no_sender(),
+                );
             }
         }
         Ok(())

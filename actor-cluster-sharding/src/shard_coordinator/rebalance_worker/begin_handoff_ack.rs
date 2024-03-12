@@ -26,7 +26,7 @@ impl Message for BeginHandoffAck {
             debug!("{}: BeginHandOffAck for shard [{}] received from [{}].", actor.type_name, actor.shard, sender);
             actor.acked(context, &sender);
         } else {
-            debug!("{}: Ignore Unknown BeginHandOffAck for shard [{}] received from [{}].", actor.type_name, actor.shard, sender);
+            debug!("{}: Ignore unknown BeginHandOffAck for shard [{}] received from [{}].", actor.type_name, actor.shard, sender);
         }
         Ok(())
     }
