@@ -10,7 +10,7 @@ mod message;
 pub mod etcd_watcher;
 pub mod cluster_event;
 pub mod member;
-mod cluster_state;
+pub mod cluster_state;
 pub mod lease_keeper;
 pub mod config;
 mod on_member_status_changed_listener;

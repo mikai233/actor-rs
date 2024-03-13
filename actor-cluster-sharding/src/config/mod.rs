@@ -18,6 +18,8 @@ pub struct ClusterShardingConfig {
     pub retry_interval: Duration,
     pub handoff_timeout: Duration,
     pub shard_start_timeout: Duration,
+    // pub min_nr_or_members: usize,
+    pub rebalance_interval: Duration,
 }
 
 impl Config for ClusterShardingConfig {

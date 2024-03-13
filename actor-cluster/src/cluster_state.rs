@@ -6,8 +6,8 @@ use crate::unique_address::UniqueAddress;
 
 #[derive(Debug)]
 pub struct ClusterState {
-    pub(crate) members: RwLock<HashMap<UniqueAddress, Member>>,
-    pub(crate) self_member: RwLock<Member>,
+    pub members: RwLock<HashMap<UniqueAddress, Member>>,
+    pub self_member: RwLock<Member>,
 }
 
 impl ClusterState {

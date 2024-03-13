@@ -44,6 +44,7 @@ dependencies = [
  "itertools 0.12.1",
  "serde",
  "serde_json",
+ "tokio",
  "toml",
  "tracing",
  "typed-builder",

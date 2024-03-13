@@ -33,6 +33,7 @@ use crate::shard::Shard;
 use crate::shard::shard_envelope::ShardEnvelope;
 use crate::shard_coordinator::get_shard_home::GetShardHome;
 use crate::shard_coordinator::graceful_shutdown_req::GracefulShutdownReq;
+use crate::shard_coordinator::region_stopped::RegionStopped;
 use crate::shard_coordinator::register::Register;
 use crate::shard_coordinator::register_proxy::RegisterProxy;
 use crate::shard_region::cluster_event_wrap::ClusterEventWrap;
@@ -50,7 +51,7 @@ mod retry;
 mod cluster_event_wrap;
 mod shard_entity_envelope;
 pub(crate) mod host_shard;
-mod shard_home;
+pub(crate) mod shard_home;
 mod shard_region_terminated;
 pub(crate) mod shard_homes;
 pub(crate) mod register_ack;
@@ -425,7 +426,10 @@ impl ShardRegion {
     }
 
     fn try_complete_graceful_shutdown_if_in_progress(&self, context: &mut ActorContext) {
-        todo!()
+        if self.graceful_shutdown_in_progress && self.shards.is_empty() && self.shard_buffers.is_empty() {
+            debug!("{}: Completed graceful shutdown of region.", self.type_name);
+            context.stop(context.myself());
+        }
     }
 
     fn receive_shard_home(&mut self, context: &mut ActorContext, shard: ImShardId, shard_region_ref: ActorRef) -> anyhow::Result<()> {
@@ -479,7 +483,11 @@ impl Actor for ShardRegion {
     }
 
     async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+        debug!("{}: Region stopped", self.type_name);
         self.cluster.unsubscribe_cluster_event(context.myself());
+        self.coordinator.foreach(|coordinator| {
+            coordinator.cast_ns(RegionStopped { shard_region: context.myself().clone() });
+        });
         Ok(())
     }
 }

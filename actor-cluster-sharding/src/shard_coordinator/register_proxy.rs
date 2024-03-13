@@ -37,7 +37,6 @@ impl Message for RegisterProxy {
                 actor.update(StateUpdate::ShardRegionProxyRegistered { region_proxy: proxy.clone() });
                 context.watch(ShardRegionProxyTerminated(proxy.clone()));
                 proxy.cast_ns(RegisterAck { coordinator: context.myself().clone() });
-                //TODO update state
             }
         }
         todo!()

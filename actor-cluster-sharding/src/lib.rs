@@ -6,12 +6,12 @@ pub mod cluster_sharding;
 mod cluster_sharding_guardian;
 mod config;
 pub mod shard_coordinator;
-mod shard_allocation_strategy;
 mod cluster_sharding_settings;
 mod message_extractor;
 pub(crate) mod shard;
 mod entity_passivation_strategy;
 mod handoff_stopper;
+pub mod shard_allocation_strategy;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::collections::hash_map::Entry;
 use std::ops::Not;
 use std::sync::Arc;
@@ -22,6 +22,7 @@ use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
 use crate::shard_coordinator::coordinator_state::CoordinatorState;
 use crate::shard_coordinator::get_shard_home::GetShardHome;
+use crate::shard_coordinator::rebalance_tick::RebalanceTick;
 use crate::shard_coordinator::rebalance_worker::RebalanceWorker;
 use crate::shard_coordinator::rebalance_worker::shard_region_terminated::ShardRegionTerminated;
 use crate::shard_coordinator::resend_shard_host::ResendShardHost;
@@ -29,6 +30,7 @@ use crate::shard_coordinator::state::State;
 use crate::shard_coordinator::state_update::StateUpdate;
 use crate::shard_region::{ImShardId, ShardId};
 use crate::shard_region::host_shard::HostShard;
+use crate::shard_region::shard_home::ShardHome;
 use crate::shard_region::shard_homes::ShardHomes;
 
 pub(crate) mod get_shard_home;
@@ -50,6 +52,8 @@ mod etcd_resp;
 mod coordinator_state;
 mod shard_region_proxy_terminated;
 mod resend_shard_host;
+mod allocate_shard_result;
+pub(crate) mod region_stopped;
 
 #[derive(Debug)]
 pub struct ShardCoordinator {
@@ -58,6 +62,7 @@ pub struct ShardCoordinator {
     allocation_strategy: Box<dyn ShardAllocationStrategy>,
     cluster: Cluster,
     timers: Timers,
+    min_members: usize,
     all_regions_registered: bool,
     state: State,
     coordinator_state: CoordinatorState,
@@ -70,6 +75,9 @@ pub struct ShardCoordinator {
     alive_regions: HashSet<ActorRef>,
     region_termination_in_progress: HashSet<ActorRef>,
     waiting_for_shards_to_stop: HashMap<ImShardId, HashSet<(ActorRef, uuid::Uuid)>>,
+    rebalance_tick_key: Option<ScheduleKey>,
+
+    get_shard_home_requests: BTreeSet<(ActorRef, GetShardHome)>,
 }
 
 impl ShardCoordinator {
@@ -87,6 +95,7 @@ impl ShardCoordinator {
             allocation_strategy,
             cluster,
             timers,
+            min_members: 1,
             all_regions_registered: false,
             state: Default::default(),
             coordinator_state: Default::default(),
@@ -99,6 +108,8 @@ impl ShardCoordinator {
             alive_regions: Default::default(),
             region_termination_in_progress: Default::default(),
             waiting_for_shards_to_stop: Default::default(),
+            rebalance_tick_key: None,
+            get_shard_home_requests: Default::default(),
         };
         Ok(coordinator)
     }
@@ -107,6 +118,12 @@ impl ShardCoordinator {
 #[async_trait]
 impl Actor for ShardCoordinator {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+        self.timers.start_timer_with_fixed_delay(
+            None,
+            self.settings.rebalance_interval,
+            RebalanceTick.into_dyn(),
+            context.myself().clone(),
+        );
         //TODO 从etcd获取持久化状态
         self.coordinator_state = CoordinatorState::Active;
         Ok(())
@@ -181,6 +198,39 @@ impl ShardCoordinator {
                     self.settings.handoff_timeout,
                     false,
                 )?;
+            }
+        }
+        Ok(())
+    }
+
+    fn continue_rebalance(&mut self, context: &mut ActorContext, shards: HashSet<ImShardId>) -> anyhow::Result<()> {
+        if shards.is_empty().not() || self.rebalance_in_progress.is_empty().not() {
+            let shards_str = shards.iter().join(", ");
+            let rebalance_str = self.rebalance_in_progress.keys().join(", ");
+            info!(
+                "{}: Starting rebalance for shards [{}]. Current shards rebalancing: [{}]",
+                self.type_name,
+                shards_str,
+                rebalance_str,
+            );
+        }
+        for shard in shards {
+            if self.rebalance_in_progress.contains_key(&shard) {
+                match self.state.shards.get(&shard) {
+                    None => {
+                        debug!("{}: Rebalance of non-existing shard [{}] is ignored", self.type_name, shard);
+                    }
+                    Some(rebalance_from_region) => {
+                        debug!("{}: Rebalance shard [{}] from [{}]", self.type_name, shard, rebalance_from_region);
+                        self.start_shard_rebalance_if_needed(
+                            context,
+                            shard,
+                            rebalance_from_region.clone(),
+                            self.settings.handoff_timeout,
+                            true,
+                        )?;
+                    }
+                }
             }
         }
         Ok(())
@@ -320,5 +370,116 @@ impl ShardCoordinator {
             context.myself().clone(),
         );
         self.un_acked_host_shards.insert(shard, key);
+    }
+
+    fn handle_get_shard_home(&mut self, context: &mut ActorContext, sender: ActorRef, shard: ImShardId) -> bool {
+        if self.rebalance_in_progress.contains_key(&shard) {
+            self.defer_get_shard_home_request(shard, sender);
+            self.unstash_one_get_shard_home_request(context);
+            true
+        } else if !self.has_all_regions_registered() {
+            debug!(
+                "{}: GetShardHome [{}] request from [{}] ignored, becasue not all regions have registered yet.",
+                self.type_name,
+                shard,
+                sender,
+            );
+            true
+        } else {
+            match self.state.shards.get(&shard) {
+                None => {
+                    false
+                }
+                Some(shard_region_ref) => {
+                    if self.region_termination_in_progress.contains(&shard_region_ref) {
+                        debug!(
+                            "{}: GetShardHome [{}] request ignored, due to region [{}] termination in progress",
+                            self.type_name,
+                            shard, shard_region_ref,
+                        );
+                    } else {
+                        sender.cast_ns(ShardHome { shard: shard.into(), shard_region: shard_region_ref.clone() });
+                    }
+                    self.unstash_one_get_shard_home_request(context);
+                    true
+                }
+            }
+        }
+    }
+
+    fn has_all_regions_registered(&mut self) -> bool {
+        if self.all_regions_registered {
+            true
+        } else {
+            self.all_regions_registered = self.alive_regions.len() >= self.min_members;
+            self.all_regions_registered
+        }
+    }
+
+    fn defer_get_shard_home_request(&mut self, shard: ImShardId, from: ActorRef) {
+        debug!(
+            "{}: GetShardHome [{}] request from [{}] deferred, because rebalance is in progress for this shard. \
+            It will be handled when reblance is done.",
+            self.type_name,
+            shard,
+            from,
+        );
+        match self.rebalance_in_progress.entry(shard) {
+            Entry::Occupied(mut o) => {
+                o.get_mut().insert(from);
+            }
+            Entry::Vacant(v) => {
+                let mut refs = HashSet::new();
+                refs.insert(from);
+                v.insert(refs);
+            }
+        }
+    }
+
+    fn stash_get_shard_home_request(&mut self, sender: ActorRef, request: GetShardHome) {
+        debug!(
+            "{}: GetShardHome [{}] request from [{}] stashed, because waiting for initial state or update of state. \
+            It will be handled afterwards.",
+            self.type_name,
+            request.shard,
+            sender,
+        );
+        self.get_shard_home_requests.insert((sender, request));
+    }
+
+    fn unstash_one_get_shard_home_request(&mut self, context: &mut ActorContext) {
+        if let Some((sender, request)) = self.get_shard_home_requests.pop_first() {
+            context.myself().tell(request.into_dyn(), Some(sender));
+        }
+    }
+
+    fn continue_get_shard_home(&mut self, context: &mut ActorContext, shard: ImShardId, region: ActorRef, get_shard_home_sender: ActorRef) {
+        if self.rebalance_in_progress.contains_key(&shard) {
+            self.defer_get_shard_home_request(shard, get_shard_home_sender);
+        } else {
+            match self.state.shards.get(&shard) {
+                None => {
+                    if self.state.regions.contains_key(&region) &&
+                        !self.graceful_shutdown_in_progress.contains(&region) &&
+                        !self.region_termination_in_progress.contains(&region) {
+                        self.update(StateUpdate::ShardHomeAllocated { shard: shard.clone(), region: region.clone() });
+                        debug!("{}: Shard [{}] allocated at [{}]", self.type_name, shard, region);
+                        self.send_host_shard_msg(context, shard.clone(), region.clone());
+                        get_shard_home_sender.cast_ns(ShardHome { shard: shard.into(), shard_region: region });
+                    } else {
+                        debug!(
+                            "{}: Allocated region [{}] for shard [{}] is not (any longer) one of the registered regions: {:?}",
+                            self.type_name,
+                            region,
+                            shard,
+                            self.state,
+                        );
+                    }
+                }
+                Some(region) => {
+                    get_shard_home_sender.cast_ns(ShardHome { shard: shard.into(), shard_region: region.clone() });
+                }
+            }
+        }
     }
 }

@@ -150,7 +150,8 @@ impl Cluster {
         &self.self_unique_address
     }
 
-    pub(crate) fn state(&self) -> &ClusterState {
+    //TODO 可见性
+    pub fn state(&self) -> &ClusterState {
         &self.state
     }
 
