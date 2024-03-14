@@ -2,13 +2,16 @@ use async_trait::async_trait;
 use tracing::{debug, warn};
 
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 
+use crate::shard_coordinator::get_shard_home::GetShardHome;
 use crate::shard_coordinator::rebalance_worker::shard_stopped::ShardStopped;
 use crate::shard_coordinator::ShardCoordinator;
+use crate::shard_coordinator::state_update::StateUpdate;
 use crate::shard_region::ImShardId;
 
 #[derive(Debug, EmptyCodec)]
@@ -32,8 +35,14 @@ impl Message for RebalanceDone {
                 }
             }
             if actor.state.shards.contains_key(self.shard.as_str()) {
-                //TODO update state
-                actor.clear_rebalance_in_progress(context, self.shard.into());
+                actor.update(StateUpdate::ShardHomeDeallocated { shard: self.shard.clone() });
+                debug!("{}: Shard [{}] deallocated after", actor.type_name, self.shard);
+                actor.clear_rebalance_in_progress(context, self.shard.clone().into());
+                //TODO ignore ref
+                context.myself().cast(
+                    GetShardHome { shard: self.shard.into() },
+                    Some(context.system().dead_letters()),
+                );
             } else {
                 actor.clear_rebalance_in_progress(context, self.shard.into());
             }

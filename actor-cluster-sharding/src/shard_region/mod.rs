@@ -15,7 +15,7 @@ use actor_cluster::member::{Member, MemberStatus};
 use actor_cluster::unique_address::UniqueAddress;
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_selection::{ActorSelection, ActorSelectionPath};
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext, Context, ContextExt};
 use actor_core::actor::props::{Props, PropsBuilderSync};
 use actor_core::actor::timers::{ScheduleKey, Timers};
 use actor_core::actor_path::root_actor_path::RootActorPath;
@@ -57,6 +57,7 @@ pub(crate) mod shard_homes;
 pub(crate) mod register_ack;
 mod coordinator_terminated;
 pub(crate) mod begin_handoff;
+pub(crate) mod shard_initialized;
 
 pub type ShardId = String;
 
@@ -295,13 +296,13 @@ impl ShardRegion {
                         self.buffer_message(shard_id.clone(), envelope, context.sender().cloned());
                         self.deliver_buffered_messages(&shard_id, &shard);
                     } else {
-                        shard.cast(ShardEnvelope(envelope), context.sender().cloned());
+                        context.forward(&shard, ShardEnvelope(envelope).into_dyn());
                     }
                 }
             }
             Some((shard_id, shard_region_ref)) => {
                 debug!("{type_name}: Forwarding message for shard [{shard_id}] to [{shard_region_ref}]");
-                shard_region_ref.cast(envelope, context.sender().cloned());
+                context.forward(shard_region_ref, ShardEnvelope(envelope).into_dyn());
             }
         }
         Ok(())
@@ -478,7 +479,7 @@ impl Actor for ShardRegion {
             DynMessage::user(Retry),
             context.myself().clone(),
         );
-
+        self.start_registration(context)?;
         Ok(())
     }
 

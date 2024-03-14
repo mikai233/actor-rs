@@ -7,9 +7,6 @@ use itertools::Itertools;
 
 use actor_core::ext::type_name_of;
 
-/// TODO 标准库里的LinkedList没有提供O(1)复杂度的移除操作，暂时用VecDeque代替
-/// 由于[V]需要同时保存到两个数据结构中，因此需要[V]是可以clone的，如果[V]的clone代价比较昂贵的话
-/// 可以用[std::rc::Rc]包裹
 pub struct RecencyList<V> where V: Eq + Hash + Clone {
     recency: VecDeque<Node<V>>,
     // front->less recent back->more recent

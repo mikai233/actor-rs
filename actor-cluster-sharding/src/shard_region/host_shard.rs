@@ -7,6 +7,7 @@ use tracing::debug;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;
+use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
 use actor_derive::MessageCodec;
 
@@ -42,7 +43,7 @@ impl Message for HostShard {
                 }
             }
             actor.get_shard(context, shard.clone())?;
-            context.sender().unwrap().cast_ns(ShardStarted { shard: shard.into() });
+            context.sender().into_result()?.cast_ns(ShardStarted { shard: shard.into() });
         }
         Ok(())
     }

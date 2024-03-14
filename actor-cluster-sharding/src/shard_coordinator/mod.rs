@@ -14,9 +14,11 @@ use actor_core::Actor;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor::timers::{ScheduleKey, Timers};
+use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt, PROVIDER};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::message_ext::UserMessageExt;
+use actor_core::message::message_registration::MessageRegistration;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
@@ -118,12 +120,12 @@ impl ShardCoordinator {
 #[async_trait]
 impl Actor for ShardCoordinator {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        self.timers.start_timer_with_fixed_delay(
-            None,
-            self.settings.rebalance_interval,
-            RebalanceTick.into_dyn(),
-            context.myself().clone(),
-        );
+        // self.timers.start_timer_with_fixed_delay(
+        //     None,
+        //     self.settings.rebalance_interval,
+        //     RebalanceTick.into_dyn(),
+        //     context.myself().clone(),
+        // );
         //TODO 从etcd获取持久化状态
         self.coordinator_state = CoordinatorState::Active;
         Ok(())
@@ -141,8 +143,9 @@ impl ShardCoordinator {
         }
     }
 
-    fn is_member(&self, region: &ActorRef) -> bool {
-        todo!()
+    fn is_member(&self, context: &mut ActorContext, region: &ActorRef) -> bool {
+        let region_address = region.path().address();
+        region_address == context.myself().path().address() || self.cluster.state().is_member_up(region_address)
     }
 
     fn inform_about_current_shards(&self, region: &ActorRef) {

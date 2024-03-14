@@ -37,7 +37,8 @@ impl ClusterShardingGuardian {
         myself.path()
             .child(&Self::coordinator_singleton_manager_name(enc_name))
             .child("singleton")
-            .child("coordinator")
+            //TODO
+            // .child("coordinator")
             .to_string_without_address()
     }
 

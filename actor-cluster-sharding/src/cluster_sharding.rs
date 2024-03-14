@@ -56,8 +56,10 @@ impl Deref for ClusterSharding {
 
 impl ClusterSharding {
     pub fn new(system: ActorSystem, config: ClusterShardingConfig) -> anyhow::Result<Self> {
-        let default_config: ClusterShardingConfig = toml::from_str(CLUSTER_SHARDING_CONFIG).context(format!("failed to load {}", CLUSTER_SHARDING_CONFIG_NAME))?;
-        let sharding_config = config.with_fallback(default_config);
+        // let default_config: ClusterShardingConfig = toml::from_str(CLUSTER_SHARDING_CONFIG).context(format!("failed to load {}", CLUSTER_SHARDING_CONFIG_NAME))?;
+        // let sharding_config = config.with_fallback(default_config);
+        //TODO
+        let sharding_config = config;
         let guardian_name = sharding_config.guardian_name.clone();
         system.add_config(sharding_config)?;
         let guardian = system.spawn_system(Props::new_with_ctx(|context| {

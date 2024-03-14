@@ -176,6 +176,11 @@ impl ClusterProviderBuilder {
         self
     }
 
+    pub fn register_all<F>(mut self, reg_fn: F) -> Self where F: FnOnce(&mut MessageRegistration) {
+        reg_fn(&mut self.reg);
+        self
+    }
+
     pub fn build(self, system: ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
         let Self { reg, config, client } = self;
         let setting = ClusterSetting::builder()

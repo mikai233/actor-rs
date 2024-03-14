@@ -226,6 +226,9 @@ impl LocalActorRef {
         start_on_attach: bool,
     ) -> anyhow::Result<(ActorRef, Option<ActorDeferredSpawn>)> {
         if let Some(name) = &name {
+            if name.is_empty() {
+                return Err(anyhow!("name cannot be empty"));
+            }
             check_name(name)?;
         }
         self.make_child(props, name, uid, start_on_attach)

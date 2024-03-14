@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use etcd_client::{GetOptions, KeyValue, PutOptions, WatchOptions};
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info, trace, warn};
 
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};

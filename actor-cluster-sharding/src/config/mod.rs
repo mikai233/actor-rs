@@ -8,7 +8,7 @@ use actor_derive::AsAny;
 
 mod passivation;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, AsAny)]
+#[derive(Debug, Clone, Serialize, Deserialize, AsAny)]
 pub struct ClusterShardingConfig {
     #[serde(default = "default_guardian_name")]
     pub guardian_name: String,
@@ -29,5 +29,20 @@ impl Config for ClusterShardingConfig {
 }
 
 fn default_guardian_name() -> String {
-    "sharing".to_string()
+    "sharding".to_string()
+}
+
+impl Default for ClusterShardingConfig {
+    fn default() -> Self {
+        Self {
+            guardian_name: default_guardian_name(),
+            role: None,
+            coordinator_singleton_settings: Default::default(),
+            shard_region_query_timeout: Default::default(),
+            retry_interval: Default::default(),
+            handoff_timeout: Default::default(),
+            shard_start_timeout: Default::default(),
+            rebalance_interval: Default::default(),
+        }
+    }
 }

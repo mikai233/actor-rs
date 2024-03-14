@@ -12,9 +12,10 @@ use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::{Props, PropsBuilderSync};
 use actor_core::actor::scheduler::ScheduleKey;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::actor_ref::ActorRef;
 use actor_core::ext::message_ext::UserMessageExt;
+use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_buffer::MessageBufferMap;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
@@ -26,6 +27,7 @@ use crate::shard::entity_terminated::EntityTerminated;
 use crate::shard::shard_buffer_envelope::ShardBufferEnvelope;
 use crate::shard::shard_envelope::ShardEnvelope;
 use crate::shard_region::{ImEntityId, ImShardId};
+use crate::shard_region::shard_initialized::ShardInitialized;
 
 mod cluster_event_wrap;
 mod passivate;
@@ -174,6 +176,18 @@ impl Shard {
             Some(entity) => Ok(entity.clone())
         }
     }
+
+
+    fn shard_initialized(&self, context: &mut ActorContext) -> anyhow::Result<()> {
+        debug!("{}: Shard initialized", self.type_name);
+        context.parent().into_result()?.cast(
+            ShardInitialized {
+                shard_id: self.shard_id.clone(),
+            },
+            Some(context.myself().clone()),
+        );
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -183,6 +197,7 @@ impl Actor for Shard {
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
         );
+        self.shard_initialized(context)?;
         Ok(())
     }
 

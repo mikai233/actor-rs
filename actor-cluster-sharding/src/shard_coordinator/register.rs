@@ -5,7 +5,7 @@ use tracing::debug;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::Message;
-use actor_derive::MessageCodec;
+use actor_derive::{CMessageCodec, MessageCodec};
 
 use crate::shard_coordinator::coordinator_state::CoordinatorState;
 use crate::shard_coordinator::shard_region_terminated::ShardRegionTerminated;
@@ -13,7 +13,7 @@ use crate::shard_coordinator::ShardCoordinator;
 use crate::shard_coordinator::state_update::StateUpdate;
 use crate::shard_region::register_ack::RegisterAck;
 
-#[derive(Debug, Encode, Decode, MessageCodec)]
+#[derive(Debug, Clone, Encode, Decode, CMessageCodec)]
 pub(crate) struct Register {
     pub(crate) shard_region: ActorRef,
 }
@@ -28,7 +28,7 @@ impl Message for Register {
             debug!("{}: Ignoring registration from region [{}] while initializing", actor.type_name, region);
             return Ok(());
         }
-        if actor.is_member(&region) {
+        if actor.is_member(context, &region) {
             debug!("{}: ShardRegion registered: [{}]", actor.type_name, region);
             actor.alive_regions.insert(region.clone());
             if actor.state.regions.contains_key(&region) {

@@ -115,6 +115,7 @@ name = "actor-playgroud"
 version = "0.1.0"
 dependencies = [
  "actor-cluster",
+ "actor-cluster-sharding",
  "actor-cluster-tools",
  "actor-core",
  "actor-derive",

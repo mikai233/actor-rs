@@ -1,14 +1,15 @@
 use async_trait::async_trait;
+use bincode::{Decode, Encode};
 use tracing::debug;
 
 use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::ActorRef;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
+use actor_derive::{EmptyCodec, MessageCodec};
 
 use crate::shard_coordinator::ShardCoordinator;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Encode, Decode, MessageCodec)]
 pub(crate) struct RegionStopped {
     pub(crate) shard_region: ActorRef,
 }

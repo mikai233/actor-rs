@@ -10,6 +10,7 @@ actor-core = { path = "../actor-core" }
 actor-remote = { path = "../actor-remote" }
 actor-cluster = { path = "../actor-cluster" }
 actor-cluster-tools = { path = "../actor-cluster-tools" }
+actor-cluster-sharding = { path = "../actor-cluster-sharding" }
 actor-derive = { path = "../actor-derive" }
 tokio = { workspace = true, features = ["full"] }
 anyhow = { workspace = true }
@@ -36,3 +37,7 @@ path = "src/singleton.rs"
 [[bin]]
 name = "fibonacci"
 path = "src/fibonacci.rs"
+
+[[bin]]
+name = "sharding"
+path = "src/sharding.rs"

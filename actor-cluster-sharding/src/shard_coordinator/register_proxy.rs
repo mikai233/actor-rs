@@ -5,7 +5,7 @@ use tracing::debug;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::Message;
-use actor_derive::MessageCodec;
+use actor_derive::{CMessageCodec, MessageCodec};
 
 use crate::shard_coordinator::coordinator_state::CoordinatorState;
 use crate::shard_coordinator::shard_region_proxy_terminated::ShardRegionProxyTerminated;
@@ -13,7 +13,7 @@ use crate::shard_coordinator::ShardCoordinator;
 use crate::shard_coordinator::state_update::StateUpdate;
 use crate::shard_region::register_ack::RegisterAck;
 
-#[derive(Debug, Encode, Decode, MessageCodec)]
+#[derive(Debug, Clone, Encode, Decode, CMessageCodec)]
 pub(crate) struct RegisterProxy {
     pub(crate) shard_region_proxy: ActorRef,
 }
@@ -28,7 +28,7 @@ impl Message for RegisterProxy {
             debug!("{}: ShardRegion proxy tried to register bug ShardCoordinator not initialized yet: [{}]", actor.type_name, proxy);
             return Ok(());
         }
-        if actor.is_member(&proxy) {
+        if actor.is_member(context, &proxy) {
             debug!("{}: ShardRegion proxy registered: [{}]", actor.type_name, proxy);
             actor.inform_about_current_shards(&proxy);
             if actor.state.region_proxies.contains(&proxy) {
@@ -39,6 +39,6 @@ impl Message for RegisterProxy {
                 proxy.cast_ns(RegisterAck { coordinator: context.myself().clone() });
             }
         }
-        todo!()
+        Ok(())
     }
 }

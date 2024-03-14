@@ -4,11 +4,11 @@ use async_trait::async_trait;
 
 use actor_core::actor::context::ActorContext;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
+use actor_derive::CEmptyCodec;
 
 use crate::shard_region::ShardRegion;
 
-#[derive(Debug, Clone, EmptyCodec)]
+#[derive(Debug, Clone, CEmptyCodec)]
 pub(super) struct Retry;
 
 #[async_trait]

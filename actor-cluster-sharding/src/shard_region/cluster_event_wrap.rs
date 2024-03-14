@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
 use actor_cluster::cluster_event::ClusterEvent;
+use actor_cluster::member::Member;
 use actor_core::actor::context::ActorContext;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
@@ -15,6 +16,37 @@ impl Message for ClusterEventWrap {
     type A = ShardRegion;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        todo!()
+        match self.0 {
+            ClusterEvent::MemberUp(member) => {
+                Self::update_member(actor, member);
+            }
+            ClusterEvent::MemberPrepareForLeaving(member) => {
+                Self::update_member(actor, member);
+            }
+            ClusterEvent::MemberLeaving(member) => {
+                Self::update_member(actor, member);
+            }
+            ClusterEvent::MemberRemoved(member) => {
+                Self::remove_member(actor, member);
+            }
+            ClusterEvent::MemberDowned(member) => {
+                Self::remove_member(actor, member);
+            }
+            ClusterEvent::CurrentClusterState { members, .. } => {
+                actor.members = members;
+            }
+            ClusterEvent::EtcdUnreachable => {}
+        }
+        Ok(())
+    }
+}
+
+impl ClusterEventWrap {
+    fn update_member(actor: &mut ShardRegion, member: Member) {
+        actor.members.insert(member.addr.clone(), member);
+    }
+
+    fn remove_member(actor: &mut ShardRegion, member: Member) {
+        actor.members.remove(&member.addr);
     }
 }

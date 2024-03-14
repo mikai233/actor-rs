@@ -23,8 +23,8 @@ pub trait ShardAllocationStrategy: Send + Sync + Debug + DynClone {
     async fn rebalance(
         &self,
         current_shard_allocations: HashMap<ActorRef, Vec<ImShardId>>,
-        rebalance_in_progress: HashSet<ImShardId>,
-    ) -> HashSet<ImShardId>;
+        rebalance_in_progress: Vec<ImShardId>,
+    ) -> anyhow::Result<HashSet<ImShardId>>;
 }
 
 dyn_clone::clone_trait_object!(ShardAllocationStrategy);

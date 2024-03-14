@@ -39,7 +39,7 @@ impl ClusterShardingSettings {
     }
 
     pub(crate) fn should_host_coordinator(&self, cluster: &Cluster) -> bool {
-        todo!()
+        self.role.iter().all(|role| { cluster.self_member().has_role(role) })
     }
 }
 

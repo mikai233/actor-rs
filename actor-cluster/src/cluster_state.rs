@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::sync::RwLock;
 
+use actor_core::actor::address::Address;
+
 use crate::member::Member;
 use crate::unique_address::UniqueAddress;
 
@@ -16,5 +18,9 @@ impl ClusterState {
             members: RwLock::new(HashMap::new()),
             self_member: RwLock::new(member),
         }
+    }
+
+    pub fn is_member_up(&self, address: &Address) -> bool {
+        self.members.read().unwrap().iter().any(|(addr, _)| { address == &addr.address })
     }
 }
