@@ -301,8 +301,8 @@ impl ShardCoordinator {
                 self.type_name,
                 self.rebalance_in_progress.len(),
             );
-            context.stop(context.myself());
         }
+        context.stop(context.myself());
     }
 
     fn region_terminated(&mut self, context: &mut ActorContext, region: ActorRef) {
