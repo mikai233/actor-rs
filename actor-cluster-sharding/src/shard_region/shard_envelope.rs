@@ -1,11 +1,10 @@
 use std::any::Any;
 
 use async_trait::async_trait;
-use bincode::Decode;
 use bincode::error::{DecodeError, EncodeError};
 
 use actor_core::{CodecMessage, DynMessage, Message};
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::ActorContext;
 use actor_core::ext::{decode_bytes, encode_bytes};
 use actor_core::message::message_registration::MessageRegistration;
 use actor_core::message::MessageDecoder;
@@ -15,15 +14,16 @@ use crate::shard::Shard;
 use crate::shard_region::ShardRegion;
 
 #[async_trait]
-impl Message for ShardEnvelope<Shard> {
-    type A = Shard;
+impl Message for ShardEnvelope<ShardRegion> {
+    type A = ShardRegion;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.deliver_message(context, *self, context.sender().cloned())
+        actor.deliver_message(context, *self)?;
+        Ok(())
     }
 }
 
-impl CodecMessage for ShardEnvelope<Shard> {
+impl CodecMessage for ShardEnvelope<ShardRegion> {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
@@ -39,7 +39,7 @@ impl CodecMessage for ShardEnvelope<Shard> {
             fn decode(&self, bytes: &[u8], reg: &MessageRegistration) -> Result<DynMessage, DecodeError> {
                 let CodecShardEnvelope { entity_id, packet } = decode_bytes::<CodecShardEnvelope>(bytes)?;
                 let message = reg.decode(packet)?;
-                let message = ShardEnvelope::<Shard> {
+                let message = ShardEnvelope::<ShardRegion> {
                     entity_id,
                     message,
                     _phantom: Default::default(),
@@ -63,7 +63,7 @@ impl CodecMessage for ShardEnvelope<Shard> {
 
     fn dyn_clone(&self) -> anyhow::Result<DynMessage> {
         self.message.dyn_clone().map(|m| {
-            let message = ShardEnvelope::<Shard> {
+            let message = ShardEnvelope::<ShardRegion> {
                 entity_id: self.entity_id.clone(),
                 message: m,
                 _phantom: Default::default(),
@@ -77,10 +77,10 @@ impl CodecMessage for ShardEnvelope<Shard> {
     }
 }
 
-impl ShardEnvelope<Shard> {
-    pub(crate) fn into_shard_region_envelope(self) -> ShardEnvelope<ShardRegion> {
+impl ShardEnvelope<ShardRegion> {
+    pub(crate) fn into_shard_envelope(self) -> ShardEnvelope<Shard> {
         let Self { entity_id, message, .. } = self;
-        ShardEnvelope::<ShardRegion> {
+        ShardEnvelope::<Shard> {
             entity_id,
             message,
             _phantom: Default::default(),

@@ -11,16 +11,14 @@ use rand::random;
 use tracing::info;
 
 use actor_cluster::cluster_provider::ClusterProviderBuilder;
-use actor_cluster::cluster_setting::ClusterSetting;
 use actor_cluster::config::ClusterConfig;
+use actor_cluster_sharding::{register_sharding, ShardEnvelope};
 use actor_cluster_sharding::cluster_sharding::ClusterSharding;
 use actor_cluster_sharding::cluster_sharding_settings::ClusterShardingSettings;
 use actor_cluster_sharding::config::ClusterShardingConfig;
-use actor_cluster_sharding::message_extractor::{MessageExtractor, ShardEntityEnvelope};
-use actor_cluster_sharding::register_sharding;
+use actor_cluster_sharding::message_extractor::MessageExtractor;
 use actor_cluster_sharding::shard_allocation_strategy::least_shard_allocation_strategy::LeastShardAllocationStrategy;
 use actor_cluster_sharding::shard_region::{EntityId, ImShardId, ShardId};
-use actor_cluster_tools::singleton::cluster_singleton_manager::ClusterSingletonManagerSettings;
 use actor_core::{Actor, DynMessage, Message};
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
@@ -64,7 +62,10 @@ impl Message for HandoffPlayer {
 }
 
 #[derive(Debug, Encode, Decode, MessageCodec)]
-struct Hello;
+struct Hello {
+    index: i32,
+    data: Vec<u8>,
+}
 
 #[async_trait]
 impl Message for Hello {
@@ -80,11 +81,11 @@ impl Message for Hello {
 struct PlayerMessageExtractor;
 
 impl MessageExtractor for PlayerMessageExtractor {
-    fn entity_id(&self, message: &ShardEntityEnvelope) -> EntityId {
+    fn entity_id(&self, message: &ShardEnvelope) -> EntityId {
         message.entity_id.clone()
     }
 
-    fn shard_id(&self, message: &ShardEntityEnvelope) -> ShardId {
+    fn shard_id(&self, message: &ShardEnvelope) -> ShardId {
         let entity_id = usize::from_str(&message.entity_id).unwrap();
         let shard = entity_id % SHARD_MOD;
         shard.to_string()
@@ -138,14 +139,24 @@ async fn main() -> anyhow::Result<()> {
     let strategy = LeastShardAllocationStrategy::new(&system, 1, 1.0);
     let player_shard_region = ClusterSharding::get(&system).start("player", builder, settings.into(), PlayerMessageExtractor, strategy, HandoffPlayer.into_dyn()).await?;
     if args.start_entity {
+        let mut index = 1;
         let mut players = vec![];
         for _ in 0..10 {
             players.push(random::<u64>());
         }
         loop {
             for id in &players {
-                player_shard_region.cast_ns(ShardEntityEnvelope::new(id.to_string(), Hello));
+                let mut data = vec![];
+                for _ in 0..104857600 {
+                    data.push(random());
+                }
+                let hello = Hello {
+                    index,
+                    data,
+                };
+                player_shard_region.cast_ns(ShardEnvelope::new(id.to_string(), hello));
                 tokio::time::sleep(Duration::from_secs(1)).await;
+                index += 1;
             }
         }
     }

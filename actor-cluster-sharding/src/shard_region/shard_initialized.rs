@@ -7,6 +7,7 @@ use actor_core::Message;
 use actor_derive::EmptyCodec;
 
 use crate::shard_region::{ImShardId, ShardRegion};
+use crate::shard_region::deliver_target::DeliverTarget;
 
 #[derive(Debug, EmptyCodec)]
 pub(crate) struct ShardInitialized {
@@ -21,7 +22,7 @@ impl Message for ShardInitialized {
         let shard = context.sender().into_result()?;
         debug!("{}: Shard was initialized [{}]", actor.type_name, self.shard_id);
         actor.starting_shards.remove(&self.shard_id);
-        actor.deliver_buffered_messages(&self.shard_id, shard);
+        actor.deliver_buffered_messages(&self.shard_id, DeliverTarget::Shard(shard));
         Ok(())
     }
 }

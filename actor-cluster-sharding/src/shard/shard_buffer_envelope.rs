@@ -1,16 +1,17 @@
 use actor_core::actor_ref::ActorRef;
 use actor_core::message::message_buffer::BufferEnvelope;
 
-use crate::shard::shard_envelope::ShardEnvelope;
+use crate::message_extractor::ShardEnvelope;
+use crate::shard::Shard;
 
 #[derive(Debug)]
 pub(super) struct ShardBufferEnvelope {
-    pub(super) message: ShardEnvelope,
+    pub(super) message: ShardEnvelope<Shard>,
     pub(super) sender: Option<ActorRef>,
 }
 
 impl BufferEnvelope for ShardBufferEnvelope {
-    type M = ShardEnvelope;
+    type M = ShardEnvelope<Shard>;
 
     fn message(&self) -> &Self::M {
         &self.message

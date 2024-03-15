@@ -19,13 +19,12 @@ use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_buffer::MessageBufferMap;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
-use crate::message_extractor::MessageExtractor;
+use crate::message_extractor::{MessageExtractor, ShardEnvelope};
 use crate::shard::cluster_event_wrap::ClusterEventWrap;
 use crate::shard::entities::Entities;
 use crate::shard::entity_state::EntityState;
 use crate::shard::entity_terminated::EntityTerminated;
 use crate::shard::shard_buffer_envelope::ShardBufferEnvelope;
-use crate::shard::shard_envelope::ShardEnvelope;
 use crate::shard_region::{ImEntityId, ImShardId};
 use crate::shard_region::shard_initialized::ShardInitialized;
 
@@ -102,27 +101,28 @@ impl Shard {
         Ok(())
     }
 
-    fn deliver_message(&mut self, context: &mut ActorContext, message: ShardEnvelope, sender: Option<ActorRef>) -> anyhow::Result<()> {
-        let entity_id = self.extractor.entity_id(&message.0);
+    fn deliver_message(&mut self, context: &mut ActorContext, message: ShardEnvelope<Shard>, sender: Option<ActorRef>) -> anyhow::Result<()> {
+        let message = message.into_shard_region_envelope();
+        let entity_id = self.extractor.entity_id(&message);
         let type_name = &self.type_name;
         match &*self.entities.entity_state(&entity_id) {
             EntityState::NoState => {
-                let payload = self.extractor.unwrap_message(message.0);
+                let payload = self.extractor.unwrap_message(message);
                 let entity_id: ImEntityId = entity_id.into();
                 let entity = self.get_or_create_entity(context, &entity_id)?;
                 entity.tell(payload, sender);
             }
             EntityState::Active(entity_id, entity) => {
-                let payload = self.extractor.unwrap_message(message.0);
+                let payload = self.extractor.unwrap_message(message);
                 let message_name = payload.name();
                 debug!("{}: Delivering message of type [{}] to [{}]", type_name, message_name, entity_id);
                 entity.tell(payload, sender);
             }
             EntityState::Passivation(entity_id, _) => {
-                self.append_to_message_buffer(entity_id.clone(), message, sender);
+                self.append_to_message_buffer(entity_id.clone(), message.into_shard_envelope(), sender);
             }
             EntityState::WaitingForRestart => {
-                let payload = self.extractor.unwrap_message(message.0);
+                let payload = self.extractor.unwrap_message(message);
                 let message_name = payload.name();
                 debug!("{}: Delivering message of type [{}] to [{}] (starting because [WaitingForRestart])", type_name, message_name, entity_id);
                 let entity_id: ImEntityId = entity_id.into();
@@ -132,7 +132,7 @@ impl Shard {
         Ok(())
     }
 
-    fn append_to_message_buffer(&mut self, id: ImEntityId, message: ShardEnvelope, sender: Option<ActorRef>) {
+    fn append_to_message_buffer(&mut self, id: ImEntityId, message: ShardEnvelope<Shard>, sender: Option<ActorRef>) {
         // TODO buffer size overflow
         let envelop = ShardBufferEnvelope {
             message,

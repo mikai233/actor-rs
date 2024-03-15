@@ -28,15 +28,15 @@ use actor_core::message::message_buffer::{BufferEnvelope, MessageBufferMap};
 use actor_core::message::poison_pill::PoisonPill;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
-use crate::message_extractor::{MessageExtractor, ShardEntityEnvelope};
+use crate::message_extractor::{MessageExtractor, ShardEnvelope};
 use crate::shard::Shard;
-use crate::shard::shard_envelope::ShardEnvelope;
 use crate::shard_coordinator::get_shard_home::GetShardHome;
 use crate::shard_coordinator::graceful_shutdown_req::GracefulShutdownReq;
 use crate::shard_coordinator::region_stopped::RegionStopped;
 use crate::shard_coordinator::register::Register;
 use crate::shard_coordinator::register_proxy::RegisterProxy;
 use crate::shard_region::cluster_event_wrap::ClusterEventWrap;
+use crate::shard_region::deliver_target::DeliverTarget;
 use crate::shard_region::register_retry::RegisterRetry;
 use crate::shard_region::retry::Retry;
 use crate::shard_region::shard_region_buffer_envelope::ShardRegionBufferEnvelope;
@@ -49,7 +49,7 @@ pub(crate) mod handoff;
 mod register_retry;
 mod retry;
 mod cluster_event_wrap;
-mod shard_entity_envelope;
+mod shard_envelope;
 pub(crate) mod host_shard;
 pub(crate) mod shard_home;
 mod shard_region_terminated;
@@ -58,6 +58,7 @@ pub(crate) mod register_ack;
 mod coordinator_terminated;
 pub(crate) mod begin_handoff;
 pub(crate) mod shard_initialized;
+mod deliver_target;
 
 pub type ShardId = String;
 
@@ -67,6 +68,7 @@ pub type EntityId = String;
 
 pub type ImEntityId = ImString;
 
+#[derive(Debug)]
 pub struct ShardRegion {
     type_name: ImString,
     entity_props: Option<Arc<PropsBuilderSync<ImEntityId>>>,
@@ -271,7 +273,7 @@ impl ShardRegion {
         }
     }
 
-    fn deliver_message(&mut self, context: &mut ActorContext, envelope: ShardEntityEnvelope) -> anyhow::Result<()> {
+    fn deliver_message(&mut self, context: &mut ActorContext, envelope: ShardEnvelope<ShardRegion>) -> anyhow::Result<()> {
         let shard_id = self.extractor.shard_id(&envelope);
         let type_name = &self.type_name;
         match self.region_by_shard.get_key_value(shard_id.as_str()) {
@@ -294,21 +296,21 @@ impl ShardRegion {
                 if let Some(shard) = self.get_shard(context, shard_id.clone())? {
                     if self.shard_buffers.contains_key(shard_id.as_str()) {
                         self.buffer_message(shard_id.clone(), envelope, context.sender().cloned());
-                        self.deliver_buffered_messages(&shard_id, &shard);
+                        self.deliver_buffered_messages(&shard_id, DeliverTarget::Shard(&shard));
                     } else {
-                        context.forward(&shard, ShardEnvelope(envelope).into_dyn());
+                        context.forward(&shard, envelope.into_shard_envelope().into_dyn());
                     }
                 }
             }
             Some((shard_id, shard_region_ref)) => {
                 debug!("{type_name}: Forwarding message for shard [{shard_id}] to [{shard_region_ref}]");
-                context.forward(shard_region_ref, ShardEnvelope(envelope).into_dyn());
+                context.forward(shard_region_ref, envelope.into_dyn());
             }
         }
         Ok(())
     }
 
-    fn buffer_message(&mut self, shard_id: ImShardId, msg: ShardEntityEnvelope, sender: Option<ActorRef>) {
+    fn buffer_message(&mut self, shard_id: ImShardId, msg: ShardEnvelope<ShardRegion>, sender: Option<ActorRef>) {
         let total_buf_size = self.shard_buffers.total_size();
         //TODO buffer size
         let buffer_size = 5000;
@@ -335,7 +337,7 @@ impl ShardRegion {
         }
     }
 
-    fn deliver_buffered_messages(&mut self, shard_id: &ImShardId, receiver: &ActorRef) {
+    fn deliver_buffered_messages(&mut self, shard_id: &ImShardId, target: DeliverTarget) {
         if self.shard_buffers.contains_key(shard_id) {
             if let Some(buffers) = self.shard_buffers.remove(shard_id) {
                 let type_name = &self.type_name;
@@ -343,7 +345,14 @@ impl ShardRegion {
                 debug!("{type_name}: Deliver [{buf_size}] buffered messages for shard [{shard_id}]");
                 for envelope in buffers {
                     let (msg, sender) = envelope.into_inner();
-                    receiver.cast(ShardEnvelope(msg), sender);
+                    match target {
+                        DeliverTarget::Shard(receiver) => {
+                            receiver.cast(msg.into_shard_envelope(), sender);
+                        }
+                        DeliverTarget::ShardRegion(receiver) => {
+                            receiver.cast(msg, sender);
+                        }
+                    }
                 }
             }
         }
@@ -457,10 +466,10 @@ impl ShardRegion {
         }
         if &shard_region_ref == context.myself() {
             self.get_shard(context, shard.clone())?.foreach(|region| {
-                self.deliver_buffered_messages(&shard, region);
+                self.deliver_buffered_messages(&shard, DeliverTarget::ShardRegion(region));
             });
         } else {
-            self.deliver_buffered_messages(&shard, &shard_region_ref);
+            self.deliver_buffered_messages(&shard, DeliverTarget::ShardRegion(&shard_region_ref));
         }
         Ok(())
     }
