@@ -7,7 +7,7 @@ use tracing::debug;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::Message;
-use actor_derive::{CEmptyCodec, EmptyCodec};
+use actor_derive::CEmptyCodec;
 
 use crate::shard_coordinator::rebalance_result::RebalanceResult;
 use crate::shard_coordinator::ShardCoordinator;

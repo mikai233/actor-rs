@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
 
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use actor_core::actor_ref::ActorRef;
@@ -48,5 +50,18 @@ impl State {
                 self.regions.insert(region, HashSet::new());
             }
         }
+    }
+}
+
+impl Display for State {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let shards = self.shards.iter().map(|(shard_id, region)| {
+            format!("<{},{}>", shard_id, region)
+        }).join(", ");
+        let regions = self.regions.iter().map(|(region, shards)| {
+            format!("<{},{}>", region, shards.iter().join(", "))
+        }).join(", ");
+        let region_proxies = self.region_proxies.iter().map(|proxy| { proxy.to_string() }).join(", ");
+        write!(f, "State {{ shards: {}, regions: {}, region_proxies: {} }}", shards, regions, region_proxies)
     }
 }

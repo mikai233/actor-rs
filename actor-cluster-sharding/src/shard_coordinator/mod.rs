@@ -15,16 +15,14 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor::timers::{ScheduleKey, Timers};
 use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::{ActorRef, ActorRefExt, PROVIDER};
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::message_ext::UserMessageExt;
-use actor_core::message::message_registration::MessageRegistration;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
 use crate::shard_coordinator::coordinator_state::CoordinatorState;
 use crate::shard_coordinator::get_shard_home::GetShardHome;
-use crate::shard_coordinator::rebalance_tick::RebalanceTick;
 use crate::shard_coordinator::rebalance_worker::RebalanceWorker;
 use crate::shard_coordinator::rebalance_worker::shard_region_terminated::ShardRegionTerminated;
 use crate::shard_coordinator::resend_shard_host::ResendShardHost;
@@ -343,17 +341,17 @@ impl ShardCoordinator {
 
     fn update(&mut self, state: StateUpdate) {
         self.state.updated(state);
-        let etcd_actor = self.cluster.etcd_actor();
-        PROVIDER.sync_scope(self.cluster.system().provider_full(), || {
-            match serde_json::to_string_pretty(&self.state) {
-                Ok(json_state) => {
-                    //TODO
-                }
-                Err(error) => {
-                    error!("ShardCoordinator state {:?} serialize to json error {:#?}", self.state, error);
-                }
-            }
-        });
+        // let etcd_actor = self.cluster.etcd_actor();
+        // PROVIDER.sync_scope(self.cluster.system().provider_full(), || {
+        //     match serde_json::to_string_pretty(&self.state) {
+        //         Ok(json_state) => {
+        //             //TODO
+        //         }
+        //         Err(error) => {
+        //             error!("ShardCoordinator state {} serialize to json error {:#?}", self.state, error);
+        //         }
+        //     }
+        // });
     }
 
     fn coordinator_state_path(&self) -> String {

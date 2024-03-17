@@ -19,9 +19,7 @@ impl Message for RegisterAck {
     type A = ShardRegion;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        if !context.is_watching(&self.coordinator) {
-            context.watch(CoordinatorTerminated(self.coordinator.clone()));
-        }
+        context.watch(CoordinatorTerminated(self.coordinator.clone()));
         actor.coordinator = Some(self.coordinator);
         actor.finish_registration();
         actor.try_request_shard_buffer_homes(context);

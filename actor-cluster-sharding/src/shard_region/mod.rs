@@ -285,7 +285,7 @@ impl ShardRegion {
                         }
                         Some(coordinator) => {
                             debug!("{type_name}: Request shard [{shard_id}] home, Coordinator [{coordinator}]");
-                            coordinator.cast_ns(GetShardHome { shard: shard_id.clone() });
+                            coordinator.cast(GetShardHome { shard: shard_id.clone() }, Some(context.myself().clone()));
                         }
                     }
                 }

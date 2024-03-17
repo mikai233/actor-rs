@@ -19,12 +19,12 @@ use actor_cluster_sharding::config::ClusterShardingConfig;
 use actor_cluster_sharding::message_extractor::MessageExtractor;
 use actor_cluster_sharding::shard_allocation_strategy::least_shard_allocation_strategy::LeastShardAllocationStrategy;
 use actor_cluster_sharding::shard_region::{EntityId, ImShardId, ShardId};
-use actor_core::{Actor, DynMessage, Message};
+use actor_core::{Actor, Message};
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::{Props, PropsBuilderSync};
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::ActorRefExt;
 use actor_core::config::actor_setting::ActorSetting;
 use actor_core::ext::init_logger_with_filter;
 use actor_core::ext::message_ext::UserMessageExt;
@@ -138,28 +138,36 @@ async fn main() -> anyhow::Result<()> {
     let settings = ClusterShardingSettings::create(&system);
     let strategy = LeastShardAllocationStrategy::new(&system, 1, 1.0);
     let player_shard_region = ClusterSharding::get(&system).start("player", builder, settings.into(), PlayerMessageExtractor, strategy, HandoffPlayer.into_dyn()).await?;
-    if args.start_entity {
-        let mut index = 1;
-        let mut players = vec![];
-        for _ in 0..10 {
-            players.push(random::<u64>());
-        }
-        loop {
-            for id in &players {
-                let mut data = vec![];
-                for _ in 0..104857600 {
-                    data.push(random());
-                }
-                let hello = Hello {
-                    index,
-                    data,
-                };
-                player_shard_region.cast_ns(ShardEnvelope::new(id.to_string(), hello));
-                tokio::time::sleep(Duration::from_secs(1)).await;
-                index += 1;
+    let handle = if args.start_entity {
+        let handle = tokio::spawn(async move {
+            let mut index = 1;
+            let mut players = vec![];
+            for _ in 0..10 {
+                players.push(random::<u64>());
             }
-        }
-    }
+            loop {
+                for id in &players {
+                    let mut data = vec![];
+                    for _ in 0..1048576 {
+                        data.push(random());
+                    }
+                    let hello = Hello {
+                        index,
+                        data,
+                    };
+                    player_shard_region.cast_ns(ShardEnvelope::new(id.to_string(), hello));
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    index += 1;
+                }
+            }
+        });
+        Some(handle)
+    } else {
+        None
+    };
     system.await?;
+    if let Some(handle) = handle {
+        handle.abort();
+    }
     Ok(())
 }

@@ -1,3 +1,4 @@
+use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::{debug, warn};
@@ -7,6 +8,7 @@ use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::ext::option_ext::OptionExt;
+use actor_core::ext::type_name_of;
 use actor_core::Message;
 use actor_derive::MessageCodec;
 
@@ -39,7 +41,10 @@ impl Message for Handoff {
         }
         match actor.shards.get(&shard_id) {
             None => {
-                context.sender().into_result()?.cast_ns(ShardStopped { shard: shard_id.into() });
+                context.sender()
+                    .into_result()
+                    .context(type_name_of::<Handoff>())
+                    ?.cast_ns(ShardStopped { shard: shard_id.into() });
             }
             Some(shard) => {
                 actor.handing_off.insert(shard.clone());

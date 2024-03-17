@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::collections::hash_map::Entry;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -37,6 +38,40 @@ impl TimersActor {
             waker,
             watching_receivers: HashMap::new(),
         }
+    }
+
+    fn watch_receiver(
+        watching_receivers: &mut HashMap<ActorRef, HashSet<u64>>,
+        context: &mut ActorContext,
+        receiver: &ActorRef,
+        index: u64,
+    ) {
+        match watching_receivers.entry(receiver.clone()) {
+            Entry::Occupied(mut o) => {
+                o.get_mut().insert(index);
+            }
+            Entry::Vacant(v) => {
+                context.watch(ReceiverTerminated(receiver.clone()));
+                let mut indexes = HashSet::new();
+                indexes.insert(index);
+                v.insert(indexes);
+            }
+        }
+    }
+    fn unwatch_receiver(
+        watching_receivers: &mut HashMap<ActorRef, HashSet<u64>>,
+        context: &mut ActorContext,
+        index: u64,
+    ) {
+        watching_receivers.retain(|receiver, indexes| {
+            indexes.remove(&index);
+            if indexes.is_empty() {
+                context.unwatch(receiver);
+                false
+            } else {
+                true
+            }
+        });
     }
 }
 
@@ -106,20 +141,16 @@ impl Message for Schedule {
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match &*self {
             Schedule::Once { index, delay, receiver, .. } => {
-                if !actor.watching_receivers.contains_key(receiver) {
-                    context.watch(ReceiverTerminated(receiver.clone()));
-                }
                 let index = *index;
                 let delay = *delay;
+                TimersActor::watch_receiver(&mut actor.watching_receivers, context, receiver, index);
                 self.once(actor, index, delay);
             }
             Schedule::FixedDelay { index, initial_delay, interval, receiver, .. } => {
-                if !actor.watching_receivers.contains_key(receiver) {
-                    context.watch(ReceiverTerminated(receiver.clone()));
-                }
                 let index = *index;
                 let initial_delay = *initial_delay;
                 let interval = *interval;
+                TimersActor::watch_receiver(&mut actor.watching_receivers, context, receiver, index);
                 self.fixed_delay(actor, index, initial_delay, interval);
             }
             Schedule::OnceWith { index, delay, .. } => {
@@ -220,15 +251,7 @@ impl Message for CancelSchedule {
                 debug!("schedule index {} removed from TimerScheduler", self.index);
             }
         }
-        actor.watching_receivers.retain(|receiver, index| {
-            index.remove(&self.index);
-            if index.is_empty() {
-                context.unwatch(receiver);
-                false
-            } else {
-                true
-            }
-        });
+        TimersActor::unwatch_receiver(&mut actor.watching_receivers, context, self.index);
         context.myself().cast_ns(PollExpired);
         Ok(())
     }
@@ -263,15 +286,16 @@ impl Message for PollExpired {
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let waker = &actor.waker;
         let queue = &mut actor.queue;
-        let index_map = &mut actor.index;
+        let indexes = &mut actor.index;
         let mut ctx = futures::task::Context::from_waker(waker);
 
         while let Poll::Ready(Some(expired)) = queue.poll_expired(&mut ctx) {
             let schedule = expired.into_inner();
             match schedule {
                 Schedule::Once { index, message, receiver, .. } => {
-                    index_map.remove(&index);
+                    indexes.remove(&index);
                     receiver.tell(message, ActorRef::no_sender());
+                    TimersActor::unwatch_receiver(&mut actor.watching_receivers, context, index);
                 }
                 Schedule::FixedDelay { index, interval, message, receiver, .. } => {
                     match message.dyn_clone() {
@@ -291,10 +315,10 @@ impl Message for PollExpired {
                         receiver,
                     };
                     let new_key = queue.insert(reschedule, next_delay);
-                    index_map.insert(index, new_key);
+                    indexes.insert(index, new_key);
                 }
                 Schedule::OnceWith { index, block, .. } => {
-                    index_map.remove(&index);
+                    indexes.remove(&index);
                     context.spawn_fut(async move { block() });
                 }
                 Schedule::FixedDelayWith { index, interval, block, .. } => {
@@ -308,7 +332,7 @@ impl Message for PollExpired {
                         block,
                     };
                     let new_key = queue.insert(reschedule, next_delay);
-                    index_map.insert(index, new_key);
+                    indexes.insert(index, new_key);
                 }
             }
         }
@@ -324,14 +348,14 @@ impl Message for ReceiverTerminated {
     type A = TimersActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        if let Some(index_set) = actor.watching_receivers.remove(&self.0) {
-            for index in &index_set {
+        if let Some(indexes) = actor.watching_receivers.remove(&self.0) {
+            for index in &indexes {
                 if let Some(key) = actor.index.remove(&index) {
                     actor.queue.try_remove(&key);
                 }
             }
-            let index_str = index_set.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
-            trace!("{} watch receiver {} stopped, stop associated timers {:?}", context.myself(), self.0, index_str);
+            let indexes = indexes.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+            trace!("{} watch receiver {} stopped, stop associated timers {:?}", context.myself(), self.0, indexes);
         }
         Ok(())
     }

@@ -1,7 +1,6 @@
 use std::any::Any;
 
 use async_trait::async_trait;
-use bincode::Decode;
 use bincode::error::{DecodeError, EncodeError};
 
 use actor_core::{CodecMessage, DynMessage, Message};

@@ -1,6 +1,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashSet;
 
+use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::debug;
@@ -8,6 +9,7 @@ use tracing::debug;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
+use actor_core::ext::type_name_of;
 use actor_core::Message;
 use actor_derive::MessageCodec;
 
@@ -43,7 +45,10 @@ impl Message for HostShard {
                 }
             }
             actor.get_shard(context, shard.clone())?;
-            context.sender().into_result()?.cast_ns(ShardStarted { shard: shard.into() });
+            context.sender()
+                .into_result()
+                .context(type_name_of::<HostShard>())
+                ?.cast_ns(ShardStarted { shard: shard.into() });
         }
         Ok(())
     }

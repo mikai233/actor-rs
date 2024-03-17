@@ -172,10 +172,9 @@ impl Context for ActorContext {
     }
 
     fn unwatch(&mut self, subject: &ActorRef) {
-        let myself = self.myself();
-        if myself != subject && self.watching.contains_key(subject) {
+        if &self.myself != subject && self.watching.remove(subject).is_some() {
             let watchee = subject.clone();
-            let watcher = myself.clone();
+            let watcher = self.myself.clone();
             if self.myself.path().address() == subject.path().address() {
                 subject.cast_system(Unwatch { watchee, watcher }, ActorRef::no_sender());
             } else {

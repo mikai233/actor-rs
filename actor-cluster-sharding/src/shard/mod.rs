@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use std::ops::Not;
 use std::sync::Arc;
 
+use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use imstr::ImString;
 use tracing::debug;
@@ -180,7 +181,10 @@ impl Shard {
 
     fn shard_initialized(&self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{}: Shard initialized", self.type_name);
-        context.parent().into_result()?.cast(
+        context.parent()
+            .into_result()
+            .context("parent actor not found")
+            ?.cast(
             ShardInitialized {
                 shard_id: self.shard_id.clone(),
             },
