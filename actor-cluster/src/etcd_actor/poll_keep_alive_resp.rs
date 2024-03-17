@@ -6,14 +6,12 @@ use async_trait::async_trait;
 use futures::StreamExt;
 use futures::task::ArcWake;
 
-use actor_core::{DynMessage, Message};
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::Message;
 use actor_derive::EmptyCodec;
 
-use crate::etcd_actor::etcd_cmd_resp::EtcdCmdResp;
 use crate::etcd_actor::EtcdActor;
-use crate::etcd_actor::keep_alive::KeepAliveFailed;
 
 #[derive(Debug, EmptyCodec)]
 pub(super) struct PollKeepAliveResp;
@@ -29,26 +27,12 @@ impl Message for PollKeepAliveResp {
             while let Poll::Ready(resp) = lease.stream.poll_next_unpin(&mut cx) {
                 match resp {
                     None => {
-                        let keep_alive_failed = KeepAliveFailed {
-                            id: *id,
-                            error: None,
-                        };
-                        lease.watcher.tell(
-                            DynMessage::orphan(EtcdCmdResp::KeepAliveFailed(keep_alive_failed)),
-                            Some(context.myself().clone()),
-                        );
+                        EtcdActor::keep_alive_failed(*id, &lease.applicant, None);
                         failed.push(*id);
                     }
                     Some(resp) => {
                         if let Some(error) = resp.err() {
-                            let keep_alive_failed = KeepAliveFailed {
-                                id: *id,
-                                error: Some(error),
-                            };
-                            lease.watcher.tell(
-                                DynMessage::orphan(EtcdCmdResp::KeepAliveFailed(keep_alive_failed)),
-                                Some(context.myself().clone()),
-                            );
+                            EtcdActor::keep_alive_failed(*id, &lease.applicant, Some(error));
                             failed.push(*id);
                         }
                     }

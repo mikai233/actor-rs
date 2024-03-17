@@ -224,7 +224,7 @@ impl ShardRegion {
                 };
                 let buffer_size = self.shard_buffers.total_size();
                 if buffer_size > 0 {
-                    warn!("{}: No coordinator found to register. {} Total [{}] buffered mesages.", self.type_name, possible_reason, buffer_size);
+                    warn!("{}: No coordinator found to register. {} Total [{}] buffered messages.", self.type_name, possible_reason, buffer_size);
                 } else {
                     debug!("{}: No coordinator found to register. {} No buffered messages yet.", self.type_name, possible_reason);
                 }

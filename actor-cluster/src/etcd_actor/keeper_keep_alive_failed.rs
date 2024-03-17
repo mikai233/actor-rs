@@ -1,12 +1,10 @@
 use async_trait::async_trait;
 
-use actor_core::{DynMessage, Message};
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::ActorContext;
+use actor_core::Message;
 use actor_derive::EmptyCodec;
 
-use crate::etcd_actor::etcd_cmd_resp::EtcdCmdResp;
 use crate::etcd_actor::EtcdActor;
-use crate::etcd_actor::keep_alive::KeepAliveFailed;
 
 #[derive(Debug, EmptyCodec)]
 pub(super) struct KeeperKeepAliveFailed {
@@ -20,14 +18,7 @@ impl Message for KeeperKeepAliveFailed {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if let Some(lease) = actor.lease.remove(&self.id) {
-            let keep_alive_failed = KeepAliveFailed {
-                id: self.id,
-                error: Some(self.error),
-            };
-            lease.watcher.tell(
-                DynMessage::orphan(EtcdCmdResp::KeepAliveFailed(keep_alive_failed)),
-                Some(context.myself().clone()),
-            );
+            EtcdActor::keep_alive_failed(self.id, &lease.applicant, Some(self.error));
         }
         Ok(())
     }

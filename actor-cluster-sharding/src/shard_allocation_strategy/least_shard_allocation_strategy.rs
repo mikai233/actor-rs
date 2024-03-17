@@ -53,8 +53,8 @@ impl ClusterShardAllocation for LeastShardAllocationStrategy {
 impl ShardAllocationStrategy for LeastShardAllocationStrategy {
     async fn allocate_shard(
         &self,
-        requester: ActorRef,
-        shard_id: ImShardId,
+        _requester: ActorRef,
+        _shard_id: ImShardId,
         current_shard_allocations: HashMap<ActorRef, Vec<ImShardId>>,
     ) -> anyhow::Result<ActorRef> {
         let mut region_entries: Vec<RegionEntry>;

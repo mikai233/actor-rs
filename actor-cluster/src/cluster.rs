@@ -70,18 +70,12 @@ impl Cluster {
             uid: system.uid(),
         };
         let client_clone = etcd_client.clone();
+        let etcd_actor_clone = etcd_actor.clone();
         let unique_address_clone = self_unique_address.clone();
-        let roles_c = roles.clone();
+        let roles_clone = roles.clone();
         let transport = cluster_provider.remote.transport.clone();
-        let daemon = system.spawn_system(Props::new_with_ctx(move |_| {
-            Ok(ClusterDaemon {
-                client: client_clone.clone(),
-                self_addr: unique_address_clone.clone(),
-                roles: roles_c.clone(),
-                transport: transport.clone(),
-                key_addr: HashMap::new(),
-                cluster: None,
-            })
+        let daemon = system.spawn_system(Props::new_with_ctx(move |ctx| {
+            ClusterDaemon::new(ctx, client_clone, etcd_actor_clone, unique_address_clone, roles_clone, transport)
         }), Some("cluster".to_string()))?;
         let state = ClusterState::new(
             Member::new(self_unique_address.clone(), MemberStatus::Down, roles.clone(), 0)

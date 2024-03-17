@@ -6,17 +6,18 @@ use actor_core::Message;
 use actor_derive::EmptyCodec;
 
 use crate::cluster_daemon::ClusterDaemon;
+use crate::etcd_actor::keep_alive::KeepAliveFailed;
 
 #[derive(Debug, EmptyCodec)]
-pub(super) struct LeaseFailed;
+pub(super) struct MemberKeepAliveFailed(pub(super) Option<KeepAliveFailed>);
 
 #[async_trait]
-impl Message for LeaseFailed {
+impl Message for MemberKeepAliveFailed {
     type A = ClusterDaemon;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        trace!("{} lease failed", context.myself());
-        actor.respawn_lease_keeper(context).await;
+        trace!("cluster member {} keep alive failed, retry it", context.myself());
+        actor.try_keep_alive(context).await;
         Ok(())
     }
 }

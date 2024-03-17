@@ -11,7 +11,6 @@ use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_derive::EmptyCodec;
 
-use crate::etcd_actor::etcd_cmd_resp::EtcdCmdResp;
 use crate::etcd_actor::EtcdActor;
 use crate::etcd_actor::watch::WatchResp;
 
@@ -30,7 +29,7 @@ impl Message for PollWatchResp {
                 match resp {
                     None => {
                         watcher.applicant.tell(
-                            DynMessage::orphan(EtcdCmdResp::WatchResp(WatchResp::Failed(None))),
+                            DynMessage::orphan(WatchResp::Failed(None)),
                             ActorRef::no_sender(),
                         );
                         failed.push(*id);
@@ -39,13 +38,13 @@ impl Message for PollWatchResp {
                         match resp {
                             Ok(resp) => {
                                 watcher.applicant.tell(
-                                    DynMessage::orphan(EtcdCmdResp::WatchResp(WatchResp::Success(resp))),
+                                    DynMessage::orphan(WatchResp::Success(resp)),
                                     ActorRef::no_sender(),
                                 );
                             }
                             Err(error) => {
                                 watcher.applicant.tell(
-                                    DynMessage::orphan(EtcdCmdResp::WatchResp(WatchResp::Failed(Some(error)))),
+                                    DynMessage::orphan(WatchResp::Failed(Some(error))),
                                     ActorRef::no_sender(),
                                 );
                                 failed.push(*id);

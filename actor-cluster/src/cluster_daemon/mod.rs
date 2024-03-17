@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use etcd_client::{GetOptions, KeyValue, PutOptions, WatchOptions};
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, trace};
 
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
@@ -14,19 +14,17 @@ use actor_core::actor::props::Props;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::etcd_client::EtcdClient;
-use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::ext::option_ext::OptionExt;
 
 use crate::cluster::Cluster;
-use crate::cluster_daemon::lease_failed::LeaseFailed;
+use crate::cluster_daemon::member_keep_alive_failed::MemberKeepAliveFailed;
+use crate::cluster_daemon::member_watch_resp::MemberWatchResp;
 use crate::cluster_daemon::self_removed::SelfRemoved;
-use crate::cluster_daemon::watch_resp_wrap::WatchRespWrap;
 use crate::cluster_event::ClusterEvent;
-use crate::etcd_watcher::EtcdWatcher;
+use crate::etcd_actor::keep_alive::KeepAlive;
+use crate::etcd_actor::watch::Watch;
 use crate::heartbeat::cluster_heartbeat_receiver::ClusterHeartbeatReceiver;
 use crate::heartbeat::cluster_heartbeat_sender::ClusterHeartbeatSender;
-use crate::lease_keeper::EtcdLeaseKeeper;
-use crate::lease_keeper::lease_keep_alive_failed::LeaseKeepAliveFailed;
 use crate::member::{Member, MemberStatus};
 use crate::unique_address::UniqueAddress;
 
@@ -35,17 +33,20 @@ pub(crate) mod add_on_member_up_listener;
 pub(crate) mod add_on_member_removed_listener;
 mod self_down;
 mod self_removed;
-mod lease_failed;
-mod watch_resp_wrap;
+mod member_keep_alive_failed;
+mod member_watch_resp;
 
 #[derive(Debug)]
 pub struct ClusterDaemon {
     pub(crate) client: EtcdClient,
+    pub(crate) etcd_actor: ActorRef,
     pub(crate) self_addr: UniqueAddress,
     pub(crate) roles: HashSet<String>,
     pub(crate) transport: ActorRef,
     pub(crate) key_addr: HashMap<String, UniqueAddress>,
     pub(crate) cluster: Option<Cluster>,
+    pub(crate) members_watch_adapter: ActorRef,
+    pub(crate) keep_alive_adapter: ActorRef,
 }
 
 #[async_trait]
@@ -62,10 +63,9 @@ impl Actor for ClusterDaemon {
             Props::new(|| Ok(ClusterHeartbeatReceiver::new())),
             ClusterHeartbeatReceiver::name(),
         )?;
-        let watcher_adapter = context.adapter(|m| DynMessage::user(WatchRespWrap(m)));
-        self.spawn_member_watcher(context, watcher_adapter)?;
+        self.watch_cluster_members();
         self.get_all_members(context).await?;
-        let lease_id = self.spawn_lease_keeper(context).await?;
+        let lease_id = self.member_keep_alive().await?;
         let member = Member::new(
             self.self_addr.clone(),
             MemberStatus::Up,
@@ -83,32 +83,43 @@ impl Actor for ClusterDaemon {
 }
 
 impl ClusterDaemon {
+    pub(crate) fn new(
+        context: &mut ActorContext,
+        client: EtcdClient,
+        etcd_actor: ActorRef,
+        self_addr: UniqueAddress,
+        roles: HashSet<String>,
+        transport: ActorRef,
+    ) -> anyhow::Result<Self> {
+        let members_watch_adapter = context.adapter(|m| DynMessage::user(MemberWatchResp(m)));
+        let keep_alive_adapter = context.adapter(|m| DynMessage::user(MemberKeepAliveFailed(Some(m))));
+        let daemon = Self {
+            client,
+            etcd_actor,
+            self_addr,
+            roles,
+            transport,
+            key_addr: Default::default(),
+            cluster: None,
+            members_watch_adapter,
+            keep_alive_adapter,
+        };
+        Ok(daemon)
+    }
+
     fn lease_path(&self) -> String {
         format!("actor/{}/cluster/lease", self.self_addr.system_name())
     }
 
-    fn spawn_watcher(context: &mut ActorContext, name: impl Into<String>, adapter: ActorRef, key: String, options: Option<WatchOptions>, client: EtcdClient) -> anyhow::Result<()> {
-        context.spawn(Props::new_with_ctx(move |ctx| {
-            Ok(EtcdWatcher::new(
-                ctx.myself().clone(),
-                client.clone(),
-                key.clone(),
-                options.clone(),
-                adapter.clone(),
-            ))
-        }), name.into())?;
-        Ok(())
-    }
-
-    async fn spawn_lease_keeper(&mut self, context: &mut ActorContext) -> anyhow::Result<i64> {
+    async fn member_keep_alive(&mut self) -> anyhow::Result<i64> {
         let resp = self.client.lease_grant(60, None).await?;
         let lease_id = resp.id();
-        let client = self.client.clone();
-        let receiver = context.adapter::<LeaseKeepAliveFailed>(|_| LeaseFailed.into_dyn());
-        context.spawn(
-            Props::new_with_ctx(move |_| { Ok(EtcdLeaseKeeper::new(client.clone(), resp.id(), receiver.clone(), Duration::from_secs(3))) }),
-            "lease_keeper",
-        )?;
+        let keep_alive = KeepAlive {
+            id: lease_id,
+            applicant: self.keep_alive_adapter.clone(),
+            interval: Duration::from_secs(3),
+        };
+        self.etcd_actor.cast_ns(keep_alive);
         Ok(lease_id)
     }
 
@@ -155,20 +166,17 @@ impl ClusterDaemon {
         Ok(())
     }
 
-    fn spawn_member_watcher(&mut self, context: &mut ActorContext, adapter: ActorRef) -> anyhow::Result<()> {
-        Self::spawn_watcher(
-            context,
-            "member_watcher",
-            adapter.clone(),
-            self.lease_path(),
-            Some(WatchOptions::new().with_prefix()),
-            self.client.clone(),
-        )?;
-        Ok(())
+    fn watch_cluster_members(&mut self) {
+        let watch = Watch {
+            key: self.lease_path().into_bytes(),
+            options: Some(WatchOptions::new().with_prefix()),
+            applicant: self.members_watch_adapter.clone(),
+        };
+        self.etcd_actor.cast_ns(watch);
     }
 
-    async fn respawn_lease_keeper(&mut self, context: &mut ActorContext) {
-        match self.spawn_lease_keeper(context).await {
+    async fn try_keep_alive(&mut self, context: &mut ActorContext) {
+        match self.member_keep_alive().await {
             Ok(lease_id) => {
                 let member = Member::new(
                     self.self_addr.clone(),
@@ -177,13 +185,13 @@ impl ClusterDaemon {
                     lease_id,
                 );
                 if let Some(error) = self.update_member_to_etcd(&member).await.err() {
-                    error!("{} update self member error {:?}", context.myself(), error);
-                    context.myself().cast_ns(LeaseFailed);
+                    error!("{} update self member error {:?}, retry it", context.myself(), error);
+                    context.myself().cast_ns(MemberKeepAliveFailed(None));
                 }
             }
             Err(error) => {
-                error!("{} spawn lease keeper error {:?}", context.myself(), error);
-                context.myself().cast_ns(LeaseFailed);
+                error!("{} lease error {:?}, retry it", context.myself(), error);
+                context.myself().cast_ns(MemberKeepAliveFailed(None));
             }
         }
     }

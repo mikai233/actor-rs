@@ -1,5 +1,6 @@
 use async_trait::async_trait;
-use etcd_client::{EventType, WatchResponse};
+use etcd_client::{Error, EventType, WatchResponse};
+use tracing::error;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -11,26 +12,38 @@ use crate::cluster_daemon::ClusterDaemon;
 use crate::cluster_daemon::self_down::SelfDown;
 use crate::cluster_daemon::self_removed::SelfRemoved;
 use crate::cluster_event::ClusterEvent;
-use crate::etcd_watcher::watch_resp::WatchResp;
+use crate::etcd_actor::watch::WatchResp;
 use crate::member::MemberStatus;
 
 #[derive(Debug, EmptyCodec)]
-pub(super) struct WatchRespWrap(pub(super) WatchResp);
+pub(super) struct MemberWatchResp(pub(super) WatchResp);
 
 #[async_trait]
-impl Message for WatchRespWrap {
+impl Message for MemberWatchResp {
     type A = ClusterDaemon;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let WatchResp { key, resp } = self.0;
-        if key == actor.lease_path() {
-            Self::update_member_status(context, actor, resp).await?;
+        match self.0 {
+            WatchResp::Success(resp) => {
+                Self::update_member_status(context, actor, resp).await?;
+            }
+            WatchResp::Failed(error) => {
+                match error {
+                    None => {
+                        error!("{} watch members status error, try rewatch it", context.myself());
+                    }
+                    Some(error) => {
+                        error!("{} watch members status error {:?}, try rewatch it", context.myself(), error);
+                    }
+                }
+                actor.watch_cluster_members();
+            }
         }
         Ok(())
     }
 }
 
-impl WatchRespWrap {
+impl MemberWatchResp {
     /// update local member status form etcd
     async fn update_member_status(context: &mut ActorContext, actor: &mut ClusterDaemon, resp: WatchResponse) -> anyhow::Result<()> {
         for event in resp.events() {

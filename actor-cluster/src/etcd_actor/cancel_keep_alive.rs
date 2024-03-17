@@ -8,7 +8,7 @@ use actor_derive::EmptyCodec;
 use crate::etcd_actor::EtcdActor;
 
 #[derive(Debug, EmptyCodec)]
-pub struct CancelKeepAlive(i64);
+pub struct CancelKeepAlive(pub i64);
 
 #[async_trait]
 impl Message for CancelKeepAlive {

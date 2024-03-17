@@ -11,8 +11,7 @@ use typed_builder::TypedBuilder;
 
 use actor_cluster::cluster::Cluster;
 use actor_cluster::cluster_provider::ClusterActorRefProvider;
-use actor_cluster::lease_keeper::EtcdLeaseKeeper;
-use actor_cluster::lease_keeper::lease_keep_alive_failed::LeaseKeepAliveFailed;
+use actor_cluster::etcd_actor::keep_alive::KeepAlive;
 use actor_cluster::member::MemberStatus;
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
@@ -22,18 +21,19 @@ use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::etcd_client::EtcdClient;
+use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::provider::downcast_provider;
 
-use crate::singleton::cluster_singleton_manager::lease_failed::LeaseFailed;
 use crate::singleton::cluster_singleton_manager::lock_failed::LockFailed;
 use crate::singleton::cluster_singleton_manager::lock_success::LockSuccess;
 use crate::singleton::cluster_singleton_manager::shutdown_singleton::ShutdownSingleton;
+use crate::singleton::cluster_singleton_manager::singleton_keep_alive_failed::SingletonKeepAliveFailed;
 
 mod shutdown_singleton;
 mod singleton_terminated;
 mod lock_failed;
 mod lock_success;
-mod lease_failed;
+mod singleton_keep_alive_failed;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TypedBuilder)]
 pub struct ClusterSingletonManagerSettings {
@@ -64,6 +64,7 @@ pub struct ClusterSingletonManager {
     lock_handle: Option<AbortHandle>,
     singleton: Option<ActorRef>,
     singleton_shutdown_notifier: Option<tokio::sync::oneshot::Sender<()>>,
+    singleton_keep_alive_adapter: ActorRef,
 }
 
 impl ClusterSingletonManager {
@@ -74,6 +75,7 @@ impl ClusterSingletonManager {
         settings: ClusterSingletonManagerSettings,
     ) -> anyhow::Result<Self> {
         let cluster = Cluster::get(context.system()).clone();
+        let singleton_keep_alive_adapter = context.adapter(|m| { SingletonKeepAliveFailed(Some(m)).into_dyn() });
         let myself = context.myself().clone();
         let mut coordinate_shutdown = CoordinatedShutdown::get_mut(context.system());
         coordinate_shutdown.add_task(PHASE_CLUSTER_EXITING, "wait-singleton-exiting", async move {
@@ -98,6 +100,7 @@ impl ClusterSingletonManager {
             lock_handle: None,
             singleton: None,
             singleton_shutdown_notifier: None,
+            singleton_keep_alive_adapter,
         };
         Ok(myself)
     }
@@ -106,23 +109,15 @@ impl ClusterSingletonManager {
         &self.settings.singleton_name
     }
 
-    async fn spawn_lease_keeper(&mut self, context: &mut ActorContext) -> anyhow::Result<i64> {
+    async fn keep_alive(&mut self) -> anyhow::Result<i64> {
         let resp = self.client.lease_grant(30, None).await?;
         let lease_id = resp.id();
-        let client = self.client.clone();
-        let receiver = context.adapter::<LeaseKeepAliveFailed>(|_| DynMessage::user(LeaseFailed));
-        context.spawn(
-            Props::new(move || {
-                let keeper = EtcdLeaseKeeper::new(
-                    client.clone(),
-                    resp.id(),
-                    receiver.clone(),
-                    Duration::from_secs(3),
-                );
-                Ok(keeper)
-            }),
-            "lease_keeper",
-        )?;
+        let keep_alive = KeepAlive {
+            id: lease_id,
+            applicant: self.singleton_keep_alive_adapter.clone(),
+            interval: Duration::from_secs(3),
+        };
+        self.cluster.etcd_actor().cast_ns(keep_alive);
         Ok(lease_id)
     }
 
@@ -184,7 +179,7 @@ fn singleton_path(system_name: &str, name: &str) -> String {
 #[async_trait]
 impl Actor for ClusterSingletonManager {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        let lease_id = self.spawn_lease_keeper(context).await?;
+        let lease_id = self.keep_alive().await?;
         self.lease_id = lease_id;
         self.lock(context);
         Ok(())

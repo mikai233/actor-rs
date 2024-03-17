@@ -7,7 +7,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use imstr::ImString;
 use itertools::Itertools;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 use actor_cluster::cluster::Cluster;
 use actor_core::Actor;
@@ -48,7 +48,6 @@ mod stop_shard_timeout;
 mod stop_shards;
 mod shard_region_terminated;
 mod state_update;
-mod etcd_resp;
 mod coordinator_state;
 mod shard_region_proxy_terminated;
 mod resend_shard_host;
