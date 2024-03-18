@@ -29,12 +29,8 @@ impl Message for HeartbeatSenderClusterEvent {
             }
             ClusterEvent::MemberPrepareForLeaving(_) => {}
             ClusterEvent::MemberLeaving(_) => {}
-            ClusterEvent::MemberRemoved(_) => {}
-            ClusterEvent::MemberDowned(m) => {
-                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
-                    actor.self_member = Some(m.clone());
-                }
-                actor.active_receivers.remove(&m.addr);
+            ClusterEvent::MemberRemoved(_) => {
+
             }
             ClusterEvent::CurrentClusterState { members, self_member } => {
                 actor.self_member = Some(self_member);

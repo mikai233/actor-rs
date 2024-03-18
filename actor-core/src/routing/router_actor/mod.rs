@@ -15,7 +15,7 @@ mod routee_terminated;
 mod get_routees;
 mod add_routee;
 mod remove_routee;
-mod broadcast;
+pub mod broadcast;
 
 pub trait Router: Actor {
     fn router_config(&self) -> &RouterConfig;

@@ -354,7 +354,7 @@ impl Message for ReceiverTerminated {
                     actor.queue.try_remove(&key);
                 }
             }
-            let indexes = indexes.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+            let indexes = indexes.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(", ");
             trace!("{} watch receiver {} stopped, stop associated timers {:?}", context.myself(), self.0, indexes);
         }
         Ok(())

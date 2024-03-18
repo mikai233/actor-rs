@@ -31,7 +31,6 @@ use crate::unique_address::UniqueAddress;
 pub(crate) mod leave_cluster;
 pub(crate) mod add_on_member_up_listener;
 pub(crate) mod add_on_member_removed_listener;
-mod self_down;
 mod self_removed;
 mod member_keep_alive_failed;
 mod member_watch_resp;
@@ -77,7 +76,7 @@ impl Actor for ClusterDaemon {
     }
 
     async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
-        let _ = self.self_down().await;
+        let _ = self.self_removed().await;
         Ok(())
     }
 }
@@ -151,18 +150,7 @@ impl ClusterDaemon {
             self_member.status = MemberStatus::Removed;
             self_member.clone()
         };
-        info!("{:?} self removed", self_member);
-        Ok(())
-    }
-
-    async fn self_down(&mut self) -> anyhow::Result<()> {
-        let self_member = {
-            let cluster = self.cluster.as_result_mut()?;
-            let mut self_member = cluster.self_member_write();
-            self_member.status = MemberStatus::Down;
-            self_member.clone()
-        };
-        info!("{:?} self down", self_member);
+        info!("{} self removed", self_member);
         Ok(())
     }
 
@@ -201,7 +189,7 @@ impl ClusterDaemon {
         let stream = context.system().event_stream();
         let member = serde_json::from_slice::<Member>(kv.value())?;
         self.key_addr.insert(kv.key_str()?.to_string(), member.addr.clone());
-        debug!("{} update member {:?}", context.myself(), member);
+        debug!("{} update member {}", context.myself(), member);
         if member.addr == self.self_addr {
             *cluster.self_member_write() = member.clone();
         }
@@ -228,9 +216,6 @@ impl ClusterDaemon {
                     }
                     stream.publish(ClusterEvent::member_removed(member))?;
                 }
-            }
-            MemberStatus::Down => {
-                stream.publish(ClusterEvent::member_downed(member))?;
             }
         }
         Ok(())

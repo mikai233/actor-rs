@@ -192,13 +192,13 @@ impl ShardRegion {
             if actor_selections.is_empty().not() {
                 let all_up_members = self.members.values().
                     filter(|m| matches!(m.status, MemberStatus::Up))
-                    .collect::<Vec<_>>();
+                    .collect_vec();
                 let buffer_size = self.shard_buffers.total_size();
                 let type_name = &self.type_name;
                 let selections_str = actor_selections
                     .iter()
                     .map(|s| s.to_string())
-                    .collect::<Vec<_>>().join(", ");
+                    .join(", ");
                 if buffer_size > 0 {
                     warn!(
                         "{}: Trying to register to coordinator at [{}], but no acknowledgement. Total [{}] buffered messages. All up members {:?}",

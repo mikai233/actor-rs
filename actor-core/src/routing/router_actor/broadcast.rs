@@ -1,15 +1,31 @@
+use std::ops::Not;
+
+use anyhow::anyhow;
 use async_trait::async_trait;
 
 use actor_derive::EmptyCodec;
 
 use crate::{DynMessage, Message};
 use crate::actor::context::{ActorContext, Context};
+use crate::ext::type_name_of;
 use crate::routing::routee::TRoutee;
 use crate::routing::router_actor::Router;
 
 #[derive(Debug, EmptyCodec)]
 pub struct Broadcast {
     message: DynMessage,
+}
+
+impl Broadcast {
+    pub fn new<M>(message: M) -> anyhow::Result<Self> where M: Message {
+        if message.is_cloneable().not() {
+            return Err(anyhow!("broadcast message {} require cloneable", type_name_of::<M>()));
+        }
+        let msg = Self {
+            message: DynMessage::user(message),
+        };
+        Ok(msg)
+    }
 }
 
 #[async_trait]

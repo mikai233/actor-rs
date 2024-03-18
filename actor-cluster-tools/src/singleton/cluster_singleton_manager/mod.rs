@@ -79,7 +79,7 @@ impl ClusterSingletonManager {
         let myself = context.myself().clone();
         let mut coordinate_shutdown = CoordinatedShutdown::get_mut(context.system());
         coordinate_shutdown.add_task(PHASE_CLUSTER_EXITING, "wait-singleton-exiting", async move {
-            if !(cluster.is_terminated() || cluster.self_member().status == MemberStatus::Down) {
+            if !(cluster.is_terminated() || cluster.self_member().status == MemberStatus::Removed) {
                 let (tx, rx) = tokio::sync::oneshot::channel();
                 myself.cast_ns(ShutdownSingleton(tx));
                 let _ = rx.await;

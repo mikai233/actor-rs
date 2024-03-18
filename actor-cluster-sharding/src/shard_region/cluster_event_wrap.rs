@@ -29,9 +29,6 @@ impl Message for ClusterEventWrap {
             ClusterEvent::MemberRemoved(member) => {
                 Self::remove_member(actor, member);
             }
-            ClusterEvent::MemberDowned(member) => {
-                Self::remove_member(actor, member);
-            }
             ClusterEvent::CurrentClusterState { members, .. } => {
                 actor.members = members;
             }

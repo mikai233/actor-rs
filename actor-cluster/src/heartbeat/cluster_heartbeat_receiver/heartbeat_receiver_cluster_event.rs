@@ -23,10 +23,17 @@ impl Message for HeartbeatReceiverClusterEvent {
                     actor.self_member = Some(m.clone());
                 }
             }
-            ClusterEvent::MemberPrepareForLeaving(_) => {}
-            ClusterEvent::MemberLeaving(_) => {}
-            ClusterEvent::MemberRemoved(_) => {}
-            ClusterEvent::MemberDowned(m) => {
+            ClusterEvent::MemberPrepareForLeaving(m) => {
+                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                    actor.self_member = Some(m.clone());
+                }
+            }
+            ClusterEvent::MemberLeaving(m) => {
+                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                    actor.self_member = Some(m.clone());
+                }
+            }
+            ClusterEvent::MemberRemoved(m) => {
                 if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
                     actor.self_member = Some(m.clone());
                 }

@@ -17,6 +17,7 @@ dependencies = [
  "dashmap",
  "etcd-client",
  "futures",
+ "itertools 0.12.1",
  "serde",
  "serde_json",
  "tokio",

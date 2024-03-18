@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use etcd_client::{Error, EventType, WatchResponse};
+use etcd_client::{EventType, WatchResponse};
 use tracing::error;
 
 use actor_core::actor::context::{ActorContext, Context};
@@ -9,7 +9,6 @@ use actor_core::Message;
 use actor_derive::EmptyCodec;
 
 use crate::cluster_daemon::ClusterDaemon;
-use crate::cluster_daemon::self_down::SelfDown;
 use crate::cluster_daemon::self_removed::SelfRemoved;
 use crate::cluster_event::ClusterEvent;
 use crate::etcd_actor::watch::WatchResp;
@@ -62,11 +61,6 @@ impl MemberWatchResp {
                                     context.myself().cast_ns(SelfRemoved);
                                 }
                                 stream.publish(ClusterEvent::member_removed(member.clone()))?;
-                                member.status = MemberStatus::Down;
-                                if addr == actor.self_addr {
-                                    context.myself().cast_ns(SelfDown);
-                                }
-                                stream.publish(ClusterEvent::member_downed(member))?;
                             }
                         }
                     }

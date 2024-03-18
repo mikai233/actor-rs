@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use itertools::Itertools;
 use tracing::debug;
 
 use actor_core::actor::context::ActorContext;
@@ -32,8 +33,7 @@ impl Message for ShardRegionTerminated {
                 let type_name = &actor.type_name;
                 let size = shards.len();
                 let shard_str = shards.iter()
-                    .map(|shard| shard.as_str())
-                    .collect::<Vec<_>>().join(", ");
+                    .join(", ");
                 debug!("{type_name}: Region [{shard_region}] terminated with [{size}] shards [{shard_str}]");
             }
         }

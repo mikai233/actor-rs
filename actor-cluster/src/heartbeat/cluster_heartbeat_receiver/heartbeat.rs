@@ -1,10 +1,13 @@
+use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::trace;
 
 use actor_core::{DynMessage, Message};
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor_ref::ActorRef;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::ext::option_ext::OptionExt;
+use actor_core::ext::type_name_of;
 use actor_derive::CMessageCodec;
 
 use crate::heartbeat::cluster_heartbeat_receiver::ClusterHeartbeatReceiver;
@@ -25,7 +28,8 @@ impl Message for Heartbeat {
         trace!("{} recv Heartbeat from {}", context.myself(), self.from);
         if let Some(self_member) = &actor.self_member {
             if self_member.status == MemberStatus::Up {
-                context.sender().unwrap().tell(DynMessage::user(HeartbeatRsp { from: self_member.addr.clone() }), ActorRef::no_sender());
+                let resp = HeartbeatRsp { from: self_member.addr.clone() };
+                context.sender().into_result().context(type_name_of::<Heartbeat>())?.cast_ns(resp);
             }
         }
         Ok(())

@@ -78,7 +78,12 @@ impl Cluster {
             ClusterDaemon::new(ctx, client_clone, etcd_actor_clone, unique_address_clone, roles_clone, transport)
         }), Some("cluster".to_string()))?;
         let state = ClusterState::new(
-            Member::new(self_unique_address.clone(), MemberStatus::Down, roles.clone(), 0)
+            Member::new(
+                self_unique_address.clone(),
+                MemberStatus::Removed,
+                roles.clone(),
+                0,
+            )
         );
         let inner = Inner {
             system,
@@ -159,14 +164,18 @@ impl Cluster {
 
     pub fn cluster_leader(&self) -> Option<Member> {
         let members = self.members();
-        let mut members = members.values().filter(|m| m.status == MemberStatus::Up).collect::<Vec<_>>();
+        let mut members = members.values()
+            .filter(|m| m.status == MemberStatus::Up)
+            .collect::<Vec<_>>();
         members.sort_by_key(|m| &m.addr);
         members.first().map(|leader| *leader).cloned()
     }
 
     pub fn role_leader(&self, role: &str) -> Option<Member> {
         let members = self.members();
-        let mut role_members = members.values().filter(|m| m.has_role(role) && m.status == MemberStatus::Up).collect::<Vec<_>>();
+        let mut role_members = members.values()
+            .filter(|m| m.has_role(role) && m.status == MemberStatus::Up)
+            .collect::<Vec<_>>();
         role_members.sort_by_key(|m| &m.addr);
         role_members.first().map(|leader| *leader).cloned()
     }

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
+use itertools::Itertools;
 use tracing::{debug, error};
 
 use actor_core::actor::context::ActorContext;
@@ -21,7 +22,7 @@ impl Message for ShardHomes {
     type A = ShardRegion;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let homes_str = self.homes.keys().map(ToString::to_string).collect::<Vec<_>>().join(", ");
+        let homes_str = self.homes.keys().join(", ");
         debug!("Got shard homes for regions [{homes_str}]");
         for (shard_region_ref, shards) in self.homes {
             for shard_id in shards {

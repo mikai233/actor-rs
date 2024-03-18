@@ -1,7 +1,9 @@
 use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 
 use bincode::{Decode, Encode};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use actor_core::actor::address::Address;
@@ -45,11 +47,36 @@ impl Hash for Member {
     }
 }
 
+impl Display for Member {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let roles = self.roles.iter().join(", ");
+        write!(f, "Member {{addr: {}, status: {}, roles: {}, lease: {}}}", self.addr, self.status, roles, self.lease)
+    }
+}
+
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Encode, Decode, Serialize, Deserialize)]
 pub enum MemberStatus {
     Up,
     PrepareForLeaving,
     Leaving,
     Removed,
-    Down,
+}
+
+impl Display for MemberStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MemberStatus::Up => {
+                write!(f, "Up")
+            }
+            MemberStatus::PrepareForLeaving => {
+                write!(f, "PrepareForLeaving")
+            }
+            MemberStatus::Leaving => {
+                write!(f, "Leaving")
+            }
+            MemberStatus::Removed => {
+                write!(f, "Removed")
+            }
+        }
+    }
 }

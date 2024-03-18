@@ -176,6 +176,8 @@ impl<V> Debug for Node<V> where V: Debug + Eq + Hash + Clone {
 mod tests {
     use std::hash::Hash;
 
+    use itertools::Itertools;
+
     use crate::entity_passivation_strategy::recency_list::RecencyList;
 
     #[test]
@@ -197,9 +199,9 @@ mod tests {
         assert_eq!(v, vec![1, 3, 2, 4]);
         assert_eq!(list.least_recent().unwrap().value, 1);
         assert_eq!(list.most_recent().unwrap().value, 4);
-        let v = list.least_to_most_recent().map(|n| n.value).collect::<Vec<_>>();
+        let v = list.least_to_most_recent().map(|n| n.value).collect_vec();
         assert_eq!(v, vec![1, 3, 2, 4]);
-        let v = list.most_to_least_recent().map(|n| n.value).collect::<Vec<_>>();
+        let v = list.most_to_least_recent().map(|n| n.value).collect_vec();
         assert_eq!(v, vec![4, 2, 3, 1]);
         list.remove_least_recent(2);
         let v = value(&list);

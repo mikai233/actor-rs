@@ -59,7 +59,7 @@ impl EventStream {
                 } else { true }
             });
         }
-        let event_str = unsubscribe_events.join(",");
+        let event_str = unsubscribe_events.join(", ");
         trace!("{} unsubscribe from {}", subscriber, event_str);
     }
 
