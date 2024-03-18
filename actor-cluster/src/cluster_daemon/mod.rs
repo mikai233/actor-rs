@@ -156,7 +156,7 @@ impl ClusterDaemon {
 
     fn watch_cluster_members(&mut self) {
         let watch = Watch {
-            key: self.lease_path().into_bytes(),
+            key: self.lease_path(),
             options: Some(WatchOptions::new().with_prefix()),
             applicant: self.members_watch_adapter.clone(),
         };

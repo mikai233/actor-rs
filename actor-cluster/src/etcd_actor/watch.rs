@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use etcd_client::{WatchOptions, WatchResponse};
+use tracing::debug;
 
 use actor_core::{DynMessage, Message};
 use actor_core::actor::context::{ActorContext, Context};
@@ -11,7 +12,7 @@ use crate::etcd_actor::watch_started::WatchStarted;
 
 #[derive(Debug, EmptyCodec)]
 pub struct Watch {
-    pub key: Vec<u8>,
+    pub key: String,
     pub options: Option<WatchOptions>,
     pub applicant: ActorRef,
 }
@@ -21,6 +22,7 @@ impl Message for Watch {
     type A = EtcdActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        debug!("{} request watch key {}", self.applicant, self.key);
         let mut client = actor.client.clone();
         let myself = context.myself().clone();
         context.spawn_fut(async move {

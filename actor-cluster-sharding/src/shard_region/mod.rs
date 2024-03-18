@@ -192,7 +192,7 @@ impl ShardRegion {
             if actor_selections.is_empty().not() {
                 let all_up_members = self.members.values().
                     filter(|m| matches!(m.status, MemberStatus::Up))
-                    .collect_vec();
+                    .join(", ");
                 let buffer_size = self.shard_buffers.total_size();
                 let type_name = &self.type_name;
                 let selections_str = actor_selections
@@ -201,7 +201,7 @@ impl ShardRegion {
                     .join(", ");
                 if buffer_size > 0 {
                     warn!(
-                        "{}: Trying to register to coordinator at [{}], but no acknowledgement. Total [{}] buffered messages. All up members {:?}",
+                        "{}: Trying to register to coordinator at [{}], but no acknowledgement. Total [{}] buffered messages. All up members {}",
                         type_name,
                         selections_str,
                         buffer_size,
@@ -209,7 +209,7 @@ impl ShardRegion {
                     )
                 } else {
                     debug!(
-                        "{}: Trying to register to coordinator at [{}], but no acknowledgement. No buffered messages yet. All up members {:?}",
+                        "{}: Trying to register to coordinator at [{}], but no acknowledgement. No buffered messages yet. All up members {}",
                         type_name,
                         selections_str,
                         all_up_members,
@@ -462,7 +462,9 @@ impl ShardRegion {
             }
         }
         if &shard_region_ref != context.myself() {
-            context.watch(ShardRegionTerminated(shard_region_ref.clone()));
+            if context.is_watching(&shard_region_ref).not() {
+                context.watch(ShardRegionTerminated(shard_region_ref.clone()));
+            }
         }
         if &shard_region_ref == context.myself() {
             self.get_shard(context, shard.clone())?.foreach(|region| {

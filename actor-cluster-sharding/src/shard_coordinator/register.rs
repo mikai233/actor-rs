@@ -1,3 +1,5 @@
+use std::ops::Not;
+
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::debug;
@@ -38,7 +40,9 @@ impl Message for Register {
                 actor.graceful_shutdown_in_progress.remove(&region);
                 actor.inform_about_current_shards(&region);
                 actor.update(StateUpdate::ShardRegionRegistered { region: region.clone() });
-                context.watch(ShardRegionTerminated(region.clone()));
+                if context.is_watching(&region).not() {
+                    context.watch(ShardRegionTerminated(region.clone()));
+                }
                 region.cast_ns(RegisterAck { coordinator: context.myself().clone() });
             }
         } else {

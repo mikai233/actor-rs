@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use tracing::debug;
 
 use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -17,6 +18,7 @@ impl Message for CancelKeepAlive {
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if let Some(lease) = actor.lease.remove(&self.0) {
             context.stop(&lease.keeper);
+            debug!("cancel keep alive with lease {}", self.0);
         }
         Ok(())
     }

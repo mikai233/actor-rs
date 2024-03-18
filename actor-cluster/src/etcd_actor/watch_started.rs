@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use tracing::debug;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
@@ -22,6 +23,7 @@ impl Message for WatchStarted {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let id = self.watcher.watch_id();
+        debug!("watch started with lease {} and applicant {}", id, self.applicant);
         let watcher = Watcher {
             watcher: self.watcher,
             stream: self.stream,

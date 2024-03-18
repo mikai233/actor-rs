@@ -1,3 +1,5 @@
+use std::ops::Not;
+
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 
@@ -19,7 +21,9 @@ impl Message for RegisterAck {
     type A = ShardRegion;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        context.watch(CoordinatorTerminated(self.coordinator.clone()));
+        if context.is_watching(&self.coordinator).not() {
+            context.watch(CoordinatorTerminated(self.coordinator.clone()));
+        }
         actor.coordinator = Some(self.coordinator);
         actor.finish_registration();
         actor.try_request_shard_buffer_homes(context);

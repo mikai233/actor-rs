@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use tracing::debug;
 
 use actor_core::{DynMessage, Message};
 use actor_core::actor::context::ActorContext;
@@ -19,6 +20,14 @@ impl Message for Unwatch {
     type A = EtcdActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        match self.applicant.as_ref() {
+            None => {
+                debug!("unwatch {}", self.id);
+            }
+            Some(applicant) => {
+                debug!("{} request unwatch {}", applicant, self.id);
+            }
+        }
         match actor.watcher.remove(&self.id) {
             None => {
                 self.applicant.foreach(|applicant| {
