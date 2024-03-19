@@ -35,17 +35,18 @@ use crate::net::tcp_transport::transport_buffer_envelop::TransportBufferEnvelope
 mod connection_status;
 mod connect;
 mod connected;
-mod disconnect;
+pub mod disconnect;
 pub(crate) mod outbound_message;
 mod spawn_inbound;
 mod connection;
 mod inbound_message;
 mod transport_buffer_envelop;
+mod disconnected;
 
 pub const ACTOR_REF_CACHE: usize = 10000;
 
 #[derive(Debug)]
-pub(crate) struct TcpTransportActor {
+pub struct TcpTransportActor {
     transport: TcpTransport,
     connections: HashMap<SocketAddr, ConnectionStatus>,
     actor_ref_cache: Cache<String, ActorRef>,
@@ -82,7 +83,7 @@ impl Actor for TcpTransportActor {
                     //这里不能用actor的上下文去执行异步任务，因为停止系统会导致actor销毁，与之关联的异步任务也会销毁，后面的任务无法执行
                     let fut = {
                         let error = anyhow!("bind tcp addr {} failed {:?}", addr, error);
-                        CoordinatedShutdown::get_mut(myself.system()).run_with_result(ActorSystemStartFailedReason, Err(error))
+                        CoordinatedShutdown::get(myself.system()).run_with_result(ActorSystemStartFailedReason, Err(error))
                     };
                     tokio::spawn(async move {
                         fut.await;

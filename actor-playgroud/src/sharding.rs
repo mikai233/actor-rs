@@ -94,7 +94,7 @@ impl MessageExtractor for PlayerMessageExtractor {
 
 #[derive(Parser, Debug)]
 struct Args {
-    #[arg(short, long, default_value = "mikai233")]
+    #[arg(long, default_value = "mikai233")]
     system_name: String,
     #[arg(short, long)]
     addr: SocketAddrV4,

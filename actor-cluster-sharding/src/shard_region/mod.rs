@@ -8,6 +8,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use imstr::ImString;
 use itertools::Itertools;
+use tokio::sync::mpsc::{channel, Sender};
 use tracing::{debug, info, warn};
 
 use actor_cluster::cluster::Cluster;
@@ -16,6 +17,7 @@ use actor_cluster::unique_address::UniqueAddress;
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use actor_core::actor::context::{ActorContext, Context, ContextExt};
+use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION};
 use actor_core::actor::props::{Props, PropsBuilderSync};
 use actor_core::actor::timers::{ScheduleKey, Timers};
 use actor_core::actor_path::root_actor_path::RootActorPath;
@@ -37,6 +39,7 @@ use crate::shard_coordinator::register::Register;
 use crate::shard_coordinator::register_proxy::RegisterProxy;
 use crate::shard_region::cluster_event_wrap::ClusterEventWrap;
 use crate::shard_region::deliver_target::DeliverTarget;
+use crate::shard_region::graceful_shutdown::GracefulShutdown;
 use crate::shard_region::register_retry::RegisterRetry;
 use crate::shard_region::retry::Retry;
 use crate::shard_region::shard_region_buffer_envelope::ShardRegionBufferEnvelope;
@@ -59,6 +62,8 @@ mod coordinator_terminated;
 pub(crate) mod begin_handoff;
 pub(crate) mod shard_initialized;
 mod deliver_target;
+mod graceful_shutdown;
+mod graceful_shutdown_timeout;
 
 pub type ShardId = String;
 
@@ -89,6 +94,7 @@ pub struct ShardRegion {
     retry_count: usize,
     init_registration_delay: Duration,
     next_registration_delay: Duration,
+    graceful_shutdown_progress: Sender<()>,
     cluster: Cluster,
     register_retry_key: Option<ScheduleKey>,
     members: HashMap<UniqueAddress, Member>,
@@ -106,6 +112,19 @@ impl ShardRegion {
         handoff_stop_message: DynMessage,
     ) -> anyhow::Result<Self> {
         let timers = Timers::new(context)?;
+        let cluster = Cluster::get(context.system()).clone();
+        let (graceful_shutdown_progress_tx, mut graceful_shutdown_progress_rx) = channel(1);
+        let graceful_shutdown_progress_tx_clone = graceful_shutdown_progress_tx.clone();
+        let myself = context.myself().clone();
+        CoordinatedShutdown::get(context.system())
+            .add_task(PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION, "region_shutdown", async move {
+                if cluster.is_terminated() || cluster.self_member().status == MemberStatus::Removed {
+                    let _ = graceful_shutdown_progress_tx_clone.send(()).await;
+                } else {
+                    myself.cast_ns(GracefulShutdown);
+                    graceful_shutdown_progress_rx.recv().await;
+                }
+            })?;
         let cluster = Cluster::get(context.system()).clone();
         let myself = Self {
             type_name,
@@ -127,6 +146,7 @@ impl ShardRegion {
             retry_count: 0,
             init_registration_delay: Duration::from_secs(1),
             next_registration_delay: Duration::from_secs(1),
+            graceful_shutdown_progress: graceful_shutdown_progress_tx,
             cluster,
             register_retry_key: None,
             members: Default::default(),
@@ -500,6 +520,7 @@ impl Actor for ShardRegion {
         self.coordinator.foreach(|coordinator| {
             coordinator.cast_ns(RegionStopped { shard_region: context.myself().clone() });
         });
+        let _ = self.graceful_shutdown_progress.send(()).await;
         Ok(())
     }
 }

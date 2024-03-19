@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use etcd_client::{EventType, WatchResponse};
-use tracing::error;
+use tracing::{debug, error};
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -24,6 +24,7 @@ impl Message for MemberWatchResp {
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match self.0 {
             WatchResp::Success(resp) => {
+                debug!("watch resp {:?}", resp);
                 Self::update_member_status(context, actor, resp).await?;
             }
             WatchResp::Failed(error) => {

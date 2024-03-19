@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use async_trait::async_trait;
 use tracing::trace;
 
@@ -27,18 +25,28 @@ impl Message for HeartbeatSenderClusterEvent {
                 }
                 actor.active_receivers.insert(m.addr);
             }
-            ClusterEvent::MemberPrepareForLeaving(_) => {}
-            ClusterEvent::MemberLeaving(_) => {}
-            ClusterEvent::MemberRemoved(_) => {
-
+            ClusterEvent::MemberPrepareForLeaving(m) => {
+                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                    actor.self_member = Some(m.clone());
+                }
+            }
+            ClusterEvent::MemberLeaving(m) => {
+                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                    actor.self_member = Some(m.clone());
+                }
+            }
+            ClusterEvent::MemberRemoved(m) => {
+                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                    actor.self_member = Some(m.clone());
+                }
+                actor.active_receivers.remove(&m.addr);
             }
             ClusterEvent::CurrentClusterState { members, self_member } => {
                 actor.self_member = Some(self_member);
                 let up_members = members
                     .into_iter()
                     .filter(|(_, m)| m.status == MemberStatus::Up)
-                    .map(|(addr, _)| addr)
-                    .collect::<HashSet<_>>();
+                    .map(|(addr, _)| addr);
                 actor.active_receivers.extend(up_members);
             }
             ClusterEvent::EtcdUnreachable => {}

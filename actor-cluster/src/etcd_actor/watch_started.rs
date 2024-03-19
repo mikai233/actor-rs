@@ -23,7 +23,7 @@ impl Message for WatchStarted {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let id = self.watcher.watch_id();
-        debug!("watch started with lease {} and applicant {}", id, self.applicant);
+        debug!("watch started with watch id {} and applicant {}", id, self.applicant);
         let watcher = Watcher {
             watcher: self.watcher,
             stream: self.stream,

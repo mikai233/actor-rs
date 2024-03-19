@@ -141,7 +141,7 @@ impl ActorSystem {
     }
 
     pub fn terminate(&self) -> impl Future<Output=()> {
-        CoordinatedShutdown::get_mut(self.system()).run(ActorSystemTerminateReason)
+        CoordinatedShutdown::get(self.system()).run(ActorSystemTerminateReason)
     }
 
     pub(crate) fn when_terminated(&self) -> impl Future<Output=()> + 'static {

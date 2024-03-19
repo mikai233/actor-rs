@@ -9,7 +9,7 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use anyhow::anyhow;
-use dashmap::mapref::one::{MappedRef, MappedRefMut};
+use dashmap::mapref::one::MappedRef;
 use futures::{FutureExt, ready};
 use futures::future::BoxFuture;
 use pin_project::pin_project;
@@ -49,9 +49,9 @@ impl CoordinatedShutdown {
         let ordered_phases = Self::topological_sort(&system.core_config().phases)?;
         let mut shutdown = Self {
             system,
-            registered_phases: Mutex::default(),
+            registered_phases: Default::default(),
             ordered_phases,
-            run_started: AtomicBool::new(false),
+            run_started: Default::default(),
         };
         shutdown.init_phase_actor_system_terminate()?;
         shutdown.init_ctrl_c_signal();
@@ -91,7 +91,7 @@ impl CoordinatedShutdown {
         Ok(result)
     }
 
-    fn register<F>(&mut self, phase_name: String, name: String, fut: F) where F: Future<Output=()> + Send + 'static {
+    fn register<F>(&self, phase_name: String, name: String, fut: F) where F: Future<Output=()> + Send + 'static {
         let mut registered_phases = self.registered_phases.lock().unwrap();
         let phase_tasks = registered_phases.entry(phase_name).or_insert(PhaseTask::default());
         let task = TaskDefinition {
@@ -102,7 +102,7 @@ impl CoordinatedShutdown {
     }
 
     pub fn add_task<F>(
-        &mut self,
+        &self,
         phase: impl Into<String>,
         task_name: impl Into<String>,
         fut: F,
@@ -136,11 +136,11 @@ impl CoordinatedShutdown {
         system.get_extension::<Self>().expect("CoordinatedShutdown extension not found")
     }
 
-    pub fn get_mut(system: &ActorSystem) -> MappedRefMut<&'static str, Box<dyn Extension>, Self> {
-        system.get_extension_mut::<Self>().expect("CoordinatedShutdown extension not found")
-    }
+    // pub fn get_mut(system: &ActorSystem) -> MappedRefMut<&'static str, Box<dyn Extension>, Self> {
+    //     system.get_extension_mut::<Self>().expect("CoordinatedShutdown extension not found")
+    // }
 
-    pub fn run_with_result<R: Reason>(&mut self, reason: R, result: anyhow::Result<()>) -> impl Future<Output=()> + 'static {
+    pub fn run_with_result<R: Reason>(&self, reason: R, result: anyhow::Result<()>) -> impl Future<Output=()> + 'static {
         let mut coordinated_tasks = VecDeque::new();
         let started = self.run_started.swap(true, Ordering::Relaxed);
         if !started {
@@ -180,7 +180,7 @@ impl CoordinatedShutdown {
         }
     }
 
-    pub fn run<R: Reason>(&mut self, reason: R) -> impl Future<Output=()> + 'static {
+    pub fn run<R: Reason>(&self, reason: R) -> impl Future<Output=()> + 'static {
         self.run_with_result(reason, Ok(()))
     }
 
@@ -206,9 +206,17 @@ impl CoordinatedShutdown {
             if let Some(error) = tokio::signal::ctrl_c().await.err() {
                 error!("ctrl c signal error {}", error);
             }
-            let fut = { CoordinatedShutdown::get_mut(&system).run(CtrlCExitReason) };
+            let fut = { CoordinatedShutdown::get(&system).run(CtrlCExitReason) };
             fut.await;
         });
+    }
+
+    pub fn run_started(&self) -> bool {
+        self.run_started.load(Ordering::Relaxed)
+    }
+
+    pub fn timeout(&self, phase: &str) -> Option<Duration> {
+        self.system.core_config().phases.get(phase).map(|p| { p.timeout })
     }
 }
 
@@ -298,3 +306,8 @@ impl Reason for CtrlCExitReason {}
 pub struct ActorSystemStartFailedReason;
 
 impl Reason for ActorSystemStartFailedReason {}
+
+#[derive(Debug, AsAny)]
+pub struct ClusterDowningReason;
+
+impl Reason for ClusterDowningReason {}

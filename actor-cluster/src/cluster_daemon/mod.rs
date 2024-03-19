@@ -4,17 +4,21 @@ use std::fmt::Debug;
 use std::sync::RwLockWriteGuard;
 use std::time::Duration;
 
+use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use etcd_client::{GetOptions, KeyValue, PutOptions, WatchOptions};
+use tokio::sync::mpsc::{channel, Sender};
 use tracing::{debug, error, info, trace};
 
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::coordinated_shutdown::{ClusterDowningReason, CoordinatedShutdown, PHASE_CLUSTER_LEAVE, PHASE_CLUSTER_SHUTDOWN};
 use actor_core::actor::props::Props;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
+use actor_remote::net::tcp_transport::disconnect::Disconnect;
 
 use crate::cluster::Cluster;
 use crate::cluster_daemon::member_keep_alive_failed::MemberKeepAliveFailed;
@@ -34,18 +38,20 @@ pub(crate) mod add_on_member_removed_listener;
 mod self_removed;
 mod member_keep_alive_failed;
 mod member_watch_resp;
+mod leave_req;
 
 #[derive(Debug)]
 pub struct ClusterDaemon {
-    pub(crate) client: EtcdClient,
-    pub(crate) etcd_actor: ActorRef,
-    pub(crate) self_addr: UniqueAddress,
-    pub(crate) roles: HashSet<String>,
-    pub(crate) transport: ActorRef,
-    pub(crate) key_addr: HashMap<String, UniqueAddress>,
-    pub(crate) cluster: Option<Cluster>,
-    pub(crate) members_watch_adapter: ActorRef,
-    pub(crate) keep_alive_adapter: ActorRef,
+    client: EtcdClient,
+    etcd_actor: ActorRef,
+    self_addr: UniqueAddress,
+    roles: HashSet<String>,
+    transport: ActorRef,
+    key_addr: HashMap<String, UniqueAddress>,
+    cluster: Option<Cluster>,
+    members_watch_adapter: ActorRef,
+    keep_alive_adapter: ActorRef,
+    cluster_shutdown: Sender<()>,
 }
 
 #[async_trait]
@@ -75,8 +81,16 @@ impl Actor for ClusterDaemon {
         Ok(())
     }
 
-    async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
-        let _ = self.self_removed().await;
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+        let _ = self.cluster_shutdown.send(()).await;
+        let system = context.system().clone();
+        tokio::spawn(async move {
+            let fut = {
+                let coord_shutdown = CoordinatedShutdown::get(&system);
+                coord_shutdown.run(ClusterDowningReason)
+            };
+            fut.await;
+        });
         Ok(())
     }
 }
@@ -92,6 +106,21 @@ impl ClusterDaemon {
     ) -> anyhow::Result<Self> {
         let members_watch_adapter = context.adapter(|m| DynMessage::user(MemberWatchResp(m)));
         let keep_alive_adapter = context.adapter(|m| DynMessage::user(MemberKeepAliveFailed(Some(m))));
+        let (cluster_shutdown_tx, mut cluster_shutdown_rx) = channel(1);
+        let cluster_shutdown_tx_clone = cluster_shutdown_tx.clone();
+        let cluster = Cluster::get(context.system()).clone();
+        let coord_shutdown = CoordinatedShutdown::get(context.system());
+        let phase_cluster_leave_timeout = coord_shutdown.timeout(PHASE_CLUSTER_LEAVE)
+            .into_result()
+            .context(format!("phase {} not found", PHASE_CLUSTER_LEAVE))?;
+        coord_shutdown.add_task(PHASE_CLUSTER_LEAVE, "leave", async move {
+            if cluster.is_terminated() || cluster.self_member().status == MemberStatus::Removed {
+                let _ = cluster_shutdown_tx_clone.send(()).await;
+            } else {}
+        })?;
+        coord_shutdown.add_task(PHASE_CLUSTER_SHUTDOWN, "wait_shutdown", async move {
+            cluster_shutdown_rx.recv().await;
+        })?;
         let daemon = Self {
             client,
             etcd_actor,
@@ -102,6 +131,7 @@ impl ClusterDaemon {
             cluster: None,
             members_watch_adapter,
             keep_alive_adapter,
+            cluster_shutdown: cluster_shutdown_tx,
         };
         Ok(daemon)
     }
@@ -213,6 +243,8 @@ impl ClusterDaemon {
                 if cluster.members_write().remove(&member.addr).is_some() {
                     if member.addr == self.self_addr {
                         context.myself().cast_ns(SelfRemoved);
+                    } else {
+                        self.disconnect_member(&member);
                     }
                     stream.publish(ClusterEvent::member_removed(member))?;
                 }
@@ -235,6 +267,15 @@ impl ClusterDaemon {
                 v.insert(member);
                 true
             }
+        }
+    }
+
+    fn disconnect_member(&self, member: &Member) {
+        if let Some(addr) = member.addr.socket_addr() {
+            let disconnect = Disconnect {
+                addr: addr.clone().into(),
+            };
+            self.transport.cast_ns(disconnect);
         }
     }
 }

@@ -14,6 +14,7 @@ use crate::net::codec::{Packet, PacketCodec};
 use crate::net::remote_envelope::RemoteEnvelope;
 use crate::net::remote_packet::RemotePacket;
 use crate::net::tcp_transport::disconnect::Disconnect;
+use crate::net::tcp_transport::disconnected::Disconnected;
 
 pub type ConnectionTx = tokio::sync::mpsc::Sender<RemoteEnvelope>;
 pub type ConnectionRx = tokio::sync::mpsc::Receiver<RemoteEnvelope>;
@@ -49,7 +50,7 @@ impl Connection {
             loop {
                 match connection.rx.recv().await {
                     None => {
-                        connection.disconnect();
+                        connection.disconnected();
                         break;
                     }
                     Some(envelope) => {
@@ -66,6 +67,10 @@ impl Connection {
 
     fn disconnect(&self) {
         self.transport.cast(Disconnect { addr: self.peer }, None);
+    }
+
+    fn disconnected(&self) {
+        self.transport.cast(Disconnected { addr: self.peer }, None);
     }
 
     async fn send(&mut self, envelope: RemoteEnvelope) -> anyhow::Result<()> {

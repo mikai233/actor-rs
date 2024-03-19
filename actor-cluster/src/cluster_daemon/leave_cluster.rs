@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use actor_core::actor::address::Address;
 use actor_core::actor::context::ActorContext;
+use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 
@@ -17,8 +18,7 @@ impl Message for LeaveCluster {
 
     async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let member = {
-            actor.cluster.as_mut()
-                .unwrap()
+            actor.cluster.as_result()?
                 .members()
                 .iter()
                 .find(|(_, m)| m.addr.address == self.0)

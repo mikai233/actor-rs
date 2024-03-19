@@ -10,21 +10,18 @@ use actor_derive::EmptyCodec;
 use crate::net::tcp_transport::connection_status::ConnectionStatus;
 use crate::net::tcp_transport::TcpTransportActor;
 
-#[derive(EmptyCodec)]
-pub struct Disconnect {
-    pub addr: SocketAddr,
+#[derive(Debug, EmptyCodec)]
+pub(super) struct Disconnected {
+    pub(super) addr: SocketAddr,
 }
 
 #[async_trait]
-impl Message for Disconnect {
+impl Message for Disconnected {
     type A = TcpTransportActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        if let Some(ConnectionStatus::Connecting(handle)) = actor.connections.remove(&self.addr) {
-            handle.abort();
-        }
         actor.message_buffer.remove(&self.addr);
-        info!("{} disconnect from {}", context.myself(), self.addr);
+        info!("{} disconnected from {}", context.myself(), self.addr);
         Ok(())
     }
 }
