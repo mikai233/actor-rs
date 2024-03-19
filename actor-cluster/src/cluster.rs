@@ -20,7 +20,7 @@ use actor_derive::AsAny;
 use crate::cluster_daemon::add_on_member_removed_listener::AddOnMemberRemovedListener;
 use crate::cluster_daemon::add_on_member_up_listener::AddOnMemberUpListener;
 use crate::cluster_daemon::ClusterDaemon;
-use crate::cluster_daemon::leave_cluster::LeaveCluster;
+use crate::cluster_daemon::leave::Leave;
 use crate::cluster_event::ClusterEvent;
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::cluster_state::ClusterState;
@@ -118,7 +118,7 @@ impl Cluster {
     }
 
     pub fn leave(&self, address: Address) {
-        self.daemon.cast_ns(LeaveCluster(address));
+        self.daemon.cast_ns(Leave(address));
     }
 
     pub fn register_on_member_up<F>(&self, f: F) where F: FnOnce() + Send + 'static {

@@ -7,11 +7,11 @@ use tracing::debug;
 use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::ActorRef;
 use actor_core::Message;
-use actor_derive::MessageCodec;
+use actor_derive::{CMessageCodec, MessageCodec};
 
 use crate::shard_coordinator::ShardCoordinator;
 
-#[derive(Debug, Encode, Decode, MessageCodec)]
+#[derive(Debug, Clone, Encode, Decode, CMessageCodec)]
 pub(crate) struct GracefulShutdownReq {
     pub(crate) shard_region: ActorRef,
 }

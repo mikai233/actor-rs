@@ -3,6 +3,7 @@ use actor_core::message::message_registration::MessageRegistration;
 use crate::shard::Shard;
 use crate::shard_coordinator::get_shard_home::GetShardHome;
 use crate::shard_coordinator::graceful_shutdown_req::GracefulShutdownReq;
+use crate::shard_coordinator::rebalance_worker::begin_handoff_ack::BeginHandoffAck;
 use crate::shard_coordinator::region_stopped::RegionStopped;
 use crate::shard_coordinator::register::Register;
 use crate::shard_coordinator::register_proxy::RegisterProxy;
@@ -42,6 +43,7 @@ pub fn register_sharding(reg: &mut MessageRegistration) {
     reg.register_system::<ShardStarted>();
     reg.register_system::<TerminateCoordinator>();
     reg.register_system::<BeginHandoff>();
+    reg.register_system::<BeginHandoffAck>();
     reg.register_system::<Handoff>();
     reg.register_system::<HostShard>();
     reg.register_system::<RegisterAck>();

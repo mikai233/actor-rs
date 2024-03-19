@@ -10,10 +10,10 @@ use crate::cluster_daemon::ClusterDaemon;
 use crate::member::MemberStatus;
 
 #[derive(Debug, EmptyCodec)]
-pub(crate) struct LeaveCluster(pub(crate) Address);
+pub(crate) struct Leave(pub(crate) Address);
 
 #[async_trait]
-impl Message for LeaveCluster {
+impl Message for Leave {
     type A = ClusterDaemon;
 
     async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {

@@ -8,7 +8,7 @@ use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use etcd_client::{GetOptions, KeyValue, PutOptions, WatchOptions};
 use tokio::sync::mpsc::{channel, Sender};
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, trace};
 
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
@@ -18,11 +18,14 @@ use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
+use actor_core::pattern::patterns::PatternsExt;
 use actor_remote::net::tcp_transport::disconnect::Disconnect;
 
 use crate::cluster::Cluster;
+use crate::cluster_daemon::leave_req::{LeaveReq, LeaveResp};
 use crate::cluster_daemon::member_keep_alive_failed::MemberKeepAliveFailed;
 use crate::cluster_daemon::member_watch_resp::MemberWatchResp;
+use crate::cluster_daemon::self_leaving::SelfLeaving;
 use crate::cluster_daemon::self_removed::SelfRemoved;
 use crate::cluster_event::ClusterEvent;
 use crate::etcd_actor::keep_alive::KeepAlive;
@@ -32,13 +35,14 @@ use crate::heartbeat::cluster_heartbeat_sender::ClusterHeartbeatSender;
 use crate::member::{Member, MemberStatus};
 use crate::unique_address::UniqueAddress;
 
-pub(crate) mod leave_cluster;
+pub(crate) mod leave;
 pub(crate) mod add_on_member_up_listener;
 pub(crate) mod add_on_member_removed_listener;
 mod self_removed;
 mod member_keep_alive_failed;
 mod member_watch_resp;
 mod leave_req;
+mod self_leaving;
 
 #[derive(Debug)]
 pub struct ClusterDaemon {
@@ -52,6 +56,7 @@ pub struct ClusterDaemon {
     members_watch_adapter: ActorRef,
     keep_alive_adapter: ActorRef,
     cluster_shutdown: Sender<()>,
+    reply_to: Option<ActorRef>,
 }
 
 #[async_trait]
@@ -59,6 +64,22 @@ impl Actor for ClusterDaemon {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         trace!("{} started", context.myself());
         let cluster = Cluster::get(context.system()).clone();
+        {
+            let cluster = cluster.clone();
+            let myself = context.myself().clone();
+            let cluster_shutdown = self.cluster_shutdown.clone();
+            let coord_shutdown = CoordinatedShutdown::get(context.system());
+            let phase_cluster_leave_timeout = coord_shutdown.timeout(PHASE_CLUSTER_LEAVE)
+                .into_result()
+                .context(format!("phase {} not found", PHASE_CLUSTER_LEAVE))?;
+            coord_shutdown.add_task(PHASE_CLUSTER_LEAVE, "leave", async move {
+                if cluster.is_terminated() || cluster.self_member().status == MemberStatus::Removed {
+                    let _ = cluster_shutdown.send(()).await;
+                } else {
+                    let _: anyhow::Result<LeaveResp> = myself.ask(LeaveReq, phase_cluster_leave_timeout).await;
+                }
+            })?;
+        }
         self.cluster = Some(cluster);
         context.spawn(
             Props::new(|| Ok(ClusterHeartbeatSender::new())),
@@ -107,17 +128,7 @@ impl ClusterDaemon {
         let members_watch_adapter = context.adapter(|m| DynMessage::user(MemberWatchResp(m)));
         let keep_alive_adapter = context.adapter(|m| DynMessage::user(MemberKeepAliveFailed(Some(m))));
         let (cluster_shutdown_tx, mut cluster_shutdown_rx) = channel(1);
-        let cluster_shutdown_tx_clone = cluster_shutdown_tx.clone();
-        let cluster = Cluster::get(context.system()).clone();
         let coord_shutdown = CoordinatedShutdown::get(context.system());
-        let phase_cluster_leave_timeout = coord_shutdown.timeout(PHASE_CLUSTER_LEAVE)
-            .into_result()
-            .context(format!("phase {} not found", PHASE_CLUSTER_LEAVE))?;
-        coord_shutdown.add_task(PHASE_CLUSTER_LEAVE, "leave", async move {
-            if cluster.is_terminated() || cluster.self_member().status == MemberStatus::Removed {
-                let _ = cluster_shutdown_tx_clone.send(()).await;
-            } else {}
-        })?;
         coord_shutdown.add_task(PHASE_CLUSTER_SHUTDOWN, "wait_shutdown", async move {
             cluster_shutdown_rx.recv().await;
         })?;
@@ -132,6 +143,7 @@ impl ClusterDaemon {
             members_watch_adapter,
             keep_alive_adapter,
             cluster_shutdown: cluster_shutdown_tx,
+            reply_to: None,
         };
         Ok(daemon)
     }
@@ -169,18 +181,6 @@ impl ClusterDaemon {
         for kv in resp.kvs() {
             self.update_local_member_status(context, kv)?;
         }
-        Ok(())
-    }
-
-    async fn self_removed(&mut self) -> anyhow::Result<()> {
-        let self_member = {
-            let cluster = self.cluster.as_result_mut()?;
-            *cluster.members_write() = HashMap::new();
-            let mut self_member = cluster.self_member_write();
-            self_member.status = MemberStatus::Removed;
-            self_member.clone()
-        };
-        info!("{} self removed", self_member);
         Ok(())
     }
 
@@ -235,6 +235,9 @@ impl ClusterDaemon {
                 }
             }
             MemberStatus::Leaving => {
+                if member.addr == self.self_addr {
+                    context.myself().cast_ns(SelfLeaving);
+                }
                 if Self::update_member(member.clone(), cluster.members_write()) {
                     stream.publish(ClusterEvent::member_leaving(member))?;
                 }

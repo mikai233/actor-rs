@@ -156,7 +156,7 @@ async fn main() -> anyhow::Result<()> {
                         data,
                     };
                     player_shard_region.cast_ns(ShardEnvelope::new(id.to_string(), hello));
-                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    tokio::time::sleep(Duration::from_secs(1)).await;
                     index += 1;
                 }
             }

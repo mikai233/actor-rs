@@ -3,11 +3,11 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::trace;
 
-use actor_core::{DynMessage, Message};
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::ext::type_name_of;
+use actor_core::Message;
 use actor_derive::CMessageCodec;
 
 use crate::heartbeat::cluster_heartbeat_receiver::ClusterHeartbeatReceiver;
