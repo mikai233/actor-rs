@@ -18,6 +18,7 @@ use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
+use actor_core::ext::type_name_of;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_remote::net::tcp_transport::disconnect::Disconnect;
 
@@ -74,9 +75,13 @@ impl Actor for ClusterDaemon {
                 .context(format!("phase {} not found", PHASE_CLUSTER_LEAVE))?;
             coord_shutdown.add_task(PHASE_CLUSTER_LEAVE, "leave", async move {
                 if cluster.is_terminated() || cluster.self_member().status == MemberStatus::Removed {
-                    let _ = cluster_shutdown.send(()).await;
+                    if let Some(_) = cluster_shutdown.send(()).await.err() {
+                        debug!("send shutdown failed because receiver already closed");
+                    }
                 } else {
-                    let _: anyhow::Result<LeaveResp> = myself.ask(LeaveReq, phase_cluster_leave_timeout).await;
+                    if let Some(error) = myself.ask::<_, LeaveResp>(LeaveReq, phase_cluster_leave_timeout).await.err() {
+                        debug!("ask {} error {:?}", type_name_of::<LeaveReq>(), error);
+                    }
                 }
             })?;
         }

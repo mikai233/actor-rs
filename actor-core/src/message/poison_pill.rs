@@ -8,6 +8,7 @@ use crate::{Actor, SystemMessage};
 use crate::actor::context::{ActorContext, Context};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 
+//TODO change to Message
 #[derive(Debug, Encode, Decode, SystemCodec)]
 pub struct PoisonPill;
 

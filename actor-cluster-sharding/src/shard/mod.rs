@@ -180,7 +180,7 @@ impl Shard {
 
 
     fn shard_initialized(&self, context: &mut ActorContext) -> anyhow::Result<()> {
-        debug!("{}: Shard initialized", self.type_name);
+        debug!("{}: Shard {} initialized", self.type_name, context.myself());
         context.parent()
             .into_result()
             .context("parent actor not found")

@@ -47,7 +47,7 @@ impl Message for StartProxy {
             Some(shard_region) => { shard_region }
         };
         let started = Started { shard_region };
-        context.sender().as_result()?.resp(started);
+        context.sender().into_result()?.resp(started);
         Ok(())
     }
 }

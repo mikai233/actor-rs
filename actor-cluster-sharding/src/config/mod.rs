@@ -38,11 +38,11 @@ impl Default for ClusterShardingConfig {
             guardian_name: default_guardian_name(),
             role: None,
             coordinator_singleton_settings: Default::default(),
-            shard_region_query_timeout: Default::default(),
-            retry_interval: Default::default(),
-            handoff_timeout: Default::default(),
-            shard_start_timeout: Default::default(),
-            rebalance_interval: Default::default(),
+            shard_region_query_timeout: Duration::from_secs(3),
+            retry_interval: Duration::from_millis(200),
+            handoff_timeout: Duration::from_secs(60),
+            shard_start_timeout: Duration::from_secs(10),
+            rebalance_interval: Duration::from_secs(10),
         }
     }
 }

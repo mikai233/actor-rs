@@ -14,3 +14,6 @@ pub mod config;
 mod on_member_status_changed_listener;
 mod heartbeat;
 pub mod etcd_actor;
+mod coordinated_shutdown_leave;
+mod cluster_core_supervisor;
+mod cluster_core_daemon;

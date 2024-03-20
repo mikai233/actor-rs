@@ -2,6 +2,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashSet;
 use std::ops::Not;
 
+use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use itertools::Itertools;
 use tracing::{info, warn};
@@ -9,6 +10,8 @@ use tracing::{info, warn};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::message_ext::UserMessageExt;
+use actor_core::ext::option_ext::OptionExt;
+use actor_core::ext::type_name_of;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 
@@ -33,21 +36,21 @@ impl Message for StopShards {
             let (running_shards, already_stopped_shards): (Vec<_>, Vec<_>) = shard_ids
                 .iter()
                 .partition(|shard_id| { actor.state.shards.contains_key(*shard_id) });
+            let sender = context.sender().into_result().context(type_name_of::<StopShards>())?;
             for shard_id in already_stopped_shards {
-                context.sender().unwrap().cast_ns(ShardStopped { shard: shard_id.clone().into() });
+                sender.cast_ns(ShardStopped { shard: shard_id.clone().into() });
             }
             if running_shards.is_empty().not() {
                 actor.waiting_for_shards_to_stop = running_shards
                     .iter()
                     .fold(actor.waiting_for_shards_to_stop.clone(), |mut acc, shard| {
-                        let sender = context.sender().unwrap().clone();
                         match acc.entry((*shard).clone()) {
                             Entry::Occupied(mut o) => {
-                                o.get_mut().insert((sender, request_id));
+                                o.get_mut().insert((sender.clone(), request_id));
                             }
                             Entry::Vacant(v) => {
                                 let mut shards = HashSet::new();
-                                shards.insert((sender, request_id));
+                                shards.insert((sender.clone(), request_id));
                                 v.insert(shards);
                             }
                         }

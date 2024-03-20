@@ -7,7 +7,7 @@ use tracing::debug;
 use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::ActorRef;
 use actor_core::Message;
-use actor_derive::{CMessageCodec, MessageCodec};
+use actor_derive::CMessageCodec;
 
 use crate::shard_coordinator::ShardCoordinator;
 
