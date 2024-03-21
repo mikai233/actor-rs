@@ -11,7 +11,7 @@ use crate::coordinated_shutdown_leave::cluster_event_wrap::ClusterEventWrap;
 use crate::coordinated_shutdown_leave::leave_resp::LeaveResp;
 
 mod cluster_event_wrap;
-mod leave_resp;
+pub(crate) mod leave_resp;
 
 #[derive(Debug)]
 pub(crate) struct CoordinatedShutdownLeave {
@@ -28,8 +28,9 @@ impl CoordinatedShutdownLeave {
         }
     }
 
-    fn done(&self) {
+    fn done(&self, context: &mut ActorContext) {
         self.reply_to.resp(LeaveResp);
+        context.stop(context.myself());
     }
 }
 

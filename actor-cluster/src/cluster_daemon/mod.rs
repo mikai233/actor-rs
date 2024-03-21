@@ -23,12 +23,14 @@ use actor_core::pattern::patterns::PatternsExt;
 use actor_remote::net::tcp_transport::disconnect::Disconnect;
 
 use crate::cluster::Cluster;
-use crate::cluster_daemon::leave_req::{LeaveReq, LeaveResp};
+use crate::cluster_core_supervisor::ClusterCoreSupervisor;
+use crate::cluster_daemon::leave_req::LeaveReq;
 use crate::cluster_daemon::member_keep_alive_failed::MemberKeepAliveFailed;
 use crate::cluster_daemon::member_watch_resp::MemberWatchResp;
 use crate::cluster_daemon::self_leaving::SelfLeaving;
 use crate::cluster_daemon::self_removed::SelfRemoved;
 use crate::cluster_event::ClusterEvent;
+use crate::coordinated_shutdown_leave::leave_resp::LeaveResp;
 use crate::etcd_actor::keep_alive::KeepAlive;
 use crate::etcd_actor::watch::Watch;
 use crate::heartbeat::cluster_heartbeat_receiver::ClusterHeartbeatReceiver;
@@ -44,6 +46,7 @@ mod member_keep_alive_failed;
 mod member_watch_resp;
 mod leave_req;
 mod self_leaving;
+pub(crate) mod get_cluster_core_ref_req;
 
 #[derive(Debug)]
 pub struct ClusterDaemon {
@@ -56,8 +59,8 @@ pub struct ClusterDaemon {
     cluster: Option<Cluster>,
     members_watch_adapter: ActorRef,
     keep_alive_adapter: ActorRef,
+    core_supervisor: Option<ActorRef>,
     cluster_shutdown: Sender<()>,
-    reply_to: Option<ActorRef>,
 }
 
 #[async_trait]
@@ -89,10 +92,6 @@ impl Actor for ClusterDaemon {
         context.spawn(
             Props::new(|| Ok(ClusterHeartbeatSender::new())),
             ClusterHeartbeatSender::name(),
-        )?;
-        context.spawn(
-            Props::new(|| Ok(ClusterHeartbeatReceiver::new())),
-            ClusterHeartbeatReceiver::name(),
         )?;
         self.watch_cluster_members();
         self.get_all_members(context).await?;
@@ -147,8 +146,8 @@ impl ClusterDaemon {
             cluster: None,
             members_watch_adapter,
             keep_alive_adapter,
+            core_supervisor: None,
             cluster_shutdown: cluster_shutdown_tx,
-            reply_to: None,
         };
         Ok(daemon)
     }
@@ -285,5 +284,17 @@ impl ClusterDaemon {
             };
             self.transport.cast_ns(disconnect);
         }
+    }
+
+    fn create_children(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+        let core_supervisor = context.spawn(
+            Props::new_with_ctx(|ctx| {
+                Ok(ClusterCoreSupervisor::new(ctx))
+            }),
+            "core",
+        )?;
+        self.core_supervisor = Some(core_supervisor);
+        context.spawn(ClusterHeartbeatReceiver::props(), ClusterHeartbeatReceiver::name())?;
+        Ok(())
     }
 }

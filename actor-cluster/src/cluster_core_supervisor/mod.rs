@@ -13,7 +13,7 @@ use crate::cluster::Cluster;
 use crate::cluster_core_daemon::ClusterCoreDaemon;
 use crate::cluster_core_supervisor::core_daemon_terminated::CoreDaemonTerminated;
 
-mod get_cluster_core_ref;
+pub(crate) mod get_cluster_core_ref;
 mod core_daemon_terminated;
 
 #[derive(Debug)]
@@ -23,6 +23,14 @@ pub(crate) struct ClusterCoreSupervisor {
 }
 
 impl ClusterCoreSupervisor {
+    pub(crate) fn new(context: &mut ActorContext) -> Self {
+        let cluster = Cluster::get(context.system()).clone();
+        Self {
+            core_daemon: None,
+            cluster,
+        }
+    }
+
     fn create_children(&mut self, context: &mut ActorContext) -> anyhow::Result<ActorRef> {
         let core_daemon = context.spawn(
             Props::new_with_ctx(|ctx| ClusterCoreDaemon::new(ctx)),
