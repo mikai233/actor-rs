@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::ops::Deref;
 use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use dashmap::mapref::one::MappedRef;
 
@@ -14,13 +15,15 @@ use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::DynMessage;
 use actor_core::ext::etcd_client::EtcdClient;
+use actor_core::pattern::patterns::PatternsExt;
 use actor_core::provider::{downcast_provider, TActorRefProvider};
 use actor_derive::AsAny;
 
+use crate::cluster_core_daemon::leave::Leave;
 use crate::cluster_daemon::add_on_member_removed_listener::AddOnMemberRemovedListener;
 use crate::cluster_daemon::add_on_member_up_listener::AddOnMemberUpListener;
 use crate::cluster_daemon::ClusterDaemon;
-use crate::cluster_daemon::leave::Leave;
+use crate::cluster_daemon::get_cluster_core_ref_req::{GetClusterCoreRefReq, GetClusterCoreRefResp};
 use crate::cluster_event::ClusterEvent;
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::cluster_state::ClusterState;
@@ -40,7 +43,8 @@ pub struct Inner {
     etcd_actor: ActorRef,
     self_unique_address: UniqueAddress,
     roles: HashSet<String>,
-    daemon: ActorRef,
+    cluster_daemons: ActorRef,
+    cluster_core: ActorRef,
     state: ClusterState,
     is_terminated: AtomicBool,
 }
@@ -58,9 +62,9 @@ impl Cluster {
         let provider = system.provider();
         let cluster_provider = downcast_provider::<ClusterActorRefProvider>(&provider);
         let etcd_client = cluster_provider.client.clone();
-        let client_clone = etcd_client.clone();
+        let client = etcd_client.clone();
         let etcd_actor_props = Props::new_with_ctx(move |context| {
-            Ok(EtcdActor::new(context, client_clone))
+            Ok(EtcdActor::new(context, client))
         });
         let etcd_actor = system.spawn_system(etcd_actor_props, Some("etcd".to_string()))?;
         let roles = cluster_provider.roles.clone();
@@ -69,14 +73,19 @@ impl Cluster {
             address: address.clone(),
             uid: system.uid(),
         };
-        let client_clone = etcd_client.clone();
-        let etcd_actor_clone = etcd_actor.clone();
-        let unique_address_clone = self_unique_address.clone();
-        let roles_clone = roles.clone();
-        let transport = cluster_provider.remote.transport.clone();
-        let daemon = system.spawn_system(Props::new_with_ctx(move |ctx| {
-            ClusterDaemon::new(ctx, client_clone, etcd_actor_clone, unique_address_clone, roles_clone, transport)
-        }), Some("cluster".to_string()))?;
+        let cluster_daemons = system.spawn_system(
+            Props::new_with_ctx(
+                move |ctx| {
+                    ClusterDaemon::new(ctx)
+                }),
+            Some("cluster".to_string()),
+        )?;
+        let cluster_core = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let creation_timeout = Duration::from_secs(20);
+                cluster_daemons.ask::<_, GetClusterCoreRefResp>(GetClusterCoreRefReq, creation_timeout).await
+            })
+        })?.0;
         let state = ClusterState::new(
             Member::new(
                 self_unique_address.clone(),
@@ -91,7 +100,8 @@ impl Cluster {
             etcd_actor,
             self_unique_address,
             roles,
-            daemon,
+            cluster_daemons,
+            cluster_core,
             state,
             is_terminated: AtomicBool::new(false),
         };
@@ -118,15 +128,15 @@ impl Cluster {
     }
 
     pub fn leave(&self, address: Address) {
-        self.daemon.cast_ns(Leave(address));
+        self.cluster_core.cast_ns(Leave(address));
     }
 
     pub fn register_on_member_up<F>(&self, f: F) where F: FnOnce() + Send + 'static {
-        self.daemon.cast_ns(AddOnMemberUpListener(Box::new(f)));
+        self.cluster_daemons.cast_ns(AddOnMemberUpListener(Box::new(f)));
     }
 
     pub fn register_on_member_removed<F>(&self, f: F) where F: FnOnce() + Send + 'static {
-        self.daemon.cast_ns(AddOnMemberRemovedListener(Box::new(f)));
+        self.cluster_daemons.cast_ns(AddOnMemberRemovedListener(Box::new(f)));
     }
 
     pub fn self_roles(&self) -> &HashSet<String> {
@@ -182,7 +192,7 @@ impl Cluster {
 
     pub(crate) fn shutdown(&self) {
         if !self.is_terminated.swap(true, Ordering::Relaxed) {
-            self.system.stop(&self.daemon);
+            self.system.stop(&self.cluster_daemons);
         }
     }
 
@@ -190,8 +200,8 @@ impl Cluster {
         self.is_terminated.load(Ordering::Relaxed)
     }
 
-    pub fn etcd_client(&self) -> &EtcdClient {
-        &self.etcd_client
+    pub fn etcd_client(&self) -> EtcdClient {
+        self.etcd_client.clone()
     }
 
     pub fn etcd_actor(&self) -> &ActorRef {

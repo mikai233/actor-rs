@@ -24,7 +24,7 @@ impl Terminated for CoreDaemonTerminated {
 impl Message for CoreDaemonTerminated {
     type A = ClusterCoreSupervisor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         debug!("{} {} terminated", type_name_of::<ClusterCoreDaemon>(), context.myself());
         Ok(())
     }

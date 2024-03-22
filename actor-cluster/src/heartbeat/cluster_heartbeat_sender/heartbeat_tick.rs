@@ -22,7 +22,8 @@ impl Message for HeartbeatTick {
         if let Some(self_member) = &actor.self_member {
             if self_member.status == MemberStatus::Up {
                 for receiver in &actor.active_receivers {
-                    let sel = context.actor_selection(ActorSelectionPath::FullPath(ClusterHeartbeatReceiver::path(receiver.address.clone())))?;
+                    let path = ActorSelectionPath::FullPath(ClusterHeartbeatReceiver::path(receiver.address.clone()));
+                    let sel = context.actor_selection(path)?;
                     sel.tell(DynMessage::user(Heartbeat { from: self_member.addr.clone() }), Some(context.myself().clone()));
                 }
             }

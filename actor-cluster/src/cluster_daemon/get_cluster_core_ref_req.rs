@@ -10,7 +10,7 @@ use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 use crate::cluster_daemon::ClusterDaemon;
 
 #[derive(Debug, EmptyCodec)]
-pub(super) struct GetClusterCoreRefReq;
+pub(crate) struct GetClusterCoreRefReq;
 
 #[async_trait]
 impl Message for GetClusterCoreRefReq {

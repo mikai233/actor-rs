@@ -2,11 +2,10 @@ use async_trait::async_trait;
 
 use actor_core::actor::address::Address;
 use actor_core::actor::context::ActorContext;
-use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 
-use crate::cluster_daemon::ClusterDaemon;
+use crate::cluster_core_daemon::ClusterCoreDaemon;
 use crate::member::MemberStatus;
 
 #[derive(Debug, EmptyCodec)]
@@ -14,12 +13,11 @@ pub(crate) struct Leave(pub(crate) Address);
 
 #[async_trait]
 impl Message for Leave {
-    type A = ClusterDaemon;
+    type A = ClusterCoreDaemon;
 
     async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let member = {
-            actor.cluster.as_result()?
-                .members()
+            actor.cluster.members()
                 .iter()
                 .find(|(_, m)| m.addr.address == self.0)
                 .map(|(_, m)| m)

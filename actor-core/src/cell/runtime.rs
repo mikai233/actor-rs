@@ -72,7 +72,7 @@ impl<A> ActorRuntime<A> where A: Actor {
             }
         }
         if let Some(err) = actor.stopped(&mut context).await.err() {
-            error!("actor {:?} post stop error {:?}", actor_name, err);
+            error!("actor {} stop error {:?}", actor_name, err);
         }
         mailbox.close();
         context.state = ActorState::Terminated;

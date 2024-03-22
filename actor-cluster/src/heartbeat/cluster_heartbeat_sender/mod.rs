@@ -6,6 +6,7 @@ use tracing::trace;
 
 use actor_core::Actor;
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::props::Props;
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
@@ -63,6 +64,10 @@ impl ClusterHeartbeatSender {
             self_member: None,
             key: None,
         }
+    }
+
+    pub(crate) fn props() -> Props {
+        Props::new(|| Ok(Self::new()))
     }
 
     pub(crate) fn name() -> &'static str {

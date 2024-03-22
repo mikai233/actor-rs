@@ -15,6 +15,7 @@ use crate::actor_ref::ActorRef;
 use crate::delegate::downcast_box_message;
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::UserDelegate;
+use crate::ext::type_name_of;
 use crate::message::message_registration::MessageRegistration;
 use crate::message::MessageDecoder;
 
@@ -152,23 +153,23 @@ impl DynMessage {
     }
 
     pub fn orphan<M>(message: M) -> Self where M: OrphanMessage {
-        let name = std::any::type_name::<M>();
+        let name = type_name_of::<M>();
         DynMessage::new(name, MessageType::Orphan, message)
     }
 
     /// 判断[`DynMessage`]的实际消息类型，大部分消息都会包装一层代理层，用于downcast到具体的类型，因为Rust不允许从一个trait object
     /// downcast到另外一个trait object，所以要包装一层具体的类型，这里直接取[`DynMessage::name`]进行比较，这里存放的是原始的消息名称
     pub fn is<M>(&self) -> bool where M: CodecMessage {
-        let name = std::any::type_name::<M>();
+        let name = type_name_of::<M>();
         self.name() == name
     }
 
     pub fn downcast_user_delegate<A>(self) -> anyhow::Result<Box<UserDelegate<A>>> where A: Actor {
-        let Self { name, ty: message_type, message: boxed } = self;
-        let message = boxed.into_any();
-        let user_delegate = if matches!(message_type, MessageType::User) {
+        let Self { name, ty, message } = self;
+        let message = message.into_any();
+        let user_delegate = if matches!(ty, MessageType::User) {
             message.downcast::<UserDelegate<A>>()
-                .map_err(|_| anyhow!("message {} cannot downcast to UserDelegate<{}>", name, std::any::type_name::<A>()))
+                .map_err(|_| anyhow!("message {} cannot downcast to UserDelegate<{}>", name, type_name_of::<A>()))
         } else {
             Err(anyhow!("message {} is not a user message", name))
         };
@@ -176,9 +177,9 @@ impl DynMessage {
     }
 
     pub fn downcast_system_delegate(self) -> anyhow::Result<Box<SystemDelegate>> {
-        let Self { name, ty: message_type, message: boxed } = self;
-        let message = boxed.into_any();
-        let system_delegate = if matches!(message_type, MessageType::System) {
+        let Self { name, ty, message } = self;
+        let message = message.into_any();
+        let system_delegate = if matches!(ty, MessageType::System) {
             message.downcast::<SystemDelegate>()
                 .map_err(|_| anyhow!("message {} cannot downcast to SystemDelegate", name))
         } else {
@@ -188,9 +189,9 @@ impl DynMessage {
     }
 
     pub fn downcast_user_delegate_ref<A>(&self) -> Option<&UserDelegate<A>> where A: Actor {
-        let Self { ty: message_type, message: boxed, .. } = self;
-        let message = boxed.as_any();
-        if matches!(message_type, MessageType::User) {
+        let Self { ty, message, .. } = self;
+        let message = message.as_any();
+        if matches!(ty, MessageType::User) {
             message.downcast_ref::<UserDelegate<A>>()
         } else {
             None
@@ -198,9 +199,9 @@ impl DynMessage {
     }
 
     pub fn downcast_system_delegate_ref(&self) -> Option<&SystemDelegate> {
-        let Self { ty: message_type, message: boxed, .. } = self;
-        let message = boxed.as_any();
-        if matches!(message_type, MessageType::System) {
+        let Self { ty, message, .. } = self;
+        let message = message.as_any();
+        if matches!(ty, MessageType::System) {
             message.downcast_ref::<SystemDelegate>()
         } else {
             None
@@ -226,13 +227,13 @@ impl DynMessage {
     }
 
     pub fn downcast_orphan<M>(self) -> anyhow::Result<M> where M: OrphanMessage {
-        let Self { name, message: boxed, .. } = self;
-        downcast_box_message(name, boxed.into_any())
+        let Self { name, message, .. } = self;
+        downcast_box_message(name, message.into_any())
     }
 
     pub fn downcast_orphan_ref<M>(&self) -> Option<&M> where M: OrphanMessage {
-        let Self { message: boxed, .. } = self;
-        boxed.as_any().downcast_ref()
+        let Self { message, .. } = self;
+        message.as_any().downcast_ref()
     }
 }
 
