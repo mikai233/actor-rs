@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use tracing::error;
 
-use actor_core::actor::actor_system::ActorSystem;
+use actor_core::actor::actor_system::WeakActorSystem;
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
@@ -25,7 +25,7 @@ pub struct RemoteActorRef {
 }
 
 pub struct Inner {
-    pub(crate) system: ActorSystem,
+    pub(crate) system: WeakActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) transport: ActorRef,
     pub(crate) registration: Arc<MessageRegistration>,
@@ -33,7 +33,7 @@ pub struct Inner {
 
 impl RemoteActorRef {
     pub(crate) fn new(
-        system: ActorSystem,
+        system: WeakActorSystem,
         path: ActorPath,
         transport: ActorRef,
         registration: Arc<MessageRegistration>,
@@ -68,7 +68,7 @@ impl Debug for RemoteActorRef {
 }
 
 impl TActorRef for RemoteActorRef {
-    fn system(&self) -> &ActorSystem {
+    fn system(&self) -> &WeakActorSystem {
         &self.system
     }
 

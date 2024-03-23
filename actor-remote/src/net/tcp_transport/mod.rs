@@ -3,19 +3,18 @@ use std::fmt::Debug;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use async_trait::async_trait;
 use futures::StreamExt;
 use quick_cache::unsync::Cache;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpListener;
 use tokio_util::codec::Framed;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor::coordinated_shutdown::{ActorSystemStartFailedReason, CoordinatedShutdown};
+use actor_core::actor::coordinated_shutdown::ActorSystemStartFailedReason;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::decode_bytes;
@@ -60,6 +59,7 @@ impl Actor for TcpTransportActor {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let myself = context.myself().clone();
         let addr = self.transport.addr;
+        let system = context.system().clone();
         context.spawn_fut(async move {
             info!("start bind tcp addr {}", addr);
             match TcpListener::bind(addr).await {
@@ -80,14 +80,8 @@ impl Actor for TcpTransportActor {
                     }
                 }
                 Err(error) => {
-                    //这里不能用actor的上下文去执行异步任务，因为停止系统会导致actor销毁，与之关联的异步任务也会销毁，后面的任务无法执行
-                    let fut = {
-                        let error = anyhow!("bind tcp addr {} failed {:?}", addr, error);
-                        CoordinatedShutdown::get(myself.system()).run_with_result(ActorSystemStartFailedReason, Err(error))
-                    };
-                    tokio::spawn(async move {
-                        fut.await;
-                    });
+                    let fut = system.run_coordinated_shutdown(ActorSystemStartFailedReason(anyhow::Error::from(error)));
+                    system.handle().spawn(fut);
                 }
             }
         });

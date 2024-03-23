@@ -59,7 +59,7 @@ impl RemoteActorRefProvider {
         };
         system.add_config(remote_config)?;
 
-        let (local, mut spawns) = LocalActorRefProvider::new(&system, Some(address.clone()))?;
+        let (local, mut spawns) = LocalActorRefProvider::new(system.downgrade(), Some(address.clone()))?;
         let (transport, deferred) = RemoteActorRefProvider::spawn_transport(&local, transport)?;
         deferred.into_foreach(|d| spawns.push(Box::new(d)));
         let remote = Self {

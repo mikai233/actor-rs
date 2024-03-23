@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
@@ -9,20 +8,23 @@ use dashmap::mapref::one::{MappedRef, MappedRefMut};
 use crate::ext::as_any::AsAny;
 use crate::ext::type_name_of;
 
-pub trait Extension: Any + AsAny + Send + Sync {}
-
-impl<T> Extension for T where T: Any + AsAny + Send + Sync {}
+pub trait Extension: AsAny + Send + Sync + 'static {
+    fn init(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
 
 #[derive(Default)]
-pub struct ActorExtension {
+pub struct SystemExtension {
     extensions: DashMap<&'static str, Box<dyn Extension>>,
 }
 
-impl ActorExtension {
+impl SystemExtension {
     pub fn register<E>(&self, extension: E) -> anyhow::Result<()> where E: Extension {
         let name = type_name_of::<E>();
         if !self.extensions.contains_key(name) {
             self.extensions.insert(name, Box::new(extension));
+            self.extensions.get(name).unwrap().init()?;
         } else {
             return Err(anyhow!("actor extension {} already registered", name));
         }
@@ -62,7 +64,7 @@ impl ActorExtension {
     }
 }
 
-impl Deref for ActorExtension {
+impl Deref for SystemExtension {
     type Target = DashMap<&'static str, Box<dyn Extension>>;
 
     fn deref(&self) -> &Self::Target {
@@ -70,16 +72,16 @@ impl Deref for ActorExtension {
     }
 }
 
-impl DerefMut for ActorExtension {
+impl DerefMut for SystemExtension {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.extensions
     }
 }
 
-impl Debug for ActorExtension {
+impl Debug for SystemExtension {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         let extensions = self.extensions.iter().map(|e| *e.key()).collect::<Vec<_>>();
-        f.debug_struct("ActorExtension")
+        f.debug_struct("SystemExtension")
             .field("extensions", &extensions)
             .finish()
     }
@@ -89,17 +91,21 @@ impl Debug for ActorExtension {
 mod test {
     use actor_derive::AsAny;
 
-    use crate::actor::extension::ActorExtension;
+    use crate::actor::extension::{Extension, SystemExtension};
 
     #[derive(AsAny)]
     struct ExtensionA;
 
+    impl Extension for ExtensionA {}
+
     #[derive(AsAny)]
     struct ExtensionB;
 
+    impl Extension for ExtensionB {}
+
     #[test]
     fn test_extension() -> anyhow::Result<()> {
-        let extensions = ActorExtension::default();
+        let extensions = SystemExtension::default();
         assert!(extensions.get::<ExtensionA>().is_none());
         extensions.register(ExtensionA)?;
         extensions.register(ExtensionB)?;

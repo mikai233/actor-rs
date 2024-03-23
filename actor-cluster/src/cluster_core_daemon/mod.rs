@@ -68,17 +68,17 @@ impl ClusterCoreDaemon {
         let coord_shutdown = CoordinatedShutdown::get(context.system());
         let cluster_ext = Cluster::get(context.system()).clone();
         let cluster = cluster_ext.clone();
-        coord_shutdown.add_task(PHASE_CLUSTER_EXITING, "wait-exiting", async move {
+        coord_shutdown.add_task(context.system(), PHASE_CLUSTER_EXITING, "wait-exiting", async move {
             if cluster.members().is_empty().not() {
                 self_exiting_rx.recv().await;
             }
         })?;
         let myself = context.myself().clone();
         let cluster = cluster_ext.clone();
-        let phase_cluster_exiting_done_timeout = coord_shutdown.timeout(PHASE_CLUSTER_EXITING_DONE)
+        let phase_cluster_exiting_done_timeout = CoordinatedShutdown::timeout(context.system(), PHASE_CLUSTER_EXITING_DONE)
             .into_result()
             .context(format!("phase {} not found", PHASE_CLUSTER_EXITING_DONE))?;
-        coord_shutdown.add_task(PHASE_CLUSTER_EXITING_DONE, "exiting-completed", async move {
+        coord_shutdown.add_task(context.system(), PHASE_CLUSTER_EXITING_DONE, "exiting-completed", async move {
             if !(cluster.is_terminated() || cluster.self_member().status == MemberStatus::Removed) {
                 if let Some(error) = myself.ask::<_, ExitingCompletedResp>(ExitingCompletedReq, phase_cluster_exiting_done_timeout).await.err() {
                     debug!("ask {} error {:?}", type_name_of::<ExitingCompletedResp>(), error);
@@ -257,6 +257,9 @@ impl ClusterCoreDaemon {
 impl Actor for ClusterCoreDaemon {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         context.spawn(ClusterHeartbeatSender::props(), ClusterHeartbeatSender::name())?;
+        self.watch_cluster_members();
+        self.get_all_members(context).await?;
+        self.try_keep_alive(context).await;
         Ok(())
     }
 

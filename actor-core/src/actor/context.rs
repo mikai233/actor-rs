@@ -355,7 +355,7 @@ impl ActorContext {
         let child_path = ChildActorPath::new(self.myself.path().clone(), n, ActorPath::new_uid());
         let name = child_path.name().clone();
         let inner = Inner {
-            system: self.system.clone(),
+            system: self.system.downgrade(),
             path: child_path.into(),
             message_handler: Arc::new(Box::new(func)),
         };

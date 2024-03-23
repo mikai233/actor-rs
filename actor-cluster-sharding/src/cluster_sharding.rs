@@ -10,17 +10,15 @@ use imstr::ImString;
 use tracing::debug;
 
 use actor_cluster::cluster::Cluster;
-use actor_core::actor::actor_system::ActorSystem;
+use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::{Props, PropsBuilderSync};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::config::Config;
 use actor_core::DynMessage;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_derive::AsAny;
 
-use crate::{CLUSTER_SHARDING_CONFIG, CLUSTER_SHARDING_CONFIG_NAME};
 use crate::cluster_sharding_guardian::ClusterShardingGuardian;
 use crate::cluster_sharding_guardian::start::Start;
 use crate::cluster_sharding_guardian::start_coordinator_if_needed::StartCoordinatorIfNeeded;
@@ -39,7 +37,7 @@ pub struct ClusterSharding {
 
 #[derive(Debug)]
 pub struct Inner {
-    system: ActorSystem,
+    system: WeakActorSystem,
     cluster: Cluster,
     regions: DashMap<ImString, ActorRef>,
     proxies: DashMap<ImString, ActorRef>,
@@ -54,6 +52,8 @@ impl Deref for ClusterSharding {
     }
 }
 
+impl Extension for ClusterSharding {}
+
 impl ClusterSharding {
     pub fn new(system: ActorSystem, config: ClusterShardingConfig) -> anyhow::Result<Self> {
         // let default_config: ClusterShardingConfig = toml::from_str(CLUSTER_SHARDING_CONFIG).context(format!("failed to load {}", CLUSTER_SHARDING_CONFIG_NAME))?;
@@ -67,7 +67,7 @@ impl ClusterSharding {
         }), Some(guardian_name))?;
         let cluster = Cluster::get(&system).clone();
         let inner = Inner {
-            system,
+            system: system.downgrade(),
             cluster,
             regions: Default::default(),
             proxies: Default::default(),
@@ -142,7 +142,7 @@ impl ClusterSharding {
         let proxy_name = Self::proxy_name(type_name.as_str());
         match self.proxies.get(proxy_name.as_str()) {
             None => {
-                let mut settings = ClusterShardingSettings::create(&self.system);
+                let mut settings = ClusterShardingSettings::create(&self.system.upgrade()?);
                 settings.role = role;
                 let settings = Arc::new(settings);
                 let start_msg = StartProxy {

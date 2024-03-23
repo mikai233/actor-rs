@@ -117,7 +117,7 @@ impl ShardRegion {
         let graceful_shutdown_progress_tx_clone = graceful_shutdown_progress_tx.clone();
         let myself = context.myself().clone();
         CoordinatedShutdown::get(context.system())
-            .add_task(PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION, "region_shutdown", async move {
+            .add_task(context.system(), PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION, "region_shutdown", async move {
                 if cluster.is_terminated() || cluster.self_member().status == MemberStatus::Removed {
                     let _ = graceful_shutdown_progress_tx_clone.send(()).await;
                 } else {
@@ -503,7 +503,7 @@ impl Actor for ShardRegion {
         self.cluster.subscribe_cluster_event(
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
-        );
+        )?;
         self.timers.start_timer_with_fixed_delay(
             None,
             self.settings.retry_interval,
@@ -516,7 +516,7 @@ impl Actor for ShardRegion {
 
     async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{}: Region stopped", self.type_name);
-        self.cluster.unsubscribe_cluster_event(context.myself());
+        self.cluster.unsubscribe_cluster_event(context.myself())?;
         self.coordinator.foreach(|coordinator| {
             coordinator.cast_ns(RegionStopped { shard_region: context.myself().clone() });
         });

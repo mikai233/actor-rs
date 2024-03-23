@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use tokio::sync::mpsc::{channel, Sender};
-use tracing::debug;
+use tracing::{debug, instrument};
 
 use actor_core::Actor;
 use actor_core::actor::context::{ActorContext, Context};
@@ -36,15 +36,14 @@ pub struct ClusterDaemon {
 #[async_trait]
 impl Actor for ClusterDaemon {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        debug!("hello world a");
         let cluster = Cluster::get(context.system()).clone();
         let myself = context.myself().clone();
         let cluster_shutdown = self.cluster_shutdown.clone();
         let coord_shutdown = CoordinatedShutdown::get(context.system());
-        let phase_cluster_leave_timeout = coord_shutdown.timeout(PHASE_CLUSTER_LEAVE)
+        let phase_cluster_leave_timeout = CoordinatedShutdown::timeout(context.system(), PHASE_CLUSTER_LEAVE)
             .into_result()
             .context(format!("phase {} not found", PHASE_CLUSTER_LEAVE))?;
-        coord_shutdown.add_task(PHASE_CLUSTER_LEAVE, "leave", async move {
+        coord_shutdown.add_task(context.system(), PHASE_CLUSTER_LEAVE, "leave", async move {
             if cluster.is_terminated() || cluster.self_member().status == MemberStatus::Removed {
                 if let Some(_) = cluster_shutdown.send(()).await.err() {
                     debug!("send shutdown failed because receiver already closed");
@@ -76,7 +75,7 @@ impl ClusterDaemon {
     pub(crate) fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
         let coord_shutdown = CoordinatedShutdown::get(context.system());
         let (cluster_shutdown_tx, mut cluster_shutdown_rx) = channel(1);
-        coord_shutdown.add_task(PHASE_CLUSTER_SHUTDOWN, "wait-shutdown", async move {
+        coord_shutdown.add_task(context.system(), PHASE_CLUSTER_SHUTDOWN, "wait-shutdown", async move {
             let _ = cluster_shutdown_rx.recv().await;
         })?;
         let daemon = Self {

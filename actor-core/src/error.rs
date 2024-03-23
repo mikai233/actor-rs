@@ -12,4 +12,6 @@ pub enum Error {
     SpawnActorWhileTerminating,
     #[error("message {0} is not cloneable")]
     MessageCannotClone(String),
+    #[error("the actor system is destroyed, any weak reference ref to that is invalid")]
+    ActorSystemDestroyed,
 }

@@ -353,11 +353,6 @@ impl ShardCoordinator {
         // });
     }
 
-    fn coordinator_state_path(&self) -> String {
-        let system_name = &self.cluster.system().address().system;
-        format!("actor/{}/cluster/shard_coordinator_state", system_name)
-    }
-
     fn send_host_shard_msg(&mut self, context: &mut ActorContext, shard: ImShardId, region: ActorRef) {
         region.cast(HostShard { shard: shard.clone().into() }, Some(context.myself().clone()));
         let resend_shard_host = ResendShardHost {

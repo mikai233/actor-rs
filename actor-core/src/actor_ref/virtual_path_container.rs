@@ -9,7 +9,7 @@ use dashmap::mapref::one::Ref;
 use actor_derive::AsAny;
 
 use crate::{DynMessage, MessageType};
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
 use crate::message::death_watch_notification::DeathWatchNotification;
@@ -21,7 +21,7 @@ pub struct VirtualPathContainer {
 }
 
 pub struct Inner {
-    pub(crate) system: ActorSystem,
+    pub(crate) system: WeakActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) parent: ActorRef,
     pub(crate) children: Arc<DashMap<String, ActorRef, ahash::RandomState>>,
@@ -47,7 +47,7 @@ impl Debug for VirtualPathContainer {
 }
 
 impl TActorRef for VirtualPathContainer {
-    fn system(&self) -> &ActorSystem {
+    fn system(&self) -> &WeakActorSystem {
         &self.system
     }
 
@@ -99,7 +99,7 @@ impl Into<ActorRef> for VirtualPathContainer {
 }
 
 impl VirtualPathContainer {
-    pub(crate) fn new(system: ActorSystem, path: ActorPath, parent: ActorRef) -> Self {
+    pub(crate) fn new(system: WeakActorSystem, path: ActorPath, parent: ActorRef) -> Self {
         Self {
             inner: Arc::new(Inner {
                 system,

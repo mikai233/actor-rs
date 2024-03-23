@@ -29,7 +29,7 @@ impl Message for GracefulShutdown {
             debug!("{}: Starting graceful shutdown of region and all its shards", actor.type_name);
             let coord_shutdown = CoordinatedShutdown::get(context.system());
             if coord_shutdown.run_started() {
-                let timeout = coord_shutdown.timeout(PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION)
+                let timeout = CoordinatedShutdown::timeout(context.system(), PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION)
                     .expect(&format!("phase {} not found", PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION))
                     .checked_sub(Duration::from_secs(1));
                 if let Some(timeout) = timeout {

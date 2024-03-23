@@ -40,12 +40,12 @@ impl Actor for CoordinatedShutdownLeave {
         self.cluster.subscribe_cluster_event(
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
-        );
+        )?;
         Ok(())
     }
 
     async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        self.cluster.unsubscribe_cluster_event(context.myself());
+        self.cluster.unsubscribe_cluster_event(context.myself())?;
         Ok(())
     }
 }

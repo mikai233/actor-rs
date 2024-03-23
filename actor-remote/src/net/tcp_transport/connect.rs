@@ -8,6 +8,7 @@ use tokio_util::codec::Framed;
 use tracing::{error, warn};
 
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
@@ -43,6 +44,7 @@ impl Message for Connect {
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { addr, opts } = *self;
         let myself = context.myself().clone();
+        let myself_addr = context.system().address();
         let handle = context.spawn_fut(async move {
             match StubbornTcpStream::connect_with_options(addr, opts).await {
                 //TODO 对于非集群内的地址，以及集群节点离开后，不能再一直尝试连接
@@ -52,7 +54,12 @@ impl Message for Connect {
                         return;
                     }
                     let framed = Framed::new(stream, PacketCodec);
-                    let (connection, tx) = Connection::new(addr, framed, myself.clone());
+                    let (connection, tx) = Connection::new(
+                        addr,
+                        framed,
+                        myself.clone(),
+                        myself_addr,
+                    );
                     connection.start();
                     myself.cast_ns(Connected { addr, tx });
                 }

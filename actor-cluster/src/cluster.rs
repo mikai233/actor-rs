@@ -1,13 +1,15 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
+use std::mem::MaybeUninit;
 use std::ops::Deref;
-use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use dashmap::mapref::one::MappedRef;
+use tracing::debug;
 
-use actor_core::actor::actor_system::ActorSystem;
+use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
 use actor_core::actor::address::Address;
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::Props;
@@ -38,13 +40,13 @@ pub struct Cluster {
 
 #[derive(Debug)]
 pub struct Inner {
-    system: ActorSystem,
+    system: WeakActorSystem,
     etcd_client: EtcdClient,
     etcd_actor: ActorRef,
     self_unique_address: UniqueAddress,
     roles: HashSet<String>,
     cluster_daemons: ActorRef,
-    cluster_core: ActorRef,
+    cluster_core: RwLock<MaybeUninit<ActorRef>>,
     state: ClusterState,
     is_terminated: AtomicBool,
 }
@@ -54,6 +56,19 @@ impl Deref for Cluster {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+impl Extension for Cluster {
+    fn init(&self) -> anyhow::Result<()> {
+        let cluster_core = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let creation_timeout = Duration::from_secs(20);
+                self.cluster_daemons.ask::<_, GetClusterCoreRefResp>(GetClusterCoreRefReq, creation_timeout).await
+            })
+        })?.0;
+        self.cluster_core.write().unwrap().write(cluster_core);
+        Ok(())
     }
 }
 
@@ -80,12 +95,6 @@ impl Cluster {
                 }),
             Some("cluster".to_string()),
         )?;
-        let cluster_core = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                let creation_timeout = Duration::from_secs(20);
-                cluster_daemons.ask::<_, GetClusterCoreRefResp>(GetClusterCoreRefReq, creation_timeout).await
-            })
-        })?.0;
         let state = ClusterState::new(
             Member::new(
                 self_unique_address.clone(),
@@ -95,13 +104,13 @@ impl Cluster {
             )
         );
         let inner = Inner {
-            system,
+            system: system.downgrade(),
             etcd_client,
             etcd_actor,
             self_unique_address,
             roles,
             cluster_daemons,
-            cluster_core,
+            cluster_core: RwLock::new(MaybeUninit::uninit()),
             state,
             is_terminated: AtomicBool::new(false),
         };
@@ -112,7 +121,7 @@ impl Cluster {
         system.get_extension::<Self>().expect("Cluster extension not found")
     }
 
-    pub fn subscribe_cluster_event<T>(&self, subscriber: ActorRef, transform: T)
+    pub fn subscribe_cluster_event<T>(&self, subscriber: ActorRef, transform: T) -> anyhow::Result<()>
         where
             T: Fn(ClusterEvent) -> DynMessage + Send + Sync + 'static,
     {
@@ -120,15 +129,17 @@ impl Cluster {
         let self_member = self.self_member().clone();
         let state = transform(ClusterEvent::current_cluster_state(members, self_member));
         subscriber.tell(state, ActorRef::no_sender());
-        self.system.event_stream().subscribe(subscriber, transform);
+        self.system.upgrade()?.event_stream().subscribe(subscriber, transform);
+        Ok(())
     }
 
-    pub fn unsubscribe_cluster_event(&self, subscriber: &ActorRef) {
-        self.system.event_stream().unsubscribe::<ClusterEvent>(subscriber);
+    pub fn unsubscribe_cluster_event(&self, subscriber: &ActorRef) -> anyhow::Result<()> {
+        self.system.upgrade()?.event_stream().unsubscribe::<ClusterEvent>(subscriber);
+        Ok(())
     }
 
     pub fn leave(&self, address: Address) {
-        self.cluster_core.cast_ns(Leave(address));
+        self.cluster_core().cast_ns(Leave(address));
     }
 
     pub fn register_on_member_up<F>(&self, f: F) where F: FnOnce() + Send + 'static {
@@ -190,10 +201,11 @@ impl Cluster {
         role_members.first().map(|leader| *leader).cloned()
     }
 
-    pub(crate) fn shutdown(&self) {
+    pub(crate) fn shutdown(&self) -> anyhow::Result<()> {
         if !self.is_terminated.swap(true, Ordering::Relaxed) {
-            self.system.stop(&self.cluster_daemons);
+            self.system.upgrade()?.stop(&self.cluster_daemons);
         }
+        Ok(())
     }
 
     pub fn is_terminated(&self) -> bool {
@@ -208,7 +220,12 @@ impl Cluster {
         &self.etcd_actor
     }
 
-    pub fn system(&self) -> &ActorSystem {
-        &self.system
+    pub fn system(&self) -> anyhow::Result<ActorSystem> {
+        self.system.upgrade()
+    }
+
+    pub fn cluster_core(&self) -> ActorRef {
+        let cluster_core = self.cluster_core.read().unwrap();
+        unsafe { cluster_core.assume_init_ref().clone() }
     }
 }

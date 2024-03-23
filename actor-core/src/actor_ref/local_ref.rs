@@ -12,7 +12,7 @@ use actor_derive::AsAny;
 
 use crate::{DynMessage, MessageType};
 use crate::actor::actor_selection::{ActorSelection, ActorSelectionMessage};
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::WeakActorSystem;
 use crate::actor::mailbox::MailboxSender;
 use crate::actor::props::{ActorDeferredSpawn, Props};
 use crate::actor_path::ActorPath;
@@ -32,7 +32,7 @@ pub struct LocalActorRef {
 }
 
 pub struct Inner {
-    pub(crate) system: ActorSystem,
+    pub(crate) system: WeakActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) sender: MailboxSender,
     pub(crate) cell: ActorCell,
@@ -58,7 +58,7 @@ impl Debug for LocalActorRef {
 }
 
 impl TActorRef for LocalActorRef {
-    fn system(&self) -> &ActorSystem {
+    fn system(&self) -> &WeakActorSystem {
         &self.system
     }
 
@@ -167,7 +167,7 @@ impl Into<ActorRef> for LocalActorRef {
 }
 
 impl LocalActorRef {
-    pub(crate) fn new(system: ActorSystem, path: ActorPath, sender: MailboxSender, cell: ActorCell) -> Self {
+    pub(crate) fn new(system: WeakActorSystem, path: ActorPath, sender: MailboxSender, cell: ActorCell) -> Self {
         Self {
             inner: Arc::new(Inner {
                 system,

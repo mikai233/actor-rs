@@ -45,7 +45,7 @@ impl ClusterCoreSupervisor {
 #[async_trait]
 impl Actor for ClusterCoreSupervisor {
     async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
-        self.cluster.shutdown();
+        self.cluster.shutdown()?;
         Ok(())
     }
 

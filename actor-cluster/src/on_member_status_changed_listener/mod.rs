@@ -31,7 +31,7 @@ impl OnMemberStatusChangedListener {
 impl Actor for OnMemberStatusChangedListener {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let cluster = Cluster::get(context.system());
-        cluster.subscribe_cluster_event(context.myself().clone(), |event| { ClusterEventWrap(event).into_dyn() });
+        cluster.subscribe_cluster_event(context.myself().clone(), |event| { ClusterEventWrap(event).into_dyn() })?;
         debug_assert!(matches!(self.status,MemberStatus::Up) || matches!(self.status,MemberStatus::Removed));
         Ok(())
     }
@@ -41,7 +41,7 @@ impl Actor for OnMemberStatusChangedListener {
             self.callback.take().into_foreach(|cb| cb());
         };
         let cluster = Cluster::get(context.system());
-        cluster.unsubscribe_cluster_event(context.myself());
+        cluster.unsubscribe_cluster_event(context.myself())?;
         Ok(())
     }
 }

@@ -15,7 +15,7 @@ use serde::de::{Error, Visitor};
 use tokio::task_local;
 
 use crate::{DynMessage, Message, OrphanMessage, SystemMessage};
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::local_ref::LocalActorRef;
@@ -35,7 +35,7 @@ task_local! {
 }
 
 pub trait TActorRef: Debug + Send + Sync + Any + AsAny {
-    fn system(&self) -> &ActorSystem;
+    fn system(&self) -> &WeakActorSystem;
 
     fn path(&self) -> &ActorPath;
 

@@ -145,7 +145,7 @@ impl Actor for ClusterSingletonProxy {
         self.cluster.subscribe_cluster_event(
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
-        );
+        )?;
         self.identify_singleton(context);
         Ok(())
     }
@@ -153,7 +153,7 @@ impl Actor for ClusterSingletonProxy {
 
     async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         self.cancel_timer();
-        self.cluster.unsubscribe_cluster_event(context.myself());
+        self.cluster.unsubscribe_cluster_event(context.myself())?;
         if let Some(singleton) = &self.singleton {
             context.unwatch(singleton);
         }

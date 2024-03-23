@@ -32,9 +32,9 @@ impl Connection {
         addr: SocketAddr,
         framed: Framed<StubbornIo<TcpStream, SocketAddr>, PacketCodec>,
         transport: ActorRef,
+        myself: Address,
     ) -> (Self, ConnectionTx) {
         let (tx, rx) = tokio::sync::mpsc::channel(10000);
-        let myself = transport.system().address();
         let myself = Self {
             peer: addr,
             myself,

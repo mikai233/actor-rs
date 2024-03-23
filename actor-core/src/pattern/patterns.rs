@@ -53,7 +53,7 @@ impl Patterns {
             actor.system().clone(),
             actor.path().name(),
             req,
-        );
+        )?;
         let resp = deferred.ask(actor, rx, message, timeout).await;
         Self::handle_resp::<Req, Resp>(actor.to_string(), resp, timeout)
     }
@@ -98,7 +98,7 @@ impl Patterns {
             sel.anchor.system().clone(),
             &format!("{}", path_hash),
             req_name,
-        );
+        )?;
         let resp = deferred.ask_selection(sel, rx, message, timeout).await;
         Self::handle_resp::<Req, Resp>(sel.anchor.to_string(), resp, timeout)
     }

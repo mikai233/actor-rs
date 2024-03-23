@@ -36,7 +36,7 @@ impl Actor for ClusterHeartbeatSender {
         Cluster::get(context.system()).subscribe_cluster_event(
             context.myself().clone(),
             |event| { HeartbeatSenderClusterEvent(event).into_dyn() },
-        );
+        )?;
         let myself = context.myself().clone();
         let key = context.system().scheduler().schedule_with_fixed_delay(
             None,
@@ -52,7 +52,7 @@ impl Actor for ClusterHeartbeatSender {
         if let Some(key) = self.key.take() {
             key.cancel();
         }
-        Cluster::get(context.system()).unsubscribe_cluster_event(context.myself());
+        Cluster::get(context.system()).unsubscribe_cluster_event(context.myself())?;
         Ok(())
     }
 }

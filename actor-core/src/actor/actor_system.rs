@@ -2,15 +2,15 @@ use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::ops::Deref;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context as AnyhowContext};
 use arc_swap::{ArcSwap, Guard};
 use dashmap::mapref::one::{MappedRef, MappedRefMut};
+use futures::{FutureExt, SinkExt};
 use futures::future::BoxFuture;
-use futures::FutureExt;
 use pin_project::pin_project;
 use rand::random;
 use tokio::runtime::Handle;
@@ -18,8 +18,8 @@ use tokio::sync::mpsc::{channel, Sender};
 
 use crate::{CORE_CONFIG, CORE_CONFIG_NAME};
 use crate::actor::address::Address;
-use crate::actor::coordinated_shutdown::{ActorSystemTerminateReason, CoordinatedShutdown};
-use crate::actor::extension::{ActorExtension, Extension};
+use crate::actor::coordinated_shutdown::{ActorSystemTerminateReason, CoordinatedShutdown, Reason};
+use crate::actor::extension::{Extension, SystemExtension};
 use crate::actor::props::Props;
 use crate::actor::scheduler::{scheduler, SchedulerSender};
 use crate::actor::system_guardian::SystemGuardian;
@@ -34,6 +34,7 @@ use crate::config::actor_setting::ActorSetting;
 use crate::config::core_config::CoreConfig;
 use crate::event::event_stream::EventStream;
 use crate::ext::maybe_ref::MaybeRef;
+use crate::ext::option_ext::OptionExt;
 use crate::ext::type_name_of;
 use crate::message::stop_child::StopChild;
 use crate::provider::ActorRefProvider;
@@ -53,11 +54,11 @@ pub struct Inner {
     handle: Option<Handle>,
     scheduler: SchedulerSender,
     event_stream: EventStream,
-    extension: ActorExtension,
+    extension: SystemExtension,
     config: ActorConfig,
     signal: Sender<anyhow::Result<()>>,
     termination_callbacks: TerminationCallbacks,
-    pub(crate) termination_result: Mutex<Option<anyhow::Result<()>>>,
+    pub(crate) termination_error: Mutex<Option<anyhow::Error>>,
 }
 
 impl Deref for ActorSystem {
@@ -91,11 +92,11 @@ impl ActorSystem {
             handle,
             scheduler,
             event_stream: EventStream::default(),
-            extension: ActorExtension::default(),
+            extension: SystemExtension::default(),
             config: ActorConfig::default(),
             signal: signal_tx,
             termination_callbacks: TerminationCallbacks::default(),
-            termination_result: Mutex::default(),
+            termination_error: Mutex::default(),
         };
         let system = Self { inner: inner.into() };
         system.config.add(core_config)?;
@@ -140,12 +141,16 @@ impl ActorSystem {
         self.start_time
     }
 
-    pub fn terminate(&self) -> impl Future<Output=()> {
-        CoordinatedShutdown::get(self.system()).run(ActorSystemTerminateReason)
+    pub async fn terminate(&self) {
+        self.run_coordinated_shutdown(ActorSystemTerminateReason).await;
     }
 
     pub(crate) fn when_terminated(&self) -> impl Future<Output=()> + 'static {
-        let result = self.termination_result.lock().unwrap().take().unwrap_or(Ok(()));
+        let result = self.termination_error.lock()
+            .unwrap()
+            .take()
+            .map(|e| { Err(e) })
+            .unwrap_or(Ok(()));
         let callbacks = self.termination_callbacks.run();
         let signal = self.signal.clone();
         async move {
@@ -222,12 +227,21 @@ impl ActorSystem {
         self.config.add(config)
     }
 
-    pub fn core_config(&self) -> MappedRef<&'static str, Box<dyn Config>, CoreConfig> {
-        self.get_config()
+    pub fn core_config(&self) -> CoreConfig {
+        self.get_config::<CoreConfig>().clone()
     }
 
     pub fn dead_letters(&self) -> ActorRef {
         self.provider().dead_letters().clone()
+    }
+
+    pub fn downgrade(&self) -> WeakActorSystem {
+        let inner = Arc::downgrade(&self.inner);
+        WeakActorSystem { inner }
+    }
+
+    pub fn run_coordinated_shutdown<R>(&self, reason: R) -> impl Future<Output=()> where R: Reason + 'static {
+        CoordinatedShutdown::get(self.system()).run(reason)
     }
 }
 
@@ -276,6 +290,20 @@ impl ActorRefFactory for ActorSystem {
         } else {
             actor.stop();
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WeakActorSystem {
+    inner: Weak<Inner>,
+}
+
+impl WeakActorSystem {
+    pub fn upgrade(&self) -> anyhow::Result<ActorSystem> {
+        let inner = self.inner.upgrade()
+            .into_result()
+            .context("ActorSystem destroyed, any system week reference is invalid")?;
+        Ok(ActorSystem { inner })
     }
 }
 

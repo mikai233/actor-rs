@@ -1,6 +1,6 @@
 use dashmap::mapref::one::MappedRef;
 
-use actor_core::actor::actor_system::ActorSystem;
+use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::Props;
 use actor_core::actor_ref::ActorRef;
@@ -10,7 +10,7 @@ use crate::pubsub::distributed_pub_sub_mediator::DistributedPubSubMediator;
 
 #[derive(Debug, AsAny)]
 pub struct DistributedPubSub {
-    system: ActorSystem,
+    system: WeakActorSystem,
     mediator: ActorRef,
 }
 
@@ -21,7 +21,7 @@ impl DistributedPubSub {
             Some("distributed_pub_sub_mediator".to_string()),
         )?;
         let myself = Self {
-            system,
+            system: system.downgrade(),
             mediator,
         };
         Ok(myself)
@@ -31,3 +31,5 @@ impl DistributedPubSub {
         system.get_extension::<Self>().expect("DistributedPubSub extension not found")
     }
 }
+
+impl Extension for DistributedPubSub {}

@@ -7,7 +7,7 @@ use tracing::info;
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::DynMessage;
@@ -18,12 +18,12 @@ pub struct DeadLetterActorRef {
 }
 
 pub struct Inner {
-    pub(crate) system: ActorSystem,
+    pub(crate) system: WeakActorSystem,
     pub(crate) path: ActorPath,
 }
 
 impl DeadLetterActorRef {
-    pub(crate) fn new(system: ActorSystem, path: ActorPath) -> Self {
+    pub(crate) fn new(system: WeakActorSystem, path: ActorPath) -> Self {
         Self {
             inner: Arc::new(Inner { system, path }),
         }
@@ -48,7 +48,7 @@ impl Debug for DeadLetterActorRef {
 }
 
 impl TActorRef for DeadLetterActorRef {
-    fn system(&self) -> &ActorSystem {
+    fn system(&self) -> &WeakActorSystem {
         &self.system
     }
 

@@ -6,7 +6,7 @@ use std::sync::Arc;
 use actor_derive::AsAny;
 
 use crate::actor::actor_selection::ActorSelectionMessage;
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, get_child_default, TActorRef};
 use crate::DynMessage;
@@ -22,7 +22,7 @@ pub struct EmptyLocalActorRef {
 }
 
 pub struct Inner {
-    pub(crate) system: ActorSystem,
+    pub(crate) system: WeakActorSystem,
     pub(crate) path: ActorPath,
 }
 
@@ -44,7 +44,7 @@ impl Deref for EmptyLocalActorRef {
 }
 
 impl TActorRef for EmptyLocalActorRef {
-    fn system(&self) -> &ActorSystem {
+    fn system(&self) -> &WeakActorSystem {
         &self.system
     }
 
@@ -68,7 +68,7 @@ impl TActorRef for EmptyLocalActorRef {
 }
 
 impl EmptyLocalActorRef {
-    pub(crate) fn new(system: ActorSystem, path: ActorPath) -> Self {
+    pub(crate) fn new(system: WeakActorSystem, path: ActorPath) -> Self {
         Self {
             inner: Arc::new(Inner { system, path }),
         }

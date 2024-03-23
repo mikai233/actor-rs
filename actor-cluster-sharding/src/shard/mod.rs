@@ -200,13 +200,13 @@ impl Actor for Shard {
         Cluster::get(context.system()).subscribe_cluster_event(
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
-        );
+        )?;
         self.shard_initialized(context)?;
         Ok(())
     }
 
     async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        Cluster::get(context.system()).unsubscribe_cluster_event(context.myself());
+        Cluster::get(context.system()).unsubscribe_cluster_event(context.myself())?;
         if let Some(key) = self.passivate_interval_task.take() {
             key.cancel();
         }

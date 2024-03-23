@@ -29,7 +29,7 @@ impl Actor for ClusterHeartbeatReceiver {
         Cluster::get(context.system()).subscribe_cluster_event(
             context.myself().clone(),
             |event| { HeartbeatReceiverClusterEvent(event).into_dyn() },
-        );
+        )?;
         Ok(())
     }
 }

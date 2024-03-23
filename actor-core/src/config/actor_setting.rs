@@ -24,7 +24,7 @@ impl ActorSetting {
 impl Default for ActorSetting {
     fn default() -> Self {
         let local_fn = |system: &ActorSystem| {
-            LocalActorRefProvider::new(system, None).map(|(r, d)| (r.into(), d))
+            LocalActorRefProvider::new(system.downgrade(), None).map(|(r, d)| (r.into(), d))
         };
         Self {
             provider_fn: Arc::new(Box::new(local_fn)),
@@ -65,7 +65,7 @@ impl ActorSettingBuilder {
         let Self { provider_fn: provider, config: core_config, handle } = self;
         let provider = provider.unwrap_or_else(|| {
             let local_fn = |system: &ActorSystem| {
-                LocalActorRefProvider::new(system, None).map(|(r, d)| (r.into(), d))
+                LocalActorRefProvider::new(system.downgrade(), None).map(|(r, d)| (r.into(), d))
             };
             Box::new(local_fn)
         });

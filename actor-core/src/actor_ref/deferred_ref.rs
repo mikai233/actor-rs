@@ -11,7 +11,7 @@ use tokio::time::error::Elapsed;
 use actor_derive::AsAny;
 
 use crate::actor::actor_selection::ActorSelection;
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, get_child_default, TActorRef};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -24,7 +24,7 @@ pub struct DeferredActorRef {
 }
 
 pub struct Inner {
-    system: ActorSystem,
+    system: WeakActorSystem,
     provider: Guard<Arc<ActorRefProvider>>,
     path: ActorPath,
     parent: ActorRef,
@@ -54,7 +54,7 @@ impl Debug for DeferredActorRef {
 }
 
 impl TActorRef for DeferredActorRef {
-    fn system(&self) -> &ActorSystem {
+    fn system(&self) -> &WeakActorSystem {
         &self.system
     }
 
@@ -78,8 +78,8 @@ impl TActorRef for DeferredActorRef {
 }
 
 impl DeferredActorRef {
-    pub(crate) fn new(system: ActorSystem, ref_path_prefix: &String, message_name: &'static str) -> (Self, Receiver<DynMessage>) {
-        let provider = system.provider();
+    pub(crate) fn new(system: WeakActorSystem, ref_path_prefix: &String, message_name: &'static str) -> anyhow::Result<(Self, Receiver<DynMessage>)> {
+        let provider = system.upgrade()?.provider();
         let path = provider.temp_path_of_prefix(Some(ref_path_prefix));
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         let parent = provider.temp_container();
@@ -95,7 +95,7 @@ impl DeferredActorRef {
             inner: inner.into(),
         };
         deferred_ref.provider.register_temp_actor(deferred_ref.clone().into(), deferred_ref.path());
-        (deferred_ref, rx)
+        Ok((deferred_ref, rx))
     }
     pub(crate) async fn ask(
         &self,

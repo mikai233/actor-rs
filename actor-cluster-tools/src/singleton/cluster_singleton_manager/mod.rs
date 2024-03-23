@@ -78,7 +78,7 @@ impl ClusterSingletonManager {
         let singleton_keep_alive_adapter = context.adapter(|m| { SingletonKeepAliveFailed(Some(m)).into_dyn() });
         let myself = context.myself().clone();
         let coordinate_shutdown = CoordinatedShutdown::get(context.system());
-        coordinate_shutdown.add_task(PHASE_CLUSTER_EXITING, "wait-singleton-exiting", async move {
+        coordinate_shutdown.add_task(context.system(), PHASE_CLUSTER_EXITING, "wait-singleton-exiting", async move {
             if !(cluster.is_terminated() || cluster.self_member().status == MemberStatus::Removed) {
                 let (tx, rx) = tokio::sync::oneshot::channel();
                 myself.cast_ns(ShutdownSingleton(tx));

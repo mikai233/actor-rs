@@ -6,7 +6,7 @@ use tokio::sync::broadcast::{channel, Receiver, Sender};
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::WeakActorSystem;
 use crate::actor::address::Address;
 use crate::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
 use crate::actor::root_guardian::RootGuardian;
@@ -39,20 +39,24 @@ pub struct LocalActorRefProvider {
 }
 
 impl LocalActorRefProvider {
-    pub fn new(system: &ActorSystem, address: Option<Address>) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+    pub fn new(system: WeakActorSystem, address: Option<Address>) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
         let mut spawns: Vec<Box<dyn DeferredSpawn>> = vec![];
-        let address = address.unwrap_or_else(|| {
-            Address {
-                protocol: "tcp".to_string(),
-                system: system.name().clone(),
-                addr: None,
+        let address = match address {
+            None => {
+                let system_name = system.upgrade()?.name().clone();
+                Address {
+                    protocol: "tcp".to_string(),
+                    system: system_name,
+                    addr: None,
+                }
             }
-        });
+            Some(address) => address
+        };
         let (termination_tx, _) = channel(1);
         let root_path = RootActorPath::new(address, "/");
         let termination_tx_c = termination_tx.clone();
         let root_props = Props::new(move || { Ok(RootGuardian::new(termination_tx_c)) });
-        let (sender, mailbox) = root_props.mailbox(system)?;
+        let (sender, mailbox) = root_props.mailbox(&system)?;
         let root_guardian = LocalActorRef::new(system.clone(), root_path.clone().into(), sender, ActorCell::new(None));
         spawns.push(
             Box::new(

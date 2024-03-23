@@ -7,7 +7,6 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 
-use crate::net::tcp_transport::connection_status::ConnectionStatus;
 use crate::net::tcp_transport::TcpTransportActor;
 
 #[derive(Debug, EmptyCodec)]

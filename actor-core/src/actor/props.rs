@@ -5,7 +5,7 @@ use tokio::runtime::Handle;
 use tokio::sync::mpsc::channel;
 
 use crate::Actor;
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::context::ActorContext;
 use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::actor_ref::ActorRef;
@@ -75,7 +75,8 @@ impl Props {
         }
     }
 
-    pub(crate) fn mailbox(&self, system: &ActorSystem) -> anyhow::Result<(MailboxSender, Mailbox)> {
+    pub(crate) fn mailbox(&self, system: &WeakActorSystem) -> anyhow::Result<(MailboxSender, Mailbox)> {
+        let system = system.upgrade()?;
         let core_config = system.core_config();
         let mailbox_name = self.mailbox.as_ref().map(|m| m.as_str()).unwrap_or("default");
         let mailbox = core_config.mailbox.get(mailbox_name).ok_or(anyhow!("mailbox {} config not found", mailbox_name))?;
@@ -99,8 +100,8 @@ impl Props {
         self
     }
 
-    pub fn spawn(self, myself: ActorRef, mailbox: Mailbox, system: ActorSystem) -> anyhow::Result<()> {
-        (self.spawner)(myself, mailbox, system, self.handle)
+    pub(crate) fn spawn(self, myself: ActorRef, mailbox: Mailbox, system: WeakActorSystem) -> anyhow::Result<()> {
+        (self.spawner)(myself, mailbox, system.upgrade()?, self.handle)
     }
 }
 
