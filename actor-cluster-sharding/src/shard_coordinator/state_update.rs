@@ -4,9 +4,9 @@ use crate::shard_region::ImShardId;
 
 #[derive(Debug)]
 pub(super) enum StateUpdate {
-    ShardHomeDeallocated {
-        shard: ImShardId,
-    },
+    // ShardHomeDeallocated {
+    //     shard: ImShardId,
+    // },
     ShardRegionProxyTerminated {
         region_proxy: ActorRef,
     },

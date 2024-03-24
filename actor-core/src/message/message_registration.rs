@@ -75,7 +75,7 @@ impl MessageRegistration {
     }
 
     pub fn encode(&self, name: &'static str, message: &dyn CodecMessage) -> Result<IDPacket, EncodeError> {
-        let id = *self.name_id.get(name).ok_or(EncodeError::OtherString(format!("message {} not register", name)))?;
+        let id = *self.name_id.get(name).ok_or(EncodeError::OtherString(format!("message {} is not registered", name)))?;
         let bytes = message.encode(self)?;
         let packet = IDPacket {
             id,
@@ -86,7 +86,7 @@ impl MessageRegistration {
 
     pub fn decode(&self, packet: IDPacket) -> Result<DynMessage, DecodeError> {
         let id = packet.id;
-        let decoder = self.decoder.get(&id).ok_or(DecodeError::OtherString(format!("message {} not register", id)))?;
+        let decoder = self.decoder.get(&id).ok_or(DecodeError::OtherString(format!("message with id {} is not registered", id)))?;
         let message = decoder.decode(&packet.bytes, self)?;
         Ok(message)
     }

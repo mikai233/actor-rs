@@ -7,7 +7,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use imstr::ImString;
 use itertools::Itertools;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 use actor_cluster::cluster::Cluster;
 use actor_core::Actor;
@@ -15,8 +15,9 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor::timers::{ScheduleKey, Timers};
 use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::actor_ref::{ActorRef, ActorRefExt, PROVIDER};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::ext::encode_bytes;
 use actor_core::ext::message_ext::UserMessageExt;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
@@ -345,17 +346,17 @@ impl ShardCoordinator {
 
     fn update(&mut self, state: StateUpdate) {
         self.state.updated(state);
-        // let etcd_actor = self.cluster.etcd_actor();
-        // PROVIDER.sync_scope(self.cluster.system().provider_full(), || {
-        //     match serde_json::to_string_pretty(&self.state) {
-        //         Ok(json_state) => {
-        //             //TODO
-        //         }
-        //         Err(error) => {
-        //             error!("ShardCoordinator state {} serialize to json error {:#?}", self.state, error);
-        //         }
-        //     }
-        // });
+        let etcd_actor = self.cluster.etcd_actor();
+        PROVIDER.sync_scope(self.cluster.system().unwrap().provider_full(), || {
+            match encode_bytes(&self.state.bin_state()) {
+                Ok(bytes) => {
+                    debug!("update state to etcd");
+                }
+                Err(error) => {
+                    error!("ShardCoordinator state {} serialize error {:#?}", self.state, error);
+                }
+            }
+        });
     }
 
     fn send_host_shard_msg(&mut self, context: &mut ActorContext, shard: ImShardId, region: ActorRef) {
