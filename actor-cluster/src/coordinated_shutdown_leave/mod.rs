@@ -22,6 +22,7 @@ pub(crate) struct CoordinatedShutdownLeave {
 impl CoordinatedShutdownLeave {
     pub(crate) fn new(context: &mut ActorContext, reply_to: ActorRef) -> Self {
         let cluster = Cluster::get(context.system()).clone();
+        cluster.leave(cluster.self_address().clone());
         Self {
             cluster,
             reply_to,

@@ -54,7 +54,7 @@ impl MemberWatchResp {
                     }
                     EventType::Delete => {
                         if let Some(addr) = actor.key_addr.remove(kv.key_str()?) {
-                            let stream = context.system().event_stream();
+                            let stream = &context.system().event_stream;
                             if let Some(mut member) = actor.cluster.members_write().remove(&addr) {
                                 member.status = MemberStatus::Removed;
                                 if addr == actor.self_addr {

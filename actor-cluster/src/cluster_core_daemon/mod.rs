@@ -31,7 +31,6 @@ use crate::cluster_core_daemon::exiting_completed_req::{ExitingCompletedReq, Exi
 use crate::cluster_core_daemon::member_keep_alive_failed::MemberKeepAliveFailed;
 use crate::cluster_core_daemon::member_watch_resp::MemberWatchResp;
 use crate::cluster_core_daemon::self_leaving::SelfLeaving;
-use crate::cluster_core_daemon::self_removed::SelfRemoved;
 use crate::cluster_event::ClusterEvent;
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::etcd_actor::keep_alive::KeepAlive;
@@ -58,6 +57,7 @@ pub(crate) struct ClusterCoreDaemon {
     members_watch_adapter: ActorRef,
     keep_alive_adapter: ActorRef,
     self_exiting: Sender<()>,
+    exiting_tasks_in_progress: bool,
 }
 
 impl ClusterCoreDaemon {
@@ -103,6 +103,7 @@ impl ClusterCoreDaemon {
             members_watch_adapter,
             keep_alive_adapter,
             self_exiting: self_exiting_tx,
+            exiting_tasks_in_progress: false,
         };
         Ok(daemon)
     }
@@ -186,7 +187,7 @@ impl ClusterCoreDaemon {
     }
 
     fn update_local_member_status(&mut self, context: &mut ActorContext, kv: &KeyValue) -> anyhow::Result<()> {
-        let stream = context.system().event_stream();
+        let stream = &context.system().event_stream;
         let member = serde_json::from_slice::<Member>(kv.value())?;
         self.key_addr.insert(kv.key_str()?.to_string(), member.addr.clone());
         debug!("{} update member {}", context.myself(), member);
@@ -214,9 +215,7 @@ impl ClusterCoreDaemon {
             }
             MemberStatus::Removed => {
                 if self.cluster.members_write().remove(&member.addr).is_some() {
-                    if member.addr == self.self_addr {
-                        context.myself().cast_ns(SelfRemoved);
-                    } else {
+                    if member.addr != self.self_addr {
                         self.disconnect_member(&member);
                     }
                     stream.publish(ClusterEvent::member_removed(member))?;

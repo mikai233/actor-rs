@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use tracing::info;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;

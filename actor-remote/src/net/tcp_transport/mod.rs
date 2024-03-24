@@ -9,7 +9,7 @@ use quick_cache::unsync::Cache;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpListener;
 use tokio_util::codec::Framed;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_system::ActorSystem;

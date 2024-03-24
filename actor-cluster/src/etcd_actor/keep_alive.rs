@@ -31,7 +31,7 @@ impl Message for KeepAlive {
         match actor.client.lease_keep_alive(self.id).await {
             Ok((keeper, stream)) => {
                 let interval = self.interval;
-                match context.spawn_anonymous(Props::new(move || { Ok(Keeper { keeper, interval }) })) {
+                match context.spawn_anonymous(Props::new(move || { Ok(Keeper { keeper, interval, tick_key: None }) })) {
                     Ok(keeper) => {
                         let lease = Lease {
                             keeper,

@@ -8,9 +8,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context as AnyhowContext};
 use arc_swap::{ArcSwap, Guard};
-use dashmap::mapref::one::{MappedRef, MappedRefMut};
-use futures::{FutureExt, SinkExt};
+use dashmap::mapref::one::MappedRef;
 use futures::future::BoxFuture;
+use futures::FutureExt;
 use pin_project::pin_project;
 use rand::random;
 use tokio::runtime::Handle;
@@ -47,15 +47,15 @@ pub struct ActorSystem {
 
 #[derive(Debug)]
 pub struct Inner {
-    name: String,
-    uid: i64,
-    start_time: u128,
+    pub name: String,
+    pub uid: i64,
+    pub start_time: u128,
     provider: ArcSwap<ActorRefProvider>,
     handle: Option<Handle>,
-    scheduler: SchedulerSender,
-    event_stream: EventStream,
-    extension: SystemExtension,
-    config: ActorConfig,
+    pub scheduler: SchedulerSender,
+    pub event_stream: EventStream,
+    pub extension: SystemExtension,
+    pub config: ActorConfig,
     signal: Sender<anyhow::Result<()>>,
     termination_callbacks: TerminationCallbacks,
     pub(crate) termination_error: Mutex<Option<anyhow::Error>>,
@@ -121,10 +121,6 @@ impl ActorSystem {
         Ok(runner)
     }
 
-    pub fn name(&self) -> &String {
-        &self.name
-    }
-
     pub fn address(&self) -> Address {
         self.provider().get_default_address().clone()
     }
@@ -135,10 +131,6 @@ impl ActorSystem {
 
     fn descendant<'a>(&self, names: impl IntoIterator<Item=&'a str>) -> ActorPath {
         self.guardian().path.descendant(names)
-    }
-
-    pub fn start_time(&self) -> u128 {
-        self.start_time
     }
 
     pub async fn terminate(&self) {
@@ -188,34 +180,18 @@ impl ActorSystem {
             .map(|(actor, _)| actor)
     }
 
-    pub fn event_stream(&self) -> &EventStream {
-        &self.event_stream
-    }
-
-    pub fn scheduler(&self) -> &SchedulerSender {
-        &self.scheduler
-    }
-
     pub fn register_extension<E, F>(&self, ext_fn: F) -> anyhow::Result<()> where E: Extension, F: Fn(ActorSystem) -> anyhow::Result<E> {
         let extension = ext_fn(self.clone())?;
         self.extension.register(extension)?;
         Ok(())
     }
 
-    pub fn exist_extension<E>(&self) -> bool {
+    pub fn exist_ext<E>(&self) -> bool {
         self.extension.contains_key(type_name_of::<E>())
     }
 
-    pub fn get_extension<E>(&self) -> Option<MappedRef<&'static str, Box<dyn Extension>, E>> where E: Extension {
+    pub fn get_ext<E>(&self) -> Option<E> where E: Extension + Clone {
         self.extension.get()
-    }
-
-    pub fn get_extension_mut<E>(&self) -> Option<MappedRefMut<&'static str, Box<dyn Extension>, E>> where E: Extension {
-        self.extension.get_mut()
-    }
-
-    pub fn uid(&self) -> i64 {
-        self.uid
     }
 
     pub fn get_config<C>(&self) -> MappedRef<&'static str, Box<dyn Config>, C> where C: Config {

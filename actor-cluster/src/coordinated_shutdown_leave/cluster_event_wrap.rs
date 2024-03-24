@@ -16,7 +16,11 @@ impl Message for ClusterEventWrap {
     type A = CoordinatedShutdownLeave;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        if let ClusterEvent::MemberRemoved(m) = self.0 {
+        if let ClusterEvent::MemberLeaving(m) = self.0 {
+            if actor.cluster.self_unique_address() == &m.addr {
+                actor.done(context);
+            }
+        } else if let ClusterEvent::MemberRemoved(m) = self.0 {
             if actor.cluster.self_unique_address() == &m.addr {
                 actor.done(context);
             }

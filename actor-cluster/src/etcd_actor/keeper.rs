@@ -4,6 +4,7 @@ use async_trait::async_trait;
 
 use actor_core::{Actor, Message};
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
@@ -15,15 +16,24 @@ use crate::etcd_actor::keeper_keep_alive_failed::KeeperKeepAliveFailed;
 pub(super) struct Keeper {
     pub(super) keeper: etcd_client::LeaseKeeper,
     pub(super) interval: Duration,
+    pub(super) tick_key: Option<ScheduleKey>,
 }
 
 #[async_trait]
 impl Actor for Keeper {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let myself = context.myself().clone();
-        context.system().scheduler().schedule_with_fixed_delay(None, self.interval, move || {
+        let tick_key = context.system().scheduler.schedule_with_fixed_delay(None, self.interval, move || {
             myself.cast_ns(KeepAliveTick);
         });
+        self.tick_key = Some(tick_key);
+        Ok(())
+    }
+
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+        if let Some(key) = self.tick_key.take() {
+            key.cancel();
+        }
         Ok(())
     }
 }

@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use tokio::sync::mpsc::{channel, Sender};
-use tracing::{debug, instrument};
+use tracing::{debug, warn};
 
 use actor_core::Actor;
 use actor_core::actor::context::{ActorContext, Context};
@@ -50,7 +50,7 @@ impl Actor for ClusterDaemon {
                 }
             } else {
                 if let Some(error) = myself.ask::<_, LeaveResp>(LeaveReq, phase_cluster_leave_timeout).await.err() {
-                    debug!("ask {} error {:?}", type_name_of::<LeaveReq>(), error);
+                    warn!("ask {} error {:?}", type_name_of::<LeaveReq>(), error);
                 }
             }
         })?;

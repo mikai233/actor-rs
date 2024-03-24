@@ -1,11 +1,15 @@
+use std::ops::Not;
+
 use async_trait::async_trait;
+use tracing::info;
 
 use actor_core::actor::context::ActorContext;
+use actor_core::actor::coordinated_shutdown::{ClusterLeavingReason, CoordinatedShutdown};
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 
 use crate::cluster_core_daemon::ClusterCoreDaemon;
-use crate::member::MemberStatus;
 
 #[derive(Debug, EmptyCodec)]
 pub(crate) struct SelfLeaving;
@@ -14,10 +18,18 @@ pub(crate) struct SelfLeaving;
 impl Message for SelfLeaving {
     type A = ClusterCoreDaemon;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let mut member = actor.cluster.self_member().clone();
-        member.status = MemberStatus::Removed;
-        actor.update_member_to_etcd(&member).await?;
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        if !actor.exiting_tasks_in_progress {
+            actor.exiting_tasks_in_progress = true;
+            let coord_shutdown = CoordinatedShutdown::get(context.system());
+            if coord_shutdown.run_started().not() {
+                info!("Exiting, starting coordinated shutdown");
+            }
+            let _ = actor.self_exiting.send(()).await;
+            context.system().handle().spawn(async move {
+                coord_shutdown.run(ClusterLeavingReason).await;
+            });
+        }
         Ok(())
     }
 }

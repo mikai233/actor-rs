@@ -1,14 +1,13 @@
-use dashmap::mapref::one::MappedRef;
-
 use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::Props;
 use actor_core::actor_ref::ActorRef;
+use actor_core::ext::type_name_of;
 use actor_derive::AsAny;
 
 use crate::pubsub::distributed_pub_sub_mediator::DistributedPubSubMediator;
 
-#[derive(Debug, AsAny)]
+#[derive(Debug, Clone, AsAny)]
 pub struct DistributedPubSub {
     system: WeakActorSystem,
     mediator: ActorRef,
@@ -27,8 +26,8 @@ impl DistributedPubSub {
         Ok(myself)
     }
 
-    pub fn get(system: &ActorSystem) -> MappedRef<&'static str, Box<dyn Extension>, Self> {
-        system.get_extension::<Self>().expect("DistributedPubSub extension not found")
+    pub fn get(system: &ActorSystem) -> Self {
+        system.get_ext::<Self>().expect(&format!("{} not found", type_name_of::<Self>()))
     }
 }
 

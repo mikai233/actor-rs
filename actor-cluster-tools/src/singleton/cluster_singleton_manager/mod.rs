@@ -139,7 +139,7 @@ impl ClusterSingletonManager {
             }
         }
         let myself = context.myself().clone();
-        let system_name = context.system().name();
+        let system_name = &context.system().name;
         let singleton_name = context.myself().path().name();
         let lock_path = singleton_path(system_name, singleton_name);
         let lock_options = LockOptions::new().with_lease(self.lease_id);

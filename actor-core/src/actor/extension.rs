@@ -31,7 +31,11 @@ impl SystemExtension {
         Ok(())
     }
 
-    pub fn get<E>(&self) -> Option<MappedRef<&'static str, Box<dyn Extension>, E>> where E: Extension {
+    pub fn get<E>(&self) -> Option<E> where E: Extension + Clone {
+        self.get_ref::<E>().map(|e| { e.value().clone() })
+    }
+
+    pub fn get_ref<E>(&self) -> Option<MappedRef<&'static str, Box<dyn Extension>, E>> where E: Extension {
         let name = type_name_of::<E>();
         let extension = self.extensions
             .get(name)

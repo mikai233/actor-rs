@@ -49,7 +49,7 @@ impl RemoteActorRefProvider {
             Transport::Tcp(tcp) => {
                 Address {
                     protocol: tcp.name().to_string(),
-                    system: system.name().clone(),
+                    system: system.name.clone(),
                     addr: Some(tcp.addr),
                 }
             }

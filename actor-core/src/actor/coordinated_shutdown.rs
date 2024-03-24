@@ -7,11 +7,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use anyhow::{anyhow, Error};
-use dashmap::mapref::one::MappedRef;
-use futures::future::BoxFuture;
+use futures::future::{BoxFuture, join_all};
 use futures::FutureExt;
 use serde::{Deserialize, Serialize};
-use tokio::time::{Timeout, timeout};
 use tracing::{debug, error, info, warn};
 
 use actor_derive::AsAny;
@@ -150,8 +148,8 @@ impl CoordinatedShutdown {
         know_phases
     }
 
-    pub fn get(system: &ActorSystem) -> MappedRef<&'static str, Box<dyn Extension>, Self> {
-        system.get_extension::<Self>().expect("CoordinatedShutdown extension not found")
+    pub fn get(system: &ActorSystem) -> Self {
+        system.get_ext::<Self>().expect(&format!("{} not found", type_name_of::<Self>()))
     }
 
     pub fn run<R: Reason + 'static>(&self, reason: R) -> impl Future<Output=()> {
@@ -160,10 +158,10 @@ impl CoordinatedShutdown {
 
     fn inner_run(&self, reason: Box<dyn Reason>) -> impl Future<Output=()> {
         let started = self.run_started.swap(true, Ordering::Relaxed);
+        let system = self.system.upgrade().unwrap();
         let mut run_tasks = vec![];
         if !started {
             info!("running coordinated shutdown with reason [{}]",  reason);
-            let system = self.system.upgrade().unwrap();
             let mut registered_phases = {
                 let error = reason.into_error();
                 if error.is_some() {
@@ -179,31 +177,41 @@ impl CoordinatedShutdown {
                 if let Some(phase) = core_config.phases.get(phase_name) {
                     if phase.enabled {
                         if let Some(phase_task) = registered_phases.remove(phase_name) {
-                            let phase_timeout = phase.timeout;
+                            let mut tasks = vec![];
                             for task in phase_task.into_inner() {
                                 let TaskDefinition { name, fut } = task;
-                                let run = TaskRun {
+                                let task = TaskRun {
                                     name,
                                     phase: phase_name.clone(),
-                                    timeout: phase_timeout,
-                                    task: timeout(phase_timeout, fut),
+                                    task: fut,
                                 };
-                                run_tasks.push(run);
+                                tasks.push(task);
                             }
+                            run_tasks.push((phase_name.clone(), phase.timeout, tasks));
                         }
                     }
                 }
             }
         }
         async move {
-            for task in run_tasks {
-                let TaskRun { name, phase, timeout, task } = task;
-                if task.await.err().is_some() {
-                    warn!("execute task [{}] at phase [{}] timeout after [{:?}]", name, phase, timeout);
+            if !started {
+                for (phase, timeout, tasks) in run_tasks {
+                    let mut task_futures = vec![];
+                    for task in tasks {
+                        let fut = system.handle().spawn(async move {
+                            let TaskRun { name, phase, task } = task;
+                            debug!("execute task [{}] at phase [{}]", name, phase);
+                            task.await;
+                            debug!("execute task [{}] at phase [{}] done", name, phase);
+                        });
+                        task_futures.push(fut);
+                    }
+                    if tokio::time::timeout(timeout, join_all(task_futures)).await.err().is_some() {
+                        warn!("execute phase [{}] timeout after [{:?}]",  phase, timeout);
+                    }
                 }
-                debug!("execute task [{}] at phase [{}] done", name, phase);
+                debug!("execute coordinated shutdown complete");
             }
-            debug!("execute coordinated shutdown complete");
         }
     }
 
@@ -299,8 +307,7 @@ impl Debug for TaskDefinition {
 struct TaskRun {
     name: String,
     phase: String,
-    timeout: Duration,
-    task: Timeout<BoxFuture<'static, ()>>,
+    task: BoxFuture<'static, ()>,
 }
 
 pub trait Reason: Send + Display {
@@ -342,7 +349,7 @@ impl Display for ActorSystemStartFailedReason {
 
 impl Reason for ActorSystemStartFailedReason {}
 
-#[derive(Debug, AsAny)]
+#[derive(Debug)]
 pub struct ClusterDowningReason;
 
 impl Display for ClusterDowningReason {
@@ -352,3 +359,14 @@ impl Display for ClusterDowningReason {
 }
 
 impl Reason for ClusterDowningReason {}
+
+#[derive(Debug)]
+pub struct ClusterLeavingReason;
+
+impl Display for ClusterLeavingReason {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", type_name_of::<Self>())
+    }
+}
+
+impl Reason for ClusterLeavingReason {}

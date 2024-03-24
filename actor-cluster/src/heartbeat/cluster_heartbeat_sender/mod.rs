@@ -38,7 +38,7 @@ impl Actor for ClusterHeartbeatSender {
             |event| { HeartbeatSenderClusterEvent(event).into_dyn() },
         )?;
         let myself = context.myself().clone();
-        let key = context.system().scheduler().schedule_with_fixed_delay(
+        let key = context.system().scheduler.schedule_with_fixed_delay(
             None,
             Duration::from_secs(5),
             move || { myself.cast_ns(HeartbeatTick); },

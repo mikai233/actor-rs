@@ -35,7 +35,7 @@ impl Message for SingletonKeepAliveFailed {
                 let name = myself.path().name();
                 let retry = Duration::from_secs(1);
                 warn!("{} keep alive failed {:?}, retry after {:?}", name, error, retry);
-                context.system().scheduler().schedule_once(retry, move || {
+                context.system().scheduler.schedule_once(retry, move || {
                     myself.cast_ns(SingletonKeepAliveFailed(None));
                 });
             }

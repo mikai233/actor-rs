@@ -43,7 +43,7 @@ impl LocalActorRefProvider {
         let mut spawns: Vec<Box<dyn DeferredSpawn>> = vec![];
         let address = match address {
             None => {
-                let system_name = system.upgrade()?.name().clone();
+                let system_name = system.upgrade()?.name.clone();
                 Address {
                     protocol: "tcp".to_string(),
                     system: system_name,

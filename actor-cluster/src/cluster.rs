@@ -6,9 +6,6 @@ use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use dashmap::mapref::one::MappedRef;
-use tracing::debug;
-
 use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
 use actor_core::actor::address::Address;
 use actor_core::actor::extension::Extension;
@@ -17,6 +14,7 @@ use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::DynMessage;
 use actor_core::ext::etcd_client::EtcdClient;
+use actor_core::ext::type_name_of;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::provider::{downcast_provider, TActorRefProvider};
 use actor_derive::AsAny;
@@ -86,7 +84,7 @@ impl Cluster {
         let address = cluster_provider.get_default_address();
         let self_unique_address = UniqueAddress {
             address: address.clone(),
-            uid: system.uid(),
+            uid: system.uid,
         };
         let cluster_daemons = system.spawn_system(
             Props::new_with_ctx(
@@ -117,8 +115,8 @@ impl Cluster {
         Ok(Self { inner: Arc::new(inner) })
     }
 
-    pub fn get(system: &ActorSystem) -> MappedRef<&'static str, Box<dyn Extension>, Self> {
-        system.get_extension::<Self>().expect("Cluster extension not found")
+    pub fn get(system: &ActorSystem) -> Self {
+        system.get_ext::<Self>().expect(&format!("{} not found", type_name_of::<Self>()))
     }
 
     pub fn subscribe_cluster_event<T>(&self, subscriber: ActorRef, transform: T) -> anyhow::Result<()>
@@ -129,12 +127,12 @@ impl Cluster {
         let self_member = self.self_member().clone();
         let state = transform(ClusterEvent::current_cluster_state(members, self_member));
         subscriber.tell(state, ActorRef::no_sender());
-        self.system.upgrade()?.event_stream().subscribe(subscriber, transform);
+        self.system.upgrade()?.event_stream.subscribe(subscriber, transform);
         Ok(())
     }
 
     pub fn unsubscribe_cluster_event(&self, subscriber: &ActorRef) -> anyhow::Result<()> {
-        self.system.upgrade()?.event_stream().unsubscribe::<ClusterEvent>(subscriber);
+        self.system.upgrade()?.event_stream.unsubscribe::<ClusterEvent>(subscriber);
         Ok(())
     }
 

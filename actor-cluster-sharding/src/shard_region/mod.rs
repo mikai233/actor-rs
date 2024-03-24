@@ -515,7 +515,7 @@ impl Actor for ShardRegion {
     }
 
     async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        debug!("{}: Region stopped", self.type_name);
+        debug!("{}: Region {} stopped", self.type_name, context.myself());
         self.cluster.unsubscribe_cluster_event(context.myself())?;
         self.coordinator.foreach(|coordinator| {
             coordinator.cast_ns(RegionStopped { shard_region: context.myself().clone() });
