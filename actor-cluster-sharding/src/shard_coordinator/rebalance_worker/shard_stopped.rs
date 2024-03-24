@@ -22,6 +22,7 @@ impl Message for ShardStopped {
         let shard = self.shard;
         if shard == actor.shard.as_str() {
             if actor.stopping_shard {
+                debug!("{}: ShardStopped {}", actor.type_name, shard);
                 actor.done(context, true);
             } else {
                 debug!("{}: Ignore ShardStopped {} because RebalanceWorker not in stopping shard", actor.type_name, shard);

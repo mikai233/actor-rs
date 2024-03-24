@@ -42,8 +42,7 @@ pub fn decode_bytes<T>(bytes: &[u8]) -> Result<T, DecodeError> where T: Decode {
 pub fn init_logger(level: tracing::Level) {
     let format = tracing_subscriber::fmt::format()
         .with_timer(LocalTime::rfc_3339())
-        .pretty()
-        .compact();
+        .pretty();
     tracing_subscriber::FmtSubscriber::builder()
         .event_format(format)
         .with_max_level(level)
@@ -54,7 +53,7 @@ pub fn init_logger_with_filter(filter: impl Into<EnvFilter>) {
     let format = tracing_subscriber::fmt::format()
         .with_timer(LocalTime::rfc_3339())
         .pretty()
-        .compact();
+        .with_file(false);
     tracing_subscriber::FmtSubscriber::builder()
         .event_format(format)
         .with_env_filter(filter)

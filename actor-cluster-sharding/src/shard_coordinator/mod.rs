@@ -127,6 +127,11 @@ impl Actor for ShardCoordinator {
         self.coordinator_state = CoordinatorState::Active;
         Ok(())
     }
+
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+        debug!("{}: ShardCoordinator {} stopped", self.type_name, context.myself());
+        Ok(())
+    }
 }
 
 impl ShardCoordinator {

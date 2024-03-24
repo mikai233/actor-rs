@@ -52,7 +52,7 @@ pub struct Shard {
     message_buffers: MessageBufferMap<ImEntityId, ShardBufferEnvelope>,
     handoff_stopper: Option<ActorRef>,
     passivate_interval_task: Option<ScheduleKey>,
-    preparing_for_shutdown: bool,
+    preparing_for_shutdown: bool,//TODO
 }
 
 impl Shard {

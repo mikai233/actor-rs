@@ -4,11 +4,11 @@ use std::time::Duration;
 
 use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::ext::type_name_of;
 use actor_core::Message;
@@ -36,7 +36,15 @@ impl Message for Handoff {
                 None => {
                     debug!("{}: Handoff shard [{}]", actor.type_name, actor.shard_id);
                     let active_entities = actor.entities.active_entities();
-                    if actor.preparing_for_shutdown {} else if active_entities.is_empty().not() && !actor.preparing_for_shutdown {
+                    if actor.preparing_for_shutdown {
+                        info!("{}: Handoff shard [{}] while preparing for shutdown. Stopping right away.", actor.type_name, shard_id);
+                        for entity in active_entities {
+                            entity.tell(actor.handoff_stop_message.dyn_clone()?, ActorRef::no_sender());
+                        }
+                        let reply_to = context.sender().into_result().context(type_name_of::<Handoff>())?;
+                        reply_to.cast_ns(ShardStopped { shard: shard_id });
+                        context.stop(context.myself());
+                    } else if active_entities.is_empty().not() && !actor.preparing_for_shutdown {
                         debug!("{}: Starting HandoffStopper for shard [{}] to terminate [{}] entities", actor.type_name, shard_id, active_entities.len());
                         for entity in &active_entities {
                             context.unwatch(entity);
@@ -57,6 +65,7 @@ impl Message for Handoff {
                     } else {
                         let reply_to = context.sender().into_result().context(type_name_of::<Handoff>())?;
                         reply_to.cast_ns(ShardStopped { shard: shard_id });
+                        context.stop(context.myself());
                     }
                 }
                 Some(_) => {

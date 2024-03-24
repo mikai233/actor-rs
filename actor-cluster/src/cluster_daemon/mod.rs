@@ -36,7 +36,7 @@ pub struct ClusterDaemon {
 #[async_trait]
 impl Actor for ClusterDaemon {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        let cluster = Cluster::get(context.system()).clone();
+        let cluster = Cluster::get(context.system()).clone();//TODO maybe panic
         let myself = context.myself().clone();
         let cluster_shutdown = self.cluster_shutdown.clone();
         let coord_shutdown = CoordinatedShutdown::get(context.system());
