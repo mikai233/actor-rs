@@ -35,3 +35,4 @@ pin-project = "1.1"
 imstr = { git = "https://github.com/xfbs/imstr.git" }
 itertools = "0.12"
 uuid = "1.7"
+parking_lot = "0.12"

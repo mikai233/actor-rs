@@ -61,7 +61,7 @@ impl RemoteActorRefProvider {
 
         let (local, mut spawns) = LocalActorRefProvider::new(system.downgrade(), Some(address.clone()))?;
         let (transport, deferred) = RemoteActorRefProvider::spawn_transport(&local, transport)?;
-        deferred.into_foreach(|d| spawns.push(Box::new(d)));
+        spawns.push(Box::new(deferred));
         let remote = Self {
             local,
             address,
@@ -71,11 +71,11 @@ impl RemoteActorRefProvider {
         Ok((remote, spawns))
     }
 
-    pub(crate) fn spawn_transport(provider: &LocalActorRefProvider, transport: Transport) -> anyhow::Result<(ActorRef, Option<ActorDeferredSpawn>)> {
+    pub(crate) fn spawn_transport(provider: &LocalActorRefProvider, transport: Transport) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
         match transport {
             Transport::Tcp(tcp) => {
                 provider.system_guardian()
-                    .attach_child(
+                    .attach_child_deferred_start(
                         Props::new_with_ctx(
                             move |context| {
                                 Ok(TcpTransportActor::new(context.system().clone(), tcp))
@@ -83,7 +83,6 @@ impl RemoteActorRefProvider {
                         ),
                         Some("tcp_transport".to_string()),
                         None,
-                        false,
                     )
             }
             Transport::Kcp(_) => {

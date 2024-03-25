@@ -82,7 +82,12 @@ impl EmptyLocalActorRef {
         if message.name == watch {
             let watch = message.downcast_system::<Watch>().unwrap();
             if watch.watchee.path() == self.path() && watch.watcher.path() != self.path() {
-                watch.watcher.cast_system(DeathWatchNotification(watch.watchee), ActorRef::no_sender());
+                let notification = DeathWatchNotification {
+                    actor: watch.watchee,
+                    existence_confirmed: true,
+                    address_terminated: false,
+                };
+                watch.watcher.cast_system(notification, ActorRef::no_sender());
             }
         } else if message.name == unwatch {
             // just ignore

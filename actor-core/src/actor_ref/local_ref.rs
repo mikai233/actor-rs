@@ -13,7 +13,7 @@ use actor_derive::AsAny;
 use crate::{DynMessage, MessageType};
 use crate::actor::actor_selection::{ActorSelection, ActorSelectionMessage};
 use crate::actor::actor_system::WeakActorSystem;
-use crate::actor::mailbox::MailboxSender;
+use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::actor::props::{ActorDeferredSpawn, Props};
 use crate::actor_path::ActorPath;
 use crate::actor_path::child_actor_path::ChildActorPath;
@@ -223,24 +223,40 @@ impl LocalActorRef {
         props: Props,
         name: Option<String>,
         uid: Option<i32>,
-        start_on_attach: bool,
-    ) -> anyhow::Result<(ActorRef, Option<ActorDeferredSpawn>)> {
+    ) -> anyhow::Result<ActorRef> {
+        let (child_ref, mailbox) = self.make_child(&props, name, uid)?;
+        props.spawn(child_ref.clone(), mailbox, self.system().clone())?;
+        Ok(child_ref)
+    }
+
+    pub fn attach_child_deferred_start(
+        &self,
+        props: Props,
+        name: Option<String>,
+        uid: Option<i32>,
+    ) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
+        let (child_ref, mailbox) = self.make_child(&props, name, uid)?;
+        let deferred_spawn = ActorDeferredSpawn::new(
+            child_ref.clone(),
+            mailbox,
+            props.spawner,
+            props.handle,
+        );
+        Ok((child_ref, deferred_spawn))
+    }
+
+    pub(crate) fn make_child(
+        &self,
+        props: &Props,
+        name: Option<String>,
+        uid: Option<i32>,
+    ) -> anyhow::Result<(ActorRef, Mailbox)> {
         if let Some(name) = &name {
             if name.is_empty() {
                 return Err(anyhow!("name cannot be empty"));
             }
             check_name(name)?;
         }
-        self.make_child(props, name, uid, start_on_attach)
-    }
-
-    pub(crate) fn make_child(
-        &self,
-        props: Props,
-        name: Option<String>,
-        uid: Option<i32>,
-        start: bool,
-    ) -> anyhow::Result<(ActorRef, Option<ActorDeferredSpawn>)> {
         let name = name.unwrap_or_else(random_actor_name);
         let (sender, mailbox) = props.mailbox(&self.system)?;
         let uid = uid.unwrap_or_else(ActorPath::new_uid);
@@ -257,17 +273,6 @@ impl LocalActorRef {
         };
         let child_ref = LocalActorRef { inner: inner.into() };
         self.cell.insert_child(name, child_ref.clone());
-        if start {
-            props.spawn(child_ref.clone().into(), mailbox, self.system().clone())?;
-            Ok((child_ref.into(), None))
-        } else {
-            let deferred_spawn = ActorDeferredSpawn::new(
-                child_ref.clone().into(),
-                mailbox,
-                props.spawner,
-                props.handle,
-            );
-            Ok((child_ref.into(), Some(deferred_spawn)))
-        }
+        Ok((child_ref.into(), mailbox))
     }
 }

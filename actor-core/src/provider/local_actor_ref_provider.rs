@@ -20,7 +20,6 @@ use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::cell::actor_cell::ActorCell;
 use crate::ext::base64;
-use crate::ext::option_ext::OptionExt;
 use crate::message::message_registration::MessageRegistration;
 use crate::provider::{ActorRefProvider, TActorRefProvider};
 
@@ -69,22 +68,20 @@ impl LocalActorRefProvider {
             ),
         );
         let (system_guardian, deferred) = root_guardian
-            .attach_child(
+            .attach_child_deferred_start(
                 Props::new(|| Ok(SystemGuardian)),
                 Some("system".to_string()),
                 Some(ActorPath::undefined_uid()),
-                false,
             )?;
-        deferred.into_foreach(|d| spawns.push(Box::new(d)));
+        spawns.push(Box::new(deferred));
         let system_guardian = system_guardian.local().unwrap();
         let (user_guardian, deferred) = root_guardian
-            .attach_child(
+            .attach_child_deferred_start(
                 Props::new(|| Ok(UserGuardian)),
                 Some("user".to_string()),
                 Some(ActorPath::undefined_uid()),
-                false,
             )?;
-        deferred.into_foreach(|d| spawns.push(Box::new(d)));
+        spawns.push(Box::new(deferred));
         let user_guardian = user_guardian.local().unwrap();
         let dead_letters = DeadLetterActorRef::new(system.clone(), root_path.child("dead_letters"));
         let temp_node = root_path.child("temp");
@@ -160,9 +157,7 @@ impl TActorRefProvider for LocalActorRefProvider {
     }
 
     fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
-        supervisor.local().unwrap()
-            .attach_child(props, None, None, true)
-            .map(|(actor, _)| actor)
+        supervisor.local().unwrap().attach_child(props, None, None)
     }
 
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {

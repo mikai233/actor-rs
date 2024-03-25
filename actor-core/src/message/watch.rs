@@ -10,8 +10,8 @@ use crate::actor_ref::ActorRef;
 
 #[derive(Debug, Encode, Decode, SystemCodec)]
 pub struct Watch {
-    pub(crate) watchee: ActorRef,
-    pub(crate) watcher: ActorRef,
+    pub watchee: ActorRef,
+    pub watcher: ActorRef,
 }
 
 #[async_trait]

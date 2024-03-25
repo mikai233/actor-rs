@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::sync::RwLock;
+
+use parking_lot::RwLock;
 
 use actor_core::actor::address::Address;
 
@@ -21,6 +22,6 @@ impl ClusterState {
     }
 
     pub fn is_member_up(&self, address: &Address) -> bool {
-        self.members.read().unwrap().iter().any(|(addr, _)| { address == &addr.address })
+        self.members.read().iter().any(|(addr, _)| { address == &addr.address })
     }
 }

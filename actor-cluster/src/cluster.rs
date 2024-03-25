@@ -2,18 +2,22 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::mem::MaybeUninit;
 use std::ops::Deref;
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
+
+use anyhow::Context;
+use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
 use actor_core::actor::address::Address;
 use actor_core::actor::extension::Extension;
-use actor_core::actor::props::Props;
+use actor_core::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::DynMessage;
 use actor_core::ext::etcd_client::EtcdClient;
+use actor_core::ext::option_ext::OptionExt;
 use actor_core::ext::type_name_of;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::provider::{downcast_provider, TActorRefProvider};
@@ -47,6 +51,7 @@ pub struct Inner {
     cluster_core: RwLock<MaybeUninit<ActorRef>>,
     state: ClusterState,
     is_terminated: AtomicBool,
+    cluster_daemons_spawn: Mutex<Option<ActorDeferredSpawn>>,
 }
 
 impl Deref for Cluster {
@@ -59,13 +64,18 @@ impl Deref for Cluster {
 
 impl Extension for Cluster {
     fn init(&self) -> anyhow::Result<()> {
+        let actor_spawn = self.cluster_daemons_spawn.lock()
+            .take()
+            .into_result()
+            .context("cannot init Cluster more than once")?;
+        Box::new(actor_spawn).spawn(self.system()?)?;
         let cluster_core = tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
                 let creation_timeout = Duration::from_secs(20);
                 self.cluster_daemons.ask::<_, GetClusterCoreRefResp>(GetClusterCoreRefReq, creation_timeout).await
             })
         })?.0;
-        self.cluster_core.write().unwrap().write(cluster_core);
+        self.cluster_core.write().write(cluster_core);
         Ok(())
     }
 }
@@ -86,7 +96,7 @@ impl Cluster {
             address: address.clone(),
             uid: system.uid,
         };
-        let cluster_daemons = system.spawn_system(
+        let (cluster_daemons, cluster_daemons_deferred) = system.spawn_system_deferred(
             Props::new_with_ctx(
                 move |ctx| {
                     ClusterDaemon::new(ctx)
@@ -111,6 +121,7 @@ impl Cluster {
             cluster_core: RwLock::new(MaybeUninit::uninit()),
             state,
             is_terminated: AtomicBool::new(false),
+            cluster_daemons_spawn: Mutex::new(Some(cluster_daemons_deferred)),
         };
         Ok(Self { inner: Arc::new(inner) })
     }
@@ -153,11 +164,11 @@ impl Cluster {
     }
 
     pub fn self_member(&self) -> RwLockReadGuard<Member> {
-        self.state.self_member.read().unwrap()
+        self.state.self_member.read()
     }
 
     pub(crate) fn self_member_write(&self) -> RwLockWriteGuard<Member> {
-        self.state.self_member.write().unwrap()
+        self.state.self_member.write()
     }
 
     pub fn self_address(&self) -> &Address {
@@ -174,11 +185,11 @@ impl Cluster {
     }
 
     pub fn members(&self) -> RwLockReadGuard<HashMap<UniqueAddress, Member>> {
-        self.state.members.read().unwrap()
+        self.state.members.read()
     }
 
     pub(crate) fn members_write(&self) -> RwLockWriteGuard<HashMap<UniqueAddress, Member>> {
-        self.state.members.write().unwrap()
+        self.state.members.write()
     }
 
     pub fn cluster_leader(&self) -> Option<Member> {
@@ -223,7 +234,7 @@ impl Cluster {
     }
 
     pub fn cluster_core(&self) -> ActorRef {
-        let cluster_core = self.cluster_core.read().unwrap();
+        let cluster_core = self.cluster_core.read();
         unsafe { cluster_core.assume_init_ref().clone() }
     }
 }

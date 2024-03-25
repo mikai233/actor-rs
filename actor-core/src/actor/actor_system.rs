@@ -20,7 +20,7 @@ use crate::{CORE_CONFIG, CORE_CONFIG_NAME};
 use crate::actor::address::Address;
 use crate::actor::coordinated_shutdown::{ActorSystemTerminateReason, CoordinatedShutdown, Reason};
 use crate::actor::extension::{Extension, SystemExtension};
-use crate::actor::props::Props;
+use crate::actor::props::{ActorDeferredSpawn, Props};
 use crate::actor::scheduler::{scheduler, SchedulerSender};
 use crate::actor::system_guardian::SystemGuardian;
 use crate::actor::user_guardian::UserGuardian;
@@ -175,9 +175,15 @@ impl ActorSystem {
     }
 
     pub fn spawn_system(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
-        self.system_guardian()
-            .attach_child(props, name, None, true)
-            .map(|(actor, _)| actor)
+        self.system_guardian().attach_child(props, name, None)
+    }
+
+    pub fn spawn_system_deferred(
+        &self,
+        props: Props,
+        name: Option<String>,
+    ) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
+        self.system_guardian().attach_child_deferred_start(props, name, None)
     }
 
     pub fn register_extension<E, F>(&self, ext_fn: F) -> anyhow::Result<()> where E: Extension, F: Fn(ActorSystem) -> anyhow::Result<E> {
@@ -243,15 +249,11 @@ impl ActorRefFactory for ActorSystem {
     }
 
     fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
-        self.guardian()
-            .attach_child(props, Some(name.into()), None, true)
-            .map(|(actor, _)| actor)
+        self.guardian().attach_child(props, Some(name.into()), None)
     }
 
     fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
-        self.guardian()
-            .attach_child(props, None, None, true)
-            .map(|(actor, _)| actor)
+        self.guardian().attach_child(props, None, None)
     }
 
     fn stop(&self, actor: &ActorRef) {

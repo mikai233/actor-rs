@@ -7,6 +7,7 @@ pub mod remote_actor_ref;
 pub mod remote_setting;
 pub mod config;
 mod remote_watcher;
+mod failure_detector;
 
 #[cfg(test)]
 mod test {

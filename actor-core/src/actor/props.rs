@@ -134,6 +134,16 @@ impl DeferredSpawn for ActorDeferredSpawn {
     }
 }
 
+impl Debug for ActorDeferredSpawn {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ActorDeferredSpawn")
+            .field("actor_ref", &self.actor_ref)
+            .field("mailbox", &self.mailbox)
+            .field("handle", &self.handle)
+            .finish_non_exhaustive()
+    }
+}
+
 pub struct FuncDeferredSpawn {
     func: Box<dyn FnOnce(ActorSystem) -> anyhow::Result<()>>,
 }

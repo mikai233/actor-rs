@@ -27,7 +27,6 @@ pub trait ClusterShardAllocation {
         let address_to_member: HashMap<_, _> = self.cluster_state()
             .members
             .read()
-            .unwrap()
             .iter().map(|(addr, member)| {
             (addr.address.clone(), member.clone())
         }).collect();

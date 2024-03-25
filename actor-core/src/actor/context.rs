@@ -105,9 +105,7 @@ impl ActorRefFactory for ActorContext {
                 self.myself
             ));
         }
-        self.myself.local().unwrap()
-            .attach_child(props, Some(name.into()), None, true)
-            .map(|(actor, _)| actor)
+        self.myself.local().unwrap().attach_child(props, Some(name.into()), None)
     }
 
     fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
@@ -117,9 +115,7 @@ impl ActorRefFactory for ActorContext {
                 self.myself
             ));
         }
-        self.myself.local().unwrap()
-            .attach_child(props, None, None, true)
-            .map(|(actor, _)| actor)
+        self.myself.local().unwrap().attach_child(props, None, None)
     }
 
     fn stop(&self, actor: &ActorRef) {
@@ -276,7 +272,12 @@ impl ActorContext {
 
     pub(crate) fn finish_terminate(&mut self) {
         if let Some(parent) = self.parent() {
-            parent.cast_system(DeathWatchNotification(self.myself.clone()), ActorRef::no_sender());
+            let notification = DeathWatchNotification {
+                actor: self.myself.clone(),
+                existence_confirmed: true,
+                address_terminated: false,
+            };
+            parent.cast_system(notification, ActorRef::no_sender());
         }
         self.tell_watchers_we_died();
         self.unwatch_watched_actors();
@@ -308,7 +309,12 @@ impl ActorContext {
             if self.myself.parent().map(|p| *p != watcher).unwrap_or(true) {
                 let myself = self.myself.clone();
                 debug!("{} tell watcher {} we died", myself, watcher);
-                watcher.cast_system(DeathWatchNotification(myself), ActorRef::no_sender());
+                let notification = DeathWatchNotification {
+                    actor: myself,
+                    existence_confirmed: true,
+                    address_terminated: false,
+                };
+                watcher.cast_system(notification, ActorRef::no_sender());
             }
         });
     }

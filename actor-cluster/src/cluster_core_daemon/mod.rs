@@ -1,12 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
 use std::ops::Not;
-use std::sync::RwLockWriteGuard;
 use std::time::Duration;
 
 use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use etcd_client::{GetOptions, KeyValue, PutOptions, WatchOptions};
+use parking_lot::RwLockWriteGuard;
 use tokio::sync::mpsc::{channel, Sender};
 use tracing::{debug, error};
 
