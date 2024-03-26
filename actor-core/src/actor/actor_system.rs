@@ -32,6 +32,7 @@ use crate::actor_ref::local_ref::LocalActorRef;
 use crate::config::{ActorConfig, Config};
 use crate::config::actor_setting::ActorSetting;
 use crate::config::core_config::CoreConfig;
+use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::event::event_stream::EventStream;
 use crate::ext::maybe_ref::MaybeRef;
 use crate::ext::option_ext::OptionExt;
@@ -100,6 +101,7 @@ impl ActorSystem {
         };
         let system = Self { inner: inner.into() };
         system.config.add(core_config)?;
+        system.register_extension(|_| Ok(AddressTerminatedTopic::new()))?;
         let (provider, spawns) = anyhow::Context::context(provider_fn(&system), "failed to create actor provider")?;
         system.provider.store(Arc::new(provider));
         system.register_extension(|system| {

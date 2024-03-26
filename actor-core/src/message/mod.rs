@@ -18,6 +18,7 @@ pub mod identify;
 pub mod message_registration;
 pub mod stop_child;
 pub mod message_buffer;
+pub mod address_terminated;
 
 pub trait MessageDecoder: Send + Sync + DynClone + 'static {
     fn decode(&self, bytes: &[u8], reg: &MessageRegistration) -> Result<DynMessage, DecodeError>;

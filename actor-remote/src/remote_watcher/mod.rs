@@ -13,7 +13,9 @@ use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::event::address_terminated_topic::AddressTerminatedTopic;
 use actor_core::ext::option_ext::OptionExt;
+use actor_core::message::address_terminated::AddressTerminated;
 use actor_core::message::death_watch_notification::DeathWatchNotification;
 use actor_core::message::watch::Watch;
 
@@ -44,6 +46,7 @@ pub struct RemoteWatcher {
     address_uids: HashMap<Address, i64>,
     heartbeat_task: Option<ScheduleKey>,
     failure_detector_reaper_task: Option<ScheduleKey>,
+    address_terminated_topic: AddressTerminatedTopic,
 }
 
 #[async_trait]
@@ -60,7 +63,7 @@ impl Actor for RemoteWatcher {
 }
 
 impl RemoteWatcher {
-    fn add_watch(&mut self, context: &mut ActorContext, watchee: ActorRef, watcher: ActorRef) -> anyhow::Result<()> {
+    pub fn add_watch(&mut self, context: &mut ActorContext, watchee: ActorRef, watcher: ActorRef) -> anyhow::Result<()> {
         debug_assert_ne!(&watcher, context.myself());
         debug!("Watching: [{} -> {}]", watcher, watchee);
         match self.watching.entry(watchee.clone()) {
@@ -77,7 +80,7 @@ impl RemoteWatcher {
         context.watch(watchee, WatcheeTerminated::new)
     }
 
-    fn remove_watch(&mut self, context: &mut ActorContext, watchee: ActorRef, watcher: ActorRef) {
+    pub fn remove_watch(&mut self, context: &mut ActorContext, watchee: ActorRef, watcher: ActorRef) {
         debug_assert_ne!(&watcher, context.myself());
         if let Some(watchers) = self.watching.get_mut(&watchee) {
             watchers.remove(&watcher);
@@ -90,7 +93,7 @@ impl RemoteWatcher {
         }
     }
 
-    fn remove_watchee(&mut self, watchee: &ActorRef) {
+    pub fn remove_watchee(&mut self, watchee: &ActorRef) {
         let watchee_address = watchee.path().address();
         self.watching.remove(&watchee);
         if let Some(watchees) = self.watchee_by_nodes.get_mut(watchee_address) {
@@ -102,7 +105,7 @@ impl RemoteWatcher {
         }
     }
 
-    fn watch_node(&mut self, watchee: ActorRef) {
+    pub fn watch_node(&mut self, watchee: ActorRef) {
         let watchee_address = watchee.path().address();
         if self.watchee_by_nodes.contains_key(watchee_address).not() && self.unreachable.contains(watchee_address) {
             self.unreachable.remove(watchee_address);
@@ -120,13 +123,13 @@ impl RemoteWatcher {
         }
     }
 
-    fn unwatch_node(&mut self, watche_address: &Address) {
+    pub fn unwatch_node(&mut self, watche_address: &Address) {
         self.watchee_by_nodes.remove(watche_address);
         self.address_uids.remove(watche_address);
         self.failure_detector.remove(watche_address);
     }
 
-    fn terminated(&mut self, watchee: &ActorRef, existence_confirmed: bool, address_terminated: bool) {
+    pub fn terminated(&mut self, watchee: &ActorRef, existence_confirmed: bool, address_terminated: bool) {
         debug!("Watchee terminated: [{}]", watchee.path());
         // When watchee is stopped it sends DeathWatchNotification to this RemoteWatcher,
         // which will propagate it to all watchers of this watchee.
@@ -146,7 +149,7 @@ impl RemoteWatcher {
         self.remove_watchee(&watchee);
     }
 
-    fn receive_heartbeat_rsp(&mut self, context: &mut ActorContext, uid: i64) -> anyhow::Result<()> {
+    pub fn receive_heartbeat_rsp(&mut self, context: &mut ActorContext, uid: i64) -> anyhow::Result<()> {
         let from = context.sender().into_result()?.path().address();
         if self.failure_detector.is_monitoring(from) {
             debug!("Received heartbeat rsp from [{}]", from);
@@ -163,7 +166,7 @@ impl RemoteWatcher {
         Ok(())
     }
 
-    fn re_watch(&self, watcher: ActorRef, address: &Address) {
+    pub fn re_watch(&self, watcher: ActorRef, address: &Address) {
         if let Some(watchees) = self.watchee_by_nodes.get(address) {
             for watchee in watchees {
                 debug!("Re-watch [{} -> {}]", watcher.path(), watchee.path());
@@ -176,9 +179,14 @@ impl RemoteWatcher {
         }
     }
 
-    fn receive_heartbeat(&self, context: &mut ActorContext) -> anyhow::Result<()> {
+    pub fn receive_heartbeat(&self, context: &mut ActorContext) -> anyhow::Result<()> {
         let sender = context.sender().into_result()?;
         sender.cast_ns(ArteryHeartbeatRsp { uid: context.system().uid });
         Ok(())
+    }
+
+    pub fn publish_address_terminated(&self, address: Address) {
+        debug!("Publish AddressTerminated [{}]", address);
+        self.address_terminated_topic.publish(AddressTerminated { address });
     }
 }
