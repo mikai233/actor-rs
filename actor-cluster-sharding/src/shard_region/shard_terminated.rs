@@ -1,20 +1,20 @@
 use async_trait::async_trait;
 use tracing::debug;
 
+use actor_core::{DynMessage, Message};
 use actor_core::actor::context::ActorContext;
-use actor_core::actor_ref::ActorRef;
-use actor_core::Message;
+use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::message::terminated::Terminated;
 use actor_derive::EmptyCodec;
 
 use crate::shard_region::ShardRegion;
 
 #[derive(Debug, EmptyCodec)]
-pub(super) struct ShardTerminated(pub(super) ActorRef);
+pub(super) struct ShardTerminated(pub(super) Terminated);
 
-impl Terminated for ShardTerminated {
-    fn actor(&self) -> &ActorRef {
-        &self.0
+impl ShardTerminated {
+    pub(super) fn new(terminated: Terminated) -> DynMessage {
+        Self(terminated).into_dyn()
     }
 }
 

@@ -16,3 +16,4 @@ pub mod dead_letter_listener;
 pub mod extension;
 pub mod coordinated_shutdown;
 pub mod directive;
+mod watching;

@@ -6,7 +6,6 @@ use actor_derive::MessageCodec;
 use crate::actor::context::ActorContext;
 use crate::actor_ref::ActorRef;
 use crate::Message;
-use crate::message::terminated::Terminated;
 use crate::routing::router_actor::RouterActor;
 
 #[derive(Decode, Encode, MessageCodec)]
@@ -19,11 +18,5 @@ impl Message for RouteeTerminated {
     async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         let terminated_routee = self.0;
         todo!()
-    }
-}
-
-impl Terminated for RouteeTerminated {
-    fn actor(&self) -> &ActorRef {
-        &self.0
     }
 }

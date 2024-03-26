@@ -70,8 +70,7 @@ impl HandoffStopper {
             context.myself().clone(),
         );
         for entity in &entities {
-            let entity_terminated = EntityTerminated(entity.clone());
-            context.watch(entity_terminated);
+            context.watch(entity.clone(), EntityTerminated::new)?;
             entity.tell(stop_message.dyn_clone()?, ActorRef::no_sender());
         }
         let stopper = Self {

@@ -401,7 +401,7 @@ impl ShardRegion {
                             self.handoff_stop_message.dyn_clone()?,
                         );
                         let shard = context.spawn(shard_props, id.deref())?;
-                        context.watch(ShardTerminated(shard.clone()));
+                        context.watch(shard.clone(), ShardTerminated::new)?;
                         self.shards_by_ref.insert(shard.clone(), id.clone());
                         self.shards.insert(id.clone(), shard.clone());
                         self.starting_shards.insert(id);
@@ -483,7 +483,7 @@ impl ShardRegion {
         }
         if &shard_region_ref != context.myself() {
             if context.is_watching(&shard_region_ref).not() {
-                context.watch(ShardRegionTerminated(shard_region_ref.clone()));
+                context.watch(shard_region_ref.clone(), ShardRegionTerminated::new)?;
             }
         }
         if &shard_region_ref == context.myself() {

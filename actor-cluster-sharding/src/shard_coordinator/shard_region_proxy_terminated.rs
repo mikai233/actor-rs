@@ -1,19 +1,19 @@
 use async_trait::async_trait;
 
+use actor_core::{DynMessage, Message};
 use actor_core::actor::context::ActorContext;
-use actor_core::actor_ref::ActorRef;
-use actor_core::Message;
+use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::message::terminated::Terminated;
 use actor_derive::EmptyCodec;
 
 use crate::shard_coordinator::ShardCoordinator;
 
 #[derive(Debug, EmptyCodec)]
-pub(super) struct ShardRegionProxyTerminated(pub(super) ActorRef);
+pub(super) struct ShardRegionProxyTerminated(pub(super) Terminated);
 
-impl Terminated for ShardRegionProxyTerminated {
-    fn actor(&self) -> &ActorRef {
-        &self.0
+impl ShardRegionProxyTerminated {
+    pub(super) fn new(terminated: Terminated) -> DynMessage {
+        Self(terminated).into_dyn()
     }
 }
 
@@ -22,7 +22,7 @@ impl Message for ShardRegionProxyTerminated {
     type A = ShardCoordinator;
 
     async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.region_proxy_terminated(self.0);
+        actor.region_proxy_terminated(self.0.actor);
         Ok(())
     }
 }

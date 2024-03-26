@@ -60,7 +60,7 @@ impl Message for Handoff {
                                 Duration::from_secs(5),
                             ),
                             "handoff_stopper")?;
-                        context.watch(HandoffStopperTerminated(stopper.clone()));
+                        context.watch(stopper.clone(), HandoffStopperTerminated::new)?;
                         actor.handoff_stopper = Some(stopper);
                     } else {
                         let reply_to = context.sender().into_result().context(type_name_of::<Handoff>())?;

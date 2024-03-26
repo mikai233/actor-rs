@@ -18,7 +18,7 @@ impl Message for ActorIdentityWrap {
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if let Some(singleton) = self.0.actor_ref {
             if !context.is_watching(&singleton) {
-                context.watch(SingletonTerminated(singleton.clone()));
+                context.watch(singleton.clone(), SingletonTerminated::new)?;
             }
             actor.singleton = Some(singleton);
             actor.cancel_timer();

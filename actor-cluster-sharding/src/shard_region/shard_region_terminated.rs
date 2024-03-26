@@ -2,20 +2,20 @@ use async_trait::async_trait;
 use itertools::Itertools;
 use tracing::debug;
 
+use actor_core::{DynMessage, Message};
 use actor_core::actor::context::ActorContext;
-use actor_core::actor_ref::ActorRef;
-use actor_core::Message;
+use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::message::terminated::Terminated;
 use actor_derive::EmptyCodec;
 
 use crate::shard_region::ShardRegion;
 
 #[derive(Debug, EmptyCodec)]
-pub(super) struct ShardRegionTerminated(pub(super) ActorRef);
+pub(super) struct ShardRegionTerminated(pub(super) Terminated);
 
-impl Terminated for ShardRegionTerminated {
-    fn actor(&self) -> &ActorRef {
-        &self.0
+impl ShardRegionTerminated {
+    pub(super) fn new(terminated: Terminated) -> DynMessage {
+        Self(terminated).into_dyn()
     }
 }
 
@@ -24,7 +24,7 @@ impl Message for ShardRegionTerminated {
     type A = ShardRegion;
 
     async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let shard_region = self.0;
+        let shard_region = self.0.actor;
         if actor.regions.contains_key(&shard_region) {
             if let Some(shards) = actor.regions.remove(&shard_region) {
                 for shard in &shards {

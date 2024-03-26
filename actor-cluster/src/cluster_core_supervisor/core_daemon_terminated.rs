@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use tracing::debug;
 
+use actor_core::{DynMessage, Message};
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor_ref::ActorRef;
+use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::ext::type_name_of;
-use actor_core::Message;
 use actor_core::message::terminated::Terminated;
 use actor_derive::EmptyCodec;
 
@@ -12,11 +12,11 @@ use crate::cluster_core_daemon::ClusterCoreDaemon;
 use crate::cluster_core_supervisor::ClusterCoreSupervisor;
 
 #[derive(Debug, EmptyCodec)]
-pub(super) struct CoreDaemonTerminated(pub(super) ActorRef);
+pub(super) struct CoreDaemonTerminated(pub(super) Terminated);
 
-impl Terminated for CoreDaemonTerminated {
-    fn actor(&self) -> &ActorRef {
-        &self.0
+impl CoreDaemonTerminated {
+    pub(super) fn new(terminated: Terminated) -> DynMessage {
+        Self(terminated).into_dyn()
     }
 }
 

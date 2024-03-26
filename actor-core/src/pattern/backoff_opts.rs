@@ -118,7 +118,7 @@ impl BackoffOnStopOptionsImpl {
     }
 
     fn with_max_nr_of_retries(&self, max_nr_of_retries: i32) -> Self {
-        let mut myself = self.clone();
+        let myself = self.clone();
         myself
     }
 

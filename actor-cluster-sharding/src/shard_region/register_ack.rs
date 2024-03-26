@@ -22,7 +22,7 @@ impl Message for RegisterAck {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if context.is_watching(&self.coordinator).not() {
-            context.watch(CoordinatorTerminated(self.coordinator.clone()));
+            context.watch(self.coordinator.clone(), CoordinatorTerminated::new)?;
         }
         actor.coordinator = Some(self.coordinator);
         actor.finish_registration();

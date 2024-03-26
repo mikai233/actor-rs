@@ -21,7 +21,7 @@ impl Message for LockSuccess {
         actor.lock_key = Some(self.0);
         match context.spawn(actor.singleton_props.props(()), actor.singleton_name()) {
             Ok(singleton) => {
-                context.watch(SingletonTerminated(singleton.clone()));
+                context.watch(singleton.clone(), SingletonTerminated::new)?;
                 info!("singleton manager start singleton actor {}", singleton);
                 actor.singleton = Some(singleton);
             }

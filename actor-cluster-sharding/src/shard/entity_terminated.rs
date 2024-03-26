@@ -3,9 +3,9 @@ use std::ops::Not;
 use async_trait::async_trait;
 use tracing::{debug, warn};
 
+use actor_core::{DynMessage, Message};
 use actor_core::actor::context::ActorContext;
-use actor_core::actor_ref::ActorRef;
-use actor_core::Message;
+use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::message::terminated::Terminated;
 use actor_derive::EmptyCodec;
 
@@ -13,11 +13,11 @@ use crate::shard::entity_state::EntityState;
 use crate::shard::Shard;
 
 #[derive(Debug, EmptyCodec)]
-pub(super) struct EntityTerminated(pub(super) ActorRef);
+pub(super) struct EntityTerminated(pub(super) Terminated);
 
-impl Terminated for EntityTerminated {
-    fn actor(&self) -> &ActorRef {
-        &self.0
+impl EntityTerminated {
+    pub(super) fn new(terminated: Terminated) -> DynMessage {
+        Self(terminated).into_dyn()
     }
 }
 
@@ -26,7 +26,7 @@ impl Message for EntityTerminated {
     type A = Shard;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let entity = self.0;
+        let entity = self.0.actor;
         match actor.entities.entity_id(&entity) {
             None => {
                 warn!("{}: Unexpected entity terminated: {}", actor.type_name, entity);

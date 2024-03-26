@@ -41,7 +41,7 @@ impl Message for Register {
                 actor.inform_about_current_shards(&region);
                 actor.update(StateUpdate::ShardRegionRegistered { region: region.clone() });
                 if context.is_watching(&region).not() {
-                    context.watch(ShardRegionTerminated(region.clone()));
+                    context.watch(region.clone(), ShardRegionTerminated::new)?;
                 }
                 region.cast_ns(RegisterAck { coordinator: context.myself().clone() });
             }

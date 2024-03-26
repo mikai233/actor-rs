@@ -1,4 +1,5 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
+use std::fmt::Debug;
 use std::future::Future;
 use std::ops::Not;
 use std::sync::Arc;
@@ -13,6 +14,7 @@ use crate::{Actor, CodecMessage, DynMessage, Message};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::props::Props;
 use crate::actor::state::ActorState;
+use crate::actor::watching::Watching;
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_path::child_actor_path::ChildActorPath;
 use crate::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt};
@@ -43,7 +45,9 @@ pub trait Context: ActorRefFactory {
 
     fn parent(&self) -> Option<&ActorRef>;
 
-    fn watch<T>(&mut self, terminated: T) where T: Terminated;
+    fn watch<F>(&mut self, watchee: ActorRef, termination: F) -> anyhow::Result<()>
+        where
+            F: FnOnce(Terminated) -> DynMessage + Send + 'static;
 
     fn unwatch(&mut self, subject: &ActorRef);
 
@@ -71,7 +75,7 @@ pub struct ActorContext {
     pub(crate) stash: VecDeque<Envelope>,
     pub(crate) fut_handle: Vec<JoinHandle<()>>,
     pub(crate) system: ActorSystem,
-    pub(crate) watching: HashMap<ActorRef, DynMessage>,
+    pub(crate) watching: Watching,
     pub(crate) watched_by: HashSet<ActorRef>,
     pub(crate) handle: Option<Handle>,
     pub(crate) stash_capacity: Option<usize>,
@@ -146,10 +150,11 @@ impl Context for ActorContext {
         self.myself().local().unwrap().cell.parent()
     }
 
-    fn watch<T>(&mut self, terminated: T) where T: Terminated {
-        let watchee = terminated.actor().clone();
+    fn watch<F>(&mut self, watchee: ActorRef, termination: F) -> anyhow::Result<()>
+        where
+            F: FnOnce(Terminated) -> DynMessage + Send + 'static
+    {
         if &watchee != self.myself() {
-            let message = DynMessage::user(terminated);
             match self.watching.get(&watchee) {
                 None => {
                     let watch = Watch {
@@ -157,14 +162,16 @@ impl Context for ActorContext {
                         watcher: self.myself.clone(),
                     };
                     watchee.cast_system(watch, ActorRef::no_sender());
-                    self.watching.insert(watchee, message);
+                    self.watching.insert(watchee, Box::new(termination));
                 }
-                Some(previous) => {
-                    warn!("drop previous watch message {} and insert new watch message {}", previous.name(), message.name());
-                    self.watching.insert(watchee, message);
+                Some(_) => {
+                    return Err(anyhow!("duplicate watch {}, you should unwatch it first.", watchee));
                 }
             }
+        } else {
+            return Err(anyhow!("cannot watch self"));
         }
+        Ok(())
     }
 
     fn unwatch(&mut self, subject: &ActorRef) {
@@ -213,11 +220,11 @@ impl ActorContext {
             state: ActorState::Init,
             myself,
             sender: None,
-            stash: VecDeque::new(),
+            stash: Default::default(),
             fut_handle: vec![],
             system,
-            watching: HashMap::new(),
-            watched_by: HashSet::new(),
+            watching: Default::default(),
+            watched_by: Default::default(),
             handle,
             stash_capacity: None,
         }
@@ -284,15 +291,29 @@ impl ActorContext {
         self.state = ActorState::CanTerminate;
     }
 
-    pub(crate) fn watched_actor_terminated(&mut self, watching_actor: ActorRef) {
-        debug!("{} watched actor {} terminated", self.myself, watching_actor);
-        if let Some(watch_terminated) = self.watching.remove(&watching_actor) {
+    pub(crate) fn watched_actor_terminated(
+        &mut self,
+        actor: ActorRef,
+        existence_confirmed: bool,
+        address_terminated: bool,
+    ) {
+        debug!("{} watched actor {} terminated", self.myself, actor);
+        if let Some(termination) = self.watching.remove(&actor) {
+            // maintainAddressTerminatedSubscription(actor) {
+            //     watching -= actor
+            // }
+            //TODO
             if !matches!(self.state, ActorState::Terminating) {
-                self.myself.tell(watch_terminated, None);
+                let terminated = Terminated {
+                    actor: actor.clone(),
+                    existence_confirmed,
+                    address_terminated,
+                };
+                self.myself.tell(termination(terminated), None);
             }
         }
-        if self.myself.local().unwrap().children().get(watching_actor.path().name()).is_some() {
-            self.handle_child_terminated(watching_actor);
+        if self.myself.local().unwrap().children().get(actor.path().name()).is_some() {
+            self.handle_child_terminated(actor);
         }
     }
 

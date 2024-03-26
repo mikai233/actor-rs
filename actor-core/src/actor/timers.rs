@@ -19,6 +19,7 @@ use crate::actor::context::{ActorContext, Context};
 use crate::actor::props::Props;
 use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
+use crate::ext::message_ext::UserMessageExt;
 use crate::message::terminated::Terminated;
 
 #[derive(Debug)]
@@ -45,18 +46,19 @@ impl TimersActor {
         context: &mut ActorContext,
         receiver: &ActorRef,
         index: u64,
-    ) {
+    ) -> anyhow::Result<()> {
         match watching_receivers.entry(receiver.clone()) {
             Entry::Occupied(mut o) => {
                 o.get_mut().insert(index);
             }
             Entry::Vacant(v) => {
-                context.watch(ReceiverTerminated(receiver.clone()));
+                context.watch(receiver.clone(), ReceiverTerminated::new)?;
                 let mut indexes = HashSet::new();
                 indexes.insert(index);
                 v.insert(indexes);
             }
         }
+        Ok(())
     }
     fn unwatch_receiver(
         watching_receivers: &mut HashMap<ActorRef, HashSet<u64>>,
@@ -143,14 +145,14 @@ impl Message for Schedule {
             Schedule::Once { index, delay, receiver, .. } => {
                 let index = *index;
                 let delay = *delay;
-                TimersActor::watch_receiver(&mut actor.watching_receivers, context, receiver, index);
+                TimersActor::watch_receiver(&mut actor.watching_receivers, context, receiver, index)?;
                 self.once(actor, index, delay);
             }
             Schedule::FixedDelay { index, initial_delay, interval, receiver, .. } => {
                 let index = *index;
                 let initial_delay = *initial_delay;
                 let interval = *interval;
-                TimersActor::watch_receiver(&mut actor.watching_receivers, context, receiver, index);
+                TimersActor::watch_receiver(&mut actor.watching_receivers, context, receiver, index)?;
                 self.fixed_delay(actor, index, initial_delay, interval);
             }
             Schedule::OnceWith { index, delay, .. } => {
@@ -341,29 +343,30 @@ impl Message for PollExpired {
 }
 
 #[derive(Debug, EmptyCodec)]
-struct ReceiverTerminated(ActorRef);
+struct ReceiverTerminated(Terminated);
+
+impl ReceiverTerminated {
+    pub(super) fn new(terminated: Terminated) -> DynMessage {
+        Self(terminated).into_dyn()
+    }
+}
 
 #[async_trait]
 impl Message for ReceiverTerminated {
     type A = TimersActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        if let Some(indexes) = actor.watching_receivers.remove(&self.0) {
+        let watchee = self.0.actor;
+        if let Some(indexes) = actor.watching_receivers.remove(&watchee) {
             for index in &indexes {
                 if let Some(key) = actor.index.remove(&index) {
                     actor.queue.try_remove(&key);
                 }
             }
             let indexes = indexes.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(", ");
-            trace!("{} watch receiver {} stopped, stop associated timers {:?}", context.myself(), self.0, indexes);
+            trace!("{} watch receiver {} stopped, stop associated timers {:?}", context.myself(), watchee, indexes);
         }
         Ok(())
-    }
-}
-
-impl Terminated for ReceiverTerminated {
-    fn actor(&self) -> &ActorRef {
-        &self.0
     }
 }
 
