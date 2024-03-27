@@ -23,6 +23,7 @@ use crate::actor_ref::function_ref::{FunctionRef, Inner};
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::cell::Cell;
 use crate::cell::envelope::Envelope;
+use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::ext::{random_name, type_name_of};
 use crate::ext::option_ext::OptionExt;
 use crate::message::death_watch_notification::DeathWatchNotification;
@@ -157,12 +158,14 @@ impl Context for ActorContext {
         if &watchee != self.myself() {
             match self.watching.get(&watchee) {
                 None => {
-                    let watch = Watch {
-                        watchee: watchee.clone(),
-                        watcher: self.myself.clone(),
-                    };
-                    watchee.cast_system(watch, ActorRef::no_sender());
-                    self.watching.insert(watchee, Box::new(termination));
+                    self.maintain_address_terminated_subscription(Some(&watchee), |ctx| {
+                        let watch = Watch {
+                            watchee: watchee.clone(),
+                            watcher: ctx.myself.clone(),
+                        };
+                        watchee.cast_system(watch, ActorRef::no_sender());
+                        ctx.watching.insert(watchee.clone(), Box::new(termination));
+                    });
                 }
                 Some(_) => {
                     return Err(anyhow!("duplicate watch {}, you should unwatch it first.", watchee));
@@ -175,16 +178,14 @@ impl Context for ActorContext {
     }
 
     fn unwatch(&mut self, subject: &ActorRef) {
-        if &self.myself != subject && self.watching.remove(subject).is_some() {
+        if &self.myself != subject && self.watching.contains_key(subject) {
             let watchee = subject.clone();
             let watcher = self.myself.clone();
-            if self.myself.path().address() == subject.path().address() {
-                subject.cast_system(Unwatch { watchee, watcher }, ActorRef::no_sender());
-            } else {
-                self.provider()
-                    .resolve_actor_ref_of_path(subject.path())
-                    .cast_system(Unwatch { watchee, watcher }, ActorRef::no_sender());
-            }
+            let unwatch = Unwatch { watchee, watcher };
+            subject.cast_system(unwatch, ActorRef::no_sender());
+            self.maintain_address_terminated_subscription(Some(subject), |ctx| {
+                ctx.watching.remove(subject);
+            });
         }
     }
 
@@ -298,11 +299,10 @@ impl ActorContext {
         address_terminated: bool,
     ) {
         debug!("{} watched actor {} terminated", self.myself, actor);
-        if let Some(termination) = self.watching.remove(&actor) {
-            // maintainAddressTerminatedSubscription(actor) {
-            //     watching -= actor
-            // }
-            //TODO
+        if self.watching.contains_key(&actor) {
+            let termination = self.maintain_address_terminated_subscription(Some(&actor), |ctx| {
+                ctx.watching.remove(&actor).unwrap()
+            });
             if !matches!(self.state, ActorState::Terminating) {
                 let terminated = Terminated {
                     actor: actor.clone(),
@@ -326,8 +326,11 @@ impl ActorContext {
     }
 
     fn tell_watchers_we_died(&mut self) {
-        self.watched_by.drain().for_each(|watcher| {
-            if self.myself.parent().map(|p| *p != watcher).unwrap_or(true) {
+        let (local_watchers, remote_watchers): (Vec<_>, Vec<_>) = self.watched_by
+            .iter()
+            .partition(|w| { &self.system().address() == w.path().address() });
+        remote_watchers.iter().chain(&local_watchers).for_each(|watcher| {
+            if self.myself.parent().map(|p| &p != watcher).unwrap_or(true) {
                 let myself = self.myself.clone();
                 debug!("{} tell watcher {} we died", myself, watcher);
                 let notification = DeathWatchNotification {
@@ -338,14 +341,19 @@ impl ActorContext {
                 watcher.cast_system(notification, ActorRef::no_sender());
             }
         });
+        self.maintain_address_terminated_subscription(None, |ctx| {
+            ctx.watched_by.clear();
+        });
     }
 
     fn unwatch_watched_actors(&mut self) {
-        self.watching.drain().for_each(|(actor, _)| {
-            let watchee = actor.clone();
-            let watcher = self.myself.clone();
-            actor.cast_system(Unwatch { watchee, watcher }, ActorRef::no_sender());
-        })
+        self.maintain_address_terminated_subscription(None, |ctx| {
+            ctx.watching.drain().for_each(|(actor, _)| {
+                let watchee = actor.clone();
+                let watcher = ctx.myself.clone();
+                actor.cast_system(Unwatch { watchee, watcher }, ActorRef::no_sender());
+            });
+        });
     }
 
     pub fn spawn_fut<F>(&mut self, future: F) -> AbortHandle
@@ -416,5 +424,36 @@ impl ActorContext {
         self.parent().foreach(move |p| {
             p.cast_system(Failed { child, error }, ActorRef::no_sender());
         });
+    }
+
+    pub(crate) fn maintain_address_terminated_subscription<F, T>(&mut self, change: Option<&ActorRef>, block: F) -> T
+        where
+            F: FnOnce(&mut Self) -> T
+    {
+        fn is_non_local(system: &ActorSystem, actor: Option<&ActorRef>) -> bool {
+            match actor {
+                None => true,
+                Some(actor) => {
+                    actor.path().address() != &system.address()
+                }
+            }
+        }
+        fn has_non_local_address(ctx: &ActorContext) -> bool {
+            ctx.watching.keys().any(|w| { is_non_local(ctx.system(), Some(w)) })
+                || ctx.watched_by.iter().any(|w| { is_non_local(ctx.system(), Some(w)) })
+        }
+        if is_non_local(self.system(), change) {
+            let had = has_non_local_address(self);
+            let result = block(self);
+            let has = has_non_local_address(self);
+            if had && !has {
+                AddressTerminatedTopic::get(self.system()).unsubscribe(self.myself());
+            } else {
+                AddressTerminatedTopic::get(self.system()).subscribe(self.myself().clone());
+            }
+            result
+        } else {
+            block(self)
+        }
     }
 }

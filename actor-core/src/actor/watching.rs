@@ -7,7 +7,7 @@ use crate::DynMessage;
 use crate::message::terminated::Terminated;
 
 #[derive(Default)]
-pub(super) struct Watching(HashMap<ActorRef, Box<dyn FnOnce(Terminated) -> DynMessage + Send>>);
+pub(crate) struct Watching(HashMap<ActorRef, Box<dyn FnOnce(Terminated) -> DynMessage + Send>>);
 
 impl Deref for Watching {
     type Target = HashMap<ActorRef, Box<dyn FnOnce(Terminated) -> DynMessage + Send>>;

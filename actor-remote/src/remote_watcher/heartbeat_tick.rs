@@ -36,15 +36,15 @@ impl Message for HeartbeatTick {
                 let msg = ExpectedFirstHeartbeat {
                     from: addr.clone(),
                 };
-                let elements = myself.path().elements();
-                let elements_str = elements.iter().map(|e| e.as_str());
-                let path = RootActorPath::new(addr.clone(), "/").descendant(elements_str);
-                let selection = context.actor_selection(ActorSelectionPath::FullPath(path))?;
-                selection.tell(ArteryHeartbeat.into_dyn(), Some(context.myself().clone()));
                 context.system().scheduler.schedule_once(actor.heartbeat_expected_response_after, move || {
                     myself.cast_ns(msg);
                 });
             }
+            let elements = context.myself().path().elements();
+            let elements_str = elements.iter().map(|e| e.as_str());
+            let path = RootActorPath::new(addr.clone(), "/").descendant(elements_str);
+            let selection = context.actor_selection(ActorSelectionPath::FullPath(path))?;
+            selection.tell(ArteryHeartbeat.into_dyn(), Some(context.myself().clone()));
         }
         Ok(())
     }
