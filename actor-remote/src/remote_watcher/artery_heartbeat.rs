@@ -3,12 +3,12 @@ use bincode::{Decode, Encode};
 
 use actor_core::actor::context::ActorContext;
 use actor_core::Message;
-use actor_derive::MessageCodec;
+use actor_derive::CMessageCodec;
 
 use crate::remote_watcher::RemoteWatcher;
 
-#[derive(Debug, Encode, Decode, MessageCodec)]
-pub(super) struct ArteryHeartbeat;
+#[derive(Debug, Clone, Encode, Decode, CMessageCodec)]
+pub(crate) struct ArteryHeartbeat;
 
 #[async_trait]
 impl Message for ArteryHeartbeat {

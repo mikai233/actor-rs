@@ -8,9 +8,9 @@ use actor_derive::EmptyCodec;
 use crate::remote_watcher::RemoteWatcher;
 
 #[derive(Debug, EmptyCodec)]
-pub(super) struct UnwatchRemote {
-    pub(super) watchee: ActorRef,
-    pub(super) watcher: ActorRef,
+pub(crate) struct UnwatchRemote {
+    pub(crate) watchee: ActorRef,
+    pub(crate) watcher: ActorRef,
 }
 
 #[async_trait]

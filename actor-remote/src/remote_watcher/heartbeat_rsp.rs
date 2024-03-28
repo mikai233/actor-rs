@@ -8,7 +8,7 @@ use actor_derive::MessageCodec;
 use crate::remote_watcher::RemoteWatcher;
 
 #[derive(Debug, Encode, Decode, MessageCodec)]
-pub(super) struct HeartbeatRsp {
+pub(crate) struct HeartbeatRsp {
     address_uid: i64,
 }
 

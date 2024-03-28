@@ -1,5 +1,4 @@
 use std::fmt::Debug;
-use std::sync::Arc;
 
 use tokio::sync::broadcast::Receiver;
 
@@ -10,8 +9,7 @@ use crate::actor::props::Props;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::message::message_registration::MessageRegistration;
-use crate::provider::{ActorRefProvider, TActorRefProvider};
+use crate::provider::{ActorRefProvider, cast_self_to_dyn, TActorRefProvider};
 
 #[derive(Debug, Default, Clone, Copy, AsAny)]
 pub(crate) struct EmptyActorRefProvider;
@@ -69,12 +67,12 @@ impl TActorRefProvider for EmptyActorRefProvider {
         unimplemented!()
     }
 
-    fn registration(&self) -> Option<&Arc<MessageRegistration>> {
-        None
-    }
-
     fn termination_rx(&self) -> Receiver<()> {
         unimplemented!()
+    }
+
+    fn as_provider(&self, name: &str) -> Option<&dyn TActorRefProvider> {
+        cast_self_to_dyn(name, self)
     }
 }
 

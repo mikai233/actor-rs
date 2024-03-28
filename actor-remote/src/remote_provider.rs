@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Context;
 use tokio::sync::broadcast::Receiver;
@@ -15,6 +16,7 @@ use actor_core::actor_ref::local_ref::LocalActorRef;
 use actor_core::CodecMessage;
 use actor_core::config::Config;
 use actor_core::ext::option_ext::OptionExt;
+use actor_core::ext::type_name_of;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::provider::local_actor_ref_provider::LocalActorRefProvider;
@@ -23,9 +25,16 @@ use actor_derive::AsAny;
 use crate::{REMOTE_CONFIG, REMOTE_CONFIG_NAME};
 use crate::config::RemoteConfig;
 use crate::config::transport::Transport;
+use crate::failure_detector::default_failure_detector_registry::DefaultFailureDetectorRegistry;
+use crate::failure_detector::phi_accrual_failure_detector::PhiAccrualFailureDetector;
 use crate::net::tcp_transport::TcpTransportActor;
 use crate::remote_actor_ref::RemoteActorRef;
 use crate::remote_setting::RemoteSetting;
+use crate::remote_watcher::artery_heartbeat::ArteryHeartbeat;
+use crate::remote_watcher::artery_heartbeat_rsp::ArteryHeartbeatRsp;
+use crate::remote_watcher::heartbeat::Heartbeat;
+use crate::remote_watcher::heartbeat_rsp::HeartbeatRsp;
+use crate::remote_watcher::RemoteWatcher;
 
 #[derive(Debug, AsAny)]
 pub struct RemoteActorRefProvider {
@@ -33,6 +42,7 @@ pub struct RemoteActorRefProvider {
     pub address: Address,
     pub transport: ActorRef,
     pub registration: Arc<MessageRegistration>,
+    pub remote_watcher: ActorRef,
 }
 
 impl RemoteActorRefProvider {
@@ -41,7 +51,8 @@ impl RemoteActorRefProvider {
     }
 
     pub fn new(setting: RemoteSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
-        let RemoteSetting { system, config, reg } = setting;
+        let RemoteSetting { system, config, mut reg } = setting;
+        Self::register_system_message(&mut reg);
         let default_config: RemoteConfig = toml::from_str(REMOTE_CONFIG).context(format!("failed to load {}", REMOTE_CONFIG_NAME))?;
         let remote_config = config.with_fallback(default_config);
         let transport = remote_config.transport.clone();
@@ -56,17 +67,22 @@ impl RemoteActorRefProvider {
             Transport::Kcp(_) => {
                 unimplemented!("kcp transport not unimplemented");
             }
+            Transport::Quic(_) => {
+                unimplemented!("quic transport not unimplemented");
+            }
         };
         system.add_config(remote_config)?;
-
         let (local, mut spawns) = LocalActorRefProvider::new(system.downgrade(), Some(address.clone()))?;
         let (transport, deferred) = RemoteActorRefProvider::spawn_transport(&local, transport)?;
         spawns.push(Box::new(deferred));
+        let (remote_watcher, remote_watcher_deferred) = Self::create_remote_watcher(&local)?;
+        spawns.push(Box::new(remote_watcher_deferred));
         let remote = Self {
             local,
             address,
             transport,
             registration: Arc::new(reg),
+            remote_watcher,
         };
         Ok((remote, spawns))
     }
@@ -88,11 +104,43 @@ impl RemoteActorRefProvider {
             Transport::Kcp(_) => {
                 unimplemented!("kcp transport not unimplemented");
             }
+            Transport::Quic(_) => {
+                unimplemented!("quic transport not unimplemented");
+            }
         }
     }
 
     fn has_address(&self, address: &Address) -> bool {
         address == self.local.root_path().address() || address == self.root_path().address() || address == &self.address
+    }
+
+    fn create_remote_watcher(provider: &LocalActorRefProvider) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
+        provider.system_guardian()
+            .attach_child_deferred_start(
+                RemoteWatcher::props(Self::create_remote_watcher_failure_detector()),
+                Some("remote_watcher".to_string()),
+                None,
+            )
+    }
+
+    fn create_remote_watcher_failure_detector() -> DefaultFailureDetectorRegistry<Address> {
+        DefaultFailureDetectorRegistry::new(|| {
+            let detector = PhiAccrualFailureDetector::new(
+                10.0,
+                200,
+                Duration::from_millis(100),
+                Duration::from_secs(10),
+                Duration::from_secs(1),
+            );
+            Box::new(detector)
+        })
+    }
+
+    fn register_system_message(reg: &mut MessageRegistration) {
+        reg.register_system::<ArteryHeartbeat>();
+        reg.register_system::<ArteryHeartbeatRsp>();
+        reg.register_system::<Heartbeat>();
+        reg.register_system::<HeartbeatRsp>();
     }
 }
 
@@ -110,6 +158,7 @@ impl TActorRefProvider for RemoteActorRefProvider {
                 RootActorPath::new(address.clone(), "/").into(),
                 self.transport.clone(),
                 self.registration.clone(),
+                self.remote_watcher.clone(),
             );
             remote.into()
         }
@@ -161,6 +210,7 @@ impl TActorRefProvider for RemoteActorRefProvider {
                 path.clone(),
                 self.transport.clone(),
                 self.registration.clone(),
+                self.remote_watcher.clone(),
             );
             remote.into()
         }
@@ -170,12 +220,18 @@ impl TActorRefProvider for RemoteActorRefProvider {
         &self.local.dead_letters()
     }
 
-    fn registration(&self) -> Option<&Arc<MessageRegistration>> {
-        Some(&self.registration)
-    }
-
     fn termination_rx(&self) -> Receiver<()> {
         self.local.termination_rx()
+    }
+
+    fn as_provider(&self, name: &str) -> Option<&dyn TActorRefProvider> {
+        if name == type_name_of::<Self>() {
+            Some(self)
+        } else if name == type_name_of::<LocalActorRefProvider>() {
+            Some(&self.local)
+        } else {
+            None
+        }
     }
 }
 

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub enum Transport {
     Tcp(TcpTransport),
     Kcp(KcpTransport),
+    Quic(QuicTransport),
 }
 
 impl Transport {
@@ -13,6 +14,7 @@ impl Transport {
         match self {
             Transport::Tcp(tcp) => tcp.name(),
             Transport::Kcp(kcp) => kcp.name(),
+            Transport::Quic(quic) => quic.name(),
         }
     }
 
@@ -39,5 +41,15 @@ pub struct KcpTransport {}
 impl KcpTransport {
     pub fn name(&self) -> &'static str {
         "kcp"
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuicTransport {}
+
+impl QuicTransport {
+    pub fn name(&self) -> &'static str {
+        "quic"
     }
 }

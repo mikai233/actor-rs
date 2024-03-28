@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use dashmap::DashMap;
@@ -20,8 +19,7 @@ use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::cell::actor_cell::ActorCell;
 use crate::ext::base64;
-use crate::message::message_registration::MessageRegistration;
-use crate::provider::{ActorRefProvider, TActorRefProvider};
+use crate::provider::{ActorRefProvider, cast_self_to_dyn, TActorRefProvider};
 
 #[derive(Debug, AsAny)]
 pub struct LocalActorRefProvider {
@@ -192,12 +190,12 @@ impl TActorRefProvider for LocalActorRefProvider {
         &self.dead_letters
     }
 
-    fn registration(&self) -> Option<&Arc<MessageRegistration>> {
-        None
-    }
-
     fn termination_rx(&self) -> Receiver<()> {
         self.termination_tx.subscribe()
+    }
+
+    fn as_provider(&self, name: &str) -> Option<&dyn TActorRefProvider> {
+        cast_self_to_dyn(name, self)
     }
 }
 

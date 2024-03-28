@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::future::Future;
 use std::ops::Not;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::anyhow;
 use arc_swap::Guard;
@@ -70,6 +71,7 @@ pub trait ContextExt: Context {
 
 #[derive(Debug)]
 pub struct ActorContext {
+    pub(crate) id: usize,
     pub(crate) state: ActorState,
     pub(crate) myself: ActorRef,
     pub(crate) sender: Option<ActorRef>,
@@ -217,7 +219,9 @@ impl Context for ActorContext {
 
 impl ActorContext {
     pub(crate) fn new(myself: ActorRef, system: ActorSystem, handle: Option<Handle>) -> Self {
+        static ID: AtomicUsize = AtomicUsize::new(0);
         Self {
+            id: ID.fetch_add(1, Ordering::Relaxed),
             state: ActorState::Init,
             myself,
             sender: None,
@@ -447,8 +451,10 @@ impl ActorContext {
             let result = block(self);
             let has = has_non_local_address(self);
             if had && !has {
+                debug!("unsubscribe {}", self.myself());
                 AddressTerminatedTopic::get(self.system()).unsubscribe(self.myself());
             } else {
+                debug!("subscribe {}", self.myself());
                 AddressTerminatedTopic::get(self.system()).subscribe(self.myself().clone());
             }
             result

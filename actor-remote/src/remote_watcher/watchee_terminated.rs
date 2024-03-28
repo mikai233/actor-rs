@@ -3,7 +3,9 @@ use tracing::debug;
 
 use actor_core::{DynMessage, Message};
 use actor_core::actor::context::ActorContext;
+use actor_core::actor_ref::{ActorRef, ActorRefSystemExt};
 use actor_core::ext::message_ext::UserMessageExt;
+use actor_core::message::death_watch_notification::DeathWatchNotification;
 use actor_core::message::terminated::Terminated;
 use actor_derive::EmptyCodec;
 
@@ -23,8 +25,21 @@ impl Message for WatcheeTerminated {
     type A = RemoteWatcher;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let watchee = self.0.actor;
+        let Terminated { actor: watchee, existence_confirmed, address_terminated } = self.0;
         debug!("Watchee terminated: [{}]", watchee.path());
-        todo!()
+        if !address_terminated {
+            if let Some(watchers) = actor.watching.get(&watchee) {
+                let notify = DeathWatchNotification {
+                    actor: watchee.clone(),
+                    existence_confirmed,
+                    address_terminated,
+                };
+                for watcher in watchers {
+                    watcher.cast_system(notify.clone(), ActorRef::no_sender());
+                }
+            }
+        }
+        actor.remove_watchee(&watchee);
+        Ok(())
     }
 }

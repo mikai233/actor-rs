@@ -6,9 +6,13 @@ use bincode::error::{DecodeError, EncodeError};
 
 use crate::{CodecMessage, DynMessage};
 use crate::actor::actor_selection::ActorSelectionMessage;
+use crate::message::address_terminated::AddressTerminated;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::identify::{ActorIdentity, Identify};
 use crate::message::MessageDecoder;
+use crate::message::poison_pill::PoisonPill;
+use crate::message::resume::Resume;
+use crate::message::suspend::Suspend;
 use crate::message::terminate::Terminate;
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
@@ -92,12 +96,16 @@ impl MessageRegistration {
     }
 
     fn register_all_system_message(&mut self) {
+        self.register_system::<AddressTerminated>();
         self.register_system::<DeathWatchNotification>();
-        self.register_system::<Terminate>();
-        self.register_system::<Watch>();
-        self.register_system::<Unwatch>();
-        self.register_system::<ActorSelectionMessage>();
         self.register_system::<Identify>();
         self.register_system::<ActorIdentity>();
+        self.register_system::<PoisonPill>();
+        self.register_system::<Resume>();
+        self.register_system::<Suspend>();
+        self.register_system::<Terminate>();
+        self.register_system::<Unwatch>();
+        self.register_system::<Watch>();
+        self.register_system::<ActorSelectionMessage>();
     }
 }

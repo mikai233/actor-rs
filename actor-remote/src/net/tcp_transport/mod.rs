@@ -20,7 +20,7 @@ use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::decode_bytes;
 use actor_core::message::message_buffer::MessageBufferMap;
 use actor_core::message::message_registration::MessageRegistration;
-use actor_core::provider::ActorRefProvider;
+use actor_core::provider::{ActorRefProvider, downcast_provider};
 
 use crate::config::transport::TcpTransport;
 use crate::net::codec::PacketCodec;
@@ -30,6 +30,7 @@ use crate::net::tcp_transport::inbound_message::InboundMessage;
 use crate::net::tcp_transport::outbound_message::OutboundMessage;
 use crate::net::tcp_transport::spawn_inbound::SpawnInbound;
 use crate::net::tcp_transport::transport_buffer_envelop::TransportBufferEnvelope;
+use crate::remote_provider::RemoteActorRefProvider;
 
 mod connection_status;
 mod connect;
@@ -93,10 +94,8 @@ impl Actor for TcpTransportActor {
 impl TcpTransportActor {
     pub(crate) fn new(system: ActorSystem, transport: TcpTransport) -> Self {
         let provider = system.provider_full();
-        let registration = provider
-            .registration()
-            .map(|r| (**r).clone())
-            .expect("message registration not found");
+        let remote_provider = downcast_provider::<RemoteActorRefProvider>(&provider);
+        let registration = (*remote_provider.registration).clone();
         Self {
             transport,
             connections: HashMap::new(),

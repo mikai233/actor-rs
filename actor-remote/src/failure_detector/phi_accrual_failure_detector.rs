@@ -1,6 +1,8 @@
 use std::collections::VecDeque;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use tracing::log::debug;
+
 use actor_core::event::event_stream::EventStream;
 
 use crate::failure_detector::FailureDetector;
@@ -55,7 +57,7 @@ impl PhiAccrualFailureDetector {
         assert!(self.max_sample_size > 0, "failure-detector.max-sample-size must be > 0");
     }
 
-    fn new(
+    pub fn new(
         threshold: f64,
         max_sample_size: i32,
         min_std_deviation: Duration,
@@ -133,7 +135,9 @@ impl PhiAccrualFailureDetector {
     }
 
     fn is_available(&self, timestamp: i64) -> bool {
-        self.calc_phi(timestamp) < self.threshold
+        let phi = self.calc_phi(timestamp);
+        debug!("phi {} threshold {}", phi, self.threshold);
+        phi < self.threshold
     }
 }
 
@@ -143,7 +147,7 @@ impl FailureDetector for PhiAccrualFailureDetector {
     }
 
     fn is_monitoring(&self) -> bool {
-        self.state.timestamp.is_none()
+        self.state.timestamp.is_some()
     }
 
     fn heartbeat(&mut self) {
@@ -151,6 +155,7 @@ impl FailureDetector for PhiAccrualFailureDetector {
         match self.state.timestamp {
             None => {
                 self.state.history = self.first_heartbeat.clone();
+                self.state.timestamp = Some(timestamp);
             }
             Some(latest_timestamp) => {
                 let interval = timestamp - latest_timestamp;

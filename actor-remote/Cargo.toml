@@ -22,6 +22,7 @@ bincode = { workspace = true }
 typed-builder = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 toml = { workspace = true }
+quinn = { workspace = true }
 
 [dev-dependencies]
 ctor = { workspace = true }

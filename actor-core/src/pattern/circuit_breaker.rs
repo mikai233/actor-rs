@@ -359,7 +359,7 @@ mod test {
         fn new_breaker(context: &mut ActorContext) -> anyhow::Result<CircuitBreaker> {
             let myself = context.myself().clone();
             let breaker = CircuitBreaker::new(
-                context.system().scheduler().clone(),
+                context.system().scheduler.clone(),
                 10,
                 Duration::from_secs(1),
                 Duration::from_secs(3),

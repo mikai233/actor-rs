@@ -1,9 +1,7 @@
 use std::any::Any;
 use std::fmt::Debug;
 use std::ops::Deref;
-use std::sync::Arc;
 
-use arc_swap::Guard;
 use tokio::sync::broadcast::Receiver;
 
 use crate::actor::address::Address;
@@ -14,7 +12,6 @@ use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::ext::as_any::AsAny;
 use crate::ext::type_name_of;
-use crate::message::message_registration::MessageRegistration;
 
 pub mod local_actor_ref_provider;
 pub mod empty_actor_ref_provider;
@@ -57,9 +54,9 @@ pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
         self.root_path().address()
     }
 
-    fn registration(&self) -> Option<&Arc<MessageRegistration>>;
-
     fn termination_rx(&self) -> Receiver<()>;
+
+    fn as_provider(&self, name: &str) -> Option<&dyn TActorRefProvider>;
 }
 
 #[derive(Debug)]
@@ -83,7 +80,19 @@ impl ActorRefProvider {
     }
 }
 
-pub fn downcast_provider<P>(provider: &Guard<Arc<ActorRefProvider>>) -> &P where P: TActorRefProvider {
-    let msg = format!("cannot downcast provider to {}", type_name_of::<P>());
-    provider.as_any().downcast_ref::<P>().expect(&msg)
+pub fn downcast_provider<P>(provider: &ActorRefProvider) -> &P where P: TActorRefProvider {
+    let provider_name = type_name_of::<P>();
+    provider.as_provider(provider_name)
+        .expect(&format!("{} not found", provider_name))
+        .as_any()
+        .downcast_ref::<P>()
+        .expect(&format!("cannot downcast provider to {}", provider_name))
+}
+
+fn cast_self_to_dyn<'a, P>(name: &str, provider: &'a P) -> Option<&'a dyn TActorRefProvider> where P: TActorRefProvider {
+    if name == type_name_of::<P>() {
+        Some(provider)
+    } else {
+        None
+    }
 }

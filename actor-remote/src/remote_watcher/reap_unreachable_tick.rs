@@ -1,16 +1,15 @@
 use std::ops::Not;
 
 use async_trait::async_trait;
-use bincode::{Decode, Encode};
 use tracing::warn;
 
 use actor_core::actor::context::ActorContext;
 use actor_core::Message;
-use actor_derive::MessageCodec;
+use actor_derive::EmptyCodec;
 
 use crate::remote_watcher::RemoteWatcher;
 
-#[derive(Debug, Encode, Decode, MessageCodec)]
+#[derive(Debug, EmptyCodec)]
 pub(super) struct ReapUnreachableTick;
 
 #[async_trait]

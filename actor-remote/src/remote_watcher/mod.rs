@@ -3,12 +3,14 @@ use std::collections::hash_map::Entry;
 use std::ops::Not;
 use std::time::Duration;
 
+use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use tracing::debug;
 
 use actor_core::Actor;
 use actor_core::actor::address::Address;
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::props::Props;
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt};
@@ -21,16 +23,18 @@ use actor_core::message::watch::Watch;
 
 use crate::failure_detector::failure_detector_registry::FailureDetectorRegistry;
 use crate::remote_watcher::artery_heartbeat_rsp::ArteryHeartbeatRsp;
+use crate::remote_watcher::heartbeat_tick::HeartbeatTick;
+use crate::remote_watcher::reap_unreachable_tick::ReapUnreachableTick;
 use crate::remote_watcher::watchee_terminated::WatcheeTerminated;
 
 mod heartbeat_tick;
-mod heartbeat;
-mod heartbeat_rsp;
-mod watch_remote;
-mod unwatch_remote;
+pub(crate) mod heartbeat;
+pub(crate) mod heartbeat_rsp;
+pub(crate) mod watch_remote;
+pub(crate) mod unwatch_remote;
 mod watchee_terminated;
-mod artery_heartbeat;
-mod artery_heartbeat_rsp;
+pub(crate) mod artery_heartbeat;
+pub(crate) mod artery_heartbeat_rsp;
 mod reap_unreachable_tick;
 mod expected_first_heartbeat;
 
@@ -51,6 +55,24 @@ pub struct RemoteWatcher {
 
 #[async_trait]
 impl Actor for RemoteWatcher {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+        let myself = context.myself().clone();
+        let heartbeat_task = context.system()
+            .scheduler
+            .schedule_with_fixed_delay(Some(self.heartbeat_interval), self.heartbeat_interval, move || {
+                myself.cast_ns(HeartbeatTick);
+            });
+        self.heartbeat_task = Some(heartbeat_task);
+        let myself = context.myself().clone();
+        let failure_detector_reaper_task = context.system()
+            .scheduler
+            .schedule_with_fixed_delay(Some(self.unreachable_reaper_interval), self.unreachable_reaper_interval, move || {
+                myself.cast_ns(ReapUnreachableTick);
+            });
+        self.failure_detector_reaper_task = Some(failure_detector_reaper_task);
+        Ok(())
+    }
+
     async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         if let Some(task) = self.heartbeat_task.take() {
             task.cancel();
@@ -63,6 +85,28 @@ impl Actor for RemoteWatcher {
 }
 
 impl RemoteWatcher {
+    pub fn props<F>(registry: F) -> Props where F: FailureDetectorRegistry<A=Address> + 'static {
+        Props::new(move || {
+            Ok(Self::new(registry))
+        })
+    }
+
+    pub fn new<F>(registry: F) -> Self where F: FailureDetectorRegistry<A=Address> + 'static {
+        Self {
+            failure_detector: Box::new(registry),
+            heartbeat_interval: Duration::from_secs(1),
+            unreachable_reaper_interval: Duration::from_secs(1),
+            heartbeat_expected_response_after: Duration::from_secs(1),
+            watching: Default::default(),
+            watchee_by_nodes: Default::default(),
+            unreachable: Default::default(),
+            address_uids: Default::default(),
+            heartbeat_task: None,
+            failure_detector_reaper_task: None,
+            address_terminated_topic: Default::default(),
+        }
+    }
+
     pub fn add_watch(&mut self, context: &mut ActorContext, watchee: ActorRef, watcher: ActorRef) -> anyhow::Result<()> {
         debug_assert_ne!(&watcher, context.myself());
         debug!("Watching: [{} -> {}]", watcher, watchee);
@@ -150,7 +194,7 @@ impl RemoteWatcher {
     }
 
     pub fn receive_heartbeat_rsp(&mut self, context: &mut ActorContext, uid: i64) -> anyhow::Result<()> {
-        let from = context.sender().into_result()?.path().address();
+        let from = context.sender().into_result().context("receive_heartbeat_rsp")?.path().address();
         if self.failure_detector.is_monitoring(from) {
             debug!("Received heartbeat rsp from [{}]", from);
         } else {
@@ -180,8 +224,8 @@ impl RemoteWatcher {
     }
 
     pub fn receive_heartbeat(&self, context: &mut ActorContext) -> anyhow::Result<()> {
-        let sender = context.sender().into_result()?;
-        sender.cast_ns(ArteryHeartbeatRsp { uid: context.system().uid });
+        let sender = context.sender().into_result().context("receive_heartbeat")?;
+        sender.cast(ArteryHeartbeatRsp { uid: context.system().uid }, Some(context.myself().clone()));
         Ok(())
     }
 

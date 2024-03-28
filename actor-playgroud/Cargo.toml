@@ -41,3 +41,7 @@ path = "src/fibonacci.rs"
 [[bin]]
 name = "sharding"
 path = "src/sharding.rs"
+
+[[bin]]
+name = "remote_watch"
+path = "src/remote_watch.rs"

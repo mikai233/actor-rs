@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 use std::fmt::Debug;
-use std::sync::Arc;
 
 use anyhow::Context;
 use etcd_client::Client;
@@ -16,8 +15,10 @@ use actor_core::CodecMessage;
 use actor_core::config::Config;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
+use actor_core::ext::type_name_of;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
+use actor_core::provider::local_actor_ref_provider::LocalActorRefProvider;
 use actor_derive::AsAny;
 use actor_remote::remote_provider::RemoteActorRefProvider;
 use actor_remote::remote_setting::RemoteSetting;
@@ -131,12 +132,20 @@ impl TActorRefProvider for ClusterActorRefProvider {
         self.remote.dead_letters()
     }
 
-    fn registration(&self) -> Option<&Arc<MessageRegistration>> {
-        self.remote.registration()
-    }
-
     fn termination_rx(&self) -> Receiver<()> {
         self.remote.termination_rx()
+    }
+
+    fn as_provider(&self, name: &str) -> Option<&dyn TActorRefProvider> {
+        if name == type_name_of::<Self>() {
+            Some(self)
+        } else if name == type_name_of::<RemoteActorRefProvider>() {
+            Some(&self.remote)
+        } else if name == type_name_of::<LocalActorRefProvider>() {
+            Some(&self.remote.local)
+        } else {
+            None
+        }
     }
 }
 

@@ -97,12 +97,12 @@ mod test {
 
     use crate::actor::extension::{Extension, SystemExtension};
 
-    #[derive(AsAny)]
+    #[derive(Clone, AsAny)]
     struct ExtensionA;
 
     impl Extension for ExtensionA {}
 
-    #[derive(AsAny)]
+    #[derive(Clone, AsAny)]
     struct ExtensionB;
 
     impl Extension for ExtensionB {}
