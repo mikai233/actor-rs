@@ -451,10 +451,8 @@ impl ActorContext {
             let result = block(self);
             let has = has_non_local_address(self);
             if had && !has {
-                debug!("unsubscribe {}", self.myself());
                 AddressTerminatedTopic::get(self.system()).unsubscribe(self.myself());
             } else {
-                debug!("subscribe {}", self.myself());
                 AddressTerminatedTopic::get(self.system()).subscribe(self.myself().clone());
             }
             result

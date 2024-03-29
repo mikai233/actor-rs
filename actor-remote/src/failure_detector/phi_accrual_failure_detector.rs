@@ -2,10 +2,13 @@ use std::collections::VecDeque;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tracing::log::debug;
+use tracing::warn;
 
 use actor_core::event::event_stream::EventStream;
 
 use crate::failure_detector::FailureDetector;
+
+pub trait Clock {}
 
 /// Implementation of 'The Phi Accrual Failure Detector' by Hayashibara et al. as defined in their paper:
 /// [https://oneofus.la/have-emacs-will-hack/files/HDY04.pdf]
@@ -162,9 +165,11 @@ impl FailureDetector for PhiAccrualFailureDetector {
                 if self.is_available(timestamp) {
                     if interval >= (self.acceptable_heartbeat_pause_millis() / 3 * 2) && self.event_stream.is_some() {
                         //TODO
+                        warn!("heartbeat interval is growing too large for address {}: {} millis", "empty", interval);
                     }
                     let new_history = self.state.history.add_interval(interval);
                     self.state.history = new_history;
+                    self.state.timestamp = Some(timestamp);
                 }
             }
         }
@@ -233,4 +238,12 @@ impl HeartbeatHistory {
 struct State {
     history: HeartbeatHistory,
     timestamp: Option<i64>,
+}
+
+#[cfg(test)]
+mod accrual_failure_detector_spec {
+    fn fake_time_generator(time_intervals: Vec<i64>) {}
+
+    #[test]
+    fn accrual_failure_detector() {}
 }

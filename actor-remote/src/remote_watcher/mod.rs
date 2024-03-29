@@ -86,12 +86,12 @@ impl Actor for RemoteWatcher {
 
 impl RemoteWatcher {
     pub fn props<F>(registry: F) -> Props where F: FailureDetectorRegistry<A=Address> + 'static {
-        Props::new(move || {
-            Ok(Self::new(registry))
+        Props::new_with_ctx(move |ctx| {
+            Ok(Self::new(ctx, registry))
         })
     }
 
-    pub fn new<F>(registry: F) -> Self where F: FailureDetectorRegistry<A=Address> + 'static {
+    pub fn new<F>(context: &mut ActorContext, registry: F) -> Self where F: FailureDetectorRegistry<A=Address> + 'static {
         Self {
             failure_detector: Box::new(registry),
             heartbeat_interval: Duration::from_secs(1),
@@ -103,7 +103,7 @@ impl RemoteWatcher {
             address_uids: Default::default(),
             heartbeat_task: None,
             failure_detector_reaper_task: None,
-            address_terminated_topic: Default::default(),
+            address_terminated_topic: AddressTerminatedTopic::get(context.system()).clone(),
         }
     }
 
@@ -203,9 +203,9 @@ impl RemoteWatcher {
         if self.watchee_by_nodes.contains_key(from) && self.unreachable.contains(from).not() {
             if self.address_uids.get(from).map(|x| x != &uid).unwrap_or(true) {
                 self.re_watch(context.myself().clone(), &from);
-                self.address_uids.insert(from.clone(), uid);
-                self.failure_detector.heartbeat(from.clone());
             }
+            self.address_uids.insert(from.clone(), uid);
+            self.failure_detector.heartbeat(from.clone());
         }
         Ok(())
     }

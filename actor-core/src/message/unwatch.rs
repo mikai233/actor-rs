@@ -21,8 +21,11 @@ impl SystemMessage for Unwatch {
         let watchee_self = watchee == context.myself;
         let watcher_self = watcher == context.myself;
         if watchee_self && !watcher_self {
-            if context.watched_by.remove(&watcher) {
-                debug!("{} no longer watched by {}", context.myself, watcher);
+            if context.watched_by.contains(&watcher) {
+                context.maintain_address_terminated_subscription(Some(&watcher), |ctx| {
+                    ctx.watched_by.remove(&watcher);
+                    debug!("{} no longer watched by {}", ctx.myself, watcher);
+                });
             }
         } else if !watchee_self && watcher_self {
             context.unwatch(&watchee);

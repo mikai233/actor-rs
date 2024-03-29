@@ -22,8 +22,10 @@ impl SystemMessage for Watch {
         let watcher_self = watcher == context.myself;
         if watchee_self && !watcher_self {
             if !context.watched_by.contains(&watcher) {
-                debug!("{} is watched by {}", context.myself, watcher);
-                context.watched_by.insert(watcher);
+                context.maintain_address_terminated_subscription(Some(&watcher), |ctx| {
+                    debug!("{} is watched by {}", ctx.myself, watcher);
+                    ctx.watched_by.insert(watcher.clone());
+                });
             } else {
                 debug!("watcher {} already added for {}", watcher, context.myself);
             }
