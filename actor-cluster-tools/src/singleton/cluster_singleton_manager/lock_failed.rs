@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use tracing::error;
 
+use actor_cluster::etcd_client;
 use actor_core::actor::context::ActorContext;
 use actor_core::Message;
 use actor_derive::EmptyCodec;

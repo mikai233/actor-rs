@@ -3,7 +3,6 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use etcd_client::LockOptions;
 use serde::{Deserialize, Serialize};
 use tokio::task::AbortHandle;
 use tracing::trace;
@@ -12,6 +11,7 @@ use typed_builder::TypedBuilder;
 use actor_cluster::cluster::Cluster;
 use actor_cluster::cluster_provider::ClusterActorRefProvider;
 use actor_cluster::etcd_actor::keep_alive::KeepAlive;
+use actor_cluster::etcd_client::LockOptions;
 use actor_cluster::member::MemberStatus;
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};

@@ -1,3 +1,4 @@
+pub use etcd_client;
 pub use parking_lot;
 
 pub(crate) const CLUSTER_CONFIG_NAME: &'static str = "cluster.toml";

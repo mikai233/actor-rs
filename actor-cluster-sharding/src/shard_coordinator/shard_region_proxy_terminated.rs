@@ -22,7 +22,7 @@ impl Message for ShardRegionProxyTerminated {
     type A = ShardCoordinator;
 
     async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.region_proxy_terminated(self.0.actor);
+        actor.region_proxy_terminated(self.0.actor).await;
         Ok(())
     }
 }

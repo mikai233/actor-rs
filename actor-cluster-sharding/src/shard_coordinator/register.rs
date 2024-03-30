@@ -39,7 +39,7 @@ impl Message for Register {
             } else {
                 actor.graceful_shutdown_in_progress.remove(&region);
                 actor.inform_about_current_shards(&region);
-                actor.update(StateUpdate::ShardRegionRegistered { region: region.clone() });
+                actor.update_state(StateUpdate::ShardRegionRegistered { region: region.clone() }).await;
                 if context.is_watching(&region).not() {
                     context.watch(region.clone(), ShardRegionTerminated::new)?;
                 }

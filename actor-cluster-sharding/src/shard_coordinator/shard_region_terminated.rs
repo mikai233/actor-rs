@@ -22,7 +22,7 @@ impl Message for ShardRegionTerminated {
     type A = ShardCoordinator;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.region_terminated(context, self.0.actor);
+        actor.region_terminated(context, self.0.actor).await;
         Ok(())
     }
 }

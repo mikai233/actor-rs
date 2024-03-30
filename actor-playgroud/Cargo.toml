@@ -21,6 +21,7 @@ bincode = { workspace = true }
 etcd-client = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 rand = { workspace = true }
+futures = { workspace = true }
 
 [[bin]]
 name = "node"
@@ -45,3 +46,7 @@ path = "src/sharding.rs"
 [[bin]]
 name = "remote_watch"
 path = "src/remote_watch.rs"
+
+[[bin]]
+name = "multi_node"
+path = "src/multi_node.rs"

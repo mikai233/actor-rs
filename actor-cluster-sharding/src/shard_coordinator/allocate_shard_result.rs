@@ -27,7 +27,7 @@ impl Message for AllocateShardResult {
                 debug!("{}: Shard [{}] allocation failed. It will be retried.", actor.type_name, shard)
             }
             Some(shard_region) => {
-                actor.continue_get_shard_home(context, shard, shard_region, get_shard_home_sender);
+                actor.continue_get_shard_home(context, shard, shard_region, get_shard_home_sender).await;
             }
         }
         Ok(())
