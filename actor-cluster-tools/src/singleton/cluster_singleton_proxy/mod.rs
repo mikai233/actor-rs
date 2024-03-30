@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::OnceLock;
 
@@ -15,7 +16,6 @@ use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::message_ext::UserMessageExt;
-use actor_core::ext::type_name_of;
 
 use crate::singleton::cluster_singleton_proxy::actor_identity_wrap::ActorIdentityWrap;
 use crate::singleton::cluster_singleton_proxy::cluster_event_wrap::ClusterEventWrap;
@@ -84,10 +84,10 @@ impl ClusterSingletonProxy {
     fn is_proxy_message(&self, message_name: &str) -> bool {
         let proxy_messages = ALL_PROXY_MESSAGE.get_or_init(|| {
             let mut messages = HashSet::new();
-            messages.insert(type_name_of::<ClusterEventWrap>());
-            messages.insert(type_name_of::<TryToIdentifySingleton>());
-            messages.insert(type_name_of::<ActorIdentityWrap>());
-            messages.insert(type_name_of::<SingletonTerminated>());
+            messages.insert(type_name::<ClusterEventWrap>());
+            messages.insert(type_name::<TryToIdentifySingleton>());
+            messages.insert(type_name::<ActorIdentityWrap>());
+            messages.insert(type_name::<SingletonTerminated>());
             messages
         });
         proxy_messages.contains(message_name)

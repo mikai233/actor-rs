@@ -20,7 +20,7 @@ use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::config::actor_setting::ActorSetting;
-use actor_core::ext::{init_logger_with_filter, type_name_of};
+use actor_core::ext::init_logger_with_filter;
 use actor_derive::{CEmptyCodec, MessageCodec};
 use actor_remote::config::RemoteConfig;
 use actor_remote::config::transport::Transport;

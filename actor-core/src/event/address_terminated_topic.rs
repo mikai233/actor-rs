@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -8,7 +9,6 @@ use actor_derive::AsAny;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::extension::Extension;
 use crate::actor_ref::{ActorRef, ActorRefSystemExt};
-use crate::ext::type_name_of;
 use crate::message::address_terminated::AddressTerminated;
 
 #[derive(Debug, Clone, Default, AsAny)]
@@ -35,7 +35,7 @@ impl AddressTerminatedTopic {
     }
 
     pub fn get(system: &ActorSystem) -> Self {
-        system.get_ext::<Self>().expect(&format!("{} not found", type_name_of::<Self>()))
+        system.get_ext::<Self>().expect(&format!("{} not found", type_name::<Self>()))
     }
 
     pub fn subscribe(&self, subscriber: ActorRef) {

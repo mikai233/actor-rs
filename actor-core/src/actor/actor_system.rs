@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::ops::Deref;
@@ -36,7 +37,6 @@ use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::event::event_stream::EventStream;
 use crate::ext::maybe_ref::MaybeRef;
 use crate::ext::option_ext::OptionExt;
-use crate::ext::type_name_of;
 use crate::message::stop_child::StopChild;
 use crate::provider::ActorRefProvider;
 use crate::provider::empty_actor_ref_provider::EmptyActorRefProvider;
@@ -195,7 +195,7 @@ impl ActorSystem {
     }
 
     pub fn exist_ext<E>(&self) -> bool {
-        self.extension.contains_key(type_name_of::<E>())
+        self.extension.contains_key(type_name::<E>())
     }
 
     pub fn get_ext<E>(&self) -> Option<E> where E: Extension + Clone {
@@ -203,7 +203,7 @@ impl ActorSystem {
     }
 
     pub fn get_config<C>(&self) -> MappedRef<&'static str, Box<dyn Config>, C> where C: Config {
-        let msg = format!("{} not found", type_name_of::<CoreConfig>());
+        let msg = format!("{} not found", type_name::<CoreConfig>());
         self.config.get().expect(&msg)
     }
 

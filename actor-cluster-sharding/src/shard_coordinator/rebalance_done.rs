@@ -1,3 +1,5 @@
+use std::any::type_name;
+
 use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use tracing::{debug, warn};
@@ -6,7 +8,6 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::ext::type_name_of;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 
@@ -26,7 +27,7 @@ impl Message for RebalanceDone {
     type A = ShardCoordinator;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let sender = context.sender().into_result().context(type_name_of::<RebalanceDone>())?;
+        let sender = context.sender().into_result().context(type_name::<RebalanceDone>())?;
         actor.rebalance_workers.remove(sender);
         if self.ok {
             debug!("{}: Shard [{}] deallocation completed successfully.", actor.type_name, self.shard);

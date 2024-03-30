@@ -8,7 +8,6 @@ use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::ext::type_name_of;
 use actor_core::Message;
 use actor_derive::MessageCodec;
 
@@ -43,7 +42,7 @@ impl Message for Handoff {
             None => {
                 context.sender()
                     .into_result()
-                    .context(type_name_of::<Handoff>())
+                    .context(std::any::type_name::<Handoff>())
                     ?.cast_ns(ShardStopped { shard: shard_id.into() });
             }
             Some(shard) => {

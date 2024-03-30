@@ -1,3 +1,5 @@
+use std::any::type_name;
+
 use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
@@ -6,7 +8,6 @@ use tracing::trace;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::ext::type_name_of;
 use actor_core::Message;
 use actor_derive::CMessageCodec;
 
@@ -29,7 +30,7 @@ impl Message for Heartbeat {
         if let Some(self_member) = &actor.self_member {
             if self_member.status == MemberStatus::Up {
                 let resp = HeartbeatRsp { from: self_member.addr.clone() };
-                context.sender().into_result().context(type_name_of::<Heartbeat>())?.cast_ns(resp);
+                context.sender().into_result().context(type_name::<Heartbeat>())?.cast_ns(resp);
             }
         }
         Ok(())

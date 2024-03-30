@@ -1,10 +1,11 @@
+use std::any::type_name;
+
 use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use tracing::debug;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::ext::type_name_of;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 
@@ -21,7 +22,7 @@ impl Message for ShardInitialized {
     type A = ShardRegion;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let shard = context.sender().into_result().context(type_name_of::<ShardInitialized>())?;
+        let shard = context.sender().into_result().context(type_name::<ShardInitialized>())?;
         debug!("{}: Shard was initialized [{}]", actor.type_name, self.shard_id);
         actor.starting_shards.remove(&self.shard_id);
         actor.deliver_buffered_messages(&self.shard_id, DeliverTarget::Shard(shard));

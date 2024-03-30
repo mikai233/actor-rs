@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -16,7 +17,6 @@ use actor_core::actor_ref::local_ref::LocalActorRef;
 use actor_core::CodecMessage;
 use actor_core::config::Config;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::ext::type_name_of;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::provider::local_actor_ref_provider::LocalActorRefProvider;
@@ -225,9 +225,9 @@ impl TActorRefProvider for RemoteActorRefProvider {
     }
 
     fn as_provider(&self, name: &str) -> Option<&dyn TActorRefProvider> {
-        if name == type_name_of::<Self>() {
+        if name == type_name::<Self>() {
             Some(self)
-        } else if name == type_name_of::<LocalActorRefProvider>() {
+        } else if name == type_name::<LocalActorRefProvider>() {
             Some(&self.local)
         } else {
             None

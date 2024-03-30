@@ -1,3 +1,5 @@
+use std::any::type_name;
+
 use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
@@ -5,7 +7,6 @@ use tracing::debug;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::ext::type_name_of;
 use actor_core::Message;
 use actor_derive::MessageCodec;
 
@@ -23,7 +24,7 @@ impl Message for BeginHandoffAck {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let shard = self.shard;
-        let sender = context.sender().into_result().context(type_name_of::<BeginHandoffAck>())?.clone();
+        let sender = context.sender().into_result().context(type_name::<BeginHandoffAck>())?.clone();
         if actor.shard == shard {
             debug!("{}: BeginHandOffAck for shard [{}] received from [{}].", actor.type_name, actor.shard, sender);
             actor.acked(context, &sender);

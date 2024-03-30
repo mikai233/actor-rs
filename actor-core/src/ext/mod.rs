@@ -74,10 +74,6 @@ pub(crate) fn base64(l: i64, mut s: String) -> String {
     }
 }
 
-pub fn type_name_of<T>() -> &'static str {
-    std::any::type_name::<T>()
-}
-
 pub(crate) fn random_actor_name() -> String {
     random_name("$".to_string())
 }

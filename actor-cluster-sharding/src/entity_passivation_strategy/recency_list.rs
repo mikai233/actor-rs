@@ -1,11 +1,10 @@
+use std::any::type_name;
 use std::collections::{HashMap, VecDeque};
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use itertools::Itertools;
-
-use actor_core::ext::type_name_of;
 
 pub struct RecencyList<V> where V: Eq + Hash + Clone {
     recency: VecDeque<Node<V>>,
@@ -153,7 +152,7 @@ pub struct Node<V> where V: Eq + Hash + Clone {
 
 impl<V> Debug for Node<V> where V: Debug + Eq + Hash + Clone {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let ty = type_name_of::<V>();
+        let ty = type_name::<V>();
         f.debug_struct(&format!("Node<{ty}>"))
             .field("value", &self.value)
             .field("timestamp", &self.timestamp)

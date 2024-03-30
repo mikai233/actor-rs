@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::mem::MaybeUninit;
@@ -18,7 +19,6 @@ use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::DynMessage;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::ext::type_name_of;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::provider::{downcast_provider, TActorRefProvider};
 use actor_derive::AsAny;
@@ -127,7 +127,7 @@ impl Cluster {
     }
 
     pub fn get(system: &ActorSystem) -> Self {
-        system.get_ext::<Self>().expect(&format!("{} not found", type_name_of::<Self>()))
+        system.get_ext::<Self>().expect(&format!("{} not found", type_name::<Self>()))
     }
 
     pub fn subscribe_cluster_event<T>(&self, subscriber: ActorRef, transform: T) -> anyhow::Result<()>

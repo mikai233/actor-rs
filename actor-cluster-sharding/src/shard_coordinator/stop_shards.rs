@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::collections::hash_map::Entry;
 use std::collections::HashSet;
 use std::ops::Not;
@@ -11,7 +12,6 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::ext::type_name_of;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 
@@ -36,7 +36,7 @@ impl Message for StopShards {
             let (running_shards, already_stopped_shards): (Vec<_>, Vec<_>) = shard_ids
                 .iter()
                 .partition(|shard_id| { actor.state.shards.contains_key(*shard_id) });
-            let sender = context.sender().into_result().context(type_name_of::<StopShards>())?;
+            let sender = context.sender().into_result().context(type_name::<StopShards>())?;
             for shard_id in already_stopped_shards {
                 sender.cast_ns(ShardStopped { shard: shard_id.clone().into() });
             }

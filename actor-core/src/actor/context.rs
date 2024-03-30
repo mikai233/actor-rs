@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::collections::{HashSet, VecDeque};
 use std::fmt::Debug;
 use std::future::Future;
@@ -25,8 +26,8 @@ use crate::actor_ref::local_ref::LocalActorRef;
 use crate::cell::Cell;
 use crate::cell::envelope::Envelope;
 use crate::event::address_terminated_topic::AddressTerminatedTopic;
-use crate::ext::{random_name, type_name_of};
 use crate::ext::option_ext::OptionExt;
+use crate::ext::random_name;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::execute::Execute;
 use crate::message::failed::Failed;
@@ -204,7 +205,7 @@ impl Context for ActorContext {
         self.add_function_ref(move |message, sender| {
             let name = message.name();
             let message = message.into_inner();
-            let adapter_name = type_name_of::<T>();
+            let adapter_name = type_name::<T>();
             match message.into_any().downcast::<T>() {
                 Ok(message) => {
                     myself.tell(func(*message), sender);

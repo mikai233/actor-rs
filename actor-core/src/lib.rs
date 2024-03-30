@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 
 use anyhow::anyhow;
@@ -15,7 +16,6 @@ use crate::actor_ref::ActorRef;
 use crate::delegate::downcast_box_message;
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::UserDelegate;
-use crate::ext::type_name_of;
 use crate::message::message_registration::MessageRegistration;
 use crate::message::MessageDecoder;
 
@@ -153,14 +153,14 @@ impl DynMessage {
     }
 
     pub fn orphan<M>(message: M) -> Self where M: OrphanMessage {
-        let name = type_name_of::<M>();
+        let name = type_name::<M>();
         DynMessage::new(name, MessageType::Orphan, message)
     }
 
     /// 判断[`DynMessage`]的实际消息类型，大部分消息都会包装一层代理层，用于downcast到具体的类型，因为Rust不允许从一个trait object
     /// downcast到另外一个trait object，所以要包装一层具体的类型，这里直接取[`DynMessage::name`]进行比较，这里存放的是原始的消息名称
     pub fn is<M>(&self) -> bool where M: CodecMessage {
-        let name = type_name_of::<M>();
+        let name = type_name::<M>();
         self.name() == name
     }
 
@@ -169,7 +169,7 @@ impl DynMessage {
         let message = message.into_any();
         let user_delegate = if matches!(ty, MessageType::User) {
             message.downcast::<UserDelegate<A>>()
-                .map_err(|_| anyhow!("message {} cannot downcast to UserDelegate<{}>", name, type_name_of::<A>()))
+                .map_err(|_| anyhow!("message {} cannot downcast to UserDelegate<{}>", name, type_name::<A>()))
         } else {
             Err(anyhow!("message {} is not a user message", name))
         };

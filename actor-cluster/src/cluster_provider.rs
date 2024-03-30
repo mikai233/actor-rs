@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
@@ -15,7 +16,6 @@ use actor_core::CodecMessage;
 use actor_core::config::Config;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::ext::type_name_of;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::provider::local_actor_ref_provider::LocalActorRefProvider;
@@ -137,11 +137,11 @@ impl TActorRefProvider for ClusterActorRefProvider {
     }
 
     fn as_provider(&self, name: &str) -> Option<&dyn TActorRefProvider> {
-        if name == type_name_of::<Self>() {
+        if name == type_name::<Self>() {
             Some(self)
-        } else if name == type_name_of::<RemoteActorRefProvider>() {
+        } else if name == type_name::<RemoteActorRefProvider>() {
             Some(&self.remote)
-        } else if name == type_name_of::<LocalActorRefProvider>() {
+        } else if name == type_name::<LocalActorRefProvider>() {
             Some(&self.remote.local)
         } else {
             None

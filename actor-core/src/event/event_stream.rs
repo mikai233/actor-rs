@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::ops::Not;
 
 use anyhow::anyhow;
@@ -8,7 +9,6 @@ use tracing::{trace, warn};
 use crate::{CodecMessage, DynMessage};
 use crate::actor_ref::ActorRef;
 use crate::event::actor_subscriber::ActorSubscriber;
-use crate::ext::type_name_of;
 
 #[derive(Debug, Default)]
 pub struct EventStream {
@@ -21,7 +21,7 @@ impl EventStream {
             E: CodecMessage,
             T: Fn(E) -> DynMessage + Send + Sync + 'static,
     {
-        let event = type_name_of::<E>();
+        let event = type_name::<E>();
         let transform = move |message: DynMessage| {
             match message.into_inner().into_any().downcast::<E>() {
                 Ok(message) => {
@@ -42,7 +42,7 @@ impl EventStream {
     }
 
     pub fn unsubscribe<E>(&self, subscriber: &ActorRef) where E: CodecMessage {
-        let event = type_name_of::<E>();
+        let event = type_name::<E>();
         if let Entry::Occupied(mut o) = self.subscriptions.entry(event) {
             o.get_mut().retain(|x| { x.subscriber != *subscriber });
             trace!("{} unsubscribe from {}", subscriber, event);
@@ -64,7 +64,7 @@ impl EventStream {
     }
 
     pub fn publish<E>(&self, event: E) -> anyhow::Result<()> where E: CodecMessage {
-        let event_name = type_name_of::<E>();
+        let event_name = type_name::<E>();
         if event.is_cloneable().not() {
             return Err(anyhow!("event message {} require cloneable", event_name));
         } else {

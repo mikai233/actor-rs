@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::future::Future;
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
@@ -10,7 +11,6 @@ use crate::actor::actor_selection::ActorSelection;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::ActorRef;
 use crate::actor_ref::deferred_ref::DeferredActorRef;
-use crate::ext::type_name_of;
 
 #[derive(Debug)]
 pub struct Patterns;
@@ -48,7 +48,7 @@ impl Patterns {
         where
             Req: CodecMessage,
             Resp: OrphanMessage {
-        let req = type_name_of::<Req>();
+        let req = type_name::<Req>();
         let (deferred, rx) = DeferredActorRef::new(
             actor.system().clone(),
             actor.path().name(),
@@ -90,7 +90,7 @@ impl Patterns {
         where
             Req: CodecMessage,
             Resp: OrphanMessage {
-        let req_name = type_name_of::<Req>();
+        let req_name = type_name::<Req>();
         let mut hasher = ahash::AHasher::default();
         sel.path_str().hash(&mut hasher);
         let path_hash = hasher.finish();

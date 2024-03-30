@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::fmt::{Debug, Display, Formatter};
 use std::marker::PhantomData;
 
@@ -5,7 +6,6 @@ use bincode::{Decode, Encode};
 use dyn_clone::DynClone;
 
 use actor_core::{Actor, DynMessage, Message};
-use actor_core::ext::type_name_of;
 use actor_core::message::message_registration::IDPacket;
 
 use crate::shard_region::{EntityId, ShardId};
@@ -42,7 +42,7 @@ impl<A> ShardEnvelope<A> where A: Actor {
 
 impl<A> Display for ShardEnvelope<A> where A: Actor {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let actor_name = type_name_of::<A>();
+        let actor_name = type_name::<A>();
         write!(f, "ShardEnvelope<{}> {{ entity_id: {}, message: {} }}", actor_name, self.entity_id, self.message.name())
     }
 }

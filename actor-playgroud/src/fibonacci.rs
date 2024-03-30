@@ -64,7 +64,7 @@ struct Fib(i32);
 impl Message for Fib {
     type A = FibActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         fibonacci(self.0);
         Ok(())
     }

@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::any::type_name;
 use std::panic::AssertUnwindSafe;
 
 use anyhow::{anyhow, Error};
@@ -12,7 +13,6 @@ use crate::actor::mailbox::Mailbox;
 use crate::actor::state::ActorState;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::cell::envelope::Envelope;
-use crate::ext::type_name_of;
 
 pub struct ActorRuntime<A> where A: Actor {
     pub(crate) actor: A,
@@ -56,7 +56,7 @@ impl<A> ActorRuntime<A> where A: Actor {
                             }
                         }
                         Err(_) => {
-                            Self::handle_failure(&mut context, anyhow!("{} panic", type_name_of::<A>()));
+                            Self::handle_failure(&mut context, anyhow!("{} panic", type_name::<A>()));
                         }
                     }
                     throughput += 1;
@@ -132,7 +132,7 @@ impl<A> ActorRuntime<A> where A: Actor {
     }
 
     fn handle_failure(context: &mut ActorContext, error: Error) {
-        let name = type_name_of::<A>();
+        let name = type_name::<A>();
         let myself = context.myself.clone();
         context.handle_invoke_failure(myself, name, error);
     }

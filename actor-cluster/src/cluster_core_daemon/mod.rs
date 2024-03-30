@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
 use std::ops::Not;
@@ -21,7 +22,6 @@ use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::ext::type_name_of;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::provider::downcast_provider;
 use actor_remote::net::tcp_transport::disconnect::Disconnect;
@@ -81,7 +81,7 @@ impl ClusterCoreDaemon {
         coord_shutdown.add_task(context.system(), PHASE_CLUSTER_EXITING_DONE, "exiting-completed", async move {
             if !(cluster.is_terminated() || cluster.self_member().status == MemberStatus::Removed) {
                 if let Some(error) = myself.ask::<_, ExitingCompletedResp>(ExitingCompletedReq, phase_cluster_exiting_done_timeout).await.err() {
-                    debug!("ask {} error {:?}", type_name_of::<ExitingCompletedResp>(), error);
+                    debug!("ask {} error {:?}", type_name::<ExitingCompletedResp>(), error);
                 }
             }
         })?;

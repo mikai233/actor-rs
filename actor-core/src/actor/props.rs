@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 
 use anyhow::anyhow;
@@ -11,7 +12,6 @@ use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
-use crate::ext::type_name_of;
 
 type ActorSpawner = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem, Option<Handle>) -> anyhow::Result<()> + Send>;
 
@@ -37,7 +37,7 @@ impl Props {
         where
             F: FnOnce() -> anyhow::Result<A> + Send + 'static,
             A: Actor {
-        let actor_name = type_name_of::<A>();
+        let actor_name = type_name::<A>();
         let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem, handle: Option<Handle>| {
             let context = ActorContext::new(myself, system, handle.clone());
             let handle = handle.unwrap_or(context.system.handle().clone());
@@ -58,7 +58,7 @@ impl Props {
         where
             F: FnOnce(&mut ActorContext) -> anyhow::Result<A> + Send + 'static,
             A: Actor {
-        let actor_name = type_name_of::<A>();
+        let actor_name = type_name::<A>();
         let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem, handle: Option<Handle>| {
             let mut context = ActorContext::new(myself, system, handle.clone());
             let handle = handle.unwrap_or(context.system.handle().clone());
@@ -175,7 +175,7 @@ impl<Arg> PropsBuilder<Arg> {
             Builder: Fn(Arg) -> Props + Send + 'static,
             A: Actor {
         Self {
-            name: type_name_of::<A>(),
+            name: type_name::<A>(),
             builder: Box::new(builder),
         }
     }
@@ -204,7 +204,7 @@ impl<Arg> PropsBuilderSync<Arg> {
             Builder: Fn(Arg) -> Props + Send + Sync + 'static,
             A: Actor {
         Self {
-            name: type_name_of::<A>(),
+            name: type_name::<A>(),
             builder: Box::new(builder),
         }
     }

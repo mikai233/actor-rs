@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt::{Debug, Display, Formatter};
 use std::future::Future;
@@ -17,7 +18,6 @@ use actor_derive::AsAny;
 use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::extension::Extension;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
-use crate::ext::type_name_of;
 
 pub const PHASE_BEFORE_SERVICE_UNBIND: &str = "before-service-unbind";
 pub const PHASE_SERVICE_UNBIND: &str = "service-unbind";
@@ -149,7 +149,7 @@ impl CoordinatedShutdown {
     }
 
     pub fn get(system: &ActorSystem) -> Self {
-        system.get_ext::<Self>().expect(&format!("{} not found", type_name_of::<Self>()))
+        system.get_ext::<Self>().expect(&format!("{} not found", type_name::<Self>()))
     }
 
     pub fn run<R: Reason + 'static>(&self, reason: R) -> impl Future<Output=()> {
@@ -321,7 +321,7 @@ pub struct ActorSystemTerminateReason;
 
 impl Display for ActorSystemTerminateReason {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", type_name_of::<Self>())
+        write!(f, "{}", type_name::<Self>())
     }
 }
 
@@ -332,7 +332,7 @@ pub struct CtrlCExitReason;
 
 impl Display for CtrlCExitReason {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", type_name_of::<Self>())
+        write!(f, "{}", type_name::<Self>())
     }
 }
 
@@ -343,7 +343,7 @@ pub struct ActorSystemStartFailedReason(pub Error);
 
 impl Display for ActorSystemStartFailedReason {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", type_name_of::<Self>())
+        write!(f, "{}", type_name::<Self>())
     }
 }
 
@@ -354,7 +354,7 @@ pub struct ClusterDowningReason;
 
 impl Display for ClusterDowningReason {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", type_name_of::<Self>())
+        write!(f, "{}", type_name::<Self>())
     }
 }
 
@@ -365,7 +365,7 @@ pub struct ClusterLeavingReason;
 
 impl Display for ClusterLeavingReason {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", type_name_of::<Self>())
+        write!(f, "{}", type_name::<Self>())
     }
 }
 

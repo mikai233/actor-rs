@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::ops::{Deref, Not};
 use std::sync::Arc;
 use std::time::Duration;
@@ -15,7 +16,6 @@ use actor_core::actor::props::{Props, PropsBuilderSync};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::DynMessage;
-use actor_core::ext::type_name_of;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_derive::AsAny;
 
@@ -77,7 +77,7 @@ impl ClusterSharding {
     }
 
     pub fn get(system: &ActorSystem) -> Self {
-        system.get_ext::<Self>().expect(&format!("{} not found", type_name_of::<Self>()))
+        system.get_ext::<Self>().expect(&format!("{} not found", type_name::<Self>()))
     }
 
     pub async fn start<E, S>(

@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
@@ -8,7 +9,6 @@ use dashmap::mapref::one::MappedRef;
 use dyn_clone::DynClone;
 
 use crate::ext::as_any::AsAny;
-use crate::ext::type_name_of;
 
 pub mod actor_setting;
 pub mod core_config;
@@ -27,7 +27,7 @@ pub struct ActorConfig {
 
 impl ActorConfig {
     pub fn add<C>(&self, config: C) -> anyhow::Result<()> where C: Config {
-        let name = type_name_of::<C>();
+        let name = type_name::<C>();
         if !self.configs.contains_key(name) {
             self.configs.insert(name, Box::new(config));
         } else {
@@ -37,7 +37,7 @@ impl ActorConfig {
     }
 
     pub fn get<C>(&self) -> Option<MappedRef<&'static str, Box<dyn Config>, C>> where C: Config {
-        let name = type_name_of::<C>();
+        let name = type_name::<C>();
         let config = self.configs
             .get(name)
             .and_then(|e| {

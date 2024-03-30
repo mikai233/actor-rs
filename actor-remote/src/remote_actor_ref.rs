@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 use std::iter::Peekable;
 use std::ops::Deref;
@@ -11,7 +12,6 @@ use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
 use actor_core::DynMessage;
 use actor_core::ext::message_ext::SystemMessageExt;
-use actor_core::ext::type_name_of;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_core::message::poison_pill::PoisonPill;
 use actor_core::message::resume::Resume;
@@ -117,7 +117,7 @@ impl TActorRef for RemoteActorRef {
 
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
         let name = message.name();
-        if name == type_name_of::<Watch>() {
+        if name == type_name::<Watch>() {
             let Watch { watchee, watcher } = message.downcast_system::<Watch>().unwrap();
             if self.is_watch_intercepted(&watchee, &watcher) {
                 self.remote_watcher.cast_ns(WatchRemote { watchee, watcher });
@@ -125,7 +125,7 @@ impl TActorRef for RemoteActorRef {
                 let watch = Watch { watchee, watcher }.into_dyn();
                 self.send_remote(watch, sender);
             }
-        } else if name == type_name_of::<Unwatch>() {
+        } else if name == type_name::<Unwatch>() {
             let Unwatch { watchee, watcher } = message.downcast_system::<Unwatch>().unwrap();
             if self.is_watch_intercepted(&watchee, &watcher) {
                 self.remote_watcher.cast_ns(UnwatchRemote { watchee, watcher });

@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::collections::HashSet;
 use std::ops::Not;
 use std::time::Duration;
@@ -10,7 +11,6 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::ext::type_name_of;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 
@@ -41,7 +41,7 @@ impl Message for Handoff {
                         for entity in active_entities {
                             entity.tell(actor.handoff_stop_message.dyn_clone()?, ActorRef::no_sender());
                         }
-                        let reply_to = context.sender().into_result().context(type_name_of::<Handoff>())?;
+                        let reply_to = context.sender().into_result().context(type_name::<Handoff>())?;
                         reply_to.cast_ns(ShardStopped { shard: shard_id });
                         context.stop(context.myself());
                     } else if active_entities.is_empty().not() && !actor.preparing_for_shutdown {
@@ -50,7 +50,7 @@ impl Message for Handoff {
                             context.unwatch(entity);
                         }
                         let entities = active_entities.iter().map(|a| (**a).clone()).collect::<HashSet<_>>();
-                        let reply_to = context.sender().into_result().context(type_name_of::<Handoff>())?;
+                        let reply_to = context.sender().into_result().context(type_name::<Handoff>())?;
                         let stopper = context.spawn(
                             HandoffStopper::props(
                                 actor.type_name.clone(),
@@ -63,7 +63,7 @@ impl Message for Handoff {
                         context.watch(stopper.clone(), HandoffStopperTerminated::new)?;
                         actor.handoff_stopper = Some(stopper);
                     } else {
-                        let reply_to = context.sender().into_result().context(type_name_of::<Handoff>())?;
+                        let reply_to = context.sender().into_result().context(type_name::<Handoff>())?;
                         reply_to.cast_ns(ShardStopped { shard: shard_id });
                         context.stop(context.myself());
                     }

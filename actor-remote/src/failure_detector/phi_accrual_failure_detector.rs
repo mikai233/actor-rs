@@ -139,7 +139,6 @@ impl PhiAccrualFailureDetector {
 
     fn is_available(&self, timestamp: i64) -> bool {
         let phi = self.calc_phi(timestamp);
-        debug!("phi {} threshold {}", phi, self.threshold);
         phi < self.threshold
     }
 }

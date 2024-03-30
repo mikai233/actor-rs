@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::any::type_name;
 use std::fmt::Debug;
 use std::ops::Deref;
 
@@ -11,7 +12,6 @@ use crate::actor_path::TActorPath;
 use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::ext::as_any::AsAny;
-use crate::ext::type_name_of;
 
 pub mod local_actor_ref_provider;
 pub mod empty_actor_ref_provider;
@@ -81,7 +81,7 @@ impl ActorRefProvider {
 }
 
 pub fn downcast_provider<P>(provider: &ActorRefProvider) -> &P where P: TActorRefProvider {
-    let provider_name = type_name_of::<P>();
+    let provider_name = type_name::<P>();
     provider.as_provider(provider_name)
         .expect(&format!("{} not found", provider_name))
         .as_any()
@@ -90,7 +90,7 @@ pub fn downcast_provider<P>(provider: &ActorRefProvider) -> &P where P: TActorRe
 }
 
 fn cast_self_to_dyn<'a, P>(name: &str, provider: &'a P) -> Option<&'a dyn TActorRefProvider> where P: TActorRefProvider {
-    if name == type_name_of::<P>() {
+    if name == type_name::<P>() {
         Some(provider)
     } else {
         None

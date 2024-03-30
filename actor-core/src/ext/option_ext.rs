@@ -1,6 +1,6 @@
-use anyhow::anyhow;
+use std::any::type_name;
 
-use crate::ext::type_name_of;
+use anyhow::anyhow;
 
 pub trait OptionExt<T> {
     fn foreach<F, U>(&self, f: F) where F: FnOnce(&T) -> U;
@@ -36,17 +36,17 @@ impl<T> OptionExt<T> for Option<T> {
     }
 
     fn as_result(&self) -> anyhow::Result<&T> {
-        let name = type_name_of::<T>();
+        let name = type_name::<T>();
         Ok(self.as_ref().ok_or(anyhow!("type of {} is none", name))?)
     }
 
     fn as_result_mut(&mut self) -> anyhow::Result<&mut T> {
-        let name = type_name_of::<T>();
+        let name = type_name::<T>();
         Ok(self.as_mut().ok_or(anyhow!("type of {} is none", name))?)
     }
 
     fn into_result(self) -> anyhow::Result<T> {
-        let name = type_name_of::<T>();
+        let name = type_name::<T>();
         Ok(self.ok_or(anyhow!("type of {} is none", name))?)
     }
 }

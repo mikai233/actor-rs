@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::fmt::Debug;
 
 use anyhow::Context as AnyhowContext;
@@ -12,7 +13,6 @@ use actor_core::actor::props::Props;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRef;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::ext::type_name_of;
 use actor_core::pattern::patterns::PatternsExt;
 
 use crate::cluster::Cluster;
@@ -50,7 +50,7 @@ impl Actor for ClusterDaemon {
                 }
             } else {
                 if let Some(error) = myself.ask::<_, LeaveResp>(LeaveReq, phase_cluster_leave_timeout).await.err() {
-                    warn!("ask {} error {:?}", type_name_of::<LeaveReq>(), error);
+                    warn!("ask {} error {:?}", type_name::<LeaveReq>(), error);
                 }
             }
         })?;

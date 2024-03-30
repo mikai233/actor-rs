@@ -107,7 +107,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::try_parse()?;
-    init_logger_with_filter("debug,actor=debug,actor-core::scheduler=info,h2=info,tower=info,hyper=info");
+    init_logger_with_filter("debug,actor=debug,actor_core::actor::scheduler=info,actor_remote::remote_watcher=info,h2=info,tower=info,hyper=info");
     let client = Client::connect([args.etcd.to_string()], None).await?;
     let setting = ActorSetting::builder()
         .provider_fn(move |system| {

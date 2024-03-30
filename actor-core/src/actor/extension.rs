@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
@@ -6,7 +7,6 @@ use dashmap::DashMap;
 use dashmap::mapref::one::{MappedRef, MappedRefMut};
 
 use crate::ext::as_any::AsAny;
-use crate::ext::type_name_of;
 
 pub trait Extension: AsAny + Send + Sync + 'static {
     fn init(&self) -> anyhow::Result<()> {
@@ -21,7 +21,7 @@ pub struct SystemExtension {
 
 impl SystemExtension {
     pub fn register<E>(&self, extension: E) -> anyhow::Result<()> where E: Extension {
-        let name = type_name_of::<E>();
+        let name = type_name::<E>();
         if !self.extensions.contains_key(name) {
             self.extensions.insert(name, Box::new(extension));
             self.extensions.get(name).unwrap().init()?;
@@ -36,7 +36,7 @@ impl SystemExtension {
     }
 
     pub fn get_ref<E>(&self) -> Option<MappedRef<&'static str, Box<dyn Extension>, E>> where E: Extension {
-        let name = type_name_of::<E>();
+        let name = type_name::<E>();
         let extension = self.extensions
             .get(name)
             .and_then(|e| {
@@ -52,7 +52,7 @@ impl SystemExtension {
     }
 
     pub fn get_mut<E>(&self) -> Option<MappedRefMut<&'static str, Box<dyn Extension>, E>> where E: Extension {
-        let name = type_name_of::<E>();
+        let name = type_name::<E>();
         let extension = self.extensions
             .get_mut(name)
             .and_then(|e| {

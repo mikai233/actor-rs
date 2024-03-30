@@ -1,10 +1,9 @@
+use std::any::type_name;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::marker::PhantomData;
-
-use actor_core::ext::type_name_of;
 
 use crate::failure_detector::failure_detector_registry::FailureDetectorRegistry;
 use crate::failure_detector::FailureDetector;
@@ -31,7 +30,7 @@ impl<A> DefaultFailureDetectorRegistry<A> {
 
 impl<A> Debug for DefaultFailureDetectorRegistry<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let struct_name = format!("DefaultFailureDetectorRegistry<{}>", type_name_of::<A>());
+        let struct_name = format!("DefaultFailureDetectorRegistry<{}>", type_name::<A>());
         f.debug_struct(&struct_name)
             .finish_non_exhaustive()
     }

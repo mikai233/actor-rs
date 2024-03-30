@@ -1,8 +1,8 @@
+use std::any::type_name;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 
 use crate::actor_ref::ActorRef;
-use crate::ext::type_name_of;
 
 #[derive(Debug, Clone)]
 pub struct Terminated {
@@ -34,7 +34,7 @@ impl Display for Terminated {
         write!(
             f,
             "{} {{actor: {}, existence_confirmed: {}, address_terminated: {} }}",
-            type_name_of::<Self>(),
+            type_name::<Self>(),
             self.actor,
             self.existence_confirmed,
             self.address_terminated,

@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::collections::HashMap;
 use std::ops::Not;
 
@@ -10,7 +11,6 @@ use tracing::error;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::ext::type_name_of;
 use actor_core::Message;
 use actor_derive::MessageCodec;
 
@@ -28,7 +28,7 @@ impl Message for GetShardHome {
     type A = ShardCoordinator;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let sender = context.sender().into_result().context(type_name_of::<GetShardHome>())?.clone();
+        let sender = context.sender().into_result().context(type_name::<GetShardHome>())?.clone();
         let shard: ImShardId = self.shard.into();
         if !actor.handle_get_shard_home(context, sender.clone(), shard.clone()) {
             let active_regions: HashMap<_, _> = actor.state.regions.iter().filter(|(region, _)| {
