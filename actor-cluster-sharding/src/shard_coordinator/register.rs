@@ -12,7 +12,7 @@ use actor_derive::CMessageCodec;
 use crate::shard_coordinator::coordinator_state::CoordinatorState;
 use crate::shard_coordinator::shard_region_terminated::ShardRegionTerminated;
 use crate::shard_coordinator::ShardCoordinator;
-use crate::shard_coordinator::state_update::StateUpdate;
+use crate::shard_coordinator::state_update::ShardState;
 use crate::shard_region::register_ack::RegisterAck;
 
 #[derive(Debug, Clone, Encode, Decode, CMessageCodec)]
@@ -39,7 +39,7 @@ impl Message for Register {
             } else {
                 actor.graceful_shutdown_in_progress.remove(&region);
                 actor.inform_about_current_shards(&region);
-                actor.update_state(StateUpdate::ShardRegionRegistered { region: region.clone() }).await;
+                actor.update_state(ShardState::ShardRegionRegistered { region: region.clone() }).await;
                 if context.is_watching(&region).not() {
                     context.watch(region.clone(), ShardRegionTerminated::new)?;
                 }

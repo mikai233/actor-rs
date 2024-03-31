@@ -10,7 +10,7 @@ use actor_derive::CMessageCodec;
 use crate::shard_coordinator::coordinator_state::CoordinatorState;
 use crate::shard_coordinator::shard_region_proxy_terminated::ShardRegionProxyTerminated;
 use crate::shard_coordinator::ShardCoordinator;
-use crate::shard_coordinator::state_update::StateUpdate;
+use crate::shard_coordinator::state_update::ShardState;
 use crate::shard_region::register_ack::RegisterAck;
 
 #[derive(Debug, Clone, Encode, Decode, CMessageCodec)]
@@ -34,7 +34,7 @@ impl Message for RegisterProxy {
             if actor.state.region_proxies.contains(&proxy) {
                 proxy.cast_ns(RegisterAck { coordinator: context.myself().clone() });
             } else {
-                actor.update_state(StateUpdate::ShardRegionProxyRegistered { region_proxy: proxy.clone() }).await;
+                actor.update_state(ShardState::ShardRegionProxyRegistered { region_proxy: proxy.clone() }).await;
                 context.watch(proxy.clone(), ShardRegionProxyTerminated::new)?;
                 proxy.cast_ns(RegisterAck { coordinator: context.myself().clone() });
             }

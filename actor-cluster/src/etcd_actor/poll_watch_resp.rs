@@ -38,7 +38,7 @@ impl Message for PollWatchResp {
                         match resp {
                             Ok(resp) => {
                                 watcher.applicant.tell(
-                                    DynMessage::orphan(WatchResp::Success(resp)),
+                                    DynMessage::orphan(WatchResp::Update(resp)),
                                     ActorRef::no_sender(),
                                 );
                             }

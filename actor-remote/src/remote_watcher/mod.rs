@@ -121,7 +121,11 @@ impl RemoteWatcher {
             }
         }
         self.watch_node(watchee.clone());
-        context.watch(watchee, WatcheeTerminated::new)
+        //可能是Watcher不同但是Watchee是相同的，这种情况会watch多次
+        if context.is_watching(&watchee).not() {
+            context.watch(watchee, WatcheeTerminated::new)?;
+        }
+        Ok(())
     }
 
     pub fn remove_watch(&mut self, context: &mut ActorContext, watchee: ActorRef, watcher: ActorRef) {

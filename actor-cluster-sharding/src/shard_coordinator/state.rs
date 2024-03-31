@@ -6,7 +6,7 @@ use itertools::Itertools;
 
 use actor_core::actor_ref::ActorRef;
 
-use crate::shard_coordinator::state_update::StateUpdate;
+use crate::shard_coordinator::state_update::ShardState;
 use crate::shard_region::ImShardId;
 
 #[derive(Debug, Default)]
@@ -17,17 +17,21 @@ pub(super) struct State {
 }
 
 impl State {
-    pub(super) fn updated(&mut self, update: StateUpdate) {
+    pub(super) fn updated(&mut self, update: ShardState) {
         match update {
-            // StateUpdate::ShardHomeDeallocated { shard } => {
-            //     debug_assert!(self.shards.contains_key(&shard), "Shard {} not allocated: {}", shard, self);
-            // }
-            StateUpdate::ShardRegionProxyTerminated { region_proxy } => {
+            ShardState::ShardHomeDeallocated { shard } => {
+                debug_assert!(self.shards.contains_key(&shard), "Shard {} not allocated: {}", shard, self);
+                self.shards.remove(&shard);
+                for (_, shards) in &mut self.regions {
+                    shards.remove(&shard);
+                }
+            }
+            ShardState::ShardRegionProxyTerminated { region_proxy } => {
                 debug_assert!(self.region_proxies.contains(&region_proxy), "Terminated region proxy {} not registered: {:?}", region_proxy, self);
                 self.region_proxies.remove(&region_proxy);
             }
-            StateUpdate::ShardCoordinatorInitialized => {}
-            StateUpdate::ShardRegionTerminated { region } => {
+            ShardState::ShardCoordinatorInitialized => {}
+            ShardState::ShardRegionTerminated { region } => {
                 debug_assert!(self.regions.contains_key(&region), "Terminated region {} not registered: {:?}", region, self);
                 if let Some(shards) = self.regions.remove(&region) {
                     for shard_id in shards {
@@ -35,11 +39,11 @@ impl State {
                     }
                 }
             }
-            StateUpdate::ShardRegionProxyRegistered { region_proxy } => {
+            ShardState::ShardRegionProxyRegistered { region_proxy } => {
                 debug_assert!(!self.region_proxies.contains(&region_proxy), "Region proxy {} already registered: {:?}", region_proxy, self);
                 self.region_proxies.insert(region_proxy);
             }
-            StateUpdate::ShardHomeAllocated { shard, region } => {
+            ShardState::ShardHomeAllocated { shard, region } => {
                 debug_assert!(self.regions.contains_key(&region), "Region {} not registered: {:?}", region, self);
                 debug_assert!(!self.shards.contains_key(&shard), "Shard [{}] already allocated: {:?}", shard, self);
                 if let Some(shards) = self.regions.get_mut(&region) {
@@ -47,7 +51,7 @@ impl State {
                 }
                 self.shards.insert(shard, region);
             }
-            StateUpdate::ShardRegionRegistered { region } => {
+            ShardState::ShardRegionRegistered { region } => {
                 debug_assert!(!self.regions.contains_key(&region), "Region {} already registered: {:?}", region, self);
                 self.regions.insert(region, HashSet::new());
             }

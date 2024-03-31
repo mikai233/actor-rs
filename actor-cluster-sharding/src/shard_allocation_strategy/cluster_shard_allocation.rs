@@ -9,7 +9,7 @@ use actor_core::actor_ref::ActorRef;
 
 use crate::shard_region::ImShardId;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RegionEntry {
     pub region: ActorRef,
     pub member: Member,

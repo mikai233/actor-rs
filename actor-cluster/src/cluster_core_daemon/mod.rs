@@ -257,13 +257,14 @@ impl Actor for ClusterCoreDaemon {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         context.spawn(ClusterHeartbeatSender::props(), ClusterHeartbeatSender::name())?;
         self.watch_cluster_members();
-        self.get_all_members(context).await?;
-        self.try_keep_alive(context).await;
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
         let _ = self.self_exiting.send(()).await;
+        let lease_path = self.lease_path();
+        let key = format!("{}/{}", lease_path, self.self_addr.socket_addr_with_uid().into_result()?);
+        self.client.delete(key, None).await?;
         Ok(())
     }
 }

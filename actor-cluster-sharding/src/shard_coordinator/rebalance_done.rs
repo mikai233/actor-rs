@@ -14,6 +14,7 @@ use actor_derive::EmptyCodec;
 use crate::shard_coordinator::get_shard_home::GetShardHome;
 use crate::shard_coordinator::rebalance_worker::shard_stopped::ShardStopped;
 use crate::shard_coordinator::ShardCoordinator;
+use crate::shard_coordinator::state_update::ShardState;
 use crate::shard_region::ImShardId;
 
 #[derive(Debug, EmptyCodec)]
@@ -37,7 +38,7 @@ impl Message for RebalanceDone {
                 }
             }
             if actor.state.shards.contains_key(self.shard.as_str()) {
-                // actor.update(StateUpdate::ShardHomeDeallocated { shard: self.shard.clone() });
+                actor.update_state(ShardState::ShardHomeDeallocated { shard: self.shard.clone() }).await;
                 debug!("{}: Shard [{}] deallocated after", actor.type_name, self.shard);
                 actor.clear_rebalance_in_progress(context, self.shard.clone().into());
                 //TODO ignore ref

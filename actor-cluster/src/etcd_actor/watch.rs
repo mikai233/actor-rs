@@ -28,6 +28,7 @@ impl Message for Watch {
         context.spawn_fut(async move {
             match client.watch(self.key, self.options).await {
                 Ok((watcher, stream)) => {
+                    self.applicant.tell(DynMessage::orphan(WatchResp::Started), ActorRef::no_sender());
                     let started = WatchStarted {
                         watcher,
                         stream,
@@ -49,6 +50,7 @@ impl Message for Watch {
 
 #[derive(Debug, OrphanEmptyCodec)]
 pub enum WatchResp {
-    Success(WatchResponse),
+    Update(WatchResponse),
+    Started,
     Failed(Option<etcd_client::Error>),
 }
