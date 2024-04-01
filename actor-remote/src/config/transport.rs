@@ -46,7 +46,10 @@ impl KcpTransport {
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QuicTransport {}
+pub struct QuicTransport {
+    pub addr: SocketAddrV4,
+    pub buffer: Option<usize>,
+}
 
 impl QuicTransport {
     pub fn name(&self) -> &'static str {

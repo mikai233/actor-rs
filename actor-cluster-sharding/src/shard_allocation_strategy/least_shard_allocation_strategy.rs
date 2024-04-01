@@ -5,7 +5,6 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use itertools::Itertools;
 
 use actor_cluster::cluster::Cluster;
 use actor_cluster::cluster_state::ClusterState;
@@ -117,7 +116,7 @@ impl ShardAllocationStrategy for LeastShardAllocationStrategy {
             let mut sorted_region_entries = self.region_entries_for(current_shard_allocations);
             sorted_region_entries.sort_by(|x, y| {
                 let RegionEntry { member: member_x, shard_ids: shard_ids_x, .. } = x;
-                let RegionEntry { member: member_y, shard_ids: shard_ids_y, .. } = x;
+                let RegionEntry { member: member_y, shard_ids: shard_ids_y, .. } = y;
                 if member_x.status != member_y.status {
                     let x_is_leaving = matches!(member_x.status, MemberStatus::Leaving | MemberStatus::Removed);
                     let y_is_leaving = matches!(member_y.status, MemberStatus::Leaving | MemberStatus::Removed);

@@ -78,13 +78,13 @@ pub trait ActorRefSystemExt: TActorRef {
 
 #[derive(Clone)]
 pub struct ActorRef {
-    inner: Arc<Box<dyn TActorRef>>,
+    inner: Arc<dyn TActorRef>,
 }
 
 impl ActorRef {
     pub fn new<R>(actor_ref: R) -> Self where R: TActorRef {
         Self {
-            inner: Arc::new(Box::new(actor_ref))
+            inner: Arc::new(actor_ref)
         }
     }
 }
@@ -100,7 +100,7 @@ impl ActorRef {
 }
 
 impl Deref for ActorRef {
-    type Target = Arc<Box<dyn TActorRef>>;
+    type Target = Arc<dyn TActorRef>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner

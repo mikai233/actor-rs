@@ -1,7 +1,8 @@
-use std::any::Any;
+use std::any::{Any, type_name};
 
 use async_trait::async_trait;
 use bincode::error::{DecodeError, EncodeError};
+use tracing::debug;
 
 use actor_core::{CodecMessage, DynMessage, Message};
 use actor_core::actor::context::ActorContext;
@@ -18,7 +19,11 @@ impl Message for ShardEnvelope<ShardRegion> {
     type A = ShardRegion;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.deliver_message(context, *self)?;
+        if actor.graceful_shutdown_in_progress {
+            debug!("{}: Ignore {}[{}] when ShardRegion is graceful shutdown in progress", actor.type_name, type_name::<Self>(),self.message.name());
+        } else {
+            actor.deliver_message(context, *self)?;
+        }
         Ok(())
     }
 }

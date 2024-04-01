@@ -23,6 +23,8 @@ typed-builder = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 toml = { workspace = true }
 quinn = { workspace = true }
+rcgen = { workspace = true }
+rustls = { workspace = true }
 
 [dev-dependencies]
 ctor = { workspace = true }

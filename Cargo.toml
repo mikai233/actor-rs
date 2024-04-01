@@ -37,3 +37,5 @@ itertools = "0.12"
 uuid = "1.7"
 parking_lot = "0.12"
 quinn = "0.10"
+rcgen = "0.12"
+rustls = { version = "0.21", default-features = false }

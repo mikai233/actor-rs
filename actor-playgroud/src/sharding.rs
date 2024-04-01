@@ -15,7 +15,6 @@ use actor_cluster_sharding::config::ClusterShardingConfig;
 use actor_cluster_sharding::shard_allocation_strategy::least_shard_allocation_strategy::LeastShardAllocationStrategy;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::props::{Props, PropsBuilderSync};
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::config::actor_setting::ActorSetting;
 use actor_core::ext::init_logger_with_filter;

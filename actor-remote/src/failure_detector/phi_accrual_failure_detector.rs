@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use tracing::log::debug;
 use tracing::warn;
 
 use actor_core::event::event_stream::EventStream;

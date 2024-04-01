@@ -20,8 +20,9 @@ impl Message for GracefulShutdownTimeout {
         let shards = actor.shards.keys().join(", ");
         let buffer_size = actor.shard_buffers.total_size();
         warn!(
-            "{}: Graceful shutdown of shard region timed out, region will be stopped. Remaining shards [{}], remaining buffered messages [{}]",
+            "{}: Graceful shutdown of shard region {} timed out, region will be stopped. Remaining shards [{}], remaining buffered messages [{}]",
             actor.type_name,
+            context.myself(),
             shards,
             buffer_size,
         );

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use etcd_client::{EventType, WatchResponse};
-use tracing::{debug, error, warn};
+use tracing::warn;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
