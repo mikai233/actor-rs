@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use anyhow::anyhow;
+use eyre::anyhow;
 use tracing::debug;
 
 use actor_core::actor_ref::ActorRef;
@@ -68,7 +68,7 @@ impl Entities {
         }
     }
 
-    pub(super) fn entity_passivating(&mut self, entity_id: ImEntityId) -> anyhow::Result<()> {
+    pub(super) fn entity_passivating(&mut self, entity_id: ImEntityId) -> eyre::Result<()> {
         debug!("[{}] passivating", entity_id);
         match self.entities.remove(&entity_id) {
             None => {

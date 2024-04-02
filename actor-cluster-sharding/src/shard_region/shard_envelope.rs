@@ -1,7 +1,6 @@
 use std::any::{Any, type_name};
 
 use async_trait::async_trait;
-use bincode::error::{DecodeError, EncodeError};
 use tracing::debug;
 
 use actor_core::{CodecMessage, DynMessage, Message};
@@ -18,7 +17,7 @@ use crate::shard_region::ShardRegion;
 impl Message for ShardEnvelope<ShardRegion> {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         if actor.graceful_shutdown_in_progress {
             debug!("{}: Ignore {}[{}] when ShardRegion is graceful shutdown in progress", actor.type_name, type_name::<Self>(),self.message.name());
         } else {
@@ -41,7 +40,7 @@ impl CodecMessage for ShardEnvelope<ShardRegion> {
         #[derive(Clone)]
         struct D;
         impl MessageDecoder for D {
-            fn decode(&self, bytes: &[u8], reg: &MessageRegistration) -> Result<DynMessage, DecodeError> {
+            fn decode(&self, bytes: &[u8], reg: &MessageRegistration) -> eyre::Result<DynMessage> {
                 let CodecShardEnvelope { entity_id, packet } = decode_bytes::<CodecShardEnvelope>(bytes)?;
                 let message = reg.decode(packet)?;
                 let message = ShardEnvelope::<ShardRegion> {
@@ -56,7 +55,7 @@ impl CodecMessage for ShardEnvelope<ShardRegion> {
         Some(Box::new(D))
     }
 
-    fn encode(&self, reg: &MessageRegistration) -> Result<Vec<u8>, EncodeError> {
+    fn encode(&self, reg: &MessageRegistration) -> eyre::Result<Vec<u8>> {
         let ShardEnvelope { entity_id, message, .. } = &self;
         let packet = reg.encode_boxed(message)?;
         let message = CodecShardEnvelope {
@@ -66,7 +65,7 @@ impl CodecMessage for ShardEnvelope<ShardRegion> {
         encode_bytes(&message)
     }
 
-    fn dyn_clone(&self) -> anyhow::Result<DynMessage> {
+    fn dyn_clone(&self) -> eyre::Result<DynMessage> {
         self.message.dyn_clone().map(|m| {
             let message = ShardEnvelope::<ShardRegion> {
                 entity_id: self.entity_id.clone(),

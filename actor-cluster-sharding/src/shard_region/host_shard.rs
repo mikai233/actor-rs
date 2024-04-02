@@ -1,7 +1,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashSet;
 
-use anyhow::Context as AnyhowContext;
+use eyre::Context as _;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::debug;
@@ -24,7 +24,7 @@ pub(crate) struct HostShard {
 impl Message for HostShard {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let type_name = &actor.type_name;
         let shard: ImShardId = self.shard.into();
         if actor.graceful_shutdown_in_progress {

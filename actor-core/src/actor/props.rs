@@ -1,7 +1,7 @@
 use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 
-use anyhow::anyhow;
+use eyre::anyhow;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::channel;
 
@@ -13,7 +13,7 @@ use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
 
-type ActorSpawner = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem, Option<Handle>) -> anyhow::Result<()> + Send>;
+type ActorSpawner = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem, Option<Handle>) -> eyre::Result<()> + Send>;
 
 pub struct Props {
     pub(crate) actor_name: &'static str,
@@ -35,7 +35,7 @@ impl Debug for Props {
 impl Props {
     pub fn new<F, A>(func: F) -> Self
         where
-            F: FnOnce() -> anyhow::Result<A> + Send + 'static,
+            F: FnOnce() -> eyre::Result<A> + Send + 'static,
             A: Actor {
         let actor_name = type_name::<A>();
         let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem, handle: Option<Handle>| {
@@ -44,7 +44,7 @@ impl Props {
             let actor = func()?;
             let runtime = ActorRuntime { actor, context, mailbox };
             handle.spawn(runtime.run());
-            Ok::<_, anyhow::Error>(())
+            Ok::<_, eyre::Error>(())
         };
         Self {
             actor_name,
@@ -56,7 +56,7 @@ impl Props {
 
     pub fn new_with_ctx<F, A>(func: F) -> Self
         where
-            F: FnOnce(&mut ActorContext) -> anyhow::Result<A> + Send + 'static,
+            F: FnOnce(&mut ActorContext) -> eyre::Result<A> + Send + 'static,
             A: Actor {
         let actor_name = type_name::<A>();
         let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem, handle: Option<Handle>| {
@@ -65,7 +65,7 @@ impl Props {
             let actor = func(&mut context)?;
             let runtime = ActorRuntime { actor, context, mailbox };
             handle.spawn(runtime.run());
-            Ok::<_, anyhow::Error>(())
+            Ok::<_, eyre::Error>(())
         };
         Self {
             actor_name,
@@ -75,7 +75,7 @@ impl Props {
         }
     }
 
-    pub(crate) fn mailbox(&self, system: &WeakActorSystem) -> anyhow::Result<(MailboxSender, Mailbox)> {
+    pub(crate) fn mailbox(&self, system: &WeakActorSystem) -> eyre::Result<(MailboxSender, Mailbox)> {
         let system = system.upgrade()?;
         let core_config = system.core_config();
         let mailbox_name = self.mailbox.as_ref().map(|m| m.as_str()).unwrap_or("default");
@@ -100,13 +100,13 @@ impl Props {
         self
     }
 
-    pub(crate) fn spawn(self, myself: ActorRef, mailbox: Mailbox, system: WeakActorSystem) -> anyhow::Result<()> {
+    pub(crate) fn spawn(self, myself: ActorRef, mailbox: Mailbox, system: WeakActorSystem) -> eyre::Result<()> {
         (self.spawner)(myself, mailbox, system.upgrade()?, self.handle)
     }
 }
 
 pub trait DeferredSpawn {
-    fn spawn(self: Box<Self>, system: ActorSystem) -> anyhow::Result<()>;
+    fn spawn(self: Box<Self>, system: ActorSystem) -> eyre::Result<()>;
 }
 
 pub struct ActorDeferredSpawn {
@@ -128,7 +128,7 @@ impl ActorDeferredSpawn {
 }
 
 impl DeferredSpawn for ActorDeferredSpawn {
-    fn spawn(self: Box<Self>, system: ActorSystem) -> anyhow::Result<()> {
+    fn spawn(self: Box<Self>, system: ActorSystem) -> eyre::Result<()> {
         let Self { actor_ref, mailbox, spawner, handle } = *self;
         spawner(actor_ref, mailbox, system, handle)
     }
@@ -145,11 +145,11 @@ impl Debug for ActorDeferredSpawn {
 }
 
 pub struct FuncDeferredSpawn {
-    func: Box<dyn FnOnce(ActorSystem) -> anyhow::Result<()>>,
+    func: Box<dyn FnOnce(ActorSystem) -> eyre::Result<()>>,
 }
 
 impl FuncDeferredSpawn {
-    pub fn new<F>(f: F) -> Self where F: FnOnce(ActorSystem) -> anyhow::Result<()> + 'static {
+    pub fn new<F>(f: F) -> Self where F: FnOnce(ActorSystem) -> eyre::Result<()> + 'static {
         Self {
             func: Box::new(f),
         }
@@ -157,7 +157,7 @@ impl FuncDeferredSpawn {
 }
 
 impl DeferredSpawn for FuncDeferredSpawn {
-    fn spawn(self: Box<Self>, system: ActorSystem) -> anyhow::Result<()> {
+    fn spawn(self: Box<Self>, system: ActorSystem) -> eyre::Result<()> {
         let Self { func } = *self;
         func(system)?;
         Ok(())

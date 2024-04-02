@@ -8,7 +8,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 
-use anyhow::{anyhow, Context};
+use eyre::{anyhow, Context};
 use enum_dispatch::enum_dispatch;
 use rand::random;
 use url::Url;
@@ -198,7 +198,7 @@ impl Display for ActorPath {
 }
 
 impl FromStr for ActorPath {
-    type Err = anyhow::Error;
+    type Err = eyre::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let url = Url::parse(s).context(format!("invalid url {}", s))?;
@@ -234,7 +234,7 @@ mod test {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
 
-    use anyhow::Ok;
+    use eyre::Ok;
 
     use crate::actor::address::Address;
     use crate::actor_path::{ActorPath, TActorPath};
@@ -312,7 +312,7 @@ mod test {
     }
 
     #[test]
-    fn test_actor_path_serde() -> anyhow::Result<()> {
+    fn test_actor_path_serde() -> eyre::Result<()> {
         let actor_path = build_actor_path();
         let url = actor_path.to_serialization_format();
         let parse_path: ActorPath = url.parse()?;

@@ -20,7 +20,7 @@ pub(crate) struct RegisterAck {
 impl Message for RegisterAck {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         if context.is_watching(&self.coordinator).not() {
             context.watch(self.coordinator.clone(), CoordinatorTerminated::new)?;
         }

@@ -9,7 +9,7 @@ pub(crate) struct DistributedPubSubMediator {}
 
 #[async_trait]
 impl Actor for DistributedPubSubMediator {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         trace!("{} started", context.myself());
         Ok(())
     }

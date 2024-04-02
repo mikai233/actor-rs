@@ -14,7 +14,7 @@ pub struct PoisonPill;
 
 #[async_trait]
 impl SystemMessage for PoisonPill {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> eyre::Result<()> {
         debug!("{} receive PoisonPill", context.myself());
         context.stop(context.myself());
         Ok(())

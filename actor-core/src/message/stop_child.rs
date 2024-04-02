@@ -28,7 +28,7 @@ impl<A> StopChild<A> where A: Actor {
 impl<T> Message for StopChild<T> where T: Actor {
     type A = T;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
         context.stop(&self.child);
         Ok(())
     }

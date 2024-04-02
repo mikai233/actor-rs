@@ -15,7 +15,7 @@ pub(crate) struct RouteeTerminated(ActorRef);
 impl Message for RouteeTerminated {
     type A = RouterActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
         let terminated_routee = self.0;
         todo!()
     }

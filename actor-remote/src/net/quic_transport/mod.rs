@@ -14,7 +14,7 @@ pub struct QuicTransportActor {
 
 #[async_trait]
 impl Actor for QuicTransportActor {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         let addr = self.transport.addr;
         let myself = context.myself().clone();
         let (server_config, server_cert) = Self::configure_server()?;
@@ -39,7 +39,7 @@ impl Actor for QuicTransportActor {
 }
 
 impl QuicTransportActor {
-    fn configure_server() -> anyhow::Result<(ServerConfig, Vec<u8>)> {
+    fn configure_server() -> eyre::Result<(ServerConfig, Vec<u8>)> {
         let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
         let cert_der = cert.serialize_der().unwrap();
         let priv_key = cert.serialize_private_key_der();

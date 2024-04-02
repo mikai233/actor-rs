@@ -22,7 +22,7 @@ impl SingletonTerminated {
 impl Message for SingletonTerminated {
     type A = ClusterSingletonProxy;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         if let Some(singleton) = &actor.singleton {
             if *singleton == *self.0 {
                 debug!("singleton {} terminated", singleton);

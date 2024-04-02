@@ -18,7 +18,7 @@ pub(crate) struct ShardHome {
 impl Message for ShardHome {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         actor.receive_shard_home(context, self.shard.into(), self.shard_region)?;
         Ok(())
     }

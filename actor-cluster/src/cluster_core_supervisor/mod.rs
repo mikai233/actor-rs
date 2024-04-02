@@ -1,5 +1,5 @@
-use anyhow::Error;
 use async_trait::async_trait;
+use eyre::Error;
 
 use actor_core::Actor;
 use actor_core::actor::context::{ActorContext, Context};
@@ -31,7 +31,7 @@ impl ClusterCoreSupervisor {
         }
     }
 
-    fn create_children(&mut self, context: &mut ActorContext) -> anyhow::Result<ActorRef> {
+    fn create_children(&mut self, context: &mut ActorContext) -> eyre::Result<ActorRef> {
         let core_daemon = context.spawn(
             Props::new_with_ctx(|ctx| ClusterCoreDaemon::new(ctx)),
             "daemon",
@@ -44,7 +44,7 @@ impl ClusterCoreSupervisor {
 
 #[async_trait]
 impl Actor for ClusterCoreSupervisor {
-    async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, _context: &mut ActorContext) -> eyre::Result<()> {
         self.cluster.shutdown()?;
         Ok(())
     }

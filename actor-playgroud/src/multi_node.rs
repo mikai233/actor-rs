@@ -40,7 +40,8 @@ struct Args {
 
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> eyre::Result<()> {
+    color_eyre::install()?;
     let Args { system_name, etcd, num } = Args::try_parse()?;
     init_logger_with_filter("debug,actor=info,actor_core::actor::scheduler=info,actor_remote::remote_watcher=info,h2=info,tower=info,hyper=info");
     let client = Client::connect([etcd.to_string()], None).await?;

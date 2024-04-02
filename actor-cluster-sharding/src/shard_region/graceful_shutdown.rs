@@ -20,7 +20,7 @@ pub(super) struct GracefulShutdown;
 impl Message for GracefulShutdown {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         if actor.preparing_for_shutdown {
             debug!("{}: Skipping graceful shutdown of region and all its shards as cluster is preparing for shutdown", actor.type_name);
             let _ = actor.graceful_shutdown_progress.send(()).await;

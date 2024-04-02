@@ -11,12 +11,11 @@ actor-derive = { path = "../actor-derive" }
 tokio = { workspace = true }
 tokio-util = { workspace = true, features = ["codec"] }
 futures = { workspace = true }
-anyhow = { workspace = true }
+eyre = { workspace = true }
 quick_cache = { workspace = true }
 stubborn-io = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["local-time"] }
-thiserror = { workspace = true }
 async-trait = { workspace = true }
 bincode = { workspace = true }
 typed-builder = { workspace = true }

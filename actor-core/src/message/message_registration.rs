@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 
 use bincode::{Decode, Encode};
-use bincode::error::{DecodeError, EncodeError};
+use eyre::eyre;
 
 use crate::{CodecMessage, DynMessage};
 use crate::actor::actor_selection::ActorSelectionMessage;
@@ -73,13 +73,16 @@ impl MessageRegistration {
     }
 
 
-    pub fn encode_boxed(&self, message: &DynMessage) -> Result<IDPacket, EncodeError> {
+    pub fn encode_boxed(&self, message: &DynMessage) -> eyre::Result<IDPacket> {
         let DynMessage { name, message, .. } = message;
         self.encode(name, &**message)
     }
 
-    pub fn encode(&self, name: &'static str, message: &dyn CodecMessage) -> Result<IDPacket, EncodeError> {
-        let id = *self.name_id.get(name).ok_or(EncodeError::OtherString(format!("message {} is not registered", name)))?;
+    pub fn encode(&self, name: &'static str, message: &dyn CodecMessage) -> eyre::Result<IDPacket> {
+        let id = *self.name_id.get(name)
+            .ok_or_else(|| {
+                eyre!("message {} is not registered", name)
+            })?;
         let bytes = message.encode(self)?;
         let packet = IDPacket {
             id,
@@ -88,9 +91,12 @@ impl MessageRegistration {
         Ok(packet)
     }
 
-    pub fn decode(&self, packet: IDPacket) -> Result<DynMessage, DecodeError> {
+    pub fn decode(&self, packet: IDPacket) -> eyre::Result<DynMessage> {
         let id = packet.id;
-        let decoder = self.decoder.get(&id).ok_or(DecodeError::OtherString(format!("message with id {} is not registered", id)))?;
+        let decoder = self.decoder.get(&id)
+            .ok_or_else(|| {
+                eyre!("message with id {} is not registered", id)
+            })?;
         let message = decoder.decode(&packet.bytes, self)?;
         Ok(message)
     }

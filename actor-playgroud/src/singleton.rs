@@ -52,7 +52,7 @@ struct Greet(usize);
 impl Message for Greet {
     type A = SingletonActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
         println!("{:?}", *self);
         info!("{} recv {:?}", context.myself(), *self);
         Ok(())
@@ -66,7 +66,7 @@ struct StopSingleton;
 impl Message for StopSingleton {
     type A = SingletonActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
         info!("stop singleton {}", context.myself());
         context.stop(context.myself());
         Ok(())
@@ -74,7 +74,7 @@ impl Message for StopSingleton {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> eyre::Result<()> {
     let args = Args::parse();
     init_logger_with_filter("actor=debug,actor-core::scheduler=info");
     let client = Client::connect([args.etcd.to_string()], None).await?;

@@ -3,7 +3,7 @@ use std::ops::{Deref, Not};
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::anyhow;
+use eyre::anyhow;
 use dashmap::DashMap;
 use dashmap::mapref::entry::Entry;
 use imstr::ImString;
@@ -55,7 +55,7 @@ impl Deref for ClusterSharding {
 impl Extension for ClusterSharding {}
 
 impl ClusterSharding {
-    pub fn new(system: ActorSystem, config: ClusterShardingConfig) -> anyhow::Result<Self> {
+    pub fn new(system: ActorSystem, config: ClusterShardingConfig) -> eyre::Result<Self> {
         // let default_config: ClusterShardingConfig = toml::from_str(CLUSTER_SHARDING_CONFIG).context(format!("failed to load {}", CLUSTER_SHARDING_CONFIG_NAME))?;
         // let sharding_config = config.with_fallback(default_config);
         //TODO
@@ -88,7 +88,7 @@ impl ClusterSharding {
         extractor: E,
         allocation_strategy: S,
         handoff_message: DynMessage,
-    ) -> anyhow::Result<ActorRef> where
+    ) -> eyre::Result<ActorRef> where
         E: MessageExtractor + 'static,
         S: ShardAllocationStrategy + 'static {
         let type_name: ImString = type_name.into().into();
@@ -136,7 +136,7 @@ impl ClusterSharding {
         type_name: impl Into<String>,
         role: Option<String>,
         extractor: E,
-    ) -> anyhow::Result<ActorRef> where
+    ) -> eyre::Result<ActorRef> where
         E: MessageExtractor + 'static {
         let type_name: ImString = type_name.into().into();
         let proxy_name = Self::proxy_name(type_name.as_str());

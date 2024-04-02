@@ -21,13 +21,13 @@ pub(crate) struct ShardHomes {
 impl Message for ShardHomes {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let homes_str = self.homes.keys().join(", ");
         debug!("Got shard homes for regions [{homes_str}]");
         for (shard_region_ref, shards) in self.homes {
             for shard_id in shards {
                 if let Some(error) = actor.receive_shard_home(context, shard_id.into(), shard_region_ref.clone()).err() {
-                    error!("{:#?}", error);
+                    error!("{:?}", error);
                 }
             }
         }

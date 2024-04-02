@@ -16,7 +16,7 @@ pub struct RemoveRoutee {
 impl Message for RemoveRoutee {
     type A = Box<dyn Router>;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let Self { routee: remove_routee } = *self;
         actor.routees_mut().retain(|routee| *routee != remove_routee);
         Ok(())

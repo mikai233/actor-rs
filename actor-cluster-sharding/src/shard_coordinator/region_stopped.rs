@@ -18,7 +18,7 @@ pub(crate) struct RegionStopped {
 impl Message for RegionStopped {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let shard_region = self.shard_region;
         debug!("{}: ShardRegion stopped: [{}]", actor.type_name, shard_region);
         actor.region_terminated(context, shard_region).await;

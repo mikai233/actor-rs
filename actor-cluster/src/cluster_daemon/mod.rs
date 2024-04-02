@@ -1,8 +1,8 @@
 use std::any::type_name;
 use std::fmt::Debug;
 
-use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
+use eyre::Context as _;
 use tokio::sync::mpsc::{channel, Sender};
 use tracing::{debug, warn};
 
@@ -35,7 +35,7 @@ pub struct ClusterDaemon {
 
 #[async_trait]
 impl Actor for ClusterDaemon {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         let cluster = Cluster::get(context.system()).clone();//TODO maybe panic
         let myself = context.myself().clone();
         let cluster_shutdown = self.cluster_shutdown.clone();
@@ -57,7 +57,7 @@ impl Actor for ClusterDaemon {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         let _ = self.cluster_shutdown.send(()).await;
         let system = context.system().clone();
         let fut = {
@@ -72,7 +72,7 @@ impl Actor for ClusterDaemon {
 }
 
 impl ClusterDaemon {
-    pub(crate) fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
+    pub(crate) fn new(context: &mut ActorContext) -> eyre::Result<Self> {
         let coord_shutdown = CoordinatedShutdown::get(context.system());
         let (cluster_shutdown_tx, mut cluster_shutdown_rx) = channel(1);
         coord_shutdown.add_task(context.system(), PHASE_CLUSTER_SHUTDOWN, "wait-shutdown", async move {
@@ -85,7 +85,7 @@ impl ClusterDaemon {
         Ok(daemon)
     }
 
-    fn create_children(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    fn create_children(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         let core_supervisor = context.spawn(
             Props::new_with_ctx(|ctx| {
                 Ok(ClusterCoreSupervisor::new(ctx))

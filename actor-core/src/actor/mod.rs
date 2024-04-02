@@ -1,5 +1,3 @@
-pub use bincode;
-
 pub(crate) mod mailbox;
 pub mod context;
 pub(crate) mod state;

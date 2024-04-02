@@ -14,7 +14,7 @@ pub(crate) struct Heartbeat;
 impl Message for Heartbeat {
     type A = RemoteWatcher;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         actor.receive_heartbeat(context)
     }
 }

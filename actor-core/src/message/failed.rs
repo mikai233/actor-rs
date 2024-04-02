@@ -12,12 +12,12 @@ use crate::ext::option_ext::OptionExt;
 #[derive(Debug, EmptyCodec)]
 pub(crate) struct Failed {
     pub(crate) child: ActorRef,
-    pub(crate) error: anyhow::Error,
+    pub(crate) error: eyre::Error,
 }
 
 #[async_trait]
 impl SystemMessage for Failed {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut dyn Actor) -> eyre::Result<()> {
         let Self { child: failed_child, error } = *self;
         let directive = actor.on_child_failure(context, &failed_child, &error);
         match directive {

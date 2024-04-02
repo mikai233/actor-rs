@@ -21,7 +21,7 @@ impl ShardRegionTerminated {
 impl Message for ShardRegionTerminated {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         actor.region_terminated(context, self.0.actor).await;
         Ok(())
     }

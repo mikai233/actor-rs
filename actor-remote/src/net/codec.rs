@@ -1,12 +1,12 @@
 use std::ops::{Deref, DerefMut};
 
-use anyhow::Context;
 use bincode::{Decode, Encode};
-use thiserror::Error;
+use eyre::Context;
 use tokio_util::bytes::{BufMut, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
 
 use actor_core::ext::read_u32;
+use actor_core::eyre;
 
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct Packet {
@@ -37,18 +37,8 @@ impl DerefMut for Packet {
 
 pub struct PacketCodec;
 
-#[derive(Debug, Error)]
-pub enum PacketCodecError {
-    #[error("codec packet error anyhow")]
-    Anyhow(#[from] anyhow::Error),
-    #[error("codec packet error io")]
-    Io(#[from] std::io::Error),
-    #[error("codec packet error io try from int")]
-    TryFromInt(#[from] std::num::TryFromIntError),
-}
-
 impl Encoder<Packet> for PacketCodec {
-    type Error = PacketCodecError;
+    type Error = eyre::Error;
 
     fn encode(&mut self, item: Packet, dst: &mut BytesMut) -> Result<(), Self::Error> {
         let len = item.len();
@@ -61,14 +51,14 @@ impl Encoder<Packet> for PacketCodec {
 
 impl Decoder for PacketCodec {
     type Item = Packet;
-    type Error = PacketCodecError;
+    type Error = eyre::Error;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         let buf_len = src.len();
         if buf_len < 4 {
             return Ok(None);
         }
-        let body_len = read_u32(src, 0)?;
+        let body_len = read_u32(src, 0);
         return if body_len > (buf_len - 4) as u32 {
             src.reserve(body_len as usize);
             Ok(None)

@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 use std::time::Duration;
 
-use anyhow::anyhow;
+use eyre::anyhow;
 use async_trait::async_trait;
 
 use actor_cluster::cluster::Cluster;
@@ -58,7 +58,7 @@ impl ShardAllocationStrategy for LeastShardAllocationStrategy {
         _requester: ActorRef,
         _shard_id: ImShardId,
         current_shard_allocations: HashMap<ActorRef, Vec<ImShardId>>,
-    ) -> anyhow::Result<ActorRef> {
+    ) -> eyre::Result<ActorRef> {
         let mut region_entries: Vec<RegionEntry>;
         const MAX_LOOP: usize = 100;
         let mut current_loop = 0;
@@ -82,7 +82,7 @@ impl ShardAllocationStrategy for LeastShardAllocationStrategy {
         &self,
         current_shard_allocations: HashMap<ActorRef, Vec<ImShardId>>,
         rebalance_in_progress: Vec<ImShardId>,
-    ) -> anyhow::Result<HashSet<ImShardId>> {
+    ) -> eyre::Result<HashSet<ImShardId>> {
         let limit = |number_of_shards: usize| {
             max(1, min((self.relative_limit * number_of_shards as f64) as usize, self.absolute_limit as usize))
         };

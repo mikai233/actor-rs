@@ -2,7 +2,7 @@ use std::any::type_name;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
-use anyhow::Context;
+use eyre::Context;
 use etcd_client::Client;
 use tokio::sync::broadcast::Receiver;
 
@@ -42,7 +42,7 @@ impl ClusterActorRefProvider {
         ClusterProviderBuilder::new()
     }
 
-    pub fn new(setting: ClusterSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+    pub fn new(setting: ClusterSetting) -> eyre::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
         let ClusterSetting { system, config, mut reg, client } = setting;
         let default_config: ClusterConfig = toml::from_str(CLUSTER_CONFIG).context(format!("failed to load {}", CLUSTER_CONFIG_NAME))?;
         let cluster_config = config.with_fallback(default_config);
@@ -120,7 +120,7 @@ impl TActorRefProvider for ClusterActorRefProvider {
         self.remote.unregister_temp_actor(path)
     }
 
-    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
+    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> eyre::Result<ActorRef> {
         self.remote.spawn_actor(props, supervisor)
     }
 
@@ -190,7 +190,7 @@ impl ClusterProviderBuilder {
         self
     }
 
-    pub fn build(self, system: ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
+    pub fn build(self, system: ActorSystem) -> eyre::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
         let Self { reg, config, client } = self;
         let setting = ClusterSetting::builder()
             .system(system)

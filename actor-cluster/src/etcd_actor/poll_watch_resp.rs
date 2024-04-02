@@ -21,7 +21,7 @@ pub(super) struct PollWatchResp;
 impl Message for PollWatchResp {
     type A = EtcdActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let mut cx = futures::task::Context::from_waker(&actor.watch_resp_waker);
         let mut failed = vec![];
         for (id, watcher) in &mut actor.watcher {

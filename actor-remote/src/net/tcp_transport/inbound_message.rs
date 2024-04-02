@@ -17,7 +17,7 @@ pub(super) struct InboundMessage {
 impl Message for InboundMessage {
     type A = TcpTransportActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let RemotePacket {
             packet,
             sender,

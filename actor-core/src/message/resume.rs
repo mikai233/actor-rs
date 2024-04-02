@@ -13,7 +13,7 @@ pub struct Resume;
 
 #[async_trait]
 impl SystemMessage for Resume {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> eyre::Result<()> {
         debug_assert!(matches!(context.state, ActorState::Suspend));
         context.state = ActorState::Started;
         for child in context.children() {

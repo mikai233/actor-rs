@@ -85,7 +85,7 @@ mod arc_test {
     impl Message for Incr {
         type A = RefActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
             *actor.value.get(context).borrow_mut() += 1;
             Ok(())
         }
@@ -101,14 +101,14 @@ mod arc_test {
     impl Message for Get {
         type A = RefActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
             context.sender().unwrap().resp(GetRsp(*actor.value.get(context).borrow()));
             Ok(())
         }
     }
 
     #[tokio::test]
-    async fn test() -> anyhow::Result<()> {
+    async fn test() -> eyre::Result<()> {
         let system = ActorSystem::new("mikai233", Default::default())?;
         let ref_actor = system.spawn_anonymous(Props::new_with_ctx(|ctx| { Ok(RefActor::new(ctx)) }))?;
         for _ in 0..1000 {

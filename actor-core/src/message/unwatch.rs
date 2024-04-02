@@ -16,7 +16,7 @@ pub struct Unwatch {
 
 #[async_trait]
 impl SystemMessage for Unwatch {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> eyre::Result<()> {
         let Unwatch { watchee, watcher } = *self;
         let watchee_self = watchee == context.myself;
         let watcher_self = watcher == context.myself;

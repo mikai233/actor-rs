@@ -32,7 +32,7 @@ struct MessageToAsk;
 impl Message for MessageToAsk {
     type A = EmptyTestActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
         context.sender().unwrap().resp(MessageToAns {
             content: "hello world".to_string(),
         });
@@ -52,7 +52,7 @@ struct TestMessage;
 impl Message for TestMessage {
     type A = EmptyTestActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
         info!("{} recv {:?}", context.myself(), self);
         Ok(())
     }
@@ -77,7 +77,7 @@ fn build_setting(addr: SocketAddrV4, client: Client) -> ActorSetting {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> eyre::Result<()> {
     init_logger_with_filter("actor=trace");
     let client = Client::connect(["localhost:2379"], None).await?;
     let system1 = ActorSystem::new("mikai233", build_setting("127.0.0.1:12121".parse()?, client.clone()))?;

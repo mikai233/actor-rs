@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use std::ops::Not;
 use std::sync::Arc;
 
-use anyhow::Context as AnyhowContext;
+use eyre::Context as _;
 use async_trait::async_trait;
 use imstr::ImString;
 use tracing::debug;
@@ -82,7 +82,7 @@ impl Shard {
         })
     }
 
-    fn passivate(&mut self, entity: &ActorRef, stop_message: DynMessage) -> anyhow::Result<()> {
+    fn passivate(&mut self, entity: &ActorRef, stop_message: DynMessage) -> eyre::Result<()> {
         let type_name = &self.type_name;
         match self.entities.entity_id(&entity) {
             None => {
@@ -102,7 +102,7 @@ impl Shard {
         Ok(())
     }
 
-    fn deliver_message(&mut self, context: &mut ActorContext, message: ShardEnvelope<Shard>, sender: Option<ActorRef>) -> anyhow::Result<()> {
+    fn deliver_message(&mut self, context: &mut ActorContext, message: ShardEnvelope<Shard>, sender: Option<ActorRef>) -> eyre::Result<()> {
         let message = message.into_shard_region_envelope();
         let entity_id = self.extractor.entity_id(&message);
         let type_name = &self.type_name;
@@ -151,7 +151,7 @@ impl Shard {
         }
     }
 
-    fn send_message_buffer(&mut self, context: &mut ActorContext, entity_id: &ImEntityId) -> anyhow::Result<()> {
+    fn send_message_buffer(&mut self, context: &mut ActorContext, entity_id: &ImEntityId) -> eyre::Result<()> {
         if let Some(messages) = self.message_buffers.remove(entity_id) {
             if messages.is_empty().not() {
                 self.get_or_create_entity(context, entity_id)?;
@@ -165,7 +165,7 @@ impl Shard {
         Ok(())
     }
 
-    fn get_or_create_entity(&mut self, context: &mut ActorContext, entity_id: &ImEntityId) -> anyhow::Result<ActorRef> {
+    fn get_or_create_entity(&mut self, context: &mut ActorContext, entity_id: &ImEntityId) -> eyre::Result<ActorRef> {
         match self.entities.entity(entity_id) {
             None => {
                 let entity = context.spawn(self.entity_props.props(entity_id.clone()), entity_id.as_str())?;
@@ -179,7 +179,7 @@ impl Shard {
     }
 
 
-    fn shard_initialized(&self, context: &mut ActorContext) -> anyhow::Result<()> {
+    fn shard_initialized(&self, context: &mut ActorContext) -> eyre::Result<()> {
         debug!("{}: Shard {} initialized", self.type_name, context.myself());
         context.parent()
             .into_result()
@@ -196,7 +196,7 @@ impl Shard {
 
 #[async_trait]
 impl Actor for Shard {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         Cluster::get(context.system()).subscribe_cluster_event(
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
@@ -205,7 +205,7 @@ impl Actor for Shard {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         Cluster::get(context.system()).unsubscribe_cluster_event(context.myself())?;
         if let Some(key) = self.passivate_interval_task.take() {
             key.cancel();

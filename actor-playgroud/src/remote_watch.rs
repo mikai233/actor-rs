@@ -31,7 +31,7 @@ struct RemoteActor {
 
 #[async_trait]
 impl Actor for RemoteActor {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         info!("{} started", context.myself());
         if let Some(remote_ref) = &self.remote_ref {
             context.watch(remote_ref.clone(), RemoteTerminated::new)?;
@@ -54,7 +54,7 @@ impl RemoteTerminated {
 impl Message for RemoteTerminated {
     type A = RemoteActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
         info!("{} watched {} terminated", context.myself(), self.0);
         Ok(())
     }
@@ -69,7 +69,7 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> eyre::Result<()> {
     let arg = Args::parse();
     let addr = arg.addr;
     init_logger_with_filter("debug,actor=debug,actor-core::scheduler=info,h2=info,tower=info,hyper=info");

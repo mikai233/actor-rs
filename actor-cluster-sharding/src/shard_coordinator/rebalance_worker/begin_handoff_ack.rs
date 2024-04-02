@@ -1,6 +1,6 @@
 use std::any::type_name;
 
-use anyhow::Context as AnyhowContext;
+use eyre::Context as _;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::debug;
@@ -22,7 +22,7 @@ pub(crate) struct BeginHandoffAck {
 impl Message for BeginHandoffAck {
     type A = RebalanceWorker;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let shard = self.shard;
         let sender = context.sender().into_result().context(type_name::<BeginHandoffAck>())?.clone();
         if actor.shard == shard {

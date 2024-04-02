@@ -22,7 +22,7 @@ impl ShardTerminated {
 impl Message for ShardTerminated {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let shard = self.0;
         if actor.shards_by_ref.contains_key(&shard) {
             if let Some(shard_id) = actor.shards_by_ref.remove(&shard) {

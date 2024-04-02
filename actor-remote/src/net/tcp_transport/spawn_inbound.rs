@@ -18,7 +18,7 @@ pub(super) struct SpawnInbound {
 impl Message for SpawnInbound {
     type A = TcpTransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
         context.spawn_fut(self.fut);
         Ok(())
     }

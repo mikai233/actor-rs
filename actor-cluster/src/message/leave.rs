@@ -18,7 +18,7 @@ pub struct MemberLeave {
 impl Message for MemberLeave {
     type A = ClusterDaemon;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
         todo!()
     }
 }

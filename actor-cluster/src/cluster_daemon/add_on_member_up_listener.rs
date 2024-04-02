@@ -20,7 +20,7 @@ pub(crate) struct AddOnMemberUpListener(pub(crate) Box<dyn FnOnce() + Send>);
 impl Message for AddOnMemberUpListener {
     type A = ClusterDaemon;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
         let listener = context.spawn_anonymous(Props::new(|| {
             Ok(OnMemberStatusChangedListener::new(MemberStatus::Up))
         }))?;

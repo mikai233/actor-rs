@@ -24,7 +24,7 @@ pub(super) struct HeartbeatTick;
 impl Message for HeartbeatTick {
     type A = RemoteWatcher;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let watching_nodes = actor.watchee_by_nodes.keys();
         for addr in watching_nodes {
             if actor.unreachable.contains(addr).not() {

@@ -1,7 +1,7 @@
 #[derive(Debug)]
 pub enum CodecType {
-    NoneSerde,
-    Serde,
+    NonCodec,
+    Codec,
 }
 
 #[derive(Debug)]

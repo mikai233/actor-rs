@@ -13,7 +13,7 @@ actor-cluster-tools = { path = "../actor-cluster-tools" }
 actor-derive = { path = "../actor-derive" }
 tokio = { workspace = true, features = ["full"] }
 bincode = { workspace = true }
-anyhow = { workspace = true }
+eyre = { workspace = true }
 dashmap = { workspace = true, features = ["inline"] }
 tracing = { workspace = true }
 async-trait = { workspace = true }

@@ -1,8 +1,8 @@
 use std::any::type_name;
 use std::sync::Arc;
 use std::time::Duration;
+use eyre::Context;
 
-use anyhow::Context;
 use tokio::sync::broadcast::Receiver;
 
 use actor_core::actor::actor_system::ActorSystem;
@@ -50,7 +50,7 @@ impl RemoteActorRefProvider {
         RemoteProviderBuilder::new()
     }
 
-    pub fn new(setting: RemoteSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+    pub fn new(setting: RemoteSetting) -> eyre::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
         let RemoteSetting { system, config, mut reg } = setting;
         Self::register_system_message(&mut reg);
         let default_config: RemoteConfig = toml::from_str(REMOTE_CONFIG).context(format!("failed to load {}", REMOTE_CONFIG_NAME))?;
@@ -87,7 +87,7 @@ impl RemoteActorRefProvider {
         Ok((remote, spawns))
     }
 
-    pub(crate) fn spawn_transport(provider: &LocalActorRefProvider, transport: Transport) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
+    pub(crate) fn spawn_transport(provider: &LocalActorRefProvider, transport: Transport) -> eyre::Result<(ActorRef, ActorDeferredSpawn)> {
         match transport {
             Transport::Tcp(tcp) => {
                 provider.system_guardian()
@@ -114,7 +114,7 @@ impl RemoteActorRefProvider {
         address == self.local.root_path().address() || address == self.root_path().address() || address == &self.address
     }
 
-    fn create_remote_watcher(provider: &LocalActorRefProvider) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
+    fn create_remote_watcher(provider: &LocalActorRefProvider) -> eyre::Result<(ActorRef, ActorDeferredSpawn)> {
         provider.system_guardian()
             .attach_child_deferred_start(
                 RemoteWatcher::props(Self::create_remote_watcher_failure_detector()),
@@ -196,7 +196,7 @@ impl TActorRefProvider for RemoteActorRefProvider {
         self.local.unregister_temp_actor(path)
     }
 
-    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
+    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> eyre::Result<ActorRef> {
         // TODO remote spawn
         self.local.spawn_actor(props, supervisor)
     }
@@ -264,7 +264,7 @@ impl RemoteProviderBuilder {
         self
     }
 
-    pub fn build(self, system: ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
+    pub fn build(self, system: ActorSystem) -> eyre::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
         let Self { reg, config } = self;
         let setting = RemoteSetting::builder()
             .system(system)

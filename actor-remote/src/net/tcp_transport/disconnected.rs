@@ -18,7 +18,7 @@ pub(super) struct Disconnected {
 impl Message for Disconnected {
     type A = TcpTransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         actor.message_buffer.remove(&self.addr);
         info!("{} disconnected from {}", context.myself(), self.addr);
         Ok(())

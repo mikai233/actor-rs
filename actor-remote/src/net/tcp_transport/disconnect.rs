@@ -19,7 +19,7 @@ pub struct Disconnect {
 impl Message for Disconnect {
     type A = TcpTransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         if let Some(ConnectionStatus::Connecting(handle)) = actor.connections.remove(&self.addr) {
             handle.abort();
         }

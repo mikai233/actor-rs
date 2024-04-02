@@ -16,7 +16,7 @@ pub struct Watch {
 
 #[async_trait]
 impl SystemMessage for Watch {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> eyre::Result<()> {
         let Watch { watchee, watcher } = *self;
         let watchee_self = watchee == context.myself;
         let watcher_self = watcher == context.myself;
