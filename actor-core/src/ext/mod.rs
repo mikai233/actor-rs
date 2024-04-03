@@ -17,18 +17,16 @@ pub mod message_ext;
 const BASE64_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+~";
 static ACTOR_NAME_OFFSET: AtomicI64 = AtomicI64::new(0);
 
-pub fn read_u16(src: &BytesMut, offset: usize) -> anyhow::Result<u16> {
+pub fn read_u16(src: &BytesMut, offset: usize) -> u16 {
     let mut u16_bytes = [0u8; 2];
     u16_bytes.copy_from_slice(&src[offset..(offset + 2)]);
-    let num_u16 = u16::from_be_bytes(u16_bytes);
-    Ok(num_u16)
+    u16::from_be_bytes(u16_bytes)
 }
 
-pub fn read_u32(src: &BytesMut, offset: usize) -> anyhow::Result<u32> {
+pub fn read_u32(src: &BytesMut, offset: usize) -> u32 {
     let mut u32_bytes = [0u8; 4];
     u32_bytes.copy_from_slice(&src[offset..(offset + 4)]);
-    let num_u32 = u32::from_be_bytes(u32_bytes);
-    Ok(num_u32)
+    u32::from_be_bytes(u32_bytes)
 }
 
 pub fn encode_bytes<T>(value: &T) -> Result<Vec<u8>, EncodeError> where T: Encode {

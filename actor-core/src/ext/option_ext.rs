@@ -36,17 +36,14 @@ impl<T> OptionExt<T> for Option<T> {
     }
 
     fn as_result(&self) -> anyhow::Result<&T> {
-        let name = type_name::<T>();
-        Ok(self.as_ref().ok_or(anyhow!("type of {} is none", name))?)
+        Ok(self.as_ref().ok_or(anyhow!("Option<{}> is none", type_name::<T>()))?)
     }
 
     fn as_result_mut(&mut self) -> anyhow::Result<&mut T> {
-        let name = type_name::<T>();
-        Ok(self.as_mut().ok_or(anyhow!("type of {} is none", name))?)
+        Ok(self.as_mut().ok_or(anyhow!("Option<{}> is none", type_name::<T>()))?)
     }
 
     fn into_result(self) -> anyhow::Result<T> {
-        let name = type_name::<T>();
-        Ok(self.ok_or(anyhow!("type of {} is none", name))?)
+        Ok(self.ok_or(anyhow!("Option<{}> is none", type_name::<T>()))?)
     }
 }

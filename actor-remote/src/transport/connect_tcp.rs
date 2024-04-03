@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use stubborn_io::{ReconnectOptions, StubbornTcpStream};
-use tokio_util::codec::Framed;
+use tokio_util::codec::FramedWrite;
 use tracing::{error, warn};
 
 use actor_core::actor::context::{ActorContext, Context};
@@ -13,19 +13,19 @@ use actor_core::actor_ref::ActorRefExt;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 
-use crate::net::codec::PacketCodec;
-use crate::net::tcp_transport::connected::Connected;
-use crate::net::tcp_transport::connection::Connection;
-use crate::net::tcp_transport::connection_status::ConnectionStatus;
-use crate::net::tcp_transport::TcpTransportActor;
+use crate::transport::codec::PacketCodec;
+use crate::transport::connected::Connected;
+use crate::transport::connection::Connection;
+use crate::transport::connection_status::ConnectionStatus;
+use crate::transport::TransportActor;
 
 #[derive(EmptyCodec)]
-pub(super) struct Connect {
-    pub addr: SocketAddr,
-    pub opts: ReconnectOptions,
+pub(super) struct ConnectTcp {
+    pub(super) addr: SocketAddr,
+    pub(super) opts: ReconnectOptions,
 }
 
-impl Connect {
+impl ConnectTcp {
     pub fn with_infinite_retry(addr: SocketAddr) -> Self {
         let opts = ReconnectOptions::new()
             .with_exit_if_first_connect_fails(false)
@@ -38,8 +38,8 @@ impl Connect {
 }
 
 #[async_trait]
-impl Message for Connect {
-    type A = TcpTransportActor;
+impl Message for ConnectTcp {
+    type A = TransportActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { addr, opts } = *self;
@@ -53,7 +53,7 @@ impl Message for Connect {
                         warn!("connect {} set tcp nodelay error {:?}, drop current connection", addr, e);
                         return;
                     }
-                    let framed = Framed::new(stream, PacketCodec);
+                    let framed = FramedWrite::new(stream, PacketCodec);
                     let (connection, tx) = Connection::new(
                         addr,
                         framed,

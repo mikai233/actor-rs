@@ -27,7 +27,7 @@ impl Message for ShardHomes {
         for (shard_region_ref, shards) in self.homes {
             for shard_id in shards {
                 if let Some(error) = actor.receive_shard_home(context, shard_id.into(), shard_region_ref.clone()).err() {
-                    error!("{:#?}", error);
+                    error!("{:?}", error);
                 }
             }
         }

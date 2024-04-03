@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 use std::iter::Peekable;
 use std::ops::Deref;
@@ -75,10 +76,10 @@ impl EmptyLocalActorRef {
     }
 
     fn special_handle(&self, message: DynMessage, sender: Option<ActorRef>) {
-        let watch = std::any::type_name::<Watch>();
-        let unwatch = std::any::type_name::<Unwatch>();
-        let identify = std::any::type_name::<Identify>();
-        let actor_selection = std::any::type_name::<ActorSelectionMessage>();
+        let watch = type_name::<Watch>();
+        let unwatch = type_name::<Unwatch>();
+        let identify = type_name::<Identify>();
+        let actor_selection = type_name::<ActorSelectionMessage>();
         if message.name == watch {
             let watch = message.downcast_system::<Watch>().unwrap();
             if watch.watchee.path() == self.path() && watch.watcher.path() != self.path() {

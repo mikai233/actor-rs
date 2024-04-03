@@ -42,7 +42,7 @@ impl Message for KeepAlive {
                         context.myself().cast_ns(PollKeepAliveResp);
                     }
                     Err(error) => {
-                        error!("spawn lease keeper {} failed: {:#?}", self.id, error);
+                        error!("spawn lease keeper {} failed: {:?}", self.id, error);
                         EtcdActor::keep_alive_failed(self.id, &self.applicant, None);
                     }
                 };

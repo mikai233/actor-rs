@@ -23,6 +23,7 @@ use actor_core::ext::init_logger_with_filter;
 use actor_core::ext::message_ext::UserMessageExt;
 use actor_playgroud::common::handoff_player::HandoffPlayer;
 use actor_playgroud::common::hello::Hello;
+use actor_playgroud::common::init::Init;
 use actor_playgroud::common::player_actor::PlayerActor;
 use actor_playgroud::common::player_message_extractor::PlayerMessageExtractor;
 use actor_remote::config::RemoteConfig;
@@ -45,6 +46,10 @@ async fn main() -> anyhow::Result<()> {
     init_logger_with_filter("debug,actor=info,actor_core::actor::scheduler=info,actor_remote::remote_watcher=info,h2=info,tower=info,hyper=info");
     let client = Client::connect([etcd.to_string()], None).await?;
     let mut systems = vec![];
+    let mut players = vec![];
+    for _ in 0..3 {
+        players.push(random::<u64>());
+    }
     for i in 0..num {
         let system_name = system_name.clone();
         let client = client.clone();
@@ -59,6 +64,7 @@ async fn main() -> anyhow::Result<()> {
                 ClusterProviderBuilder::new()
                     .client(client.clone())
                     .register_all(register_sharding)
+                    .register::<Init>()
                     .register::<Hello>()
                     .config(config)
                     .build(system.clone())
@@ -71,7 +77,9 @@ async fn main() -> anyhow::Result<()> {
         let builder = PropsBuilderSync::new::<PlayerActor, _>(|id| {
             Props::new(|| {
                 let player = PlayerActor {
-                    id
+                    id,
+                    count: 0,
+                    start: None,
                 };
                 Ok(player)
             })
@@ -79,12 +87,13 @@ async fn main() -> anyhow::Result<()> {
         let settings = ClusterShardingSettings::create(&system);
         let strategy = LeastShardAllocationStrategy::new(&system, 1, 1.0);
         let player_shard_region = ClusterSharding::get(&system).start("player", builder, settings.into(), PlayerMessageExtractor, strategy, HandoffPlayer.into_dyn()).await?;
+        let players = players.clone();
         system.handle().spawn(async move {
-            let mut players = vec![];
-            for _ in 0..3 {
-                players.push(random::<u64>());
-            }
             let mut index = 0;
+            for player_id in &players {
+                player_shard_region.cast_ns(ShardEnvelope::new(player_id.to_string(), Init));
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
             loop {
                 for player_id in &players {
                     let hello = Hello { index, data: vec![] };

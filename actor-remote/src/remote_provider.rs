@@ -27,7 +27,6 @@ use crate::config::RemoteConfig;
 use crate::config::transport::Transport;
 use crate::failure_detector::default_failure_detector_registry::DefaultFailureDetectorRegistry;
 use crate::failure_detector::phi_accrual_failure_detector::PhiAccrualFailureDetector;
-use crate::net::tcp_transport::TcpTransportActor;
 use crate::remote_actor_ref::RemoteActorRef;
 use crate::remote_setting::RemoteSetting;
 use crate::remote_watcher::artery_heartbeat::ArteryHeartbeat;
@@ -35,6 +34,7 @@ use crate::remote_watcher::artery_heartbeat_rsp::ArteryHeartbeatRsp;
 use crate::remote_watcher::heartbeat::Heartbeat;
 use crate::remote_watcher::heartbeat_rsp::HeartbeatRsp;
 use crate::remote_watcher::RemoteWatcher;
+use crate::transport::TransportActor;
 
 #[derive(Debug, AsAny)]
 pub struct RemoteActorRefProvider {
@@ -56,21 +56,7 @@ impl RemoteActorRefProvider {
         let default_config: RemoteConfig = toml::from_str(REMOTE_CONFIG).context(format!("failed to load {}", REMOTE_CONFIG_NAME))?;
         let remote_config = config.with_fallback(default_config);
         let transport = remote_config.transport.clone();
-        let address = match &remote_config.transport {
-            Transport::Tcp(tcp) => {
-                Address {
-                    protocol: tcp.name().to_string(),
-                    system: system.name.clone(),
-                    addr: Some(tcp.addr),
-                }
-            }
-            Transport::Kcp(_) => {
-                unimplemented!("kcp transport not unimplemented");
-            }
-            Transport::Quic(_) => {
-                unimplemented!("quic transport not unimplemented");
-            }
-        };
+        let address = Address::new(transport.name(), system.name.clone(), Some(transport.addr()));
         system.add_config(remote_config)?;
         let (local, mut spawns) = LocalActorRefProvider::new(system.downgrade(), Some(address.clone()))?;
         let (transport, deferred) = RemoteActorRefProvider::spawn_transport(&local, transport)?;
@@ -87,27 +73,20 @@ impl RemoteActorRefProvider {
         Ok((remote, spawns))
     }
 
-    pub(crate) fn spawn_transport(provider: &LocalActorRefProvider, transport: Transport) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
-        match transport {
-            Transport::Tcp(tcp) => {
-                provider.system_guardian()
-                    .attach_child_deferred_start(
-                        Props::new_with_ctx(
-                            move |context| {
-                                Ok(TcpTransportActor::new(context.system().clone(), tcp))
-                            },
-                        ),
-                        Some("tcp_transport".to_string()),
-                        None,
-                    )
-            }
-            Transport::Kcp(_) => {
-                unimplemented!("kcp transport not unimplemented");
-            }
-            Transport::Quic(_) => {
-                unimplemented!("quic transport not unimplemented");
-            }
-        }
+    pub(crate) fn spawn_transport(
+        provider: &LocalActorRefProvider,
+        transport: Transport,
+    ) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
+        provider.system_guardian()
+            .attach_child_deferred_start(
+                Props::new_with_ctx(
+                    move |context| {
+                        Ok(TransportActor::new(context.system().clone(), transport))
+                    },
+                ),
+                Some("transport".to_string()),
+                None,
+            )
     }
 
     fn has_address(&self, address: &Address) -> bool {

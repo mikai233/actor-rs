@@ -121,22 +121,22 @@ impl Patterns {
                             Ok(*resp)
                         }
                         Err(_) => {
-                            let req = std::any::type_name::<Req>();
-                            let resp = std::any::type_name::<Resp>();
+                            let req = type_name::<Req>();
+                            let resp = type_name::<Resp>();
                             Err(anyhow!("ask {} with {} expect {} resp, but found other resp", target, req, resp))
                         }
                     }
                 } else {
-                    let req = std::any::type_name::<Req>();
+                    let req = type_name::<Req>();
                     Err(anyhow!("ask {} with {} expect OrphanMessage resp, but found other type message", target, req))
                 }
             }
             Ok(None) => {
-                let req = std::any::type_name::<Req>();
+                let req = type_name::<Req>();
                 Err(anyhow!("ask {} with {} got empty resp, because DeferredActorRef is dropped", target, req))
             }
             Err(_) => {
-                let req = std::any::type_name::<Req>();
+                let req = type_name::<Req>();
                 Err(anyhow!("ask {} with {} timeout after {:?}, a typical reason is that the recipient actor didn't send a reply", target, req, timeout))
             }
         }

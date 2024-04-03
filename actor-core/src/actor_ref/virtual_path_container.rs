@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 use std::iter::Peekable;
 use std::ops::{Deref, Not};
@@ -57,7 +58,7 @@ impl TActorRef for VirtualPathContainer {
 
     fn tell(&self, message: DynMessage, _sender: Option<ActorRef>) {
         if matches!(message.ty, MessageType::System) {
-            if message.name == std::any::type_name::<Terminate>() {
+            if message.name == type_name::<Terminate>() {
                 let notification = DeathWatchNotification {
                     actor: self.clone().into(),
                     existence_confirmed: true,

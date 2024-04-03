@@ -41,7 +41,7 @@ impl Message for RebalanceTick {
                         myself.cast_ns(RebalanceResult { shards });
                     }
                     Err(error) => {
-                        debug!("{}: Rebalance error: {:#?}", type_name, error);
+                        debug!("{}: Rebalance error: {:?}", type_name, error);
                         myself.cast_ns(RebalanceResult { shards: Default::default() });
                     }
                 }

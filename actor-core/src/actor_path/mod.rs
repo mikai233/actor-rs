@@ -242,11 +242,7 @@ mod test {
     use crate::actor_path::root_actor_path::RootActorPath;
 
     fn build_address() -> Address {
-        Address {
-            protocol: "tcp".to_string(),
-            system: "mikai233".to_string(),
-            addr: Some("127.0.0.1:12121".parse().unwrap()),
-        }
+        Address::new("tcp", "mikai233", Some("127.0.0.1:12121".parse().unwrap()))
     }
 
     fn build_actor_path() -> ActorPath {
@@ -332,17 +328,9 @@ mod test {
     #[test]
     fn test_to_string_with_address() {
         let actor_path = build_actor_path();
-        let address = Address {
-            protocol: "tcp".to_string(),
-            system: "mikai".to_string(),
-            addr: None,
-        };
+        let address = Address::new("tcp", "mikai", None);
         assert_eq!(actor_path.to_string_with_address(&address), "tcp://mikai/user/$a/$a/$aa");
-        let address = Address {
-            protocol: "tcp".to_string(),
-            system: "mikai".to_string(),
-            addr: Some("127.0.0.1:9988".parse().unwrap()),
-        };
+        let address = Address::new("tcp", "mikai", Some("127.0.0.1:9988".parse().unwrap()));
         assert_eq!(actor_path.to_string_with_address(&address), "tcp://mikai@127.0.0.1:9988/user/$a/$a/$aa");
     }
 
@@ -351,11 +339,7 @@ mod test {
         let actor_path = build_actor_path();
         assert_eq!(actor_path, actor_path);
         assert_ne!(actor_path, actor_path.child("u"));
-        let addr = Address {
-            protocol: "tcp".to_string(),
-            system: "mikai233".to_string(),
-            addr: None,
-        };
+        let addr = Address::new("tcp", "mikai233", None);
         let root: ActorPath = RootActorPath::new(addr, "/".to_string()).into();
         let actor_path2 = root.descendant(vec![
             "user".to_string(),
@@ -375,11 +359,7 @@ mod test {
         assert!(actor_path < actor_path2);
         let actor_path3 = actor_path.child("a");
         assert!(actor_path3 < actor_path2);
-        let addr = Address {
-            protocol: "tcp".to_string(),
-            system: "mikai234".to_string(),
-            addr: None,
-        };
+        let addr = Address::new("tcp", "mikai234", None);
         let root: ActorPath = RootActorPath::new(addr, "/".to_string()).into();
         let actor_path4 = root.descendant(vec![
             "user".to_string(),

@@ -8,11 +8,11 @@ use actor_core::Message;
 use actor_core::message::message_buffer::BufferEnvelope;
 use actor_derive::EmptyCodec;
 
-use crate::net::tcp_transport::connection::ConnectionTx;
-use crate::net::tcp_transport::connection_status::ConnectionStatus;
-use crate::net::tcp_transport::TcpTransportActor;
+use crate::transport::connection::ConnectionTx;
+use crate::transport::connection_status::ConnectionStatus;
+use crate::transport::TransportActor;
 
-#[derive(EmptyCodec)]
+#[derive(Debug, EmptyCodec)]
 pub(super) struct Connected {
     pub(super) addr: SocketAddr,
     pub(super) tx: ConnectionTx,
@@ -20,7 +20,7 @@ pub(super) struct Connected {
 
 #[async_trait]
 impl Message for Connected {
-    type A = TcpTransportActor;
+    type A = TransportActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.connections.insert(self.addr, ConnectionStatus::Connected(self.tx));

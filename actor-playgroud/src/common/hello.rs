@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::info;
@@ -19,7 +21,7 @@ impl Message for Hello {
     type A = PlayerActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        info!("player {} {} receive hello {}",context.myself(), actor.id, self.index);
+        info!("player {} {} receive {:?}", context.myself(), actor.id, self);
         Ok(())
     }
 }

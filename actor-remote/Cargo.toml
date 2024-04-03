@@ -22,7 +22,7 @@ bincode = { workspace = true }
 typed-builder = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 toml = { workspace = true }
-quinn = { workspace = true }
+quinn = { workspace = true, features = ["futures-io"] }
 rcgen = { workspace = true }
 rustls = { workspace = true }
 

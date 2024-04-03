@@ -24,9 +24,9 @@ impl<A> ActorRuntime<A> where A: Actor {
     pub(crate) async fn run(self) {
         let Self { mut actor, mut context, mut mailbox } = self;
         context.stash_capacity = mailbox.stash_capacity;
-        let actor_name = std::any::type_name::<A>();
+        let actor_name = type_name::<A>();
         if let Err(err) = actor.started(&mut context).await {
-            error!("actor {} start error {:#?}", actor_name, err);
+            error!("actor {} start error {:?}", actor_name, err);
             context.stop(&context.myself());
             while let Some(message) = mailbox.system.recv().await {
                 Self::handle_system(&mut context, &mut actor, message).await;
@@ -99,12 +99,12 @@ impl<A> ActorRuntime<A> where A: Actor {
     fn catch_handle_error(context: &mut ActorContext, catch_unwind_result: Result<anyhow::Result<()>, Box<dyn Any + Send>>) {
         match catch_unwind_result {
             Ok(Err(logic_error)) => {
-                let name = std::any::type_name::<A>();
+                let name = type_name::<A>();
                 let myself = context.myself.clone();
                 context.handle_invoke_failure(myself, name, logic_error);
             }
             Err(_) => {
-                let name = std::any::type_name::<A>();
+                let name = type_name::<A>();
                 let myself = context.myself.clone();
                 context.handle_invoke_failure(myself, name, anyhow!("{} panic", name));
             }

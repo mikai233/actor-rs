@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::any::{Any, type_name};
 
 use async_trait::async_trait;
 use bincode::error::EncodeError;
@@ -17,7 +17,7 @@ pub struct SystemDelegate {
 impl SystemDelegate where {
     pub fn new<M>(message: M) -> Self where M: SystemMessage {
         Self {
-            name: std::any::type_name::<M>(),
+            name: type_name::<M>(),
             message: Box::new(message),
         }
     }

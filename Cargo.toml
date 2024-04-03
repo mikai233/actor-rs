@@ -39,3 +39,6 @@ parking_lot = "0.12"
 quinn = "0.10"
 rcgen = "0.12"
 rustls = { version = "0.21", default-features = false }
+
+[profile.release]
+debug = true

@@ -1,36 +1,36 @@
 use std::net::SocketAddr;
 
 use futures::SinkExt;
-use stubborn_io::tokio::StubbornIo;
-use tokio::net::TcpStream;
-use tokio_util::codec::Framed;
+use tokio::io::AsyncWrite;
+use tokio_util::codec::FramedWrite;
 use tracing::warn;
 
 use actor_core::actor::address::Address;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::encode_bytes;
 
-use crate::net::codec::{Packet, PacketCodec};
-use crate::net::remote_envelope::RemoteEnvelope;
-use crate::net::remote_packet::RemotePacket;
-use crate::net::tcp_transport::disconnect::Disconnect;
-use crate::net::tcp_transport::disconnected::Disconnected;
+use crate::transport::codec::{Packet, PacketCodec};
+use crate::transport::disconnect::Disconnect;
+use crate::transport::disconnected::Disconnected;
+use crate::transport::remote_envelope::RemoteEnvelope;
+use crate::transport::remote_packet::RemotePacket;
 
 pub type ConnectionTx = tokio::sync::mpsc::Sender<RemoteEnvelope>;
 pub type ConnectionRx = tokio::sync::mpsc::Receiver<RemoteEnvelope>;
 
-pub(super) struct Connection {
+#[derive(Debug)]
+pub(super) struct Connection<T: AsyncWrite + Unpin + Send + 'static> {
     pub(super) peer: SocketAddr,
     pub(super) myself: Address,
-    pub(super) framed: Framed<StubbornIo<TcpStream, SocketAddr>, PacketCodec>,
+    pub(super) framed: FramedWrite<T, PacketCodec>,
     pub(super) rx: ConnectionRx,
     pub(super) transport: ActorRef,
 }
 
-impl Connection {
+impl<T> Connection<T> where T: AsyncWrite + Unpin + Send + 'static {
     pub fn new(
         addr: SocketAddr,
-        framed: Framed<StubbornIo<TcpStream, SocketAddr>, PacketCodec>,
+        framed: FramedWrite<T, PacketCodec>,
         transport: ActorRef,
         myself: Address,
     ) -> (Self, ConnectionTx) {

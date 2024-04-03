@@ -20,10 +20,10 @@ use actor_core::message::unwatch::Unwatch;
 use actor_core::message::watch::Watch;
 use actor_derive::AsAny;
 
-use crate::net::remote_envelope::RemoteEnvelope;
-use crate::net::tcp_transport::outbound_message::OutboundMessage;
 use crate::remote_watcher::unwatch_remote::UnwatchRemote;
 use crate::remote_watcher::watch_remote::WatchRemote;
+use crate::transport::outbound_message::OutboundMessage;
+use crate::transport::remote_envelope::RemoteEnvelope;
 
 #[derive(Clone, AsAny)]
 pub struct RemoteActorRef {

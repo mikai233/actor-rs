@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::any::{Any, type_name};
 
 use anyhow::anyhow;
 
@@ -64,7 +64,7 @@ pub(crate) fn downcast_box_message<M: CodecMessage>(name: &'static str, msg: Box
             Ok(*m)
         }
         Err(_) => {
-            Err(anyhow!("message {} cannot downcast to {}", name, std::any::type_name::<M>()))
+            Err(anyhow!("message {} cannot downcast to {}", name, type_name::<M>()))
         }
     }
 }

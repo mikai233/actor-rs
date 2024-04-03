@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::any::{Any, type_name};
 use std::fmt::{Debug, Formatter};
 
 use async_trait::async_trait;
@@ -27,7 +27,7 @@ impl<A> Debug for UserDelegate<A> where A: Actor {
 impl<A> UserDelegate<A> where A: Actor {
     pub fn new<M>(message: M) -> Self where M: Message<A=A> {
         Self {
-            name: std::any::type_name::<M>(),
+            name: type_name::<M>(),
             message: Box::new(message),
         }
     }

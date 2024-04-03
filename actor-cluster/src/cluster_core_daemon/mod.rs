@@ -24,7 +24,7 @@ use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::provider::downcast_provider;
-use actor_remote::net::tcp_transport::disconnect::Disconnect;
+use actor_remote::transport::disconnect::Disconnect;
 
 use crate::cluster::Cluster;
 use crate::cluster_core_daemon::exiting_completed_req::{ExitingCompletedReq, ExitingCompletedResp};

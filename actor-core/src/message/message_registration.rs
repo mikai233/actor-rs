@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 
@@ -55,7 +56,7 @@ impl MessageRegistration {
     }
 
     fn register<M>(&mut self, id: u32) where M: CodecMessage {
-        let name = std::any::type_name::<M>();
+        let name = type_name::<M>();
         let decoder = M::decoder().expect(&*format!("{} decoder is empty", name));
         assert!(!self.name_id.contains_key(name), "message {} already registered", name);
         self.name_id.insert(name, id);
@@ -79,7 +80,9 @@ impl MessageRegistration {
     }
 
     pub fn encode(&self, name: &'static str, message: &dyn CodecMessage) -> Result<IDPacket, EncodeError> {
-        let id = *self.name_id.get(name).ok_or(EncodeError::OtherString(format!("message {} is not registered", name)))?;
+        let id = *self.name_id
+            .get(name)
+            .ok_or(EncodeError::OtherString(format!("message {} is not registered", name)))?;
         let bytes = message.encode(self)?;
         let packet = IDPacket {
             id,
@@ -90,7 +93,9 @@ impl MessageRegistration {
 
     pub fn decode(&self, packet: IDPacket) -> Result<DynMessage, DecodeError> {
         let id = packet.id;
-        let decoder = self.decoder.get(&id).ok_or(DecodeError::OtherString(format!("message with id {} is not registered", id)))?;
+        let decoder = self.decoder
+            .get(&id)
+            .ok_or(DecodeError::OtherString(format!("message with id {} is not registered", id)))?;
         let message = decoder.decode(&packet.bytes, self)?;
         Ok(message)
     }

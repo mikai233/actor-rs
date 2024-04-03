@@ -35,6 +35,7 @@ impl DerefMut for Packet {
     }
 }
 
+#[derive(Debug)]
 pub struct PacketCodec;
 
 #[derive(Debug, Error)]
@@ -68,7 +69,7 @@ impl Decoder for PacketCodec {
         if buf_len < 4 {
             return Ok(None);
         }
-        let body_len = read_u32(src, 0)?;
+        let body_len = read_u32(src, 0);
         return if body_len > (buf_len - 4) as u32 {
             src.reserve(body_len as usize);
             Ok(None)

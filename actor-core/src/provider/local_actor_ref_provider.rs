@@ -41,11 +41,7 @@ impl LocalActorRefProvider {
         let address = match address {
             None => {
                 let system_name = system.upgrade()?.name.clone();
-                Address {
-                    protocol: "tcp".to_string(),
-                    system: system_name,
-                    addr: None,
-                }
+                Address::new("tcp", system_name, None)
             }
             Some(address) => address
         };

@@ -50,7 +50,7 @@ impl Message for GetShardHome {
                             });
                         }
                         Err(error) => {
-                            error!("{}: Shard [{}] allocation failed. {:#?}", type_name, shard, error);
+                            error!("{}: Shard [{}] allocation failed. {:?}", type_name, shard, error);
                             myself.cast_ns(AllocateShardResult {
                                 shard,
                                 shard_region: None,

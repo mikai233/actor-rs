@@ -64,7 +64,9 @@ async fn main() -> anyhow::Result<()> {
     let builder = PropsBuilderSync::new::<PlayerActor, _>(|id| {
         Props::new(|| {
             let player = PlayerActor {
-                id
+                id,
+                count: 0,
+                start: None,
             };
             Ok(player)
         })
