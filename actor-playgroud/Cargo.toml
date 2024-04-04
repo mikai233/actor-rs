@@ -24,9 +24,6 @@ clap = { workspace = true, features = ["derive"] }
 rand = { workspace = true }
 futures = { workspace = true }
 
-[profile.dev.package.backtrace]
-opt-level = 3
-
 [[bin]]
 name = "node"
 path = "src/node.rs"

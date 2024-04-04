@@ -3,6 +3,9 @@ members = ["actor-*"]
 
 resolver = "2"
 
+[profile.dev.package.backtrace]
+opt-level = 3
+
 [workspace.dependencies]
 enum_dispatch = "0.3"
 tokio = "1.3"
