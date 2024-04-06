@@ -26,7 +26,7 @@ pub(super) struct ConnectQuic {
 impl Message for ConnectQuic {
     type A = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
         let Self { addr, config } = *self;
         let myself = context.myself().clone();
         let myself_addr = context.system().address();

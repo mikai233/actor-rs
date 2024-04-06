@@ -30,7 +30,7 @@ impl Actor for Keeper {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn stopped(&mut self, _context: &mut ActorContext) -> eyre::Result<()> {
         if let Some(key) = self.tick_key.take() {
             key.cancel();
         }

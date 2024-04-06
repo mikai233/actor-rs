@@ -5,7 +5,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use futures::StreamExt;
 use quick_cache::unsync::Cache;
-use quinn::{ClientConfig, Endpoint, ServerConfig};
+use quinn::{ClientConfig, Endpoint};
 use tokio::io::AsyncRead;
 use tokio::net::TcpListener;
 use tokio_util::codec::FramedRead;
@@ -181,7 +181,7 @@ impl TransportActor {
                     }
                 }
                 Err(error) => {
-                    let fut = system.run_coordinated_shutdown(ActorSystemStartFailedReason(anyhow::Error::from(error)));
+                    let fut = system.run_coordinated_shutdown(ActorSystemStartFailedReason(eyre::Error::from(error)));
                     system.handle().spawn(fut);
                 }
             }
@@ -192,7 +192,7 @@ impl TransportActor {
     fn spawn_quic_listener(
         context: &mut ActorContext,
         transport: &QuicTransport,
-    ) -> anyhow::Result<()> {
+    ) -> eyre::Result<()> {
         let QuicTransport { addr, config, .. } = transport;
         let addr: SocketAddr = (*addr).into();
         let myself = context.myself().clone();
@@ -226,7 +226,7 @@ impl TransportActor {
         Ok(())
     }
 
-    fn configure_client(server_certs: &[&[u8]]) -> anyhow::Result<ClientConfig> {
+    fn configure_client(server_certs: &[&[u8]]) -> eyre::Result<ClientConfig> {
         let mut certs = rustls::RootCertStore::empty();
         for cert in server_certs {
             certs.add(&rustls::Certificate(cert.to_vec()))?;
@@ -355,7 +355,7 @@ mod test {
             context.sender().unwrap().resp(MessageToAns {
                 content: "hello world".to_string(),
             });
-            anyhow::Ok(())
+            eyre::Ok(())
         }
     }
 

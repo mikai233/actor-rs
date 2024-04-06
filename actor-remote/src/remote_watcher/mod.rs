@@ -73,7 +73,7 @@ impl Actor for RemoteWatcher {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn stopped(&mut self, _context: &mut ActorContext) -> eyre::Result<()> {
         if let Some(task) = self.heartbeat_task.take() {
             task.cancel();
         }

@@ -1,7 +1,6 @@
 use std::time::SystemTime;
 
 use async_trait::async_trait;
-use eyre::eyre;
 use tracing::info;
 
 use actor_cluster_sharding::shard_region::ImShardId;

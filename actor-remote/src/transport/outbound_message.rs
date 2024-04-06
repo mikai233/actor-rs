@@ -1,8 +1,7 @@
-use std::any::type_name;
 use std::net::SocketAddr;
 
-use eyre::anyhow;
 use async_trait::async_trait;
+use eyre::anyhow;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::{debug, warn};
 
