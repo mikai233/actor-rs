@@ -36,7 +36,7 @@ impl CoordinatedShutdownLeave {
 
 #[async_trait]
 impl Actor for CoordinatedShutdownLeave {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         self.cluster.subscribe_cluster_event(
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
@@ -45,7 +45,7 @@ impl Actor for CoordinatedShutdownLeave {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         self.cluster.unsubscribe_cluster_event(context.myself())?;
         Ok(())
     }

@@ -17,7 +17,7 @@ pub(crate) struct SelfRemoved;
 impl Message for SelfRemoved {
     type A = ClusterCoreDaemon;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         *actor.cluster.members_write() = HashMap::new();
         let mut self_member = actor.cluster.self_member_write();
         self_member.status = MemberStatus::Removed;

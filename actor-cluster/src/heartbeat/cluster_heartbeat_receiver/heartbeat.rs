@@ -1,8 +1,8 @@
 use std::any::type_name;
 
-use anyhow::Context as AnyhowContext;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
+use eyre::Context as _;
 use tracing::trace;
 
 use actor_core::actor::context::{ActorContext, Context};
@@ -25,7 +25,7 @@ pub(crate) struct Heartbeat {
 impl Message for Heartbeat {
     type A = ClusterHeartbeatReceiver;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         trace!("{} recv Heartbeat from {}", context.myself(), self.from);
         if let Some(self_member) = &actor.self_member {
             if self_member.status == MemberStatus::Up {

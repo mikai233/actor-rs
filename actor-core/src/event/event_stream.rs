@@ -1,7 +1,7 @@
 use std::any::type_name;
 use std::ops::Not;
 
-use anyhow::anyhow;
+use eyre::anyhow;
 use dashmap::{DashMap, DashSet};
 use dashmap::mapref::entry::Entry;
 use tracing::{trace, warn};
@@ -63,7 +63,7 @@ impl EventStream {
         trace!("{} unsubscribe from {}", subscriber, event_str);
     }
 
-    pub fn publish<E>(&self, event: E) -> anyhow::Result<()> where E: CodecMessage {
+    pub fn publish<E>(&self, event: E) -> eyre::Result<()> where E: CodecMessage {
         let event_name = type_name::<E>();
         if event.is_cloneable().not() {
             return Err(anyhow!("event message {} require cloneable", event_name));
@@ -114,14 +114,14 @@ mod event_tests {
     impl Message for EventWrap {
         type A = EmptyTestActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
             info!("{} handle event message {:?}", context.myself(), self);
             Ok(())
         }
     }
 
     #[tokio::test]
-    async fn test_event_stream() -> anyhow::Result<()> {
+    async fn test_event_stream() -> eyre::Result<()> {
         let system = ActorSystem::new("mikai233", ActorSetting::default())?;
         let props_builder = PropsBuilder::new::<EmptyTestActor, _>(|()| {
             Props::new(|| Ok(EmptyTestActor))

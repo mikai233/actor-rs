@@ -2,7 +2,7 @@ use std::any::type_name;
 use std::collections::hash_map::Entry;
 use std::ops::Not;
 
-use anyhow::Context as AnyhowContext;
+use eyre::Context as _;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::debug;
@@ -25,7 +25,7 @@ pub(crate) struct BeginHandoff {
 impl Message for BeginHandoff {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         debug!("{}: BeginHandOff shard [{}]", actor.type_name, self.shard);
         if actor.preparing_for_shutdown.not() {
             if let Some(region_ref) = actor.region_by_shard.remove(self.shard.as_str()) {

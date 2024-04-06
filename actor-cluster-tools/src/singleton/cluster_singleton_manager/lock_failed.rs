@@ -18,7 +18,7 @@ pub(super) struct LockFailed {
 impl Message for LockFailed {
     type A = ClusterSingletonManager;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let Self { path, error } = *self;
         error!("lock singleton {} failed {:?}, retry it", path, error);
         actor.lock(context);

@@ -26,7 +26,7 @@ pub struct KeepAlive {
 impl Message for KeepAlive {
     type A = EtcdActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         debug!("{} request keep alive {} with interval {:?}", self.applicant, self.id, self.interval);
         match actor.client.lease_keep_alive(self.id).await {
             Ok((keeper, stream)) => {

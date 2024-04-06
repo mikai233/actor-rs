@@ -21,7 +21,7 @@ pub(super) struct WatchStarted {
 impl Message for WatchStarted {
     type A = EtcdActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let id = self.watcher.watch_id();
         debug!("watch started with watch id {} and applicant {}", id, self.applicant);
         let watcher = Watcher {

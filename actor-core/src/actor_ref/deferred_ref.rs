@@ -78,7 +78,7 @@ impl TActorRef for DeferredActorRef {
 }
 
 impl DeferredActorRef {
-    pub(crate) fn new(system: WeakActorSystem, ref_path_prefix: &String, message_name: &'static str) -> anyhow::Result<(Self, Receiver<DynMessage>)> {
+    pub(crate) fn new(system: WeakActorSystem, ref_path_prefix: &String, message_name: &'static str) -> eyre::Result<(Self, Receiver<DynMessage>)> {
         let provider = system.upgrade()?.provider();
         let path = provider.temp_path_of_prefix(Some(ref_path_prefix));
         let (tx, rx) = tokio::sync::mpsc::channel(1);

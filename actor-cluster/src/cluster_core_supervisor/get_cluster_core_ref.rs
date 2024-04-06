@@ -16,7 +16,7 @@ pub(crate) struct GetClusterCoreRef;
 impl Message for GetClusterCoreRef {
     type A = ClusterCoreSupervisor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let core_daemon = match &actor.core_daemon {
             None => {
                 actor.create_children(context)?

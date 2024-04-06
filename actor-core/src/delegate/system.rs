@@ -1,7 +1,6 @@
 use std::any::{Any, type_name};
 
 use async_trait::async_trait;
-use bincode::error::EncodeError;
 
 use crate::{Actor, CodecMessage, DynMessage, MessageType, SystemMessage};
 use crate::actor::context::ActorContext;
@@ -22,7 +21,7 @@ impl SystemDelegate where {
         }
     }
 
-    pub fn downcast<M>(self) -> anyhow::Result<M> where M: CodecMessage {
+    pub fn downcast<M>(self) -> eyre::Result<M> where M: CodecMessage {
         let Self { name, message } = self;
         downcast_box_message(name, message.into_any())
     }
@@ -46,11 +45,11 @@ impl CodecMessage for SystemDelegate {
         None
     }
 
-    fn encode(&self, reg: &MessageRegistration) -> Result<Vec<u8>, EncodeError> {
+    fn encode(&self, reg: &MessageRegistration) -> eyre::Result<Vec<u8>> {
         self.message.encode(reg)
     }
 
-    fn dyn_clone(&self) -> anyhow::Result<DynMessage> {
+    fn dyn_clone(&self) -> eyre::Result<DynMessage> {
         self.message.dyn_clone()
     }
 
@@ -61,7 +60,7 @@ impl CodecMessage for SystemDelegate {
 
 #[async_trait]
 impl SystemMessage for SystemDelegate {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut dyn Actor) -> eyre::Result<()> {
         self.message.handle(context, actor).await
     }
 }

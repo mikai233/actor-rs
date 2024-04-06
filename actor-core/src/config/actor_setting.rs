@@ -10,7 +10,7 @@ use crate::provider::local_actor_ref_provider::LocalActorRefProvider;
 
 #[derive(Clone)]
 pub struct ActorSetting {
-    pub provider_fn: Arc<Box<dyn Fn(&ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)>>>,
+    pub provider_fn: Arc<Box<dyn Fn(&ActorSystem) -> eyre::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)>>>,
     pub config: CoreConfig,
     pub handle: Option<Handle>,
 }
@@ -36,7 +36,7 @@ impl Default for ActorSetting {
 
 #[derive(Default)]
 pub struct ActorSettingBuilder {
-    pub provider_fn: Option<Box<dyn Fn(&ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)>>>,
+    pub provider_fn: Option<Box<dyn Fn(&ActorSystem) -> eyre::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)>>>,
     pub config: Option<CoreConfig>,
     pub handle: Option<Handle>,
 }
@@ -46,7 +46,7 @@ impl ActorSettingBuilder {
         Self::default()
     }
 
-    pub fn provider_fn<F>(mut self, provider_fn: F) -> Self where F: Fn(&ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> + 'static {
+    pub fn provider_fn<F>(mut self, provider_fn: F) -> Self where F: Fn(&ActorSystem) -> eyre::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> + 'static {
         self.provider_fn = Some(Box::new(provider_fn));
         self
     }

@@ -22,7 +22,7 @@ pub(super) struct Connected {
 impl Message for Connected {
     type A = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         actor.connections.insert(self.addr, ConnectionStatus::Connected(self.tx));
         info!("{} connected to {}", context.myself(), self.addr);
         if let Some(buffers) = actor.message_buffer.remove(&self.addr) {

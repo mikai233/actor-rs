@@ -12,7 +12,7 @@ actor-derive = { path = "../actor-derive" }
 async-trait = { workspace = true }
 dashmap = { workspace = true, features = ["inline"] }
 tracing = { workspace = true }
-anyhow = { workspace = true }
+eyre = { workspace = true }
 typed-builder = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 futures = { workspace = true }

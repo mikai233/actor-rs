@@ -25,7 +25,7 @@ impl EntityTerminated {
 impl Message for EntityTerminated {
     type A = Shard;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let entity = self.0.actor;
         match actor.entities.entity_id(&entity) {
             None => {

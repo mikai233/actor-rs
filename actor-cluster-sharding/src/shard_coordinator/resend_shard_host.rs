@@ -18,7 +18,7 @@ pub(super) struct ResendShardHost {
 impl Message for ResendShardHost {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         if let Some(region) = actor.state.shards.get(&self.shard) {
             if region == &self.region {
                 actor.send_host_shard_msg(context, self.shard, self.region);

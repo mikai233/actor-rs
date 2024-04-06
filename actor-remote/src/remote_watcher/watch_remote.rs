@@ -17,7 +17,7 @@ pub(crate) struct WatchRemote {
 impl Message for WatchRemote {
     type A = RemoteWatcher;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let Self { watchee, watcher } = *self;
         actor.add_watch(context, watchee, watcher)
     }

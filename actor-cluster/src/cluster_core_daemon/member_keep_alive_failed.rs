@@ -15,7 +15,7 @@ pub(crate) struct MemberKeepAliveFailed(pub(crate) Option<KeepAliveFailed>);
 impl Message for MemberKeepAliveFailed {
     type A = ClusterCoreDaemon;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         trace!("cluster member {} keep alive failed, retry it", context.myself());
         actor.try_keep_alive(context).await;
         Ok(())

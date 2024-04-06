@@ -31,7 +31,7 @@ pub(crate) struct ClusterHeartbeatSender {
 
 #[async_trait]
 impl Actor for ClusterHeartbeatSender {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         trace!("{} started", context.myself());
         Cluster::get(context.system()).subscribe_cluster_event(
             context.myself().clone(),
@@ -47,7 +47,7 @@ impl Actor for ClusterHeartbeatSender {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         trace!("{} stopped", context.myself());
         if let Some(key) = self.key.take() {
             key.cancel();

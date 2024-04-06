@@ -14,7 +14,7 @@ pub(super) struct ReceiveTimeout;
 impl Message for ReceiveTimeout {
     type A = RebalanceWorker;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         if actor.is_rebalance {
             debug!("{}: Rebalance of [{}] from [{}] timed out", actor.type_name, actor.shard, actor.shard_region_from);
         } else {

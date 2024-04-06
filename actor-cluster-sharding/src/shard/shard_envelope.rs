@@ -1,7 +1,6 @@
 use std::any::Any;
 
 use async_trait::async_trait;
-use bincode::error::{DecodeError, EncodeError};
 
 use actor_core::{CodecMessage, DynMessage, Message};
 use actor_core::actor::context::{ActorContext, Context};
@@ -17,7 +16,7 @@ use crate::shard_region::ShardRegion;
 impl Message for ShardEnvelope<Shard> {
     type A = Shard;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         actor.deliver_message(context, *self, context.sender().cloned())
     }
 }
@@ -35,7 +34,7 @@ impl CodecMessage for ShardEnvelope<Shard> {
         #[derive(Clone)]
         struct D;
         impl MessageDecoder for D {
-            fn decode(&self, bytes: &[u8], reg: &MessageRegistration) -> Result<DynMessage, DecodeError> {
+            fn decode(&self, bytes: &[u8], reg: &MessageRegistration) -> eyre::Result<DynMessage> {
                 let CodecShardEnvelope { entity_id, packet } = decode_bytes::<CodecShardEnvelope>(bytes)?;
                 let message = reg.decode(packet)?;
                 let message = ShardEnvelope::<Shard> {
@@ -50,7 +49,7 @@ impl CodecMessage for ShardEnvelope<Shard> {
         Some(Box::new(D))
     }
 
-    fn encode(&self, reg: &MessageRegistration) -> Result<Vec<u8>, EncodeError> {
+    fn encode(&self, reg: &MessageRegistration) -> eyre::Result<Vec<u8>> {
         let ShardEnvelope { entity_id, message, .. } = &self;
         let packet = reg.encode_boxed(message)?;
         let message = CodecShardEnvelope {
@@ -60,7 +59,7 @@ impl CodecMessage for ShardEnvelope<Shard> {
         encode_bytes(&message)
     }
 
-    fn dyn_clone(&self) -> anyhow::Result<DynMessage> {
+    fn dyn_clone(&self) -> eyre::Result<DynMessage> {
         self.message.dyn_clone().map(|m| {
             let message = ShardEnvelope::<Shard> {
                 entity_id: self.entity_id.clone(),

@@ -16,7 +16,7 @@ pub(super) struct GracefulShutdownTimeout;
 impl Message for GracefulShutdownTimeout {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let shards = actor.shards.keys().join(", ");
         let buffer_size = actor.shard_buffers.total_size();
         warn!(

@@ -50,7 +50,7 @@ mod tests {
     use crate::config::mailbox::Mailbox;
 
     #[test]
-    fn test_config() -> anyhow::Result<()> {
+    fn test_config() -> eyre::Result<()> {
         let mut config = CoreConfig::default();
         config.mailbox.insert(
             "default".to_string(),

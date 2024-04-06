@@ -4,12 +4,12 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::time::Duration;
 
-use anyhow::anyhow;
 use bincode::{BorrowDecode, Decode, Encode};
 use bincode::de::{BorrowDecoder, Decoder};
 use bincode::enc::Encoder;
 use bincode::error::{DecodeError, EncodeError};
 use enum_dispatch::enum_dispatch;
+use eyre::anyhow;
 use regex::Regex;
 use tracing::error;
 
@@ -33,7 +33,7 @@ pub struct ActorSelection {
 }
 
 impl ActorSelection {
-    pub(crate) fn new<'a>(anchor: ActorRef, elements: impl IntoIterator<Item=&'a str>) -> anyhow::Result<Self> {
+    pub(crate) fn new<'a>(anchor: ActorRef, elements: impl IntoIterator<Item=&'a str>) -> eyre::Result<Self> {
         let mut path: Vec<SelectionPathElement> = vec![];
         for e in elements.into_iter() {
             if !e.is_empty() {
@@ -73,7 +73,7 @@ impl ActorSelection {
         self.tell(message, context.sender().cloned());
     }
 
-    pub async fn resolve_one(&self, timeout: Duration) -> anyhow::Result<ActorRef> {
+    pub async fn resolve_one(&self, timeout: Duration) -> eyre::Result<ActorRef> {
         let actor_identity: ActorIdentity = Patterns::ask_selection_sys(self, Identify, timeout).await?;
         match actor_identity.actor_ref {
             None => {
@@ -242,7 +242,7 @@ pub(crate) struct SelectChildPattern {
 }
 
 impl SelectChildPattern {
-    fn new(pattern_str: impl Into<String>) -> anyhow::Result<Self> {
+    fn new(pattern_str: impl Into<String>) -> eyre::Result<Self> {
         let pattern_str = pattern_str.into();
         let regex = Regex::new(&pattern_str)?;
         Ok(Self {
@@ -333,7 +333,7 @@ pub(crate) struct ActorSelectionMessage {
 }
 
 impl ActorSelectionMessage {
-    pub(crate) fn new(message: DynMessage, elements: Vec<SelectionPathElement>, wildcard_fan_out: bool) -> anyhow::Result<Self> {
+    pub(crate) fn new(message: DynMessage, elements: Vec<SelectionPathElement>, wildcard_fan_out: bool) -> eyre::Result<Self> {
         if message.is_cloneable() {
             let myself = Self {
                 message,
@@ -390,7 +390,7 @@ impl CodecMessage for ActorSelectionMessage {
         #[derive(Clone)]
         struct D;
         impl MessageDecoder for D {
-            fn decode(&self, bytes: &[u8], reg: &MessageRegistration) -> Result<DynMessage, DecodeError> {
+            fn decode(&self, bytes: &[u8], reg: &MessageRegistration) -> eyre::Result<DynMessage> {
                 let CodecSelectionMessage { packet, elements, wildcard_fan_out } = decode_bytes::<CodecSelectionMessage>(bytes)?;
                 let message = reg.decode(packet)?;
                 let message = ActorSelectionMessage {
@@ -405,7 +405,7 @@ impl CodecMessage for ActorSelectionMessage {
         Some(Box::new(D))
     }
 
-    fn encode(&self, reg: &MessageRegistration) -> Result<Vec<u8>, EncodeError> {
+    fn encode(&self, reg: &MessageRegistration) -> eyre::Result<Vec<u8>> {
         let ActorSelectionMessage { message, elements, wildcard_fan_out } = self;
         let packet = reg.encode_boxed(message)?;
         let message = CodecSelectionMessage {
@@ -416,7 +416,7 @@ impl CodecMessage for ActorSelectionMessage {
         encode_bytes(&message)
     }
 
-    fn dyn_clone(&self) -> anyhow::Result<DynMessage> {
+    fn dyn_clone(&self) -> eyre::Result<DynMessage> {
         self.message.dyn_clone().map(|m| {
             let message = ActorSelectionMessage {
                 message: m,

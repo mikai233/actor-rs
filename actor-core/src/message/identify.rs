@@ -13,7 +13,7 @@ pub struct Identify;
 
 #[async_trait]
 impl SystemMessage for Identify {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> eyre::Result<()> {
         let myself = context.myself().clone();
         let actor_identify = ActorIdentity {
             actor_ref: Some(myself),

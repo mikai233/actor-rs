@@ -18,7 +18,7 @@ pub struct MemberJoin {
 impl Message for MemberJoin {
     type A = ClusterDaemon;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
         todo!()
     }
 }

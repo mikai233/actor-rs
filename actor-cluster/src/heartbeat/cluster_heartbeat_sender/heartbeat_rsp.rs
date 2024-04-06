@@ -18,7 +18,7 @@ pub(crate) struct HeartbeatRsp {
 impl Message for HeartbeatRsp {
     type A = ClusterHeartbeatSender;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
         trace!("{} recv HeartbeatRsp from {}", context.myself(), self.from);
         Ok(())
     }

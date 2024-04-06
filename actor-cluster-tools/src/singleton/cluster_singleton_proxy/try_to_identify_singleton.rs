@@ -19,7 +19,7 @@ pub(super) struct TryToIdentifySingleton;
 impl Message for TryToIdentifySingleton {
     type A = ClusterSingletonProxy;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         if actor.identify_timer.is_some() {
             let paths = actor.singleton_paths();
             let paths_str = paths.iter().map(|p| p.as_str()).collect::<Vec<_>>();

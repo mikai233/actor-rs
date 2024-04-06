@@ -29,14 +29,14 @@ impl OnMemberStatusChangedListener {
 
 #[async_trait]
 impl Actor for OnMemberStatusChangedListener {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         let cluster = Cluster::get(context.system());
         cluster.subscribe_cluster_event(context.myself().clone(), |event| { ClusterEventWrap(event).into_dyn() })?;
         debug_assert!(matches!(self.status,MemberStatus::Up) || matches!(self.status,MemberStatus::Removed));
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         if matches!(self.status,MemberStatus::Removed) {
             self.callback.take().into_foreach(|cb| cb());
         };

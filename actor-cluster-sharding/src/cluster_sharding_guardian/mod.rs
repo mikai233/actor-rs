@@ -48,7 +48,7 @@ impl ClusterShardingGuardian {
         type_name: ImString,
         allocation_strategy: Box<dyn ShardAllocationStrategy>,
         settings: Arc<ClusterShardingSettings>,
-    ) -> anyhow::Result<()> {
+    ) -> eyre::Result<()> {
         let mgr_name = Self::coordinator_singleton_manager_name(&type_name);
         if settings.should_host_coordinator(&Cluster::get(context.system())) && context.child(&mgr_name).is_none() {
             let mut singleton_settings = settings.coordinator_singleton_settings.clone();
@@ -83,7 +83,7 @@ impl ClusterShardingGuardian {
 
 #[async_trait]
 impl Actor for ClusterShardingGuardian {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         trace!("{} started", context.myself());
         Ok(())
     }

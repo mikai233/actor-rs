@@ -3,7 +3,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashSet;
 use std::ops::Not;
 
-use anyhow::Context as AnyhowContext;
+use eyre::Context as _;
 use async_trait::async_trait;
 use itertools::Itertools;
 use tracing::{info, warn};
@@ -29,7 +29,7 @@ pub(super) struct StopShards {
 impl Message for StopShards {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let shard_ids = self.shards;
         if actor.state.regions.is_empty().not() && actor.preparing_for_shutdown.not() {
             let request_id = uuid::Uuid::new_v4();

@@ -3,7 +3,7 @@ use std::collections::hash_map::Entry;
 use std::ops::Not;
 use std::time::Duration;
 
-use anyhow::Context as AnyhowContext;
+use eyre::Context as _;
 use async_trait::async_trait;
 use tracing::debug;
 
@@ -55,7 +55,7 @@ pub struct RemoteWatcher {
 
 #[async_trait]
 impl Actor for RemoteWatcher {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         let myself = context.myself().clone();
         let heartbeat_task = context.system()
             .scheduler
@@ -73,7 +73,7 @@ impl Actor for RemoteWatcher {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         if let Some(task) = self.heartbeat_task.take() {
             task.cancel();
         }
@@ -107,7 +107,7 @@ impl RemoteWatcher {
         }
     }
 
-    pub fn add_watch(&mut self, context: &mut ActorContext, watchee: ActorRef, watcher: ActorRef) -> anyhow::Result<()> {
+    pub fn add_watch(&mut self, context: &mut ActorContext, watchee: ActorRef, watcher: ActorRef) -> eyre::Result<()> {
         debug_assert_ne!(&watcher, context.myself());
         debug!("Watching: [{} -> {}]", watcher, watchee);
         match self.watching.entry(watchee.clone()) {
@@ -197,7 +197,7 @@ impl RemoteWatcher {
         self.remove_watchee(&watchee);
     }
 
-    pub fn receive_heartbeat_rsp(&mut self, context: &mut ActorContext, uid: i64) -> anyhow::Result<()> {
+    pub fn receive_heartbeat_rsp(&mut self, context: &mut ActorContext, uid: i64) -> eyre::Result<()> {
         let from = context.sender().into_result().context("receive_heartbeat_rsp")?.path().address();
         if self.failure_detector.is_monitoring(from) {
             debug!("Received heartbeat rsp from [{}]", from);
@@ -227,7 +227,7 @@ impl RemoteWatcher {
         }
     }
 
-    pub fn receive_heartbeat(&self, context: &mut ActorContext) -> anyhow::Result<()> {
+    pub fn receive_heartbeat(&self, context: &mut ActorContext) -> eyre::Result<()> {
         let sender = context.sender().into_result().context("receive_heartbeat")?;
         sender.cast(ArteryHeartbeatRsp { uid: context.system().uid }, Some(context.myself().clone()));
         Ok(())

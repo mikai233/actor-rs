@@ -20,8 +20,8 @@ pub struct Hello {
 impl Message for Hello {
     type A = PlayerActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        info!("player {} {} receive {:?}", context.myself(), actor.id, self);
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+        info!("player {} {} receive hello {}",context.myself(), actor.id, self.index);
         Ok(())
     }
 }

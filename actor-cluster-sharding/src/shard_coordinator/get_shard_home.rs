@@ -2,7 +2,7 @@ use std::any::type_name;
 use std::collections::HashMap;
 use std::ops::Not;
 
-use anyhow::Context as AnyhowContext;
+use eyre::Context as _;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use itertools::Itertools;
@@ -27,7 +27,7 @@ pub(crate) struct GetShardHome {
 impl Message for GetShardHome {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let sender = context.sender().into_result().context(type_name::<GetShardHome>())?.clone();
         let shard: ImShardId = self.shard.into();
         if !actor.handle_get_shard_home(context, sender.clone(), shard.clone()) {

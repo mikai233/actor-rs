@@ -56,7 +56,7 @@ impl HandoffStopper {
         entities: HashSet<ActorRef>,
         stop_message: DynMessage,
         handoff_timeout: Duration,
-    ) -> anyhow::Result<Self> {
+    ) -> eyre::Result<Self> {
         let entity_handoff_timeout = (handoff_timeout - STOP_TIMEOUT_WARNING_AFTER).max(Duration::from_secs(1));
         let timers = Timers::new(context)?;
         let stop_timeout_warning_key = timers.start_single_timer(
@@ -90,7 +90,7 @@ impl HandoffStopper {
 
 #[async_trait]
 impl Actor for HandoffStopper {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         Ok(())
     }
 }

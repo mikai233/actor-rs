@@ -1,9 +1,9 @@
+use std::any::type_name;
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use anyhow::{anyhow, Ok};
 use bincode::{Decode, Encode};
-use bincode::error::{DecodeError, EncodeError};
 use bytes::BytesMut;
+use eyre::{anyhow, Context, Ok};
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::time::LocalTime;
 
@@ -29,12 +29,12 @@ pub fn read_u32(src: &BytesMut, offset: usize) -> u32 {
     u32::from_be_bytes(u32_bytes)
 }
 
-pub fn encode_bytes<T>(value: &T) -> Result<Vec<u8>, EncodeError> where T: Encode {
-    bincode::encode_to_vec(value, bincode::config::standard())
+pub fn encode_bytes<T>(value: &T) -> eyre::Result<Vec<u8>> where T: Encode {
+    bincode::encode_to_vec(value, bincode::config::standard()).context(type_name::<T>())
 }
 
-pub fn decode_bytes<T>(bytes: &[u8]) -> Result<T, DecodeError> where T: Decode {
-    bincode::decode_from_slice(bytes, bincode::config::standard()).map(|(t, _)| t)
+pub fn decode_bytes<T>(bytes: &[u8]) -> eyre::Result<T> where T: Decode {
+    bincode::decode_from_slice(bytes, bincode::config::standard()).context(type_name::<T>()).map(|(t, _)| t)
 }
 
 pub fn init_logger(level: tracing::Level) {
@@ -81,7 +81,7 @@ pub(crate) fn random_name(prefix: String) -> String {
     base64(num, prefix)
 }
 
-pub(crate) fn check_name(name: &String) -> anyhow::Result<()> {
+pub(crate) fn check_name(name: &String) -> eyre::Result<()> {
     let valid = name.chars().all(|c| match c {
         'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => true,
         _ => false

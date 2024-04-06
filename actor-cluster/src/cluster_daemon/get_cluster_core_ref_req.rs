@@ -16,7 +16,7 @@ pub(crate) struct GetClusterCoreRefReq;
 impl Message for GetClusterCoreRefReq {
     type A = ClusterDaemon;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         if actor.core_supervisor.is_none() {
             actor.create_children(context)?;
         }

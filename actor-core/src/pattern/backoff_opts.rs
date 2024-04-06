@@ -2,7 +2,7 @@ use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::anyhow;
+use eyre::anyhow;
 
 use crate::actor::props::{Props, PropsBuilder};
 use crate::actor_ref::ActorRef;
@@ -102,7 +102,7 @@ impl BackoffOnStopOptionsImpl {
         myself
     }
 
-    fn with_reply_while_stopped(&self, reply_while_stopped: DynMessage) -> anyhow::Result<Self> {
+    fn with_reply_while_stopped(&self, reply_while_stopped: DynMessage) -> eyre::Result<Self> {
         if !reply_while_stopped.is_cloneable() {
             return Err(anyhow!("message {} require cloneable", reply_while_stopped.name));
         }
@@ -133,7 +133,7 @@ impl BackoffOnStopOptionsImpl {
         myself
     }
 
-    fn props(&self) -> anyhow::Result<Props> {
+    fn props(&self) -> eyre::Result<Props> {
         if !(self.min_backoff > Duration::ZERO) {
             return Err(anyhow!("min backoff must be > 0"));
         }

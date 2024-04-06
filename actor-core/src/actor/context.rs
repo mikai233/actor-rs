@@ -6,7 +6,7 @@ use std::ops::Not;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use anyhow::anyhow;
+use eyre::anyhow;
 use arc_swap::Guard;
 use tokio::runtime::Handle;
 use tokio::task::{AbortHandle, JoinHandle};
@@ -48,7 +48,7 @@ pub trait Context: ActorRefFactory {
 
     fn parent(&self) -> Option<&ActorRef>;
 
-    fn watch<F>(&mut self, watchee: ActorRef, termination: F) -> anyhow::Result<()>
+    fn watch<F>(&mut self, watchee: ActorRef, termination: F) -> eyre::Result<()>
         where
             F: FnOnce(Terminated) -> DynMessage + Send + 'static;
 
@@ -106,7 +106,7 @@ impl ActorRefFactory for ActorContext {
         self.myself().clone()
     }
 
-    fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
+    fn spawn(&self, props: Props, name: impl Into<String>) -> eyre::Result<ActorRef> {
         if !matches!(self.state, ActorState::Init | ActorState::Started) {
             return Err(anyhow!(
                 "cannot spawn child actor while parent actor {} is terminating",
@@ -116,7 +116,7 @@ impl ActorRefFactory for ActorContext {
         self.myself.local().unwrap().attach_child(props, Some(name.into()), None)
     }
 
-    fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
+    fn spawn_anonymous(&self, props: Props) -> eyre::Result<ActorRef> {
         if !matches!(self.state, ActorState::Init | ActorState::Started) {
             return Err(anyhow!(
                 "cannot spawn child actor while parent actor {} is terminating",
@@ -154,7 +154,7 @@ impl Context for ActorContext {
         self.myself().local().unwrap().cell.parent()
     }
 
-    fn watch<F>(&mut self, watchee: ActorRef, termination: F) -> anyhow::Result<()>
+    fn watch<F>(&mut self, watchee: ActorRef, termination: F) -> eyre::Result<()>
         where
             F: FnOnce(Terminated) -> DynMessage + Send + 'static
     {
@@ -412,7 +412,7 @@ impl ActorContext {
 
     pub fn execute<F, A>(&self, f: F)
         where
-            F: FnOnce(&mut ActorContext, &mut A) -> anyhow::Result<()> + Send + 'static,
+            F: FnOnce(&mut ActorContext, &mut A) -> eyre::Result<()> + Send + 'static,
             A: Actor {
         let execute = Execute {
             closure: Box::new(f),
@@ -420,7 +420,7 @@ impl ActorContext {
         self.myself.cast_ns(execute);
     }
 
-    pub(crate) fn handle_invoke_failure(&mut self, child: ActorRef, name: &str, error: anyhow::Error) {
+    pub(crate) fn handle_invoke_failure(&mut self, child: ActorRef, name: &str, error: eyre::Error) {
         error!("{} handle message error {:?}", name, error);
         self.state = ActorState::Suspend;
         for child in self.children() {

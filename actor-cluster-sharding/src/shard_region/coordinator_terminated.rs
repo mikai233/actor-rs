@@ -21,7 +21,7 @@ impl CoordinatorTerminated {
 impl Message for CoordinatorTerminated {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         if actor.coordinator.as_ref().is_some_and(|coordinator| coordinator == &*self.0) {
             actor.coordinator = None;
             actor.start_registration(context)?;

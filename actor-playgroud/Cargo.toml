@@ -13,7 +13,8 @@ actor-cluster-tools = { path = "../actor-cluster-tools" }
 actor-cluster-sharding = { path = "../actor-cluster-sharding" }
 actor-derive = { path = "../actor-derive" }
 tokio = { workspace = true, features = ["full"] }
-anyhow = { workspace = true,features = ["backtrace"] }
+eyre = { workspace = true }
+color-eyre = { workspace = true }
 async-trait = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["local-time", "env-filter"] }

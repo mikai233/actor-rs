@@ -10,7 +10,7 @@ pub mod routee;
 pub mod routing_logic;
 mod broadcast_pool;
 
-fn spawn_actor_routee<Arg>(context: &mut ActorContext, builder: &PropsBuilder<Arg>, arg: Arg) -> anyhow::Result<ActorRefRoutee> {
+fn spawn_actor_routee<Arg>(context: &mut ActorContext, builder: &PropsBuilder<Arg>, arg: Arg) -> eyre::Result<ActorRefRoutee> {
     let routee_props = builder.props(arg);
     let routee = context.spawn_anonymous(routee_props)?;
     Ok(ActorRefRoutee(routee))

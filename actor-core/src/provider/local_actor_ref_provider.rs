@@ -36,7 +36,7 @@ pub struct LocalActorRefProvider {
 }
 
 impl LocalActorRefProvider {
-    pub fn new(system: WeakActorSystem, address: Option<Address>) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+    pub fn new(system: WeakActorSystem, address: Option<Address>) -> eyre::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
         let mut spawns: Vec<Box<dyn DeferredSpawn>> = vec![];
         let address = match address {
             None => {
@@ -150,7 +150,7 @@ impl TActorRefProvider for LocalActorRefProvider {
         self.temp_container.remove_child(path.name());
     }
 
-    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
+    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> eyre::Result<ActorRef> {
         supervisor.local().unwrap().attach_child(props, None, None)
     }
 
@@ -219,7 +219,7 @@ impl Into<ActorRefProvider> for LocalActorRefProvider {
 //
 //     #[async_trait]
 //     impl Actor for ActorA {
-//         async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+//         async fn pre_start(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
 //             info!("actor a {} pre start", context.myself);
 //             context.spawn_anonymous_actor(Props::create(|_| ActorA))?;
 //             Ok(())
@@ -231,7 +231,7 @@ impl Into<ActorRefProvider> for LocalActorRefProvider {
 //
 //     #[async_trait]
 //     impl Actor for ActorB {
-//         async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+//         async fn pre_start(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
 //             info!("actor b {} pre start", context.myself);
 //             context.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
 //             Ok(())
@@ -240,7 +240,7 @@ impl Into<ActorRefProvider> for LocalActorRefProvider {
 //
 //
 //     #[tokio::test]
-//     async fn test() -> anyhow::Result<()> {
+//     async fn test() -> eyre::Result<()> {
 //         let system = ActorSystem::create(ActorSystemConfig::default()).await?;
 //         let _ = system.spawn_anonymous_actor(Props::create(|_| ActorA))?;
 //         let actor_c = system

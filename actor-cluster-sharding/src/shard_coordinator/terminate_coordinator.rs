@@ -14,7 +14,7 @@ pub(crate) struct TerminateCoordinator;
 impl Message for TerminateCoordinator {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         actor.terminate(context);
         Ok(())
     }

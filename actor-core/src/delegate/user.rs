@@ -2,7 +2,6 @@ use std::any::{Any, type_name};
 use std::fmt::{Debug, Formatter};
 
 use async_trait::async_trait;
-use bincode::error::EncodeError;
 
 use crate::{Actor, CodecMessage, DynMessage, Message, MessageType};
 use crate::actor::context::ActorContext;
@@ -32,7 +31,7 @@ impl<A> UserDelegate<A> where A: Actor {
         }
     }
 
-    pub fn downcast<M>(self) -> anyhow::Result<M> where M: Message {
+    pub fn downcast<M>(self) -> eyre::Result<M> where M: Message {
         let Self { name, message } = self;
         downcast_box_message(name, message.into_any())
     }
@@ -56,11 +55,11 @@ impl<A> CodecMessage for UserDelegate<A> where A: 'static + Actor + Send {
         None
     }
 
-    fn encode(&self, message_registration: &MessageRegistration) -> Result<Vec<u8>, EncodeError> {
+    fn encode(&self, message_registration: &MessageRegistration) -> eyre::Result<Vec<u8>> {
         self.message.encode(message_registration)
     }
 
-    fn dyn_clone(&self) -> anyhow::Result<DynMessage> {
+    fn dyn_clone(&self) -> eyre::Result<DynMessage> {
         self.message.dyn_clone()
     }
 
@@ -73,7 +72,7 @@ impl<A> CodecMessage for UserDelegate<A> where A: 'static + Actor + Send {
 impl<A> Message for UserDelegate<A> where A: Actor + Send + 'static {
     type A = A;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         self.message.handle(context, actor).await
     }
 }

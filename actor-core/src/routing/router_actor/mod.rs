@@ -1,4 +1,4 @@
-use anyhow::Error;
+use eyre::Error;
 use async_trait::async_trait;
 
 use crate::{Actor, DynMessage};
@@ -42,7 +42,7 @@ impl RouterActor {
 
 #[async_trait]
 impl Actor for RouterActor {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         match &self.router_config {
             RouterConfig::PoolRouterConfig(pool) => {
                 let n = pool.nr_of_instances(context.system());
@@ -73,11 +73,11 @@ impl Router for RouterActor {
 
 #[async_trait]
 impl Actor for Box<dyn Router> {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         (&mut **self).started(context).await
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         (&mut **self).stopped(context).await
     }
 

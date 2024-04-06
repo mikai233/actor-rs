@@ -13,7 +13,7 @@ pub(crate) struct AddStatusCallback(pub(crate) Box<dyn FnOnce() + Send>);
 impl Message for AddStatusCallback {
     type A = OnMemberStatusChangedListener;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         actor.callback = Some(self.0);
         Ok(())
     }

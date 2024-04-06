@@ -21,7 +21,7 @@ pub(crate) struct MemberWatchResp(pub(crate) WatchResp);
 impl Message for MemberWatchResp {
     type A = ClusterCoreDaemon;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         match self.0 {
             WatchResp::Update(resp) => {
                 Self::update_member_status(context, actor, resp).await?;
@@ -55,7 +55,7 @@ impl Message for MemberWatchResp {
 
 impl MemberWatchResp {
     /// update local member status form etcd
-    async fn update_member_status(context: &mut ActorContext, actor: &mut ClusterCoreDaemon, resp: WatchResponse) -> anyhow::Result<()> {
+    async fn update_member_status(context: &mut ActorContext, actor: &mut ClusterCoreDaemon, resp: WatchResponse) -> eyre::Result<()> {
         for event in resp.events() {
             if let Some(kv) = event.kv() {
                 match event.event_type() {

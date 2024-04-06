@@ -17,7 +17,7 @@ pub struct AddressTerminated {
 
 #[async_trait]
 impl SystemMessage for AddressTerminated {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> eyre::Result<()> {
         context.maintain_address_terminated_subscription(None, |ctx| {
             ctx.watched_by.retain(|w| { &self.address != w.path().address() });
         });
