@@ -18,3 +18,4 @@ serde = { workspace = true, features = ["derive"] }
 futures = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 bincode = { workspace = true }
+config = { workspace = true }

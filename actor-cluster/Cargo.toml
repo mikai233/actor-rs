@@ -24,6 +24,7 @@ serde_json = { workspace = true }
 toml = { workspace = true }
 itertools = { workspace = true }
 parking_lot = { workspace = true }
+config = { workspace = true }
 
 [dev-dependencies]
 ctor = { workspace = true }

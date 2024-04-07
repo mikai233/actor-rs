@@ -1,43 +1,46 @@
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
+use config::{File, FileFormat, Source};
+use config::builder::DefaultState;
 use serde::{Deserialize, Serialize};
 
 use actor_derive::AsAny;
 
 use crate::actor::coordinated_shutdown::Phase;
-use crate::config::Config;
+use crate::config::{Config, ConfigBuilder};
 use crate::config::mailbox::Mailbox;
+use crate::CORE_CONFIG;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, AsAny)]
-#[serde(default)]
+#[derive(Debug, Clone, Serialize, Deserialize, AsAny)]
 pub struct CoreConfig {
     pub mailbox: HashMap<String, Mailbox>,
     pub phases: HashMap<String, Phase>,
 }
 
-impl Config for CoreConfig {
-    fn with_fallback(&self, other: Self) -> Self {
-        let mut self_phases = self.phases.clone();
-        let CoreConfig { mut mailbox, phases } = other;
-        mailbox.extend(self.mailbox.clone());
-        for (key, phase) in phases {
-            match self_phases.entry(key) {
-                Entry::Occupied(mut o) => {
-                    let p = o.get_mut();
-                    p.timeout = phase.timeout;
-                    p.enabled = phase.enabled;
-                    p.depends_on.extend(phase.depends_on);
-                }
-                Entry::Vacant(v) => {
-                    v.insert(phase);
-                }
-            }
-        }
-        Self {
-            mailbox,
-            phases: self_phases,
-        }
+impl Config for CoreConfig {}
+
+impl CoreConfig {
+    pub fn builder() -> CoreConfigBuilder {
+        CoreConfigBuilder::default()
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct CoreConfigBuilder {
+    builder: config::ConfigBuilder<DefaultState>,
+}
+
+impl ConfigBuilder for CoreConfigBuilder {
+    type C = CoreConfig;
+
+    fn add_source<T>(self, source: T) -> eyre::Result<Self> where T: Source + Send + Sync + 'static {
+        Ok(Self { builder: self.builder.add_source(source) })
+    }
+
+    fn build(self) -> eyre::Result<Self::C> {
+        let builder = self.builder.add_source(File::from_str(CORE_CONFIG, FileFormat::Toml));
+        let core_config = builder.build()?.try_deserialize::<Self::C>()?;
+        Ok(core_config)
     }
 }
 

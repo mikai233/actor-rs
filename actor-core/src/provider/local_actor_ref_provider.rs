@@ -5,7 +5,7 @@ use tokio::sync::broadcast::{channel, Receiver, Sender};
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_system::WeakActorSystem;
+use crate::actor::actor_system::ActorSystem;
 use crate::actor::address::Address;
 use crate::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
 use crate::actor::root_guardian::RootGuardian;
@@ -36,12 +36,11 @@ pub struct LocalActorRefProvider {
 }
 
 impl LocalActorRefProvider {
-    pub fn new(system: WeakActorSystem, address: Option<Address>) -> eyre::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+    pub fn new(system: ActorSystem, address: Option<Address>) -> eyre::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
         let mut spawns: Vec<Box<dyn DeferredSpawn>> = vec![];
         let address = match address {
             None => {
-                let system_name = system.upgrade()?.name.clone();
-                Address::new("tcp", system_name, None)
+                Address::new("tcp", system.name.clone(), None)
             }
             Some(address) => address
         };
@@ -50,7 +49,12 @@ impl LocalActorRefProvider {
         let termination_tx_c = termination_tx.clone();
         let root_props = Props::new(move || { Ok(RootGuardian::new(termination_tx_c)) });
         let (sender, mailbox) = root_props.mailbox(&system)?;
-        let root_guardian = LocalActorRef::new(system.clone(), root_path.clone().into(), sender, ActorCell::new(None));
+        let root_guardian = LocalActorRef::new(
+            system.downgrade(),
+            root_path.clone().into(),
+            sender,
+            ActorCell::new(None),
+        );
         spawns.push(
             Box::new(
                 ActorDeferredSpawn::new(
@@ -77,9 +81,13 @@ impl LocalActorRefProvider {
             )?;
         spawns.push(Box::new(deferred));
         let user_guardian = user_guardian.local().unwrap();
-        let dead_letters = DeadLetterActorRef::new(system.clone(), root_path.child("dead_letters"));
+        let dead_letters = DeadLetterActorRef::new(system.downgrade(), root_path.child("dead_letters"));
         let temp_node = root_path.child("temp");
-        let temp_container = VirtualPathContainer::new(system.clone(), temp_node.clone(), root_guardian.clone().into());
+        let temp_container = VirtualPathContainer::new(
+            system.downgrade(),
+            temp_node.clone(),
+            root_guardian.clone().into(),
+        );
         let provider = LocalActorRefProvider {
             root_path: root_path.into(),
             root_guardian,
@@ -93,6 +101,12 @@ impl LocalActorRefProvider {
             termination_tx,
         };
         Ok((provider, spawns))
+    }
+
+    pub fn builder(address: Option<Address>) -> impl Fn(ActorSystem) -> eyre::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
+        move |system: ActorSystem| {
+            Self::new(system, address.clone()).map(|t| { (t.0.into(), t.1) })
+        }
     }
 }
 

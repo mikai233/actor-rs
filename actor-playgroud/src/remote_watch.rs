@@ -16,13 +16,18 @@ use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRef;
 use actor_core::config::actor_setting::ActorSetting;
+use actor_core::config::ConfigBuilder;
+use actor_core::config::core_config::CoreConfig;
 use actor_core::ext::init_logger_with_filter;
 use actor_core::ext::message_ext::UserMessageExt;
+use actor_core::message::message_registration::MessageRegistration;
 use actor_core::message::terminated::Terminated;
 use actor_derive::EmptyCodec;
+use actor_remote::config::buffer::Buffer;
 use actor_remote::config::RemoteConfig;
 use actor_remote::config::transport::Transport;
-use actor_remote::remote_provider::RemoteProviderBuilder;
+use actor_remote::remote_provider::RemoteActorRefProvider;
+use actor_remote::remote_setting::RemoteSetting;
 
 #[derive(Debug)]
 struct RemoteActor {
@@ -73,14 +78,15 @@ async fn main() -> eyre::Result<()> {
     let arg = Args::parse();
     let addr = arg.addr;
     init_logger_with_filter("debug,actor=debug,actor-core::scheduler=info,h2=info,tower=info,hyper=info");
-    let setting = ActorSetting::builder()
-        .provider_fn(move |system| {
-            let config = RemoteConfig { transport: Transport::tcp(addr, None) };
-            RemoteProviderBuilder::new()
-                .config(config)
-                .build(system.clone())
-        })
-        .build();
+    let remote_setting = RemoteSetting {
+        config: RemoteConfig { transport: Transport::tcp(addr, Buffer::default()) },
+        reg: MessageRegistration::new(),
+    };
+    let setting = ActorSetting::new(
+        RemoteActorRefProvider::builder(remote_setting),
+        CoreConfig::builder().build()?,
+        None,
+    )?;
     let system = ActorSystem::new("mikai233", setting)?;
     match arg.remote_addr {
         None => {

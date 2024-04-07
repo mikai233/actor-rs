@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use arc_swap::{ArcSwap, Guard};
 use dashmap::mapref::one::MappedRef;
-use eyre::{anyhow, Context as AnyhowContext};
+use eyre::{anyhow, Context as _};
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use pin_project::pin_project;
@@ -17,7 +17,6 @@ use rand::random;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 
-use crate::{CORE_CONFIG, CORE_CONFIG_NAME};
 use crate::actor::address::Address;
 use crate::actor::coordinated_shutdown::{ActorSystemTerminateReason, CoordinatedShutdown, Reason};
 use crate::actor::extension::{Extension, SystemExtension};
@@ -72,9 +71,7 @@ impl Deref for ActorSystem {
 
 impl ActorSystem {
     pub fn new(name: impl Into<String>, setting: ActorSetting) -> eyre::Result<ActorSystemRunner> {
-        let ActorSetting { provider_fn, config, handle } = setting;
-        let default_config: CoreConfig = toml::from_str(CORE_CONFIG).context(format!("failed to load {}", CORE_CONFIG_NAME))?;
-        let core_config = config.with_fallback(default_config);
+        let ActorSetting { provider, config: core_config, handle } = setting;
         let scheduler = match &handle {
             None => {
                 scheduler()
@@ -102,11 +99,9 @@ impl ActorSystem {
         let system = Self { inner: inner.into() };
         system.config.add(core_config)?;
         system.register_extension(|_| Ok(AddressTerminatedTopic::new()))?;
-        let (provider, spawns) = eyre::Context::context(provider_fn(&system), "failed to create actor provider")?;
+        let (provider, spawns) = provider(system.clone()).context("failed to create actor provider")?;
         system.provider.store(Arc::new(provider));
-        system.register_extension(|system| {
-            CoordinatedShutdown::new(system)
-        })?;
+        system.register_extension(CoordinatedShutdown::new)?;
         for s in spawns {
             s.spawn(system.clone())?;
         }

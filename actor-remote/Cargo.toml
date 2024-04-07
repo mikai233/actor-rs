@@ -24,6 +24,7 @@ toml = { workspace = true }
 quinn = { workspace = true, features = ["futures-io"] }
 rcgen = { workspace = true }
 rustls = { workspace = true }
+config = { workspace = true }
 
 [dev-dependencies]
 ctor = { workspace = true }

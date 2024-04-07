@@ -18,8 +18,7 @@ use crate::shard_region::shard_home::ShardHome;
 use crate::shard_region::shard_homes::ShardHomes;
 use crate::shard_region::ShardRegion;
 
-pub(crate) const CLUSTER_SHARDING_CONFIG_NAME: &'static str = "cluster-sharding.toml";
-pub(crate) const CLUSTER_SHARDING_CONFIG: &'static str = include_str!("../cluster-sharding.toml");
+pub const CLUSTER_SHARDING_CONFIG: &'static str = include_str!("../cluster-sharding.toml");
 
 pub mod shard_region;
 pub mod cluster_sharding;

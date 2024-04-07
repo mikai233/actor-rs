@@ -31,7 +31,7 @@ impl Message for StartProxy {
     async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
         let Self { type_name, settings, message_extractor } = *self;
         let enc_name = ClusterSharding::proxy_name(&type_name);
-        let coordinator_path = ClusterShardingGuardian::coordinator_path(context.myself(), &enc_name);
+        let coordinator_path = ClusterShardingGuardian::coordinator_path(context.myself(), &type_name);
         let shard_region = match context.child(&enc_name) {
             None => {
                 context.spawn(

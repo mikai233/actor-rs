@@ -4,8 +4,8 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::time::Duration;
 
-use bincode::{BorrowDecode, Decode, Encode};
-use bincode::de::{BorrowDecoder, Decoder};
+use bincode::{Decode, Encode, impl_borrow_decode};
+use bincode::de::Decoder;
 use bincode::enc::Encoder;
 use bincode::error::{DecodeError, EncodeError};
 use enum_dispatch::enum_dispatch;
@@ -267,15 +267,7 @@ impl Decode for SelectChildPattern {
     }
 }
 
-impl<'de> BorrowDecode<'de> for SelectChildPattern {
-    fn borrow_decode<D: BorrowDecoder<'de>>(decoder: &mut D) -> Result<Self, DecodeError> {
-        let pattern_str: String = Decode::decode(decoder)?;
-        let pattern = Regex::new(&pattern_str).map_err(|e| DecodeError::OtherString(e.to_string()))?;
-        Ok(Self {
-            pattern,
-        })
-    }
-}
+impl_borrow_decode!(SelectChildPattern);
 
 impl Deref for SelectChildPattern {
     type Target = Regex;

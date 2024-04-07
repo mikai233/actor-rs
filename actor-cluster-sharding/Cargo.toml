@@ -26,3 +26,4 @@ enum_dispatch = { workspace = true }
 imstr = { workspace = true, features = ["serde"] }
 itertools = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
+config = { workspace = true }

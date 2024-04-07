@@ -1,0 +1,27 @@
+use async_trait::async_trait;
+use bincode::{Decode, Encode};
+
+use actor_core::{EmptyTestActor, Message};
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_ref::ActorRefExt;
+use actor_derive::{MessageCodec, OrphanCodec};
+
+#[derive(Encode, Decode, MessageCodec)]
+pub struct MessageToAsk;
+
+#[async_trait]
+impl Message for MessageToAsk {
+    type A = EmptyTestActor;
+
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+        context.sender().unwrap().resp(MessageToAns {
+            content: "hello world".to_string(),
+        });
+        Ok(())
+    }
+}
+
+#[derive(Encode, Decode, OrphanCodec)]
+pub struct MessageToAns {
+    pub content: String,
+}

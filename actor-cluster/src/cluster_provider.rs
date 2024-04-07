@@ -2,8 +2,6 @@ use std::any::type_name;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
-use eyre::Context;
-use etcd_client::Client;
 use tokio::sync::broadcast::Receiver;
 
 use actor_core::actor::actor_system::ActorSystem;
@@ -12,10 +10,7 @@ use actor_core::actor::props::{DeferredSpawn, FuncDeferredSpawn, Props};
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_ref::ActorRef;
 use actor_core::actor_ref::local_ref::LocalActorRef;
-use actor_core::CodecMessage;
-use actor_core::config::Config;
 use actor_core::ext::etcd_client::EtcdClient;
-use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::provider::local_actor_ref_provider::LocalActorRefProvider;
@@ -23,10 +18,8 @@ use actor_derive::AsAny;
 use actor_remote::remote_provider::RemoteActorRefProvider;
 use actor_remote::remote_setting::RemoteSetting;
 
-use crate::{CLUSTER_CONFIG, CLUSTER_CONFIG_NAME};
 use crate::cluster::Cluster;
 use crate::cluster_setting::ClusterSetting;
-use crate::config::ClusterConfig;
 use crate::heartbeat::cluster_heartbeat_receiver::heartbeat::Heartbeat;
 use crate::heartbeat::cluster_heartbeat_sender::heartbeat_rsp::HeartbeatRsp;
 
@@ -38,24 +31,14 @@ pub struct ClusterActorRefProvider {
 }
 
 impl ClusterActorRefProvider {
-    pub fn builder() -> ClusterProviderBuilder {
-        ClusterProviderBuilder::new()
-    }
-
-    pub fn new(setting: ClusterSetting) -> eyre::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
-        let ClusterSetting { system, config, mut reg, client } = setting;
-        let default_config: ClusterConfig = toml::from_str(CLUSTER_CONFIG).context(format!("failed to load {}", CLUSTER_CONFIG_NAME))?;
-        let cluster_config = config.with_fallback(default_config);
+    pub fn new(system: ActorSystem, setting: ClusterSetting) -> eyre::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+        let ClusterSetting { config: cluster_config, mut reg, client } = setting;
         let remote_config = cluster_config.remote.clone();
         let roles = cluster_config.roles.clone();
         system.add_config(cluster_config)?;
         Self::register_system_message(&mut reg);
-        let remote_setting = RemoteSetting::builder()
-            .reg(reg)
-            .config(remote_config)
-            .system(system.clone())
-            .build();
-        let (remote, mut spawns) = RemoteActorRefProvider::new(remote_setting)?;
+        let remote_setting = RemoteSetting { config: remote_config, reg };
+        let (remote, mut spawns) = RemoteActorRefProvider::new(system, remote_setting)?;
         let cluster = ClusterActorRefProvider {
             remote,
             client,
@@ -76,6 +59,12 @@ impl ClusterActorRefProvider {
     fn register_system_message(reg: &mut MessageRegistration) {
         reg.register_system::<Heartbeat>();
         reg.register_system::<HeartbeatRsp>();
+    }
+
+    pub fn builder(cluster_setting: ClusterSetting) -> impl Fn(ActorSystem) -> eyre::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
+        move |system: ActorSystem| {
+            Self::new(system, cluster_setting.clone()).map(|t| { (t.0.into(), t.1) })
+        }
     }
 }
 
@@ -152,52 +141,5 @@ impl TActorRefProvider for ClusterActorRefProvider {
 impl Into<ActorRefProvider> for ClusterActorRefProvider {
     fn into(self) -> ActorRefProvider {
         ActorRefProvider::new(self)
-    }
-}
-
-pub struct ClusterProviderBuilder {
-    reg: MessageRegistration,
-    config: Option<ClusterConfig>,
-    client: Option<Client>,
-}
-
-impl ClusterProviderBuilder {
-    pub fn new() -> Self {
-        Self {
-            reg: MessageRegistration::new(),
-            config: None,
-            client: None,
-        }
-    }
-
-    pub fn config(mut self, config: ClusterConfig) -> Self {
-        self.config = Some(config);
-        self
-    }
-
-    pub fn client(mut self, client: Client) -> Self {
-        self.client = Some(client);
-        self
-    }
-
-    pub fn register<M>(mut self) -> Self where M: CodecMessage {
-        self.reg.register_user::<M>();
-        self
-    }
-
-    pub fn register_all<F>(mut self, reg_fn: F) -> Self where F: FnOnce(&mut MessageRegistration) {
-        reg_fn(&mut self.reg);
-        self
-    }
-
-    pub fn build(self, system: ActorSystem) -> eyre::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
-        let Self { reg, config, client } = self;
-        let setting = ClusterSetting::builder()
-            .system(system)
-            .config(config.into_result()?)
-            .reg(reg)
-            .client(client.into_result()?)
-            .build();
-        ClusterActorRefProvider::new(setting).map(|(c, d)| (c.into(), d))
     }
 }

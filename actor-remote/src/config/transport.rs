@@ -3,6 +3,8 @@ use std::net::SocketAddrV4;
 use quinn::ServerConfig;
 use serde::{Deserialize, Serialize};
 
+use crate::config::buffer::Buffer;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Transport {
     Tcp(TcpTransport),
@@ -29,7 +31,7 @@ impl Transport {
         }
     }
 
-    pub fn buffer(&self) -> Option<usize> {
+    pub fn buffer(&self) -> Buffer {
         match self {
             Transport::Tcp(tcp) => tcp.buffer,
             Transport::Kcp(_) => {
@@ -39,11 +41,11 @@ impl Transport {
         }
     }
 
-    pub fn tcp(addr: SocketAddrV4, buffer: Option<usize>) -> Self {
+    pub fn tcp(addr: SocketAddrV4, buffer: Buffer) -> Self {
         Self::Tcp(TcpTransport { addr, buffer })
     }
 
-    pub fn quic(addr: SocketAddrV4, buffer: Option<usize>, config: (ServerConfig, Vec<u8>)) -> Self {
+    pub fn quic(addr: SocketAddrV4, buffer: Buffer, config: (ServerConfig, Vec<u8>)) -> Self {
         Self::Quic(QuicTransport { addr, buffer, config: Some(config) })
     }
 }
@@ -51,7 +53,7 @@ impl Transport {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TcpTransport {
     pub addr: SocketAddrV4,
-    pub buffer: Option<usize>,
+    pub buffer: Buffer,
 }
 
 impl TcpTransport {
@@ -73,7 +75,7 @@ impl KcpTransport {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuicTransport {
     pub addr: SocketAddrV4,
-    pub buffer: Option<usize>,
+    pub buffer: Buffer,
     #[serde(skip)]
     pub config: Option<(ServerConfig, Vec<u8>)>,
 }

@@ -25,7 +25,7 @@ impl ClusterShardingSettings {
         let settings = Self {
             role: sharding_config.role.clone(),
             shard_region_query_timeout: sharding_config.shard_region_query_timeout,
-            coordinator_singleton_settings: sharding_config.coordinator_singleton_settings.clone(),
+            coordinator_singleton_settings: sharding_config.coordinator_singleton.clone().into(),
             retry_interval: sharding_config.retry_interval,
             handoff_timeout: sharding_config.handoff_timeout,
             shard_start_timeout: sharding_config.shard_start_timeout,

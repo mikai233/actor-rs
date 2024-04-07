@@ -6,8 +6,8 @@ use std::iter::Peekable;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use bincode::{BorrowDecode, Decode, Encode};
-use bincode::de::{BorrowDecoder, Decoder};
+use bincode::{Decode, Encode, impl_borrow_decode};
+use bincode::de::Decoder;
 use bincode::enc::Encoder;
 use bincode::error::{DecodeError, EncodeError};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -170,15 +170,7 @@ impl Decode for ActorRef {
     }
 }
 
-impl<'de> BorrowDecode<'de> for ActorRef {
-    fn borrow_decode<D: BorrowDecoder<'de>>(decoder: &mut D) -> Result<Self, DecodeError> {
-        let path: String = Decode::decode(decoder)?;
-        let actor_ref = PROVIDER.try_with(|provider| {
-            provider.resolve_actor_ref(&path)
-        }).map_err(|_| DecodeError::Other("task local value PROVIDER not set in current decode scope"))?;
-        Ok(actor_ref)
-    }
-}
+impl_borrow_decode!(ActorRef);
 
 struct ActorVisitor;
 

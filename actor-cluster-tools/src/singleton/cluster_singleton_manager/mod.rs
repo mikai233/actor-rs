@@ -1,9 +1,8 @@
 use std::fmt::Debug;
 use std::time::Duration;
 
-use eyre::anyhow;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use eyre::anyhow;
 use tokio::task::AbortHandle;
 use tracing::trace;
 use typed_builder::TypedBuilder;
@@ -24,6 +23,7 @@ use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::provider::downcast_provider;
 
+use crate::config::singleton_config::SingletonConfig;
 use crate::singleton::cluster_singleton_manager::lock_failed::LockFailed;
 use crate::singleton::cluster_singleton_manager::lock_success::LockSuccess;
 use crate::singleton::cluster_singleton_manager::shutdown_singleton::ShutdownSingleton;
@@ -35,19 +35,18 @@ mod lock_failed;
 mod lock_success;
 mod singleton_keep_alive_failed;
 
-#[derive(Debug, Clone, Serialize, Deserialize, TypedBuilder)]
+#[derive(Debug, Clone, TypedBuilder)]
 pub struct ClusterSingletonManagerSettings {
-    #[builder(default = "singleton".to_string())]
     pub singleton_name: String,
-    #[builder(default = None)]
     pub role: Option<String>,
 }
 
-impl Default for ClusterSingletonManagerSettings {
-    fn default() -> Self {
+impl From<SingletonConfig> for ClusterSingletonManagerSettings {
+    fn from(value: SingletonConfig) -> Self {
+        let SingletonConfig { singleton_name, role } = value;
         Self {
-            singleton_name: "singleton".to_string(),
-            role: None,
+            singleton_name,
+            role,
         }
     }
 }

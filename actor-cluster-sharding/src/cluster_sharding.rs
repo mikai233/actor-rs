@@ -3,9 +3,9 @@ use std::ops::{Deref, Not};
 use std::sync::Arc;
 use std::time::Duration;
 
-use eyre::anyhow;
 use dashmap::DashMap;
 use dashmap::mapref::entry::Entry;
+use eyre::anyhow;
 use imstr::ImString;
 use tracing::debug;
 

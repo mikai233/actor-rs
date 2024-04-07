@@ -9,7 +9,7 @@ use quinn::{ClientConfig, Endpoint};
 use tokio::io::AsyncRead;
 use tokio::net::TcpListener;
 use tokio_util::codec::FramedRead;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_system::ActorSystem;
@@ -23,6 +23,7 @@ use actor_core::message::message_buffer::MessageBufferMap;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_core::provider::{ActorRefProvider, downcast_provider};
 
+use crate::config::buffer::Buffer;
 use crate::config::transport::{QuicTransport, Transport};
 use crate::remote_provider::RemoteActorRefProvider;
 use crate::transport::codec::PacketCodec;
@@ -147,13 +148,21 @@ impl TransportActor {
             message: DynMessage::user(msg),
             sender,
         };
-        message_buffer.push(addr, envelope);
-        if let Some(max_buffer) = transport.buffer() {
-            if message_buffer.total_size() > max_buffer {
-                for envelope in message_buffer.drop_first_n(&addr, 1) {
-                    let msg_name = envelope.message.name();
-                    warn!("stash buffer is going to large than {max_buffer}, drop the oldest message {msg_name}");
+        match transport.buffer() {
+            Buffer::NoBuffer => {
+                debug!("no buffer configured, drop buffer message {}", envelope.message.name());
+            }
+            Buffer::Bound(max_buffer) => {
+                message_buffer.push(addr, envelope);
+                if message_buffer.total_size() > max_buffer {
+                    for envelope in message_buffer.drop_first_n(&addr, 1) {
+                        let msg_name = envelope.message.name();
+                        warn!("stash buffer is going to large than {max_buffer}, drop the oldest message {msg_name}");
+                    }
                 }
+            }
+            Buffer::Unbound => {
+                message_buffer.push(addr, envelope);
             }
         }
     }
@@ -244,7 +253,6 @@ mod test {
 
     use async_trait::async_trait;
     use bincode::{Decode, Encode};
-    use quinn::ServerConfig;
     use tracing::info;
 
     use actor_core::{Actor, EmptyTestActor, Message};
@@ -254,12 +262,16 @@ mod test {
     use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
     use actor_core::actor_ref::ActorRefExt;
     use actor_core::config::actor_setting::ActorSetting;
+    use actor_core::config::ConfigBuilder;
+    use actor_core::config::core_config::CoreConfig;
     use actor_core::pattern::patterns::Patterns;
     use actor_derive::{EmptyCodec, MessageCodec, OrphanCodec};
 
+    use crate::config::buffer::Buffer;
     use crate::config::RemoteConfig;
-    use crate::config::transport::{QuicTransport, Transport};
+    use crate::config::transport::Transport;
     use crate::remote_provider::RemoteActorRefProvider;
+    use crate::remote_setting::RemoteSetting;
 
     struct PingPongActor;
 
@@ -318,25 +330,23 @@ mod test {
         }
     }
 
-    fn build_setting(addr: SocketAddrV4) -> ActorSetting {
-        ActorSetting::builder()
-            .provider_fn(move |system| {
-                RemoteActorRefProvider::builder()
-                    .config(RemoteConfig { transport: Transport::tcp(addr, None) })
-                    .register::<Ping>()
-                    .register::<Pong>()
-                    .register::<MessageToAsk>()
-                    .register::<MessageToAns>()
-                    .build(system.clone())
-            })
-            .build()
+    fn build_setting(addr: SocketAddrV4) -> eyre::Result<ActorSetting> {
+        let mut remote_setting = RemoteSetting {
+            config: RemoteConfig { transport: Transport::tcp(addr, Buffer::default()) },
+            reg: Default::default(),
+        };
+        remote_setting.reg.register_user::<Ping>();
+        remote_setting.reg.register_user::<Pong>();
+        remote_setting.reg.register_user::<MessageToAsk>();
+        remote_setting.reg.register_user::<MessageToAns>();
+        ActorSetting::new(RemoteActorRefProvider::builder(remote_setting), CoreConfig::builder().build()?, None)
     }
 
     #[tokio::test]
     async fn test() -> eyre::Result<()> {
-        let system_a = ActorSystem::new("game", build_setting("127.0.0.1:12121".parse()?))?;
+        let system_a = ActorSystem::new("game", build_setting("127.0.0.1:12121".parse()?)?)?;
         let actor_a = system_a.spawn(Props::new(|| { Ok(PingPongActor) }), "actor_a")?;
-        let system_b = ActorSystem::new("game", build_setting("127.0.0.1:12122".parse()?))?;
+        let system_b = ActorSystem::new("game", build_setting("127.0.0.1:12122".parse()?)?)?;
         let _ = system_b.spawn(Props::new(|| Ok(PingPongActor)), "actor_b")?;
         loop {
             actor_a.cast(PingTo { to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string() }, None);
@@ -366,8 +376,8 @@ mod test {
 
     #[tokio::test]
     async fn test_remote_ask() -> eyre::Result<()> {
-        let system1 = ActorSystem::new("mikai233", build_setting("127.0.0.1:12121".parse()?))?;
-        let system2 = ActorSystem::new("mikai233", build_setting("127.0.0.1:12123".parse()?))?;
+        let system1 = ActorSystem::new("mikai233", build_setting("127.0.0.1:12121".parse()?)?)?;
+        let system2 = ActorSystem::new("mikai233", build_setting("127.0.0.1:12123".parse()?)?)?;
         let actor_a = system1.spawn_anonymous(Props::new(|| Ok(EmptyTestActor)))?;
         let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
         let _: MessageToAns = Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;

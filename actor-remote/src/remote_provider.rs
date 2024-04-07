@@ -1,7 +1,6 @@
 use std::any::type_name;
 use std::sync::Arc;
 use std::time::Duration;
-use eyre::Context;
 
 use tokio::sync::broadcast::Receiver;
 
@@ -14,16 +13,11 @@ use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, TActorRef};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::local_ref::LocalActorRef;
-use actor_core::CodecMessage;
-use actor_core::config::Config;
-use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::provider::local_actor_ref_provider::LocalActorRefProvider;
 use actor_derive::AsAny;
 
-use crate::{REMOTE_CONFIG, REMOTE_CONFIG_NAME};
-use crate::config::RemoteConfig;
 use crate::config::transport::Transport;
 use crate::failure_detector::default_failure_detector_registry::DefaultFailureDetectorRegistry;
 use crate::failure_detector::phi_accrual_failure_detector::PhiAccrualFailureDetector;
@@ -46,19 +40,13 @@ pub struct RemoteActorRefProvider {
 }
 
 impl RemoteActorRefProvider {
-    pub fn builder() -> RemoteProviderBuilder {
-        RemoteProviderBuilder::new()
-    }
-
-    pub fn new(setting: RemoteSetting) -> eyre::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
-        let RemoteSetting { system, config, mut reg } = setting;
+    pub fn new(system: ActorSystem, setting: RemoteSetting) -> eyre::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+        let RemoteSetting { config: remote_config, mut reg } = setting;
         Self::register_system_message(&mut reg);
-        let default_config: RemoteConfig = toml::from_str(REMOTE_CONFIG).context(format!("failed to load {}", REMOTE_CONFIG_NAME))?;
-        let remote_config = config.with_fallback(default_config);
         let transport = remote_config.transport.clone();
         let address = Address::new(transport.name(), system.name.clone(), Some(transport.addr()));
         system.add_config(remote_config)?;
-        let (local, mut spawns) = LocalActorRefProvider::new(system.downgrade(), Some(address.clone()))?;
+        let (local, mut spawns) = LocalActorRefProvider::new(system, Some(address.clone()))?;
         let (transport, deferred) = RemoteActorRefProvider::spawn_transport(&local, transport)?;
         spawns.push(Box::new(deferred));
         let (remote_watcher, remote_watcher_deferred) = Self::create_remote_watcher(&local)?;
@@ -120,6 +108,12 @@ impl RemoteActorRefProvider {
         reg.register_system::<ArteryHeartbeatRsp>();
         reg.register_system::<Heartbeat>();
         reg.register_system::<HeartbeatRsp>();
+    }
+
+    pub fn builder(remote_setting: RemoteSetting) -> impl Fn(ActorSystem) -> eyre::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
+        move |system: ActorSystem| {
+            Self::new(system, remote_setting.clone()).map(|t| { (t.0.into(), t.1) })
+        }
     }
 }
 
@@ -217,39 +211,5 @@ impl TActorRefProvider for RemoteActorRefProvider {
 impl Into<ActorRefProvider> for RemoteActorRefProvider {
     fn into(self) -> ActorRefProvider {
         ActorRefProvider::new(self)
-    }
-}
-
-pub struct RemoteProviderBuilder {
-    reg: MessageRegistration,
-    config: Option<RemoteConfig>,
-}
-
-impl RemoteProviderBuilder {
-    pub fn new() -> Self {
-        Self {
-            reg: MessageRegistration::new(),
-            config: None,
-        }
-    }
-
-    pub fn config(mut self, config: RemoteConfig) -> Self {
-        self.config = Some(config);
-        self
-    }
-
-    pub fn register<M>(mut self) -> Self where M: CodecMessage {
-        self.reg.register_user::<M>();
-        self
-    }
-
-    pub fn build(self, system: ActorSystem) -> eyre::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
-        let Self { reg, config } = self;
-        let setting = RemoteSetting::builder()
-            .system(system)
-            .config(config.into_result()?)
-            .reg(reg)
-            .build();
-        RemoteActorRefProvider::new(setting).map(|(c, d)| (c.into(), d))
     }
 }

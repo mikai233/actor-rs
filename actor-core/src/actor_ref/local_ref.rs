@@ -3,8 +3,8 @@ use std::iter::Peekable;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use eyre::anyhow;
 use dashmap::DashMap;
+use eyre::anyhow;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
@@ -258,7 +258,7 @@ impl LocalActorRef {
             check_name(name)?;
         }
         let name = name.unwrap_or_else(random_actor_name);
-        let (sender, mailbox) = props.mailbox(&self.system)?;
+        let (sender, mailbox) = props.mailbox(&self.system.upgrade()?)?;
         let uid = uid.unwrap_or_else(ActorPath::new_uid);
         let path = ChildActorPath::new(self.path.clone(), name.clone(), uid).into();
         let children = self.children();

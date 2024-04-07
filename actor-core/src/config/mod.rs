@@ -3,10 +3,11 @@ use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
-use eyre::anyhow;
+use config::Source;
 use dashmap::DashMap;
 use dashmap::mapref::one::MappedRef;
 use dyn_clone::DynClone;
+use eyre::anyhow;
 
 use crate::ext::as_any::AsAny;
 
@@ -14,11 +15,19 @@ pub mod actor_setting;
 pub mod core_config;
 pub mod mailbox;
 
-pub trait Config: Debug + Send + Sync + Any + AsAny + DynClone {
-    fn with_fallback(&self, other: Self) -> Self where Self: Sized;
-}
+pub trait Config: Debug + Send + Sync + Any + AsAny + DynClone {}
 
 dyn_clone::clone_trait_object!(Config);
+
+pub trait ConfigBuilder: Sized {
+    type C: Config;
+
+    fn add_source<T>(self, source: T) -> eyre::Result<Self>
+        where
+            T: Source + Send + Sync + 'static;
+
+    fn build(self) -> eyre::Result<Self::C>;
+}
 
 #[derive(Default)]
 pub struct ActorConfig {

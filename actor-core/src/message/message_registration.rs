@@ -110,3 +110,9 @@ impl MessageRegistration {
         self.register_system::<ActorSelectionMessage>();
     }
 }
+
+impl Default for MessageRegistration {
+    fn default() -> Self {
+        MessageRegistration::new()
+    }
+}

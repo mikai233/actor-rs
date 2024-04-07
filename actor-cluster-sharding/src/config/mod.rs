@@ -1,48 +1,59 @@
 use std::time::Duration;
 
+use config::{File, FileFormat, Source};
+use config::builder::DefaultState;
 use serde::{Deserialize, Serialize};
 
-use actor_cluster_tools::singleton::cluster_singleton_manager::ClusterSingletonManagerSettings;
-use actor_core::config::Config;
+use actor_cluster_tools::config::singleton_config::SingletonConfig;
+use actor_core::config::{Config, ConfigBuilder};
 use actor_derive::AsAny;
 
-mod passivation;
+use crate::CLUSTER_SHARDING_CONFIG;
+use crate::config::passivation::Passivation;
+
+pub mod passivation;
 
 #[derive(Debug, Clone, Serialize, Deserialize, AsAny)]
 pub struct ClusterShardingConfig {
-    #[serde(default = "default_guardian_name")]
     pub guardian_name: String,
     pub role: Option<String>,
-    pub coordinator_singleton_settings: ClusterSingletonManagerSettings,
-    pub shard_region_query_timeout: Duration,
+    pub passivation: Passivation,
+    pub coordinator_failure_backoff: Duration,
     pub retry_interval: Duration,
+    pub buffer_size: usize,
     pub handoff_timeout: Duration,
     pub shard_start_timeout: Duration,
-    // pub min_nr_or_members: usize,
     pub rebalance_interval: Duration,
+    pub shard_region_query_timeout: Duration,
+    pub coordinator_singleton: SingletonConfig,
+    pub coordinator_singleton_role_override: bool,
+
+    // pub min_nr_or_members: usize,
 }
 
-impl Config for ClusterShardingConfig {
-    fn with_fallback(&self, other: Self) -> Self where Self: Sized {
-        todo!()
+impl Config for ClusterShardingConfig {}
+
+impl ClusterShardingConfig {
+    pub fn builder() -> ClusterShardingConfigBuilder {
+        ClusterShardingConfigBuilder::default()
     }
 }
 
-fn default_guardian_name() -> String {
-    "sharding".to_string()
+#[derive(Debug, Default)]
+pub struct ClusterShardingConfigBuilder {
+    builder: config::ConfigBuilder<DefaultState>,
 }
 
-impl Default for ClusterShardingConfig {
-    fn default() -> Self {
-        Self {
-            guardian_name: default_guardian_name(),
-            role: None,
-            coordinator_singleton_settings: Default::default(),
-            shard_region_query_timeout: Duration::from_secs(3),
-            retry_interval: Duration::from_millis(200),
-            handoff_timeout: Duration::from_secs(60),
-            shard_start_timeout: Duration::from_secs(10),
-            rebalance_interval: Duration::from_secs(10),
-        }
+impl ConfigBuilder for ClusterShardingConfigBuilder {
+    type C = ClusterShardingConfig;
+
+    fn add_source<T>(self, source: T) -> eyre::Result<Self> where T: Source + Send + Sync + 'static {
+        Ok(Self { builder: self.builder.add_source(source) })
+    }
+
+    fn build(self) -> eyre::Result<Self::C> {
+        let builder = self.builder.add_source(File::from_str(CLUSTER_SHARDING_CONFIG, FileFormat::Toml));
+        let cluster_sharding_config = builder.build()?.try_deserialize::<Self::C>()?;
+        Ok(cluster_sharding_config)
     }
 }

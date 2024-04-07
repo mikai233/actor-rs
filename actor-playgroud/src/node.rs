@@ -1,16 +1,11 @@
-use std::collections::HashSet;
 use std::net::SocketAddrV4;
 
 use clap::Parser;
 use etcd_client::Client;
 
-use actor_cluster::cluster_provider::ClusterProviderBuilder;
-use actor_cluster::config::ClusterConfig;
 use actor_core::actor::actor_system::ActorSystem;
-use actor_core::config::actor_setting::ActorSetting;
 use actor_core::ext::init_logger_with_filter;
-use actor_remote::config::RemoteConfig;
-use actor_remote::config::transport::Transport;
+use actor_playgroud::common::build_cluster_setting;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -24,22 +19,11 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
-    let args = Args::parse();
+    let Args { system_name, addr, etcd } = Args::parse();
     init_logger_with_filter("actor=trace");
-    let client = Client::connect([args.etcd.to_string()], None).await?;
-    let setting = ActorSetting::builder()
-        .provider_fn(move |system| {
-            let config = ClusterConfig {
-                remote: RemoteConfig { transport: Transport::tcp(args.addr, None) },
-                roles: HashSet::new(),
-            };
-            ClusterProviderBuilder::new()
-                .client(client.clone())
-                .config(config)
-                .build(system.clone())
-        })
-        .build();
-    let system = ActorSystem::new(args.system_name, setting)?;
+    let client = Client::connect([etcd.to_string()], None).await?;
+    let setting = build_cluster_setting(addr, client)?;
+    let system = ActorSystem::new(system_name, setting)?;
     system.await?;
     Ok(())
 }

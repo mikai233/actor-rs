@@ -75,8 +75,7 @@ impl Props {
         }
     }
 
-    pub(crate) fn mailbox(&self, system: &WeakActorSystem) -> eyre::Result<(MailboxSender, Mailbox)> {
-        let system = system.upgrade()?;
+    pub(crate) fn mailbox(&self, system: &ActorSystem) -> eyre::Result<(MailboxSender, Mailbox)> {
         let core_config = system.core_config();
         let mailbox_name = self.mailbox.as_ref().map(|m| m.as_str()).unwrap_or("default");
         let mailbox = core_config.mailbox.get(mailbox_name).ok_or(anyhow!("mailbox {} config not found", mailbox_name))?;
