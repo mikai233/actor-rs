@@ -50,6 +50,8 @@ pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
 
     fn dead_letters(&self) -> &ActorRef;
 
+    fn ignore_ref(&self) -> &ActorRef;
+
     fn get_default_address(&self) -> &Address {
         self.root_path().address()
     }

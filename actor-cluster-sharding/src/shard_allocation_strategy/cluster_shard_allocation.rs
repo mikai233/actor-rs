@@ -25,8 +25,7 @@ pub trait ClusterShardAllocation {
 
     fn region_entries_for(&self, current_shard_allocations: AllocationMap) -> Vec<RegionEntry> {
         let address_to_member: HashMap<_, _> = self.cluster_state()
-            .members
-            .read()
+            .members()
             .iter().map(|(addr, member)| {
             (addr.address.clone(), member.clone())
         }).collect();

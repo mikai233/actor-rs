@@ -4,8 +4,8 @@ use std::ops::{Deref, Mul, Not};
 use std::sync::Arc;
 use std::time::Duration;
 
-use eyre::anyhow;
 use async_trait::async_trait;
+use eyre::anyhow;
 use imstr::ImString;
 use itertools::Itertools;
 use tokio::sync::mpsc::{channel, Sender};
@@ -18,6 +18,7 @@ use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use actor_core::actor::context::{ActorContext, Context, ContextExt};
 use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION};
+use actor_core::actor::dead_letter_listener::DeadMessage;
 use actor_core::actor::props::{Props, PropsBuilderSync};
 use actor_core::actor::timers::{ScheduleKey, Timers};
 use actor_core::actor_path::root_actor_path::RootActorPath;
@@ -37,7 +38,7 @@ use crate::shard_coordinator::graceful_shutdown_req::GracefulShutdownReq;
 use crate::shard_coordinator::region_stopped::RegionStopped;
 use crate::shard_coordinator::register::Register;
 use crate::shard_coordinator::register_proxy::RegisterProxy;
-use crate::shard_region::cluster_event_wrap::ClusterEventWrap;
+use crate::shard_region::cluster_event::ClusterEventWrap;
 use crate::shard_region::deliver_target::DeliverTarget;
 use crate::shard_region::graceful_shutdown::GracefulShutdown;
 use crate::shard_region::register_retry::RegisterRetry;
@@ -51,7 +52,7 @@ mod shard_terminated;
 pub(crate) mod handoff;
 mod register_retry;
 mod retry;
-mod cluster_event_wrap;
+mod cluster_event;
 mod shard_envelope;
 pub(crate) mod host_shard;
 pub(crate) mod shard_home;
@@ -309,13 +310,13 @@ impl ShardRegion {
                         }
                     }
                 }
-                self.buffer_message(shard_id.into(), envelope, context.sender().cloned());
+                self.buffer_message(context, shard_id.into(), envelope, context.sender().cloned());
             }
             Some((shard_id, shard_region_ref)) if shard_region_ref == context.myself() => {
                 let shard_id = shard_id.clone();
                 if let Some(shard) = self.get_shard(context, shard_id.clone())? {
                     if self.shard_buffers.contains_key(shard_id.as_str()) {
-                        self.buffer_message(shard_id.clone(), envelope, context.sender().cloned());
+                        self.buffer_message(context, shard_id.clone(), envelope, context.sender().cloned());
                         self.deliver_buffered_messages(&shard_id, DeliverTarget::Shard(&shard));
                     } else {
                         context.forward(&shard, envelope.into_shard_envelope().into_dyn());
@@ -330,14 +331,19 @@ impl ShardRegion {
         Ok(())
     }
 
-    fn buffer_message(&mut self, shard_id: ImShardId, msg: ShardEnvelope<ShardRegion>, sender: Option<ActorRef>) {
+    fn buffer_message(
+        &mut self,
+        context: &mut ActorContext,
+        shard_id: ImShardId,
+        msg: ShardEnvelope<ShardRegion>,
+        sender: Option<ActorRef>,
+    ) {
         let total_buf_size = self.shard_buffers.total_size();
-        //TODO buffer size
-        let buffer_size = 5000;
+        let buffer_size = self.settings.buffer_size;
         let type_name = &self.type_name;
         if total_buf_size >= buffer_size {
             warn!("{type_name}: Buffer is full, dropping message for shard [{shard_id}]");
-            //TODO send to dead letter
+            context.system().dead_letters().cast_ns(DeadMessage(msg.into_dyn()));
         } else {
             let envelop = ShardRegionBufferEnvelope {
                 message: msg,

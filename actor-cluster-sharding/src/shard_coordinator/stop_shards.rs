@@ -3,8 +3,8 @@ use std::collections::hash_map::Entry;
 use std::collections::HashSet;
 use std::ops::Not;
 
-use eyre::Context as _;
 use async_trait::async_trait;
+use eyre::Context as _;
 use itertools::Itertools;
 use tracing::{info, warn};
 
@@ -73,12 +73,14 @@ impl Message for StopShards {
                     })
                     .into_group_map();
                 for (region, shards) in shard_per_region {
-                    //TODO log error
-                    actor.shutdown_shards(
+                    let shutdown_result = actor.shutdown_shards(
                         context,
                         region.clone(),
                         shards.into_iter().collect(),
-                    )?;
+                    );
+                    if let Some(error) = shutdown_result.err() {
+                        warn!("{}: shutdown shards of region {} error {:?}", actor.type_name, region, error);
+                    }
                 }
                 let timeout = StopShardTimeout(request_id);
                 actor.timers.start_single_timer(

@@ -121,6 +121,10 @@ impl TActorRefProvider for ClusterActorRefProvider {
         self.remote.dead_letters()
     }
 
+    fn ignore_ref(&self) -> &ActorRef {
+        self.remote.ignore_ref()
+    }
+
     fn termination_rx(&self) -> Receiver<()> {
         self.remote.termination_rx()
     }

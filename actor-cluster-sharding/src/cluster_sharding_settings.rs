@@ -17,6 +17,7 @@ pub struct ClusterShardingSettings {
     pub handoff_timeout: Duration,
     pub shard_start_timeout: Duration,
     pub rebalance_interval: Duration,
+    pub buffer_size: usize,
 }
 
 impl ClusterShardingSettings {
@@ -30,6 +31,7 @@ impl ClusterShardingSettings {
             handoff_timeout: sharding_config.handoff_timeout,
             shard_start_timeout: sharding_config.shard_start_timeout,
             rebalance_interval: sharding_config.rebalance_interval,
+            buffer_size: sharding_config.buffer_size,
         };
         settings
     }

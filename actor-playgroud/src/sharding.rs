@@ -7,7 +7,6 @@ use rand::random;
 
 use actor_cluster_sharding::cluster_sharding::ClusterSharding;
 use actor_cluster_sharding::cluster_sharding_settings::ClusterShardingSettings;
-use actor_cluster_sharding::config::ClusterShardingConfig;
 use actor_cluster_sharding::shard_allocation_strategy::least_shard_allocation_strategy::LeastShardAllocationStrategy;
 use actor_cluster_sharding::ShardEnvelope;
 use actor_core::actor::actor_system::ActorSystem;
@@ -40,12 +39,20 @@ async fn main() -> eyre::Result<()> {
     let setting = actor_sharding_setting(addr, client)?;
     let system = ActorSystem::new(system_name, setting)?;
     system.register_extension(|system| {
-        ClusterSharding::new(system, ClusterShardingConfig::default())
+        ClusterSharding::new_with_default_config(system)
     })?;
     let builder = player_actor_builder();
     let settings = ClusterShardingSettings::create(&system);
     let strategy = LeastShardAllocationStrategy::new(&system, 1, 1.0);
-    let player_shard_region = ClusterSharding::get(&system).start("player", builder, settings.into(), PlayerMessageExtractor, strategy, HandoffPlayer.into_dyn()).await?;
+    let player_shard_region = ClusterSharding::get(&system)
+        .start(
+            "player",
+            builder,
+            settings.into(),
+            PlayerMessageExtractor,
+            strategy,
+            HandoffPlayer.into_dyn(),
+        ).await?;
     let handle = if start_entity {
         let handle = tokio::spawn(async move {
             let mut index = 1;

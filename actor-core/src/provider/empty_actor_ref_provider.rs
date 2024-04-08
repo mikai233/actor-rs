@@ -67,6 +67,10 @@ impl TActorRefProvider for EmptyActorRefProvider {
         unimplemented!()
     }
 
+    fn ignore_ref(&self) -> &ActorRef {
+        unimplemented!()
+    }
+
     fn termination_rx(&self) -> Receiver<()> {
         unimplemented!()
     }

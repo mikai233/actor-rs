@@ -1,11 +1,10 @@
 use std::any::type_name;
 
-use eyre::Context as _;
 use async_trait::async_trait;
+use eyre::Context as _;
 use tracing::{debug, warn};
 
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
@@ -41,10 +40,9 @@ impl Message for RebalanceDone {
                 actor.update_state(ShardState::ShardHomeDeallocated { shard: self.shard.clone() }).await;
                 debug!("{}: Shard [{}] deallocated after", actor.type_name, self.shard);
                 actor.clear_rebalance_in_progress(context, self.shard.clone().into());
-                //TODO ignore ref
                 context.myself().cast(
                     GetShardHome { shard: self.shard.into() },
-                    Some(context.system().dead_letters()),
+                    Some(actor.ignore_ref.clone()),
                 );
             } else {
                 actor.clear_rebalance_in_progress(context, self.shard.into());

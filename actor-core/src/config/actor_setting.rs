@@ -30,6 +30,15 @@ impl ActorSetting {
         };
         Ok(setting)
     }
+
+
+    pub fn new_with_default_config<F>(provider: F) -> eyre::Result<Self>
+        where
+            F: Fn(ActorSystem) -> eyre::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> + 'static
+    {
+        let config = CoreConfig::builder().build()?;
+        Self::new(provider, config, None)
+    }
 }
 
 impl Default for ActorSetting {

@@ -7,10 +7,10 @@ use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::message_ext::UserMessageExt;
 
 use crate::cluster::Cluster;
-use crate::coordinated_shutdown_leave::cluster_event_wrap::ClusterEventWrap;
+use crate::coordinated_shutdown_leave::cluster_event::ClusterEventWrap;
 use crate::coordinated_shutdown_leave::leave_resp::LeaveResp;
 
-mod cluster_event_wrap;
+mod cluster_event;
 pub(crate) mod leave_resp;
 
 #[derive(Debug)]

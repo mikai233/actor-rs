@@ -19,14 +19,15 @@ impl Message for ShardRegionTerminated {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let region = self.region;
-        if actor.stopping_shard {
+        if !actor.stopping_shard {
             if actor.remaining.contains(&region) {
                 debug!(
                     "{}: ShardRegion [{}] terminated while waiting for BeginHandOffAck for shard [{}]",
                     actor.type_name,
                     region,
                     actor.shard,
-                )
+                );
+                actor.acked(context, &region);
             }
         } else if actor.shard_region_from == region {
             debug!(

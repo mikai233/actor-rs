@@ -6,7 +6,6 @@ use actor_cluster::config::ClusterConfig;
 use actor_cluster_sharding::register_sharding;
 use actor_core::config::actor_setting::ActorSetting;
 use actor_core::config::ConfigBuilder;
-use actor_core::config::core_config::CoreConfig;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_remote::config::buffer::Buffer;
@@ -42,11 +41,7 @@ pub fn build_cluster_setting(addr: SocketAddrV4, client: impl Into<EtcdClient>) 
     reg.register_user::<TestMessage>();
     reg.register_user::<Greet>();
     let cluster_setting = ClusterSetting { config, reg, client };
-    ActorSetting::new(
-        ClusterActorRefProvider::builder(cluster_setting),
-        CoreConfig::builder().build()?,
-        None,
-    )
+    ActorSetting::new_with_default_config(ClusterActorRefProvider::builder(cluster_setting))
 }
 
 pub fn actor_sharding_setting(addr: SocketAddrV4, client: impl Into<EtcdClient>) -> eyre::Result<ActorSetting> {
@@ -58,9 +53,5 @@ pub fn actor_sharding_setting(addr: SocketAddrV4, client: impl Into<EtcdClient>)
     reg.register_user::<Init>();
     reg.register_user::<Hello>();
     let cluster_setting = ClusterSetting { config, reg, client };
-    ActorSetting::new(
-        ClusterActorRefProvider::builder(cluster_setting),
-        CoreConfig::builder().build()?,
-        None,
-    )
+    ActorSetting::new_with_default_config(ClusterActorRefProvider::builder(cluster_setting))
 }

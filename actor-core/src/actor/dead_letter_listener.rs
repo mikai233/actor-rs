@@ -33,6 +33,20 @@ impl Message for Dropped {
     type A = DeadLetterListener;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
-        todo!()
+        //TODO
+        Ok(())
+    }
+}
+
+#[derive(Debug, EmptyCodec)]
+pub struct DeadMessage(pub DynMessage);
+
+#[async_trait]
+impl Message for DeadMessage {
+    type A = DeadLetterListener;
+
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+        //TODO
+        Ok(())
     }
 }

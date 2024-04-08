@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use parking_lot::RwLock;
+use parking_lot::{RwLock, RwLockReadGuard};
 
 use actor_core::actor::address::Address;
 
@@ -9,8 +9,8 @@ use crate::unique_address::UniqueAddress;
 
 #[derive(Debug)]
 pub struct ClusterState {
-    pub members: RwLock<HashMap<UniqueAddress, Member>>,
-    pub self_member: RwLock<Member>,
+    pub(crate) members: RwLock<HashMap<UniqueAddress, Member>>,
+    pub(crate) self_member: RwLock<Member>,
 }
 
 impl ClusterState {
@@ -23,5 +23,13 @@ impl ClusterState {
 
     pub fn is_member_up(&self, address: &Address) -> bool {
         self.members.read().iter().any(|(addr, _)| { address == &addr.address })
+    }
+
+    pub fn members(&self) -> RwLockReadGuard<HashMap<UniqueAddress, Member>> {
+        self.members.read()
+    }
+
+    pub fn self_member(&self) -> RwLockReadGuard<Member> {
+        self.self_member.read()
     }
 }

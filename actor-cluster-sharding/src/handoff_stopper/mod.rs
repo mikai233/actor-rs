@@ -89,8 +89,4 @@ impl HandoffStopper {
 }
 
 #[async_trait]
-impl Actor for HandoffStopper {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
-        Ok(())
-    }
-}
+impl Actor for HandoffStopper {}

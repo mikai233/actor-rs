@@ -9,10 +9,10 @@ use crate::cluster_event::ClusterEvent;
 use crate::heartbeat::cluster_heartbeat_receiver::ClusterHeartbeatReceiver;
 
 #[derive(Debug, EmptyCodec)]
-pub(super) struct HeartbeatReceiverClusterEvent(pub(super) ClusterEvent);
+pub(super) struct ClusterEventWrap(pub(super) ClusterEvent);
 
 #[async_trait]
-impl Message for HeartbeatReceiverClusterEvent {
+impl Message for ClusterEventWrap {
     type A = ClusterHeartbeatReceiver;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {

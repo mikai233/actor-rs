@@ -3,14 +3,15 @@ use std::collections::VecDeque;
 use std::ops::Not;
 use std::sync::Arc;
 
-use eyre::Context as _;
 use async_trait::async_trait;
+use eyre::Context as _;
 use imstr::ImString;
 use tracing::debug;
 
 use actor_cluster::cluster::Cluster;
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::dead_letter_listener::Dropped;
 use actor_core::actor::props::{Props, PropsBuilderSync};
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
@@ -21,7 +22,7 @@ use actor_core::message::message_buffer::MessageBufferMap;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::message_extractor::{MessageExtractor, ShardEnvelope};
-use crate::shard::cluster_event_wrap::ClusterEventWrap;
+use crate::shard::cluster_event::ClusterEventWrap;
 use crate::shard::entities::Entities;
 use crate::shard::entity_state::EntityState;
 use crate::shard::entity_terminated::EntityTerminated;
@@ -29,7 +30,7 @@ use crate::shard::shard_buffer_envelope::ShardBufferEnvelope;
 use crate::shard_region::{ImEntityId, ImShardId};
 use crate::shard_region::shard_initialized::ShardInitialized;
 
-mod cluster_event_wrap;
+mod cluster_event;
 mod passivate;
 mod entities;
 pub(crate) mod handoff;
@@ -120,7 +121,7 @@ impl Shard {
                 entity.tell(payload, sender);
             }
             EntityState::Passivation(entity_id, _) => {
-                self.append_to_message_buffer(entity_id.clone(), message.into_shard_envelope(), sender);
+                self.append_to_message_buffer(context, entity_id.clone(), message.into_shard_envelope(), sender);
             }
             EntityState::WaitingForRestart => {
                 let payload = self.extractor.unwrap_message(message);
@@ -133,20 +134,26 @@ impl Shard {
         Ok(())
     }
 
-    fn append_to_message_buffer(&mut self, id: ImEntityId, message: ShardEnvelope<Shard>, sender: Option<ActorRef>) {
-        // TODO buffer size overflow
-        let envelop = ShardBufferEnvelope {
-            message,
-            sender,
-        };
-        match self.message_buffers.entry(id) {
-            Entry::Occupied(mut o) => {
-                o.get_mut().push_back(envelop);
-            }
-            Entry::Vacant(v) => {
-                let mut buffer = VecDeque::new();
-                buffer.push_back(envelop);
-                v.insert(buffer);
+    fn append_to_message_buffer(&mut self, context: &mut ActorContext, id: ImEntityId, message: ShardEnvelope<Shard>, sender: Option<ActorRef>) {
+        if self.message_buffers.total_size() >= self.settings.buffer_size {
+            debug!("{}: Buffer is full, dropping message of type [{}] for entity [{}]", self.type_name, message.message.name(), id);
+            let dropped = Dropped::new(message.into_dyn(), format!("Buffer for [{}] is full", id), Some(context.myself().clone()));
+            context.system().dead_letters().cast_ns(dropped);
+        } else {
+            debug!("{}: Message of type [{}] for entity [{}] buffered", self.type_name, message.message.name(), id);
+            let envelop = ShardBufferEnvelope {
+                message,
+                sender,
+            };
+            match self.message_buffers.entry(id) {
+                Entry::Occupied(mut o) => {
+                    o.get_mut().push_back(envelop);
+                }
+                Entry::Vacant(v) => {
+                    let mut buffer = VecDeque::new();
+                    buffer.push_back(envelop);
+                    v.insert(buffer);
+                }
             }
         }
     }

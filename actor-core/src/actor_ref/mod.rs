@@ -29,6 +29,7 @@ pub(crate) mod dead_letter_ref;
 pub(crate) mod function_ref;
 pub mod deferred_ref;
 pub mod actor_ref_factory;
+pub(crate) mod ignore_ref;
 
 task_local! {
     pub static PROVIDER: Arc<ActorRefProvider>;

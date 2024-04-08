@@ -18,7 +18,7 @@ pub struct FunctionRef {
 pub struct Inner {
     pub(crate) system: WeakActorSystem,
     pub(crate) path: ActorPath,
-    pub(crate) message_handler: Arc<Box<dyn Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static>>,
+    pub(crate) message_handler: Arc<dyn Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static>,
 }
 
 impl Deref for FunctionRef {

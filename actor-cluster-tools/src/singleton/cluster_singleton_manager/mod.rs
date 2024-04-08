@@ -37,7 +37,9 @@ mod singleton_keep_alive_failed;
 
 #[derive(Debug, Clone, TypedBuilder)]
 pub struct ClusterSingletonManagerSettings {
+    #[builder(default = "singleton".to_string())]
     pub singleton_name: String,
+    #[builder(default = None)]
     pub role: Option<String>,
 }
 

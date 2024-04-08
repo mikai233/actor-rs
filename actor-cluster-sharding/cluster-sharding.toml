@@ -1,4 +1,5 @@
 guardian_name = "sharding"
+# Maximum number of messages that are buffered by a ShardRegion actor.
 buffer_size = 100000
 coordinator_singleton_role_override = true
 

@@ -6,8 +6,8 @@ use std::ops::Not;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use eyre::anyhow;
 use arc_swap::Guard;
+use eyre::anyhow;
 use tokio::runtime::Handle;
 use tokio::task::{AbortHandle, JoinHandle};
 use tracing::{debug, error, warn};
@@ -397,7 +397,7 @@ impl ActorContext {
         let inner = Inner {
             system: self.system.downgrade(),
             path: child_path.into(),
-            message_handler: Arc::new(Box::new(func)),
+            message_handler: Arc::new(func),
         };
         let function_ref = FunctionRef {
             inner: inner.into(),

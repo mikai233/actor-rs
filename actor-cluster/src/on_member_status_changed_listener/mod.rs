@@ -8,9 +8,9 @@ use actor_core::ext::option_ext::OptionExt;
 
 use crate::cluster::Cluster;
 use crate::member::MemberStatus;
-use crate::on_member_status_changed_listener::cluster_event_wrap::ClusterEventWrap;
+use crate::on_member_status_changed_listener::cluster_event::ClusterEventWrap;
 
-mod cluster_event_wrap;
+mod cluster_event;
 pub(crate) mod add_status_callback;
 
 pub(crate) struct OnMemberStatusChangedListener {

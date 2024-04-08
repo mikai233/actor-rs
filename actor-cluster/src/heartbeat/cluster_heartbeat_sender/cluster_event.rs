@@ -1,7 +1,6 @@
 use async_trait::async_trait;
-use tracing::trace;
 
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::ActorContext;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 
@@ -10,14 +9,13 @@ use crate::heartbeat::cluster_heartbeat_sender::ClusterHeartbeatSender;
 use crate::member::MemberStatus;
 
 #[derive(Debug, EmptyCodec)]
-pub(super) struct HeartbeatSenderClusterEvent(pub(super) ClusterEvent);
+pub(super) struct ClusterEventWrap(pub(super) ClusterEvent);
 
 #[async_trait]
-impl Message for HeartbeatSenderClusterEvent {
+impl Message for ClusterEventWrap {
     type A = ClusterHeartbeatSender;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
-        trace!("{} {:?}", context.myself(), self);
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         match self.0 {
             ClusterEvent::MemberUp(m) => {
                 if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {

@@ -19,7 +19,6 @@ use crate::delegate::user::UserDelegate;
 use crate::message::message_registration::MessageRegistration;
 use crate::message::MessageDecoder;
 
-pub(crate) const CORE_CONFIG_NAME: &'static str = "core.toml";
 pub(crate) const CORE_CONFIG: &'static str = include_str!("../core.toml");
 
 pub mod ext;

@@ -15,6 +15,7 @@ use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_path::root_actor_path::RootActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
+use crate::actor_ref::ignore_ref::IgnoreActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::cell::actor_cell::ActorCell;
@@ -29,6 +30,7 @@ pub struct LocalActorRefProvider {
     system_guardian: LocalActorRef,
     extra_names: DashMap<String, ActorRef, ahash::RandomState>,
     dead_letters: ActorRef,
+    ignore_ref: ActorRef,
     temp_number: AtomicI64,
     temp_node: ActorPath,
     temp_container: VirtualPathContainer,
@@ -95,6 +97,7 @@ impl LocalActorRefProvider {
             system_guardian: system_guardian.clone(),
             extra_names: DashMap::with_hasher(ahash::RandomState::new()),
             dead_letters: dead_letters.into(),
+            ignore_ref: IgnoreActorRef::new(system.downgrade()).into(),
             temp_number: AtomicI64::new(0),
             temp_node,
             temp_container,
@@ -198,6 +201,10 @@ impl TActorRefProvider for LocalActorRefProvider {
 
     fn dead_letters(&self) -> &ActorRef {
         &self.dead_letters
+    }
+
+    fn ignore_ref(&self) -> &ActorRef {
+        &self.ignore_ref
     }
 
     fn termination_rx(&self) -> Receiver<()> {

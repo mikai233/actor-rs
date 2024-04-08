@@ -15,6 +15,7 @@ use actor_core::actor::extension::Extension;
 use actor_core::actor::props::{Props, PropsBuilderSync};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::config::ConfigBuilder;
 use actor_core::DynMessage;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_derive::AsAny;
@@ -55,11 +56,7 @@ impl Deref for ClusterSharding {
 impl Extension for ClusterSharding {}
 
 impl ClusterSharding {
-    pub fn new(system: ActorSystem, config: ClusterShardingConfig) -> eyre::Result<Self> {
-        // let default_config: ClusterShardingConfig = toml::from_str(CLUSTER_SHARDING_CONFIG).context(format!("failed to load {}", CLUSTER_SHARDING_CONFIG_NAME))?;
-        // let sharding_config = config.with_fallback(default_config);
-        //TODO
-        let sharding_config = config;
+    pub fn new(system: ActorSystem, sharding_config: ClusterShardingConfig) -> eyre::Result<Self> {
         let guardian_name = sharding_config.guardian_name.clone();
         system.add_config(sharding_config)?;
         let guardian = system.spawn_system(Props::new_with_ctx(|context| {
@@ -74,6 +71,11 @@ impl ClusterSharding {
             guardian,
         };
         Ok(ClusterSharding { inner: Arc::new(inner) })
+    }
+
+    pub fn new_with_default_config(system: ActorSystem) -> eyre::Result<Self> {
+        let config = ClusterShardingConfig::builder().build()?;
+        Self::new(system, config)
     }
 
     pub fn get(system: &ActorSystem) -> Self {

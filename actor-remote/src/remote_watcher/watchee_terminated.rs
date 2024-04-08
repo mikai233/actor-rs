@@ -27,6 +27,9 @@ impl Message for WatcheeTerminated {
     async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let Terminated { actor: watchee, existence_confirmed, address_terminated } = self.0;
         debug!("Watchee terminated: [{}]", watchee.path());
+        // When watchee is stopped it sends DeathWatchNotification to this RemoteWatcher,
+        // which will propagate it to all watchers of this watchee.
+        // address_terminated case is already handled by the watcher itself in DeathWatch trait
         if !address_terminated {
             if let Some(watchers) = actor.watching.get(&watchee) {
                 let notify = DeathWatchNotification {

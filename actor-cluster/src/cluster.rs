@@ -5,7 +5,6 @@ use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
 
 use eyre::Context;
 use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -68,10 +67,11 @@ impl Extension for Cluster {
             .take()
             .into_result()
             .context("cannot init Cluster more than once")?;
-        Box::new(actor_spawn).spawn(self.system()?)?;
+        let system = self.system()?;
+        let creation_timeout = system.core_config().creation_timeout;
+        Box::new(actor_spawn).spawn(system)?;
         let cluster_core = tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
-                let creation_timeout = Duration::from_secs(20);
                 self.cluster_daemons.ask::<_, GetClusterCoreRefResp>(GetClusterCoreRefReq, creation_timeout).await
             })
         })?.0;
@@ -179,13 +179,12 @@ impl Cluster {
         &self.self_unique_address
     }
 
-    //TODO 可见性
     pub fn state(&self) -> &ClusterState {
         &self.state
     }
 
     pub fn members(&self) -> RwLockReadGuard<HashMap<UniqueAddress, Member>> {
-        self.state.members.read()
+        self.state().members()
     }
 
     pub(crate) fn members_write(&self) -> RwLockWriteGuard<HashMap<UniqueAddress, Member>> {

@@ -63,6 +63,7 @@ pub struct ShardCoordinator {
     type_name: ImString,
     settings: Arc<ClusterShardingSettings>,
     allocation_strategy: Box<dyn ShardAllocationStrategy>,
+    ignore_ref: ActorRef,
     cluster: Cluster,
     timers: Timers,
     min_members: usize,
@@ -96,6 +97,7 @@ impl ShardCoordinator {
             type_name,
             settings,
             allocation_strategy,
+            ignore_ref: context.system().provider().ignore_ref().clone(),
             cluster,
             timers,
             min_members: 1,
@@ -370,8 +372,8 @@ impl ShardCoordinator {
             for shard in shards {
                 context.myself().cast(
                     GetShardHome { shard: shard.clone().into() },
-                    Some(context.system().dead_letters()),
-                );//TODO ignore ref
+                    Some(self.ignore_ref.clone()),
+                );
             }
             self.update_state(ShardState::ShardRegionTerminated { region: region.clone() }).await;
             self.graceful_shutdown_in_progress.remove(&region);

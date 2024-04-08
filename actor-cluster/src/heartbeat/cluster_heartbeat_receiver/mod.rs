@@ -11,11 +11,11 @@ use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::message_ext::UserMessageExt;
 
 use crate::cluster::Cluster;
-use crate::heartbeat::cluster_heartbeat_receiver::heartbeat_receiver_cluster_event::HeartbeatReceiverClusterEvent;
+use crate::heartbeat::cluster_heartbeat_receiver::cluster_event::ClusterEventWrap;
 use crate::member::Member;
 
 pub(crate) mod heartbeat;
-mod heartbeat_receiver_cluster_event;
+mod cluster_event;
 
 #[derive(Debug)]
 pub(crate) struct ClusterHeartbeatReceiver {
@@ -28,7 +28,7 @@ impl Actor for ClusterHeartbeatReceiver {
         trace!("started {}", context.myself());
         Cluster::get(context.system()).subscribe_cluster_event(
             context.myself().clone(),
-            |event| { HeartbeatReceiverClusterEvent(event).into_dyn() },
+            |event| { ClusterEventWrap(event).into_dyn() },
         )?;
         Ok(())
     }

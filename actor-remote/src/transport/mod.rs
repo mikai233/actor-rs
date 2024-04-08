@@ -339,7 +339,7 @@ mod test {
         remote_setting.reg.register_user::<Pong>();
         remote_setting.reg.register_user::<MessageToAsk>();
         remote_setting.reg.register_user::<MessageToAns>();
-        ActorSetting::new(RemoteActorRefProvider::builder(remote_setting), CoreConfig::builder().build()?, None)
+        ActorSetting::new_with_default_config(RemoteActorRefProvider::builder(remote_setting))
     }
 
     #[tokio::test]

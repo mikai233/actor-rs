@@ -3,8 +3,8 @@ use std::collections::hash_map::Entry;
 use std::ops::Not;
 use std::time::Duration;
 
-use eyre::Context as _;
 use async_trait::async_trait;
+use eyre::Context as _;
 use tracing::debug;
 
 use actor_core::Actor;
@@ -18,7 +18,6 @@ use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::event::address_terminated_topic::AddressTerminatedTopic;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::address_terminated::AddressTerminated;
-use actor_core::message::death_watch_notification::DeathWatchNotification;
 use actor_core::message::watch::Watch;
 
 use crate::failure_detector::failure_detector_registry::FailureDetectorRegistry;
@@ -175,26 +174,6 @@ impl RemoteWatcher {
         self.watchee_by_nodes.remove(watche_address);
         self.address_uids.remove(watche_address);
         self.failure_detector.remove(watche_address);
-    }
-
-    pub fn terminated(&mut self, watchee: &ActorRef, existence_confirmed: bool, address_terminated: bool) {
-        debug!("Watchee terminated: [{}]", watchee.path());
-        // When watchee is stopped it sends DeathWatchNotification to this RemoteWatcher,
-        // which will propagate it to all watchers of this watchee.
-        // address_terminated case is already handled by the watcher itself in DeathWatch trait
-        if !address_terminated {
-            if let Some(watchers) = self.watching.get(&watchee) {
-                let notification = DeathWatchNotification {
-                    actor: watchee.clone(),
-                    existence_confirmed,
-                    address_terminated,
-                };
-                for watcher in watchers {
-                    watcher.cast_system(notification.clone(), ActorRef::no_sender());
-                }
-            }
-        }
-        self.remove_watchee(&watchee);
     }
 
     pub fn receive_heartbeat_rsp(&mut self, context: &mut ActorContext, uid: i64) -> eyre::Result<()> {

@@ -193,6 +193,10 @@ impl TActorRefProvider for RemoteActorRefProvider {
         &self.local.dead_letters()
     }
 
+    fn ignore_ref(&self) -> &ActorRef {
+        self.local.ignore_ref()
+    }
+
     fn termination_rx(&self) -> Receiver<()> {
         self.local.termination_rx()
     }

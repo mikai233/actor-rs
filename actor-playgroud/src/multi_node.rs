@@ -9,12 +9,10 @@ use rand::random;
 
 use actor_cluster_sharding::cluster_sharding::ClusterSharding;
 use actor_cluster_sharding::cluster_sharding_settings::ClusterShardingSettings;
-use actor_cluster_sharding::config::ClusterShardingConfig;
 use actor_cluster_sharding::shard_allocation_strategy::least_shard_allocation_strategy::LeastShardAllocationStrategy;
 use actor_cluster_sharding::ShardEnvelope;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor_ref::ActorRefExt;
-use actor_core::config::ConfigBuilder;
 use actor_core::ext::init_logger_with_filter;
 use actor_core::ext::message_ext::UserMessageExt;
 use actor_playgroud::common::actor_sharding_setting;
@@ -54,8 +52,7 @@ async fn main() -> eyre::Result<()> {
         let setting = actor_sharding_setting(addr, client)?;
         let system = ActorSystem::new(system_name, setting)?;
         system.register_extension(|system| {
-            let config = ClusterShardingConfig::builder().build()?;
-            ClusterSharding::new(system, config)
+            ClusterSharding::new_with_default_config(system)
         })?;
         let builder = player_actor_builder();
         let settings = ClusterShardingSettings::create(&system);

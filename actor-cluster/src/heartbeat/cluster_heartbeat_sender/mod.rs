@@ -13,12 +13,12 @@ use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::message_ext::UserMessageExt;
 
 use crate::cluster::Cluster;
-use crate::heartbeat::cluster_heartbeat_sender::heartbeat_sender_cluster_event::HeartbeatSenderClusterEvent;
+use crate::heartbeat::cluster_heartbeat_sender::cluster_event::ClusterEventWrap;
 use crate::heartbeat::cluster_heartbeat_sender::heartbeat_tick::HeartbeatTick;
 use crate::member::Member;
 use crate::unique_address::UniqueAddress;
 
-mod heartbeat_sender_cluster_event;
+mod cluster_event;
 mod heartbeat_tick;
 pub(crate) mod heartbeat_rsp;
 
@@ -35,7 +35,7 @@ impl Actor for ClusterHeartbeatSender {
         trace!("{} started", context.myself());
         Cluster::get(context.system()).subscribe_cluster_event(
             context.myself().clone(),
-            |event| { HeartbeatSenderClusterEvent(event).into_dyn() },
+            |event| { ClusterEventWrap(event).into_dyn() },
         )?;
         let myself = context.myself().clone();
         let key = context.system().scheduler.schedule_with_fixed_delay(

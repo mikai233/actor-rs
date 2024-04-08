@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
 use config::{File, FileFormat, Source};
 use config::builder::DefaultState;
@@ -15,6 +16,7 @@ use crate::CORE_CONFIG;
 pub struct CoreConfig {
     pub mailbox: HashMap<String, Mailbox>,
     pub phases: HashMap<String, Phase>,
+    pub creation_timeout: Duration,
 }
 
 impl Config for CoreConfig {}
