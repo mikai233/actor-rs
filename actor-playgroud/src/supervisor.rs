@@ -1,5 +1,5 @@
-use eyre::anyhow;
 use async_trait::async_trait;
+use eyre::anyhow;
 use tracing::{info, Level};
 
 use actor_core::{Actor, Message};
@@ -51,7 +51,7 @@ impl Message for NormalMessage {
 async fn main() -> eyre::Result<()> {
     init_logger(Level::DEBUG);
     let system = ActorSystem::new("mikai233", ActorSetting::default())?;
-    let test_actor = system.spawn_anonymous(Props::new_with_ctx(|_| Ok(TestActor)))?;
+    let test_actor = system.spawn_anonymous(Props::new(|| Ok(TestActor)))?;
     test_actor.cast_ns(ErrorMessage);
     test_actor.cast_ns(NormalMessage);
     system.await?;

@@ -19,7 +19,7 @@ use actor_core::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use actor_core::actor::context::{ActorContext, Context, ContextExt};
 use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION};
 use actor_core::actor::dead_letter_listener::DeadMessage;
-use actor_core::actor::props::{Props, PropsBuilderSync};
+use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor::timers::{ScheduleKey, Timers};
 use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
@@ -77,7 +77,7 @@ pub type ImEntityId = ImString;
 #[derive(Debug)]
 pub struct ShardRegion {
     type_name: ImString,
-    entity_props: Option<Arc<PropsBuilderSync<ImEntityId>>>,
+    entity_props: Option<PropsBuilder<ImEntityId>>,
     settings: Arc<ClusterShardingSettings>,
     coordinator_path: String,
     extractor: Box<dyn MessageExtractor>,
@@ -106,7 +106,7 @@ impl ShardRegion {
     fn new(
         context: &mut ActorContext,
         type_name: ImString,
-        entity_props: Option<Arc<PropsBuilderSync<ImEntityId>>>,
+        entity_props: Option<PropsBuilder<ImEntityId>>,
         settings: Arc<ClusterShardingSettings>,
         coordinator_path: String,
         extractor: Box<dyn MessageExtractor>,
@@ -158,7 +158,7 @@ impl ShardRegion {
 
     pub(crate) fn props(
         type_name: ImString,
-        entity_props: Arc<PropsBuilderSync<ImEntityId>>,
+        entity_props: PropsBuilder<ImEntityId>,
         settings: Arc<ClusterShardingSettings>,
         coordinator_path: String,
         extractor: Box<dyn MessageExtractor>,

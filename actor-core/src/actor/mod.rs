@@ -15,4 +15,4 @@ pub mod extension;
 pub mod coordinated_shutdown;
 pub mod directive;
 mod watching;
-pub mod actor_rc;
+pub mod scoped_rc;

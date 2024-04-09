@@ -3,7 +3,7 @@ use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::ops::Deref;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Weak};
 use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -12,6 +12,7 @@ use dashmap::mapref::one::MappedRef;
 use eyre::{anyhow, Context as _};
 use futures::future::BoxFuture;
 use futures::FutureExt;
+use parking_lot::Mutex;
 use pin_project::pin_project;
 use rand::random;
 use tokio::runtime::Handle;
@@ -136,7 +137,6 @@ impl ActorSystem {
 
     pub(crate) fn when_terminated(&self) -> impl Future<Output=()> + 'static {
         let result = self.termination_error.lock()
-            .unwrap()
             .take()
             .map(|e| { Err(e) })
             .unwrap_or(Ok(()));
@@ -321,11 +321,11 @@ struct TerminationCallbacks {
 
 impl TerminationCallbacks {
     fn add<F>(&self, fut: F) where F: Future<Output=()> + Send + 'static {
-        self.callbacks.lock().unwrap().push(fut.boxed());
+        self.callbacks.lock().push(fut.boxed());
     }
 
     fn run(&self) -> impl Future<Output=()> + 'static {
-        let callbacks = self.callbacks.lock().unwrap().drain(..).collect::<Vec<_>>();
+        let callbacks = self.callbacks.lock().drain(..).collect::<Vec<_>>();
         async move {
             for cb in callbacks {
                 cb.await;

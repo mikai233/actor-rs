@@ -92,6 +92,7 @@ dependencies = [
  "etcd-client",
  "eyre",
  "futures",
+ "parking_lot",
  "pin-project",
  "rand",
  "regex",

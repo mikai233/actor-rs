@@ -3,13 +3,14 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt::{Debug, Display, Formatter};
 use std::future::Future;
 use std::ops::Deref;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use eyre::{anyhow, Error};
 use futures::future::{BoxFuture, join_all};
 use futures::FutureExt;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn};
 
@@ -107,7 +108,7 @@ impl CoordinatedShutdown {
     }
 
     fn register<F>(&self, phase_name: String, name: String, fut: F) where F: Future<Output=()> + Send + 'static {
-        let mut registered_phases = self.registered_phases.lock().unwrap();
+        let mut registered_phases = self.registered_phases.lock();
         let phase_tasks = registered_phases.entry(phase_name).or_insert(PhaseTask::default());
         let task = TaskDefinition {
             name,
@@ -165,10 +166,9 @@ impl CoordinatedShutdown {
             let mut registered_phases = {
                 let error = reason.into_error();
                 if error.is_some() {
-                    *system.termination_error.lock().unwrap() = error;
+                    *system.termination_error.lock() = error;
                 }
                 self.registered_phases.lock()
-                    .unwrap()
                     .drain()
                     .collect::<HashMap<_, _>>()
             };

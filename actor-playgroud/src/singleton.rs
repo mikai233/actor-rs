@@ -8,7 +8,7 @@ use actor_cluster_tools::singleton::cluster_singleton_manager::{ClusterSingleton
 use actor_cluster_tools::singleton::cluster_singleton_proxy::cluster_singleton_proxy_settings::ClusterSingletonProxySettings;
 use actor_cluster_tools::singleton::cluster_singleton_proxy::ClusterSingletonProxy;
 use actor_core::actor::actor_system::ActorSystem;
-use actor_core::actor::props::{Props, PropsBuilder};
+use actor_core::actor::props::PropsBuilder;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::DynMessage;
@@ -59,9 +59,7 @@ async fn main() -> eyre::Result<()> {
         let settings = ClusterSingletonManagerSettings::builder()
             .build();
         let singleton_props = ClusterSingletonManager::props(
-            PropsBuilder::new::<SingletonActor, _>(|()| {
-                Props::new(|| { Ok(SingletonActor) })
-            }),
+            PropsBuilder::new(|()| { Ok(SingletonActor) }),
             DynMessage::user(StopSingleton),
             settings,
         )?;

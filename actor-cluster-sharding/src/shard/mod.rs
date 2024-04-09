@@ -12,7 +12,7 @@ use actor_cluster::cluster::Cluster;
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::dead_letter_listener::Dropped;
-use actor_core::actor::props::{Props, PropsBuilderSync};
+use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -45,7 +45,7 @@ pub(crate) mod shard_envelope;
 pub struct Shard {
     type_name: ImString,
     shard_id: ImShardId,
-    entity_props: Arc<PropsBuilderSync<ImEntityId>>,
+    entity_props: PropsBuilder<ImEntityId>,
     settings: Arc<ClusterShardingSettings>,
     extractor: Box<dyn MessageExtractor>,
     handoff_stop_message: DynMessage,
@@ -60,7 +60,7 @@ impl Shard {
     pub(crate) fn props(
         type_name: ImString,
         shard_id: ImShardId,
-        entity_props: Arc<PropsBuilderSync<ImEntityId>>,
+        entity_props: PropsBuilder<ImEntityId>,
         settings: Arc<ClusterShardingSettings>,
         extractor: Box<dyn MessageExtractor>,
         handoff_stop_message: DynMessage,

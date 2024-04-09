@@ -12,7 +12,7 @@ use tracing::debug;
 use actor_cluster::cluster::Cluster;
 use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
 use actor_core::actor::extension::Extension;
-use actor_core::actor::props::{Props, PropsBuilderSync};
+use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::config::ConfigBuilder;
@@ -85,7 +85,7 @@ impl ClusterSharding {
     pub async fn start<E, S>(
         &self,
         type_name: impl Into<String>,
-        entity_props: PropsBuilderSync<ImEntityId>,
+        entity_props: PropsBuilder<ImEntityId>,
         settings: Arc<ClusterShardingSettings>,
         extractor: E,
         allocation_strategy: S,

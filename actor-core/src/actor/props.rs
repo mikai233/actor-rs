@@ -1,5 +1,6 @@
 use std::any::type_name;
 use std::fmt::{Debug, Formatter};
+use std::sync::Arc;
 
 use eyre::anyhow;
 use tokio::runtime::Handle;
@@ -163,48 +164,44 @@ impl DeferredSpawn for FuncDeferredSpawn {
     }
 }
 
+#[derive(Clone)]
 pub struct PropsBuilder<Arg> {
     pub name: &'static str,
-    pub builder: Box<dyn Fn(Arg) -> Props + Send>,
+    pub builder: Arc<dyn Fn(Arg) -> Props + Send + Sync>,
 }
 
 impl<Arg> PropsBuilder<Arg> {
     pub fn new<A, Builder>(builder: Builder) -> Self
         where
-            Builder: Fn(Arg) -> Props + Send + 'static,
+            Builder: Fn(Arg) -> eyre::Result<A> + Send + Sync + 'static,
+            Arg: Send + 'static,
             A: Actor {
+        let builder = Arc::new(builder);
+        let props_builder = move |arg: Arg| {
+            let builder = builder.clone();
+            Props::new(move || { builder(arg) })
+        };
+
         Self {
             name: type_name::<A>(),
-            builder: Box::new(builder),
+            builder: Arc::new(props_builder),
         }
     }
 
-    pub fn props(&self, arg: Arg) -> Props {
-        (self.builder)(arg)
-    }
-}
-
-impl<Arg> Debug for PropsBuilder<Arg> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PropsBuilder")
-            .field("name", &self.name)
-            .finish_non_exhaustive()
-    }
-}
-
-pub struct PropsBuilderSync<Arg> {
-    pub name: &'static str,
-    pub builder: Box<dyn Fn(Arg) -> Props + Send + Sync>,
-}
-
-impl<Arg> PropsBuilderSync<Arg> {
-    pub fn new<A, Builder>(builder: Builder) -> Self
+    pub fn new_wit_ctx<A, Builder>(builder: Builder) -> Self
         where
-            Builder: Fn(Arg) -> Props + Send + Sync + 'static,
+            Builder: Fn(&mut ActorContext, Arg) -> eyre::Result<A> + Send + Sync + 'static,
+            Arg: Send + 'static,
             A: Actor {
+        let builder = Arc::new(builder);
+        let props_builder = move |arg: Arg| {
+            let builder = builder.clone();
+            Props::new_with_ctx(move |ctx| { builder(ctx, arg) })
+        };
+
         Self {
             name: type_name::<A>(),
-            builder: Box::new(builder),
+            builder: Arc::new(props_builder),
         }
     }
 
@@ -213,7 +210,7 @@ impl<Arg> PropsBuilderSync<Arg> {
     }
 }
 
-impl<A> Debug for PropsBuilderSync<A> {
+impl<A> Debug for PropsBuilder<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PropsBuilderSync")
             .field("name", &self.name)

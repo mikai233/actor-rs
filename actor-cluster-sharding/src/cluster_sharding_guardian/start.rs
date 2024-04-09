@@ -5,7 +5,7 @@ use imstr::ImString;
 
 use actor_core::{DynMessage, Message};
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor::props::PropsBuilderSync;
+use actor_core::actor::props::PropsBuilder;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
@@ -21,7 +21,7 @@ use crate::shard_region::{ImEntityId, ShardRegion};
 #[derive(Debug, EmptyCodec)]
 pub(crate) struct Start {
     pub(crate) type_name: ImString,
-    pub(crate) entity_props: PropsBuilderSync<ImEntityId>,
+    pub(crate) entity_props: PropsBuilder<ImEntityId>,
     pub(crate) settings: Arc<ClusterShardingSettings>,
     pub(crate) message_extractor: Box<dyn MessageExtractor>,
     pub(crate) allocation_strategy: Box<dyn ShardAllocationStrategy>,

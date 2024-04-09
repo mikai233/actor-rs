@@ -8,7 +8,7 @@ use actor_cluster::cluster::Cluster;
 use actor_cluster_tools::singleton::cluster_singleton_manager::ClusterSingletonManager;
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor::props::{Props, PropsBuilder};
+use actor_core::actor::props::PropsBuilder;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRef;
@@ -54,19 +54,11 @@ impl ClusterShardingGuardian {
             let mut singleton_settings = settings.coordinator_singleton_settings.clone();
             singleton_settings.singleton_name = "singleton".to_string();
             singleton_settings.role = settings.role.clone();
-            let coordinator_props = PropsBuilder::new::<ShardCoordinator, _>(move |()| {
+            let coordinator_props = PropsBuilder::new_wit_ctx(move |ctx, ()| {
                 let type_name = type_name.clone();
                 let settings = settings.clone();
                 let allocation_strategy = allocation_strategy.clone();
-                Props::new_with_ctx(move |ctx| {
-                    let coordinator = ShardCoordinator::new(
-                        ctx,
-                        type_name,
-                        settings,
-                        allocation_strategy,
-                    )?;
-                    Ok(coordinator)
-                })
+                ShardCoordinator::new(ctx, type_name, settings, allocation_strategy)
             });
             context.spawn(
                 ClusterSingletonManager::props(

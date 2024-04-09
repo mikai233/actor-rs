@@ -104,7 +104,7 @@ mod test {
         let system = ActorSystem::new("mikai233", ActorSetting::default())?;
         let router_props = RoundRobinPool::new(
             5,
-            PropsBuilder::new::<TestActor, _>(|()| { Props::new(|| { Ok(TestActor) }) }),
+            PropsBuilder::new(|()| { Ok(TestActor) }),
             (),
         ).props();
         let round_robin_router = system.spawn_anonymous(router_props)?;

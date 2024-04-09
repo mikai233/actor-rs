@@ -3,20 +3,21 @@ use std::rc::Rc;
 
 use crate::actor::context::{ActorContext, Context};
 
-pub struct Arc<T: ?Sized> {
+/// Scoped Rc
+pub struct Src<T: ?Sized> {
     id: usize,
     value: Rc<T>,
 }
 
-impl<T> Arc<T> {
-    pub fn new(ctx: &ActorContext, value: T) -> Arc<T> {
+impl<T> Src<T> {
+    pub fn new(ctx: &ActorContext, value: T) -> Src<T> {
         Self {
             id: ctx.id,
             value: Rc::new(value),
         }
     }
 
-    pub fn clone(&self, ctx: &ActorContext) -> Arc<T> {
+    pub fn clone(&self, ctx: &ActorContext) -> Src<T> {
         assert_eq!(self.id, ctx.id, "{} not own this value", ctx.myself());
         Self {
             id: self.id,
@@ -30,7 +31,7 @@ impl<T> Arc<T> {
     }
 }
 
-impl<T: ?Sized> Debug for Arc<T> where T: Debug {
+impl<T: ?Sized> Debug for Src<T> where T: Debug {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Arc")
             .field("id", &self.id)
@@ -39,13 +40,13 @@ impl<T: ?Sized> Debug for Arc<T> where T: Debug {
     }
 }
 
-impl<T: ?Sized> Display for Arc<T> where T: Display {
+impl<T: ?Sized> Display for Src<T> where T: Display {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "Arc {{id: {}, value: {} }}", self.id, self.value)
     }
 }
 
-unsafe impl<T: ?Sized> Send for Arc<T> {}
+unsafe impl<T: ?Sized> Send for Src<T> {}
 
 #[cfg(test)]
 mod arc_test {
@@ -57,7 +58,7 @@ mod arc_test {
     use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
     use crate::{Actor, Message};
-    use crate::actor::actor_rc::Arc;
+    use crate::actor::scoped_rc::Src;
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::Props;
@@ -67,12 +68,12 @@ mod arc_test {
 
     #[derive(Debug)]
     struct RefActor {
-        value: Arc<RefCell<i64>>,
+        value: Src<RefCell<i64>>,
     }
 
     impl RefActor {
         fn new(ctx: &ActorContext) -> Self {
-            Self { value: Arc::new(ctx, RefCell::new(0)) }
+            Self { value: Src::new(ctx, RefCell::new(0)) }
         }
     }
 
