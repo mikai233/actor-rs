@@ -286,7 +286,7 @@ impl WeakActorSystem {
 pub struct ActorSystemRunner {
     pub system: ActorSystem,
     #[pin]
-    signal: BoxFuture<'static, eyre::Result<()>>,
+    pub signal: BoxFuture<'static, eyre::Result<()>>,
 }
 
 impl Deref for ActorSystemRunner {

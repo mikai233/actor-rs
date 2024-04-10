@@ -26,18 +26,18 @@ pub struct IDPacket {
 
 #[derive(Clone)]
 pub struct MessageRegistration {
-    pub next_user_id: u32,
-    pub next_system_id: u32,
-    pub name_id: HashMap<&'static str, u32>,
+    pub next_user: u32,
+    pub next_system: u32,
+    pub id: HashMap<&'static str, u32>,
     pub decoder: HashMap<u32, Box<dyn MessageDecoder>>,
 }
 
 impl Debug for MessageRegistration {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("MessageRegistration")
-            .field("next_user_id", &self.next_user_id)
-            .field("next_system_id", &self.next_system_id)
-            .field("name_id", &self.name_id)
+            .field("next_user", &self.next_user)
+            .field("next_system", &self.next_system)
+            .field("id", &self.id)
             .field("decoder", &"..")
             .finish()
     }
@@ -46,9 +46,9 @@ impl Debug for MessageRegistration {
 impl MessageRegistration {
     pub fn new() -> Self {
         let mut reg = Self {
-            next_user_id: 500,
-            next_system_id: 0,
-            name_id: HashMap::new(),
+            next_user: 500,
+            next_system: 0,
+            id: HashMap::new(),
             decoder: HashMap::new(),
         };
         reg.register_all_system_message();
@@ -58,21 +58,20 @@ impl MessageRegistration {
     fn register<M>(&mut self, id: u32) where M: CodecMessage {
         let name = type_name::<M>();
         let decoder = M::decoder().expect(&*format!("{} decoder is empty", name));
-        assert!(!self.name_id.contains_key(name), "message {} already registered", name);
-        self.name_id.insert(name, id);
+        assert!(!self.id.contains_key(name), "message {} already registered", name);
+        self.id.insert(name, id);
         self.decoder.insert(id, decoder);
     }
 
     pub fn register_user<M>(&mut self) where M: CodecMessage {
-        self.register::<M>(self.next_user_id);
-        self.next_user_id += 1;
+        self.register::<M>(self.next_user);
+        self.next_user += 1;
     }
 
     pub fn register_system<M>(&mut self) where M: CodecMessage {
-        self.register::<M>(self.next_system_id);
-        self.next_system_id += 1;
+        self.register::<M>(self.next_system);
+        self.next_system += 1;
     }
-
 
     pub fn encode_boxed(&self, message: &DynMessage) -> eyre::Result<IDPacket> {
         let DynMessage { name, message, .. } = message;
@@ -80,7 +79,7 @@ impl MessageRegistration {
     }
 
     pub fn encode(&self, name: &'static str, message: &dyn CodecMessage) -> eyre::Result<IDPacket> {
-        let id = *self.name_id.get(name).ok_or(eyre!("message {} is not registered", name))?;
+        let id = *self.id.get(name).ok_or(eyre!("message {} is not registered", name))?;
         let bytes = message.encode(self)?;
         let packet = IDPacket {
             id,
