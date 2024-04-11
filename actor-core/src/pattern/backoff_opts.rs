@@ -103,7 +103,7 @@ impl BackoffOnStopOptionsImpl {
     }
 
     fn with_reply_while_stopped(&self, reply_while_stopped: DynMessage) -> eyre::Result<Self> {
-        if !reply_while_stopped.is_cloneable() {
+        if !reply_while_stopped.cloneable() {
             return Err(anyhow!("message {} require cloneable", reply_while_stopped.name));
         }
         let mut myself = self.clone();

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use actor_derive::EmptyCodec;
+use actor_derive::SystemEmptyCodec;
 
 use crate::{Actor, SystemMessage};
 use crate::actor::context::{ActorContext, Context};
@@ -9,7 +9,7 @@ use crate::actor_ref::{ActorRef, ActorRefSystemExt};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::ext::option_ext::OptionExt;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, SystemEmptyCodec)]
 pub(crate) struct Failed {
     pub(crate) child: ActorRef,
     pub(crate) error: eyre::Error,

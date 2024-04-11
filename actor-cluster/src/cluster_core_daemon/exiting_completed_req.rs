@@ -24,7 +24,7 @@ impl Message for ExitingCompletedReq {
         let mut self_member = actor.cluster.self_member().clone();
         self_member.status = MemberStatus::Removed;
         actor.update_member_to_etcd(&self_member).await?;
-        sender.resp(ExitingCompletedResp);
+        sender.cast_orphan_ns(ExitingCompletedResp);
         actor.cluster.shutdown()?;
         Ok(())
     }

@@ -12,7 +12,7 @@ use actor_cluster::cluster_provider::ClusterActorRefProvider;
 use actor_cluster::etcd_actor::keep_alive::KeepAlive;
 use actor_cluster::etcd_client::LockOptions;
 use actor_cluster::member::MemberStatus;
-use actor_core::{Actor, DynMessage};
+use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_EXITING};
 use actor_core::actor::props::{Props, PropsBuilder};
@@ -20,7 +20,6 @@ use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::etcd_client::EtcdClient;
-use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::provider::downcast_provider;
 
 use crate::config::singleton_config::SingletonConfig;
@@ -163,7 +162,7 @@ impl ClusterSingletonManager {
     }
 
     pub fn props(props: PropsBuilder<()>, termination_message: DynMessage, settings: ClusterSingletonManagerSettings) -> eyre::Result<Props> {
-        if !termination_message.is_cloneable() {
+        if !termination_message.cloneable() {
             return Err(anyhow!("termination message {} require cloneable", termination_message.name()));
         }
         let props = Props::new_with_ctx(move |context| {

@@ -61,12 +61,12 @@ impl HandoffStopper {
         let timers = Timers::new(context)?;
         let stop_timeout_warning_key = timers.start_single_timer(
             STOP_TIMEOUT_WARNING_AFTER,
-            DynMessage::user(StopTimeoutWarning),
+            StopTimeoutWarning,
             context.myself().clone(),
         );
         let stop_timeout_key = timers.start_single_timer(
             entity_handoff_timeout,
-            DynMessage::user(StopTimeout),
+            StopTimeout,
             context.myself().clone(),
         );
         for entity in &entities {

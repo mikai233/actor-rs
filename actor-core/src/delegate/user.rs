@@ -1,5 +1,6 @@
 use std::any::{Any, type_name};
 use std::fmt::{Debug, Formatter};
+use std::marker::PhantomData;
 
 use async_trait::async_trait;
 
@@ -12,6 +13,7 @@ use crate::message::MessageDecoder;
 pub struct UserDelegate<A> where A: Actor {
     pub(crate) name: &'static str,
     pub(crate) message: Box<dyn Message<A=A>>,
+    _phantom: PhantomData<A>,
 }
 
 impl<A> Debug for UserDelegate<A> where A: Actor {
@@ -28,11 +30,12 @@ impl<A> UserDelegate<A> where A: Actor {
         Self {
             name: type_name::<M>(),
             message: Box::new(message),
+            _phantom: Default::default(),
         }
     }
 
     pub fn downcast<M>(self) -> eyre::Result<M> where M: Message {
-        let Self { name, message } = self;
+        let Self { name, message, .. } = self;
         downcast_box_message(name, message.into_any())
     }
 
@@ -51,6 +54,10 @@ impl<A> CodecMessage for UserDelegate<A> where A: 'static + Actor + Send {
         self
     }
 
+    fn into_codec(self: Box<Self>) -> Box<dyn CodecMessage> {
+        self
+    }
+
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
         None
     }
@@ -59,12 +66,18 @@ impl<A> CodecMessage for UserDelegate<A> where A: 'static + Actor + Send {
         self.message.encode(message_registration)
     }
 
-    fn dyn_clone(&self) -> eyre::Result<DynMessage> {
-        self.message.dyn_clone()
+    fn clone_box(&self) -> eyre::Result<Box<dyn CodecMessage>> {
+        let message = self.message.clone_box()?.into_codec();
+        Ok(message)
     }
 
-    fn is_cloneable(&self) -> bool {
-        self.message.is_cloneable()
+    fn cloneable(&self) -> bool {
+        self.message.cloneable()
+    }
+
+    fn into_dyn(self) -> DynMessage {
+        let Self { name, message, .. } = self;
+        DynMessage { name, ty: MessageType::User, message: message.into_codec() }
     }
 }
 
@@ -74,15 +87,5 @@ impl<A> Message for UserDelegate<A> where A: Actor + Send + 'static {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         self.message.handle(context, actor).await
-    }
-}
-
-impl<A> Into<DynMessage> for UserDelegate<A> where A: Actor {
-    fn into(self) -> DynMessage {
-        DynMessage {
-            name: self.name,
-            ty: MessageType::User,
-            message: Box::new(self),
-        }
     }
 }

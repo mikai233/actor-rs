@@ -60,7 +60,7 @@ impl Message for Start {
             Some(shard_region) => { shard_region }
         };
         let started = Started { shard_region };
-        context.sender().into_result()?.resp(started);
+        context.sender().into_result()?.cast_orphan_ns(started);
         Ok(())
     }
 }

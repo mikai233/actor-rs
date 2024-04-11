@@ -1,10 +1,9 @@
 use async_trait::async_trait;
 use tracing::debug;
 
-use actor_core::{DynMessage, Message};
+use actor_core::{CodecMessage, DynMessage, Message};
 use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::{ActorRef, ActorRefSystemExt};
-use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::message::death_watch_notification::DeathWatchNotification;
 use actor_core::message::terminated::Terminated;
 use actor_derive::EmptyCodec;

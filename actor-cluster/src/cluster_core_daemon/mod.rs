@@ -197,12 +197,12 @@ impl ClusterCoreDaemon {
         match member.status {
             MemberStatus::Up => {
                 if Self::update_member(member.clone(), self.cluster.members_write()) {
-                    stream.publish(ClusterEvent::member_up(member))?;
+                    stream.publish(ClusterEvent::member_up(member));
                 }
             }
             MemberStatus::PrepareForLeaving => {
                 if Self::update_member(member.clone(), self.cluster.members_write()) {
-                    stream.publish(ClusterEvent::member_prepare_for_leaving(member))?;
+                    stream.publish(ClusterEvent::member_prepare_for_leaving(member));
                 }
             }
             MemberStatus::Leaving => {
@@ -210,7 +210,7 @@ impl ClusterCoreDaemon {
                     context.myself().cast_ns(SelfLeaving);
                 }
                 if Self::update_member(member.clone(), self.cluster.members_write()) {
-                    stream.publish(ClusterEvent::member_leaving(member))?;
+                    stream.publish(ClusterEvent::member_leaving(member));
                 }
             }
             MemberStatus::Removed => {
@@ -218,7 +218,7 @@ impl ClusterCoreDaemon {
                     if member.addr != self.self_addr {
                         self.disconnect_member(&member);
                     }
-                    stream.publish(ClusterEvent::member_removed(member))?;
+                    stream.publish(ClusterEvent::member_removed(member));
                 }
             }
         }

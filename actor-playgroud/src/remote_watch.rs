@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use clap::Parser;
 use tracing::info;
 
-use actor_core::{Actor, DynMessage, Message};
+use actor_core::{Actor, CodecMessage, DynMessage, Message};
 use actor_core::actor::actor_selection::ActorSelectionPath;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
@@ -19,7 +19,6 @@ use actor_core::config::actor_setting::ActorSetting;
 use actor_core::config::ConfigBuilder;
 use actor_core::config::core_config::CoreConfig;
 use actor_core::ext::init_logger_with_filter;
-use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_core::message::terminated::Terminated;
 use actor_derive::EmptyCodec;

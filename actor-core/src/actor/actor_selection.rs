@@ -326,7 +326,7 @@ pub(crate) struct ActorSelectionMessage {
 
 impl ActorSelectionMessage {
     pub(crate) fn new(message: DynMessage, elements: Vec<SelectionPathElement>, wildcard_fan_out: bool) -> eyre::Result<Self> {
-        if message.is_cloneable() {
+        if message.cloneable() {
             let myself = Self {
                 message,
                 elements,
@@ -378,6 +378,10 @@ impl CodecMessage for ActorSelectionMessage {
         self
     }
 
+    fn into_codec(self: Box<Self>) -> Box<dyn CodecMessage> {
+        self
+    }
+
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
         #[derive(Clone)]
         struct D;
@@ -408,19 +412,21 @@ impl CodecMessage for ActorSelectionMessage {
         encode_bytes(&message)
     }
 
-    fn dyn_clone(&self) -> eyre::Result<DynMessage> {
-        self.message.dyn_clone().map(|m| {
-            let message = ActorSelectionMessage {
-                message: m,
-                elements: self.elements.clone(),
-                wildcard_fan_out: self.wildcard_fan_out,
-            };
-            DynMessage::orphan(message)
-        })
+    fn clone_box(&self) -> eyre::Result<Box<dyn CodecMessage>> {
+        let message = ActorSelectionMessage {
+            message: self.message.dyn_clone()?,
+            elements: self.elements.clone(),
+            wildcard_fan_out: self.wildcard_fan_out,
+        };
+        Ok(Box::new(message))
     }
 
-    fn is_cloneable(&self) -> bool {
-        self.message.message.is_cloneable()
+    fn cloneable(&self) -> bool {
+        self.message.message.cloneable()
+    }
+
+    fn into_dyn(self) -> DynMessage {
+        DynMessage::orphan(self)
     }
 }
 

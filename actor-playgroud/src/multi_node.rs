@@ -14,7 +14,6 @@ use actor_cluster_sharding::ShardEnvelope;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::init_logger_with_filter;
-use actor_core::ext::message_ext::UserMessageExt;
 use actor_playgroud::common::actor_sharding_setting;
 use actor_playgroud::common::handoff_player::HandoffPlayer;
 use actor_playgroud::common::hello::Hello;
@@ -57,7 +56,14 @@ async fn main() -> eyre::Result<()> {
         let builder = player_actor_builder();
         let settings = ClusterShardingSettings::create(&system);
         let strategy = LeastShardAllocationStrategy::new(&system, 1, 1.0);
-        let player_shard_region = ClusterSharding::get(&system).start("player", builder, settings.into(), PlayerMessageExtractor, strategy, HandoffPlayer.into_dyn()).await?;
+        let player_shard_region = ClusterSharding::get(&system).start(
+            "player",
+            builder,
+            settings.into(),
+            PlayerMessageExtractor,
+            strategy,
+            HandoffPlayer,
+        ).await?;
         let players = players.clone();
         system.handle().spawn(async move {
             let mut index = 0;

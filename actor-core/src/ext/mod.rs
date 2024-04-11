@@ -12,7 +12,6 @@ pub mod as_any;
 pub mod etcd_client;
 pub mod maybe_ref;
 pub mod duration_ext;
-pub mod message_ext;
 
 const BASE64_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+~";
 static ACTOR_NAME_OFFSET: AtomicI64 = AtomicI64::new(0);

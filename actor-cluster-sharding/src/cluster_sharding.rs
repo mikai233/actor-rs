@@ -1,11 +1,10 @@
 use std::any::type_name;
-use std::ops::{Deref, Not};
+use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
 
 use dashmap::DashMap;
 use dashmap::mapref::entry::Entry;
-use eyre::anyhow;
 use imstr::ImString;
 use tracing::debug;
 
@@ -15,8 +14,8 @@ use actor_core::actor::extension::Extension;
 use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::CodecMessage;
 use actor_core::config::ConfigBuilder;
-use actor_core::DynMessage;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_derive::AsAny;
 
@@ -82,22 +81,21 @@ impl ClusterSharding {
         system.get_ext::<Self>().expect(&format!("{} not found", type_name::<Self>()))
     }
 
-    pub async fn start<E, S>(
+    pub async fn start<E, S, M>(
         &self,
         type_name: impl Into<String>,
         entity_props: PropsBuilder<ImEntityId>,
         settings: Arc<ClusterShardingSettings>,
         extractor: E,
         allocation_strategy: S,
-        handoff_message: DynMessage,
+        handoff_message: M,
     ) -> eyre::Result<ActorRef> where
         E: MessageExtractor + 'static,
-        S: ShardAllocationStrategy + 'static {
+        S: ShardAllocationStrategy + 'static,
+        M: CodecMessage,
+    {
         let type_name: ImString = type_name.into().into();
-        if handoff_message.is_cloneable().not() {
-            let msg_name = handoff_message.name();
-            return Err(anyhow!("entity {type_name} handoff message {msg_name} must be cloneable"));
-        }
+        let handoff_message = handoff_message.into_dyn();
         if settings.should_host_shard(&self.cluster) {
             match self.regions.entry(type_name.clone()) {
                 Entry::Occupied(o) => {

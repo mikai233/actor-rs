@@ -1,10 +1,9 @@
 use async_trait::async_trait;
 
-use actor_core::Actor;
+use actor_core::{Actor, CodecMessage};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::ext::message_ext::UserMessageExt;
 
 use crate::cluster::Cluster;
 use crate::coordinated_shutdown_leave::cluster_event::ClusterEventWrap;
@@ -29,7 +28,7 @@ impl CoordinatedShutdownLeave {
     }
 
     fn done(&self, context: &mut ActorContext) {
-        self.reply_to.resp(LeaveResp);
+        self.reply_to.cast_orphan_ns(LeaveResp);
         context.stop(context.myself());
     }
 }

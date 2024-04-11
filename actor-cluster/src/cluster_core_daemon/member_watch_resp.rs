@@ -70,7 +70,7 @@ impl MemberWatchResp {
                                 if addr == actor.self_addr {
                                     context.myself().cast_ns(SelfRemoved);
                                 }
-                                stream.publish(ClusterEvent::member_removed(member.clone()))?;
+                                stream.publish(ClusterEvent::member_removed(member.clone()));
                             }
                         }
                     }

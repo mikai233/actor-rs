@@ -1,15 +1,15 @@
 use std::any::type_name;
 use std::ops::Not;
 
-use eyre::anyhow;
 use async_trait::async_trait;
+use eyre::anyhow;
 
 use actor_derive::EmptyCodec;
 
 use crate::{DynMessage, Message};
 use crate::actor::context::{ActorContext, Context};
-use crate::routing::router_actor::Router;
 use crate::routing::routee::TRoutee;
+use crate::routing::router_actor::Router;
 
 #[derive(Debug, EmptyCodec)]
 pub struct Broadcast {
@@ -18,7 +18,7 @@ pub struct Broadcast {
 
 impl Broadcast {
     pub fn new<M>(message: M) -> eyre::Result<Self> where M: Message {
-        if message.is_cloneable().not() {
+        if message.cloneable().not() {
             return Err(anyhow!("broadcast message {} require cloneable", type_name::<M>()));
         }
         let msg = Self {

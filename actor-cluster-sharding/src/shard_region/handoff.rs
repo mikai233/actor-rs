@@ -1,14 +1,13 @@
-use eyre::Context as _;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
+use eyre::Context as _;
 use tracing::{debug, warn};
 
+use actor_core::{CodecMessage, Message};
 use actor_core::actor::context::{ActorContext, Context, ContextExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
-use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::Message;
 use actor_derive::MessageCodec;
 
 use crate::shard_coordinator::rebalance_worker::shard_stopped::ShardStopped;

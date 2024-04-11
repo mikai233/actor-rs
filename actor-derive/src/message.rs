@@ -30,14 +30,25 @@ pub fn expand(
         &eyre_result,
     );
     let encode = expand_encode(&message_ty, &ty_generics, &codec_type, &ext_path, &eyre);
-    let dyn_clone = expand_dyn_clone(
-        &message_ty,
-        &ty_generics,
-        &dy_message,
-        &message_impl,
-        &eyre,
-        cloneable,
-    );
+    let clone_box = expand_clone_box(&message_ty, &message_impl, &ty_generics, &eyre, cloneable);
+
+    let into_dyn = match message_impl {
+        MessageImpl::Message => {
+            quote! {
+                #dy_message::user(self)
+            }
+        }
+        MessageImpl::SystemMessage => {
+            quote! {
+                #dy_message::system(self)
+            }
+        }
+        MessageImpl::OrphanMessage => {
+            quote! {
+                #dy_message::orphan(self)
+            }
+        }
+    };
     let codec_impl = quote! {
         impl #impl_generics #codec_trait for #message_ty #ty_generics #where_clause {
             fn into_any(self: Box<Self>) -> Box<dyn std::any::Any> {
@@ -45,6 +56,10 @@ pub fn expand(
             }
 
             fn as_any(&self) -> &dyn std::any::Any {
+                self
+            }
+
+            fn into_codec(self: std::boxed::Box<Self>) -> std::boxed::Box<dyn #codec_trait>{
                 self
             }
 
@@ -56,12 +71,16 @@ pub fn expand(
                 #encode
             }
 
-            fn dyn_clone(&self) -> #eyre_result<#dy_message> {
-                #dyn_clone
+            fn clone_box(&self) -> #eyre_result<std::boxed::Box<dyn #codec_trait>> {
+                #clone_box
             }
 
-            fn is_cloneable(&self) -> bool {
+            fn cloneable(&self) -> bool {
                 #cloneable
+            }
+
+            fn into_dyn(self) -> #dy_message {
+                #into_dyn
             }
         }
     };
@@ -175,11 +194,10 @@ pub(crate) fn expand_encode(
     }
 }
 
-pub(crate) fn expand_dyn_clone(
+pub(crate) fn expand_clone_box(
     message_ty: &Ident,
-    ty_generics: &TypeGenerics,
-    dy_message: &TokenStream,
     message_impl: &MessageImpl,
+    ty_generics: &TypeGenerics,
     eyre: &TokenStream,
     cloneable: bool,
 ) -> TokenStream {
@@ -190,21 +208,20 @@ pub(crate) fn expand_dyn_clone(
     } else {
         match message_impl {
             MessageImpl::Message => {
+                let user = with_crate_str("delegate::user::UserDelegate");
                 quote! {
-                    let message = #dy_message::user(Clone::clone(self));
-                    Ok(message)
+                    Ok(std::boxed::Box::new(#user::new(std::clone::Clone::clone(self))))
                 }
             }
             MessageImpl::SystemMessage => {
+                let system = with_crate_str("delegate::system::SystemDelegate");
                 quote! {
-                    let message = #dy_message::system(Clone::clone(self));
-                    Ok(message)
+                    Ok(std::boxed::Box::new(#system::new(std::clone::Clone::clone(self))))
                 }
             }
             MessageImpl::OrphanMessage => {
                 quote! {
-                    let message = #dy_message::orphan(Clone::clone(self));
-                    Ok(message)
+                    Ok(std::boxed::Box::new(std::clone::Clone::clone(self)))
                 }
             }
         }

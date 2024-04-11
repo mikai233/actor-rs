@@ -1,9 +1,8 @@
 use async_trait::async_trait;
 
-use actor_core::Actor;
+use actor_core::{Actor, CodecMessage};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::ext::option_ext::OptionExt;
 
 use crate::cluster::Cluster;

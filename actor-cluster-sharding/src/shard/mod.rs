@@ -9,14 +9,13 @@ use imstr::ImString;
 use tracing::debug;
 
 use actor_cluster::cluster::Cluster;
-use actor_core::{Actor, DynMessage};
+use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::dead_letter_listener::Dropped;
 use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_buffer::MessageBufferMap;
 

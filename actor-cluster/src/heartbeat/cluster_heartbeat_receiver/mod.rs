@@ -1,14 +1,13 @@
 use async_trait::async_trait;
 use tracing::trace;
 
-use actor_core::Actor;
+use actor_core::{Actor, CodecMessage};
 use actor_core::actor::address::Address;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor_path::{ActorPath, TActorPath};
 use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::ext::message_ext::UserMessageExt;
 
 use crate::cluster::Cluster;
 use crate::heartbeat::cluster_heartbeat_receiver::cluster_event::ClusterEventWrap;

@@ -10,7 +10,6 @@ use tracing::{info, warn};
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;
-use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
@@ -82,10 +81,9 @@ impl Message for StopShards {
                         warn!("{}: shutdown shards of region {} error {:?}", actor.type_name, region, error);
                     }
                 }
-                let timeout = StopShardTimeout(request_id);
                 actor.timers.start_single_timer(
                     actor.settings.handoff_timeout,
-                    timeout.into_dyn(),
+                    StopShardTimeout(request_id),
                     context.myself().clone(),
                 );
             }

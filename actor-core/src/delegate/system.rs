@@ -41,6 +41,10 @@ impl CodecMessage for SystemDelegate {
         self
     }
 
+    fn into_codec(self: Box<Self>) -> Box<dyn CodecMessage> {
+        self
+    }
+
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
         None
     }
@@ -49,12 +53,18 @@ impl CodecMessage for SystemDelegate {
         self.message.encode(reg)
     }
 
-    fn dyn_clone(&self) -> eyre::Result<DynMessage> {
-        self.message.dyn_clone()
+    fn clone_box(&self) -> eyre::Result<Box<dyn CodecMessage>> {
+        let message = self.message.clone_box()?.into_codec();
+        Ok(message)
     }
 
-    fn is_cloneable(&self) -> bool {
-        self.message.is_cloneable()
+    fn cloneable(&self) -> bool {
+        self.message.cloneable()
+    }
+
+    fn into_dyn(self) -> DynMessage {
+        let Self { name, message } = self;
+        DynMessage { name, ty: MessageType::System, message: message.into_codec() }
     }
 }
 

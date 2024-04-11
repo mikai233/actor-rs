@@ -36,6 +36,10 @@ impl CodecMessage for ShardEnvelope<ShardRegion> {
         self
     }
 
+    fn into_codec(self: Box<Self>) -> Box<dyn CodecMessage> {
+        self
+    }
+
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
         #[derive(Clone)]
         struct D;
@@ -65,19 +69,21 @@ impl CodecMessage for ShardEnvelope<ShardRegion> {
         encode_bytes(&message)
     }
 
-    fn dyn_clone(&self) -> eyre::Result<DynMessage> {
-        self.message.dyn_clone().map(|m| {
-            let message = ShardEnvelope::<ShardRegion> {
-                entity_id: self.entity_id.clone(),
-                message: m,
-                _phantom: Default::default(),
-            };
-            DynMessage::user(message)
-        })
+    fn clone_box(&self) -> eyre::Result<Box<dyn CodecMessage>> {
+        let envelope = Self {
+            entity_id: self.entity_id.clone(),
+            message: self.message.dyn_clone()?,
+            _phantom: Default::default(),
+        };
+        Ok(Box::new(envelope))
     }
 
-    fn is_cloneable(&self) -> bool {
-        self.message.is_cloneable()
+    fn cloneable(&self) -> bool {
+        self.message.cloneable()
+    }
+
+    fn into_dyn(self) -> DynMessage {
+        DynMessage::user(self)
     }
 }
 

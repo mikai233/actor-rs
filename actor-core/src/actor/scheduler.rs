@@ -46,11 +46,22 @@ impl Schedule {
         Schedule::Once(Once { index, delay, block })
     }
 
-    fn fixed_delay(index: u64, initial_delay: Option<Duration>, interval: Duration, block: Box<dyn Fn() + Send>) -> Self {
+    fn fixed_delay(
+        index: u64,
+        initial_delay: Option<Duration>,
+        interval: Duration,
+        block: Box<dyn Fn() + Send>,
+    ) -> Self {
         Schedule::FixedDelay(FixedDelay { index, initial_delay, interval, block })
     }
 
-    fn fixed_rate(index: u64, initial_delay: Option<Duration>, interval: Duration, actual_delay: Duration, block: Box<dyn Fn() + Send>) -> Self {
+    fn fixed_rate(
+        index: u64,
+        initial_delay: Option<Duration>,
+        interval: Duration,
+        actual_delay: Duration,
+        block: Box<dyn Fn() + Send>,
+    ) -> Self {
         Schedule::FixedRate(FixedRate { index, initial_delay, interval, actual_delay, block })
     }
 
@@ -190,8 +201,19 @@ impl Scheduler {
         index_map.insert(index, next_key);
     }
 
-    fn handle_fixed_rate_expired(fixed_rate: FixedRate, deadline: Instant, queue: &mut DelayQueue<Schedule>, index_map: &mut HashMap<u64, Key>) {
-        let FixedRate { index, initial_delay, interval, actual_delay, block } = fixed_rate;
+    fn handle_fixed_rate_expired(
+        fixed_rate: FixedRate,
+        deadline: Instant,
+        queue: &mut DelayQueue<Schedule>,
+        index_map: &mut HashMap<u64, Key>,
+    ) {
+        let FixedRate {
+            index,
+            initial_delay,
+            interval,
+            actual_delay,
+            block
+        } = fixed_rate;
         let current_delay = initial_delay.unwrap_or(interval);
         trace!("execute fixed rate expired task {} after {:?} with actual delay {:?}", index, current_delay, actual_delay);
         block();
@@ -261,7 +283,14 @@ impl SchedulerSender {
         self.key(index)
     }
 
-    pub fn schedule_with_fixed_delay<F>(&self, initial_delay: Option<Duration>, interval: Duration, block: F) -> ScheduleKey where F: Fn() + Send + 'static {
+    pub fn schedule_with_fixed_delay<F>(
+        &self,
+        initial_delay: Option<Duration>,
+        interval: Duration,
+        block: F,
+    ) -> ScheduleKey
+        where F: Fn() + Send + 'static,
+    {
         let index = self.next_index();
         let schedule = Schedule::fixed_delay(index, initial_delay, interval, Box::new(block));
         if self.sender.send(schedule).is_err() {
@@ -270,9 +299,22 @@ impl SchedulerSender {
         self.key(index)
     }
 
-    pub fn schedule_with_fixed_rate<F>(&self, initial_delay: Option<Duration>, interval: Duration, block: F) -> ScheduleKey where F: Fn() + Send + 'static {
+    pub fn schedule_with_fixed_rate<F>(
+        &self,
+        initial_delay: Option<Duration>,
+        interval: Duration,
+        block: F,
+    ) -> ScheduleKey
+        where F: Fn() + Send + 'static
+    {
         let index = self.next_index();
-        let schedule = Schedule::fixed_rate(index, initial_delay, interval, initial_delay.unwrap_or(interval), Box::new(block));
+        let schedule = Schedule::fixed_rate(
+            index,
+            initial_delay,
+            interval,
+            initial_delay.unwrap_or(interval),
+            Box::new(block),
+        );
         if self.sender.send(schedule).is_err() {
             warn!("schedule once {} failed, scheduler closed", index);
         }
@@ -330,9 +372,12 @@ mod tests {
         key.cancel();
         assert!(rx.await.is_err());
         let (tx, mut rx) = tokio::sync::mpsc::channel(1);
-        let key = scheduler.schedule_with_fixed_delay(Some(Duration::from_secs(1)), Duration::from_secs(1), move || {
-            let _ = tx.try_send(());
-        });
+        let key = scheduler.schedule_with_fixed_delay(
+            Some(Duration::from_secs(1)),
+            Duration::from_secs(1),
+            move || {
+                let _ = tx.try_send(());
+            });
         for _ in 0..3 {
             assert!(tokio::time::timeout(Duration::from_secs(2050), rx.recv()).await?.is_some());
         }

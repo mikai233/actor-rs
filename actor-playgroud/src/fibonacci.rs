@@ -51,7 +51,7 @@ impl FibActor {
 impl Actor for FibActor {
     async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         let n = rand::thread_rng().gen_range(1..=50);
-        self.timers.start_timer_with_fixed_delay(None, Duration::from_millis(100), DynMessage::user(Fib(n)), context.myself().clone());
+        self.timers.start_timer_with_fixed_delay(None, Duration::from_millis(100), Fib(n), context.myself().clone());
         info!("{} started", context.myself());
         Ok(())
     }

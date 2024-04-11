@@ -19,7 +19,7 @@ impl SystemMessage for Identify {
             actor_ref: Some(myself),
         };
         context.sender().foreach(|sender| {
-            sender.resp(actor_identify);
+            sender.cast_orphan_ns(actor_identify);
         });
         Ok(())
     }

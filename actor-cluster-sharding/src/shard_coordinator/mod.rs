@@ -12,7 +12,7 @@ use tracing::{debug, error, info};
 use actor_cluster::cluster::Cluster;
 use actor_cluster::etcd_actor::keep_alive::KeepAlive;
 use actor_cluster::etcd_client::PutOptions;
-use actor_core::Actor;
+use actor_core::{Actor, CodecMessage};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor::timers::{ScheduleKey, Timers};
@@ -20,7 +20,6 @@ use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt, PROVIDER};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::{decode_bytes, encode_bytes};
-use actor_core::ext::message_ext::UserMessageExt;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
@@ -127,7 +126,7 @@ impl Actor for ShardCoordinator {
         self.timers.start_timer_with_fixed_delay(
             None,
             self.settings.rebalance_interval,
-            RebalanceTick.into_dyn(),
+            RebalanceTick,
             context.myself().clone(),
         );
         let mut client = self.cluster.etcd_client();
@@ -434,7 +433,7 @@ impl ShardCoordinator {
         };
         let key = self.timers.start_single_timer(
             self.settings.shard_start_timeout,
-            resend_shard_host.into_dyn(),
+            resend_shard_host,
             context.myself().clone(),
         );
         self.un_acked_host_shards.insert(shard, key);

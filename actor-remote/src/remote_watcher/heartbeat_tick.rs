@@ -3,14 +3,13 @@ use std::ops::Not;
 use async_trait::async_trait;
 use tracing::debug;
 
+use actor_core::{CodecMessage, Message};
 use actor_core::actor::actor_selection::ActorSelectionPath;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
-use actor_core::ext::message_ext::UserMessageExt;
-use actor_core::Message;
 use actor_derive::EmptyCodec;
 
 use crate::remote_watcher::artery_heartbeat::ArteryHeartbeat;

@@ -19,7 +19,7 @@ impl Message for GetRoutees {
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let routees = actor.routees().clone();
         context.sender.foreach(move |sender| {
-            sender.resp(GetRouteesResp { routees });
+            sender.cast_orphan_ns(GetRouteesResp { routees });
         });
         Ok(())
     }

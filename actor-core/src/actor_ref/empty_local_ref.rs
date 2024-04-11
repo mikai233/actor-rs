@@ -93,12 +93,12 @@ impl EmptyLocalActorRef {
         } else if message.name == unwatch {
             // just ignore
         } else if message.name == identify {
-            sender.foreach(|s| s.resp(ActorIdentity { actor_ref: None }));
+            sender.foreach(|s| s.cast_orphan_ns(ActorIdentity { actor_ref: None }));
         } else if message.name == actor_selection {
             let actor_selection = message.downcast_orphan::<ActorSelectionMessage>().unwrap();
             if actor_selection.identify_request().is_some() {
                 if !actor_selection.wildcard_fan_out {
-                    sender.foreach(|s| s.resp(ActorIdentity { actor_ref: None }));
+                    sender.foreach(|s| s.cast_orphan_ns(ActorIdentity { actor_ref: None }));
                 }
             }
         }

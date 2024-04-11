@@ -14,7 +14,7 @@ impl Message for MessageToAsk {
     type A = EmptyTestActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
-        context.sender().unwrap().resp(MessageToAns {
+        context.sender().unwrap().cast_orphan_ns(MessageToAns {
             content: "hello world".to_string(),
         });
         Ok(())

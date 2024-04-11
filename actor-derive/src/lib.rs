@@ -35,6 +35,12 @@ pub fn cloneable_message_codec_derive(input: TokenStream) -> TokenStream {
     message::expand(ast, MessageImpl::Message, CodecType::Codec, true).into()
 }
 
+#[proc_macro_derive(SystemEmptyCodec)]
+pub fn system_empty_codec_derive(input: TokenStream) -> TokenStream {
+    let ast: DeriveInput = syn::parse(input).unwrap();
+    message::expand(ast, MessageImpl::SystemMessage, CodecType::NonCodec, false).into()
+}
+
 #[proc_macro_derive(SystemCodec)]
 pub fn system_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();

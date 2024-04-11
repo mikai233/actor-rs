@@ -6,12 +6,11 @@ use std::sync::Arc;
 
 use tracing::error;
 
+use actor_core::{CodecMessage, DynMessage};
 use actor_core::actor::actor_system::WeakActorSystem;
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
-use actor_core::DynMessage;
-use actor_core::ext::message_ext::SystemMessageExt;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_core::message::poison_pill::PoisonPill;
 use actor_core::message::resume::Resume;

@@ -64,7 +64,11 @@ pub trait ActorRefExt: TActorRef {
         self.tell(DynMessage::user(message), ActorRef::no_sender());
     }
 
-    fn resp<M>(&self, message: M) where M: OrphanMessage {
+    fn cast_orphan<M>(&self, message: M, sender: Option<ActorRef>) where M: OrphanMessage {
+        self.tell(DynMessage::orphan(message), sender);
+    }
+
+    fn cast_orphan_ns<M>(&self, message: M) where M: OrphanMessage {
         self.tell(DynMessage::orphan(message), ActorRef::no_sender());
     }
 }

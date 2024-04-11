@@ -103,7 +103,7 @@ mod arc_test {
         type A = RefActor;
 
         async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
-            context.sender().unwrap().resp(GetRsp(*actor.value.get(context).borrow()));
+            context.sender().unwrap().cast_orphan_ns(GetRsp(*actor.value.get(context).borrow()));
             Ok(())
         }
     }

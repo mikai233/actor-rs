@@ -26,7 +26,7 @@ impl Message for GetClusterCoreRef {
             }
         };
         let sender = context.sender().into_result()?;
-        sender.resp(GetClusterCoreRefResp(core_daemon));
+        sender.cast_orphan_ns(GetClusterCoreRefResp(core_daemon));
         Ok(())
     }
 }

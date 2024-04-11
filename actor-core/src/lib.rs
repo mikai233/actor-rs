@@ -62,13 +62,17 @@ pub trait CodecMessage: Any + Send {
 
     fn as_any(&self) -> &dyn Any;
 
+    fn into_codec(self: Box<Self>) -> Box<dyn CodecMessage>;
+
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized;
 
     fn encode(&self, reg: &MessageRegistration) -> eyre::Result<Vec<u8>>;
 
-    fn dyn_clone(&self) -> eyre::Result<DynMessage>;
+    fn clone_box(&self) -> eyre::Result<Box<dyn CodecMessage>>;
 
-    fn is_cloneable(&self) -> bool;
+    fn cloneable(&self) -> bool;
+
+    fn into_dyn(self) -> DynMessage;
 }
 
 #[async_trait]
@@ -133,11 +137,16 @@ impl DynMessage {
     }
 
     pub fn dyn_clone(&self) -> eyre::Result<DynMessage> {
-        self.message.dyn_clone()
+        let dyn_message = DynMessage {
+            name: self.name,
+            ty: self.ty,
+            message: self.message.clone_box()?,
+        };
+        Ok(dyn_message)
     }
 
-    pub fn is_cloneable(&self) -> bool {
-        self.message.is_cloneable()
+    pub fn cloneable(&self) -> bool {
+        self.message.cloneable()
     }
 
     pub fn user<M>(message: M) -> Self where M: Message {

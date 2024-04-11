@@ -10,7 +10,6 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::timers::Timers;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::ext::option_ext::OptionExt;
 
 use crate::shard_coordinator::rebalance_done::RebalanceDone;
@@ -54,7 +53,7 @@ impl Actor for RebalanceWorker {
                 self.regions.len(),
             );
         }
-        self.timers.start_single_timer(self.handoff_timeout, ReceiveTimeout.into_dyn(), context.myself().clone());
+        self.timers.start_single_timer(self.handoff_timeout, ReceiveTimeout, context.myself().clone());
         Ok(())
     }
 }

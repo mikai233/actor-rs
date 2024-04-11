@@ -1,7 +1,5 @@
 use std::any::type_name;
-use std::ops::Not;
 
-use eyre::anyhow;
 use dashmap::{DashMap, DashSet};
 use dashmap::mapref::entry::Entry;
 use tracing::{trace, warn};
@@ -63,25 +61,20 @@ impl EventStream {
         trace!("{} unsubscribe from {}", subscriber, event_str);
     }
 
-    pub fn publish<E>(&self, event: E) -> eyre::Result<()> where E: CodecMessage {
+    pub fn publish<E>(&self, event: E) where E: CodecMessage + Clone {
         let event_name = type_name::<E>();
-        if event.is_cloneable().not() {
-            return Err(anyhow!("event message {} require cloneable", event_name));
-        } else {
-            if let Some(subscribers) = self.subscriptions.get(event_name) {
-                subscribers.iter().for_each(|s| {
-                    let msg = (s.transform)(event.dyn_clone().unwrap());
-                    match msg {
-                        None => {
-                            warn!("event {} cannot send to {}, transform or message incorrect", event_name, s.subscriber);
-                        }
-                        Some(msg) => {
-                            s.subscriber.tell(msg, ActorRef::no_sender());
-                        }
+        if let Some(subscribers) = self.subscriptions.get(event_name) {
+            subscribers.iter().for_each(move |s| {
+                let msg = (s.transform)(<E as Clone>::clone(&event).into_dyn());
+                match msg {
+                    None => {
+                        warn!("event {} cannot send to {}, transform or message incorrect", event_name, s.subscriber);
                     }
-                });
-            }
-            Ok(())
+                    Some(msg) => {
+                        s.subscriber.tell(msg, ActorRef::no_sender());
+                    }
+                }
+            });
         }
     }
 }
@@ -123,9 +116,7 @@ mod event_tests {
     #[tokio::test]
     async fn test_event_stream() -> eyre::Result<()> {
         let system = ActorSystem::new("mikai233", ActorSetting::default())?;
-        let props_builder = PropsBuilder::new::<EmptyTestActor, _>(|()| {
-            Props::new(|| Ok(EmptyTestActor))
-        });
+        let props_builder = PropsBuilder::new(|()| { Ok(EmptyTestActor) });
         let actor1 = system.spawn(props_builder.props(()), "actor1")?;
         let actor2 = system.spawn(props_builder.props(()), "actor2")?;
         let actor3 = system.spawn(props_builder.props(()), "actor3")?;

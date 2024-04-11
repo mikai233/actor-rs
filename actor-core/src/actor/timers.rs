@@ -14,12 +14,11 @@ use tracing::{debug, error, trace, warn};
 
 use actor_derive::EmptyCodec;
 
-use crate::{Actor, DynMessage, Message};
+use crate::{Actor, CodecMessage, DynMessage, Message};
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::props::Props;
 use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
-use crate::ext::message_ext::UserMessageExt;
 use crate::message::terminated::Terminated;
 
 #[derive(Debug)]
@@ -407,7 +406,10 @@ impl Timers {
         }
     }
 
-    pub fn start_single_timer(&self, delay: Duration, message: DynMessage, receiver: ActorRef) -> ScheduleKey {
+    pub fn start_single_timer<M>(&self, delay: Duration, message: M, receiver: ActorRef) -> ScheduleKey
+        where M: CodecMessage,
+    {
+        let message = message.into_dyn();
         let index = self.index.fetch_add(1, Ordering::Relaxed);
         let once = Schedule::Once {
             index,
@@ -432,13 +434,14 @@ impl Timers {
         ScheduleKey::new(index, self.scheduler_actor.clone())
     }
 
-    pub fn start_timer_with_fixed_delay(
+    pub fn start_timer_with_fixed_delay<M>(
         &self,
         initial_delay: Option<Duration>,
         interval: Duration,
-        message: DynMessage,
+        message: M,
         receiver: ActorRef,
-    ) -> ScheduleKey {
+    ) -> ScheduleKey where M: CodecMessage + Clone {
+        let message = message.into_dyn();
         let index = self.index.fetch_add(1, Ordering::Relaxed);
         let fixed_delay = Schedule::FixedDelay {
             index,

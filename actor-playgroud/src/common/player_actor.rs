@@ -6,7 +6,7 @@ use tracing::info;
 use actor_cluster_sharding::shard_region::ImShardId;
 use actor_core::Actor;
 use actor_core::actor::context::ActorContext;
-use actor_core::actor::props::{Props, PropsBuilder};
+use actor_core::actor::props::PropsBuilder;
 
 #[derive(Debug)]
 pub struct PlayerActor {

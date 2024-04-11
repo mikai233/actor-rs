@@ -6,7 +6,6 @@ use tracing::debug;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::Message;
 use actor_derive::EmptyCodec;
 
@@ -33,7 +32,7 @@ impl Message for GracefulShutdown {
                     .expect(&format!("phase {} not found", PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION))
                     .checked_sub(Duration::from_secs(1));
                 if let Some(timeout) = timeout {
-                    actor.timers.start_single_timer(timeout, GracefulShutdownTimeout.into_dyn(), context.myself().clone());
+                    actor.timers.start_single_timer(timeout, GracefulShutdownTimeout, context.myself().clone());
                 }
             }
             drop(coord_shutdown);

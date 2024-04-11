@@ -12,7 +12,6 @@ use actor_cluster_sharding::ShardEnvelope;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::init_logger_with_filter;
-use actor_core::ext::message_ext::UserMessageExt;
 use actor_playgroud::common::actor_sharding_setting;
 use actor_playgroud::common::handoff_player::HandoffPlayer;
 use actor_playgroud::common::hello::Hello;
@@ -51,7 +50,7 @@ async fn main() -> eyre::Result<()> {
             settings.into(),
             PlayerMessageExtractor,
             strategy,
-            HandoffPlayer.into_dyn(),
+            HandoffPlayer,
         ).await?;
     let handle = if start_entity {
         let handle = tokio::spawn(async move {

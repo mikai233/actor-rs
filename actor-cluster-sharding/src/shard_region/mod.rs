@@ -14,7 +14,7 @@ use tracing::{debug, info, warn};
 use actor_cluster::cluster::Cluster;
 use actor_cluster::member::{Member, MemberStatus};
 use actor_cluster::unique_address::UniqueAddress;
-use actor_core::{Actor, DynMessage};
+use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use actor_core::actor::context::{ActorContext, Context, ContextExt};
 use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION};
@@ -25,7 +25,6 @@ use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::ext::message_ext::UserMessageExt;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_buffer::{BufferEnvelope, MessageBufferMap};
 use actor_core::message::poison_pill::PoisonPill;
@@ -164,7 +163,7 @@ impl ShardRegion {
         extractor: Box<dyn MessageExtractor>,
         handoff_stop_message: DynMessage,
     ) -> Props {
-        debug_assert!(handoff_stop_message.is_cloneable(), "message {} is not cloneable", handoff_stop_message.name());
+        debug_assert!(handoff_stop_message.cloneable(), "message {} is not cloneable", handoff_stop_message.name());
         Props::new_with_ctx(move |context| {
             Self::new(
                 context,
@@ -258,7 +257,7 @@ impl ShardRegion {
         if self.next_registration_delay < self.settings.retry_interval {
             let key = self.timers.start_single_timer(
                 self.next_registration_delay,
-                DynMessage::user(RegisterRetry),
+                RegisterRetry,
                 context.myself().clone(),
             );
             self.register_retry_key = Some(key);
@@ -513,7 +512,7 @@ impl Actor for ShardRegion {
         self.timers.start_timer_with_fixed_delay(
             None,
             self.settings.retry_interval,
-            DynMessage::user(Retry),
+            Retry,
             context.myself().clone(),
         );
         self.start_registration(context)?;
