@@ -62,7 +62,7 @@ impl<A> CodecMessage for UserDelegate<A> where A: 'static + Actor + Send {
         None
     }
 
-    fn encode(&self, message_registration: &MessageRegistration) -> eyre::Result<Vec<u8>> {
+    fn encode(self: Box<Self>, message_registration: &MessageRegistration) -> eyre::Result<Vec<u8>> {
         self.message.encode(message_registration)
     }
 

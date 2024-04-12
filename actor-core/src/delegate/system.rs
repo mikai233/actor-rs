@@ -49,7 +49,7 @@ impl CodecMessage for SystemDelegate {
         None
     }
 
-    fn encode(&self, reg: &MessageRegistration) -> eyre::Result<Vec<u8>> {
+    fn encode(self: Box<Self>, reg: &MessageRegistration) -> eyre::Result<Vec<u8>> {
         self.message.encode(reg)
     }
 

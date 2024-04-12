@@ -62,7 +62,7 @@ impl RemoteActorRef {
 
     fn send_remote(&self, message: DynMessage, sender: Option<ActorRef>) {
         let name = message.name();
-        match self.registration.encode_boxed(&message) {
+        match self.registration.encode_boxed(message) {
             Ok(packet) => {
                 let envelope = RemoteEnvelope {
                     packet,

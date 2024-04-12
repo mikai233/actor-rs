@@ -1,12 +1,14 @@
+use syn::Path;
+
 #[derive(Debug)]
 pub enum CodecType {
     NonCodec,
     Codec,
 }
 
-#[derive(Debug)]
 pub enum MessageImpl {
     Message,
     SystemMessage,
     OrphanMessage,
+    Delegate(Path),
 }

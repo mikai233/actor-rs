@@ -53,11 +53,11 @@ impl CodecMessage for ShardEnvelope<Shard> {
         Some(Box::new(D))
     }
 
-    fn encode(&self, reg: &MessageRegistration) -> eyre::Result<Vec<u8>> {
-        let ShardEnvelope { entity_id, message, .. } = &self;
+    fn encode(self: Box<Self>, reg: &MessageRegistration) -> eyre::Result<Vec<u8>> {
+        let ShardEnvelope { entity_id, message, .. } = *self;
         let packet = reg.encode_boxed(message)?;
         let message = CodecShardEnvelope {
-            entity_id: entity_id.clone(),
+            entity_id,
             packet,
         };
         encode_bytes(&message)

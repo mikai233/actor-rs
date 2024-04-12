@@ -55,7 +55,7 @@ impl MessageRegistration {
         reg
     }
 
-    fn register<M>(&mut self, id: u32) where M: CodecMessage {
+    pub fn register<M>(&mut self, id: u32) where M: CodecMessage {
         let name = type_name::<M>();
         let decoder = M::decoder().expect(&*format!("{} decoder is empty", name));
         assert!(!self.id.contains_key(name), "message {} already registered", name);
@@ -73,12 +73,12 @@ impl MessageRegistration {
         self.next_system += 1;
     }
 
-    pub fn encode_boxed(&self, message: &DynMessage) -> eyre::Result<IDPacket> {
+    pub fn encode_boxed(&self, message: DynMessage) -> eyre::Result<IDPacket> {
         let DynMessage { name, message, .. } = message;
-        self.encode(name, &**message)
+        self.encode(name, message)
     }
 
-    pub fn encode(&self, name: &'static str, message: &dyn CodecMessage) -> eyre::Result<IDPacket> {
+    pub fn encode(&self, name: &'static str, message: Box<dyn CodecMessage>) -> eyre::Result<IDPacket> {
         let id = *self.id.get(name).ok_or(eyre!("message {} is not registered", name))?;
         let bytes = message.encode(self)?;
         let packet = IDPacket {

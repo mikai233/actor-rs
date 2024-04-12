@@ -66,7 +66,7 @@ pub trait CodecMessage: Any + Send {
 
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized;
 
-    fn encode(&self, reg: &MessageRegistration) -> eyre::Result<Vec<u8>>;
+    fn encode(self: Box<Self>, reg: &MessageRegistration) -> eyre::Result<Vec<u8>>;
 
     fn clone_box(&self) -> eyre::Result<Box<dyn CodecMessage>>;
 
@@ -188,7 +188,7 @@ impl DynMessage {
         let message = message.into_any();
         let system_delegate = if matches!(ty, MessageType::System) {
             message.downcast::<SystemDelegate>()
-                .map_err(|_| anyhow!("message {} cannot downcast to SystemDelegate", name))
+                .map_err(|_| anyhow!("message {} cannot downcast to {}", name, type_name::<SystemDelegate>()))
         } else {
             Err(anyhow!("message {} is not a user message", name))
         };

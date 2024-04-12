@@ -401,13 +401,13 @@ impl CodecMessage for ActorSelectionMessage {
         Some(Box::new(D))
     }
 
-    fn encode(&self, reg: &MessageRegistration) -> eyre::Result<Vec<u8>> {
-        let ActorSelectionMessage { message, elements, wildcard_fan_out } = self;
+    fn encode(self: Box<Self>, reg: &MessageRegistration) -> eyre::Result<Vec<u8>> {
+        let ActorSelectionMessage { message, elements, wildcard_fan_out } = *self;
         let packet = reg.encode_boxed(message)?;
         let message = CodecSelectionMessage {
             packet,
-            elements: elements.clone(),
-            wildcard_fan_out: *wildcard_fan_out,
+            elements,
+            wildcard_fan_out,
         };
         encode_bytes(&message)
     }

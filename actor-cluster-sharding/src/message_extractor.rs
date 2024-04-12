@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use bincode::{Decode, Encode};
 use dyn_clone::DynClone;
 
-use actor_core::{Actor, DynMessage, Message};
+use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::message::message_registration::IDPacket;
 
 use crate::shard_region::{EntityId, ShardId};
@@ -30,11 +30,11 @@ pub struct ShardEnvelope<A> where A: Actor {
 }
 
 impl<A> ShardEnvelope<A> where A: Actor {
-    pub fn new<M>(entity_id: impl Into<EntityId>, message: M) -> Self where M: Message {
+    pub fn new<M>(entity_id: impl Into<EntityId>, message: M) -> Self where M: CodecMessage {
         let id = entity_id.into();
         Self {
             entity_id: id,
-            message: DynMessage::user(message),
+            message: message.into_dyn(),
             _phantom: Default::default(),
         }
     }
