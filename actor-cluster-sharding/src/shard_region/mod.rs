@@ -313,12 +313,17 @@ impl ShardRegion {
             }
             Some((shard_id, shard_region_ref)) if shard_region_ref == context.myself() => {
                 let shard_id = shard_id.clone();
-                if let Some(shard) = self.get_shard(context, shard_id.clone())? {
-                    if self.shard_buffers.contains_key(shard_id.as_str()) {
-                        self.buffer_message(context, shard_id.clone(), envelope, context.sender().cloned());
-                        self.deliver_buffered_messages(&shard_id, DeliverTarget::Shard(&shard));
-                    } else {
-                        context.forward(&shard, envelope.into_shard_envelope().into_dyn());
+                match self.get_shard(context, shard_id.clone())? {
+                    None => {
+                        self.buffer_message(context, shard_id, envelope, context.sender().cloned());
+                    }
+                    Some(shard) => {
+                        if self.shard_buffers.contains_key(shard_id.as_str()) {
+                            self.buffer_message(context, shard_id.clone(), envelope, context.sender().cloned());
+                            self.deliver_buffered_messages(&shard_id, DeliverTarget::Shard(&shard));
+                        } else {
+                            context.forward(&shard, envelope.into_shard_envelope().into_dyn());
+                        }
                     }
                 }
             }

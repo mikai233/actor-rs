@@ -68,7 +68,23 @@ pub fn expand(
     )
 }
 
-fn impl_trait(message_impl: MessageImpl, cloneable: bool, message_ty: &Ident, impl_generics: &ImplGenerics, ty_generics: &TypeGenerics, where_clause: Option<&WhereClause>, codec_trait: TokenStream, decoder_trait: TokenStream, dy_message: TokenStream, reg: TokenStream, eyre_result: TokenStream, decoder: TokenStream, encode: TokenStream, clone_box: TokenStream, into_dyn: TokenStream) -> TokenStream {
+fn impl_trait(
+    message_impl: MessageImpl,
+    cloneable: bool,
+    message_ty: &Ident,
+    impl_generics: &ImplGenerics,
+    ty_generics: &TypeGenerics,
+    where_clause: Option<&WhereClause>,
+    codec_trait: TokenStream,
+    decoder_trait: TokenStream,
+    dy_message: TokenStream,
+    reg: TokenStream,
+    eyre_result: TokenStream,
+    decoder: TokenStream,
+    encode: TokenStream,
+    clone_box: TokenStream,
+    into_dyn: TokenStream,
+) -> TokenStream {
     let codec_impl = quote! {
         impl #impl_generics #codec_trait for #message_ty #ty_generics #where_clause {
             fn into_any(self: Box<Self>) -> Box<dyn std::any::Any> {

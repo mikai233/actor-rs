@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::collections::hash_map::Entry;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
@@ -87,14 +88,16 @@ impl Actor for TimersActor {
 #[derive(Debug, Clone)]
 pub struct ScheduleKey {
     index: u64,
+    message: &'static str,
     scheduler: ActorRef,
     cancelled: Arc<AtomicBool>,
 }
 
 impl ScheduleKey {
-    pub(crate) fn new(index: u64, scheduler: ActorRef) -> Self {
+    pub(crate) fn new<M>(index: u64, scheduler: ActorRef) -> Self {
         Self {
             index,
+            message: type_name::<M>(),
             scheduler,
             cancelled: Arc::new(AtomicBool::new(false)),
         }
@@ -102,7 +105,7 @@ impl ScheduleKey {
 
     pub fn cancel(self) {
         if !self.cancelled.swap(true, Ordering::Relaxed) {
-            self.scheduler.cast_ns(CancelSchedule { index: self.index });
+            self.scheduler.cast_ns(CancelSchedule { index: self.index, message: self.message });
         }
     }
 }
@@ -236,6 +239,7 @@ impl Debug for Schedule {
 #[derive(Debug, EmptyCodec)]
 struct CancelSchedule {
     index: u64,
+    message: &'static str,
 }
 
 #[async_trait]
@@ -245,7 +249,7 @@ impl Message for CancelSchedule {
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         match actor.index.remove(&self.index) {
             None => {
-                warn!("{} not found in TimerScheduler", self.index);
+                debug!("{}[{}] not found in TimerScheduler", self.message, self.index);
             }
             Some(key) => {
                 actor.queue.try_remove(&key);
@@ -418,7 +422,7 @@ impl Timers {
             receiver,
         };
         self.scheduler_actor.cast_ns(once);
-        ScheduleKey::new(index, self.scheduler_actor.clone())
+        ScheduleKey::new::<M>(index, self.scheduler_actor.clone())
     }
 
     pub fn start_single_timer_with<F>(&self, delay: Duration, block: F) -> ScheduleKey
@@ -431,7 +435,7 @@ impl Timers {
             block: Box::new(block),
         };
         self.scheduler_actor.cast_ns(once_with);
-        ScheduleKey::new(index, self.scheduler_actor.clone())
+        ScheduleKey::new::<F>(index, self.scheduler_actor.clone())
     }
 
     pub fn start_timer_with_fixed_delay<M>(
@@ -451,7 +455,7 @@ impl Timers {
             receiver,
         };
         self.scheduler_actor.cast_ns(fixed_delay);
-        ScheduleKey::new(index, self.scheduler_actor.clone())
+        ScheduleKey::new::<M>(index, self.scheduler_actor.clone())
     }
 
     pub fn start_timer_with_fixed_delay_with<F>(
@@ -471,7 +475,7 @@ impl Timers {
             block: Arc::new(Box::new(block)),
         };
         self.scheduler_actor.cast_ns(fixed_delay_with);
-        ScheduleKey::new(index, self.scheduler_actor.clone())
+        ScheduleKey::new::<F>(index, self.scheduler_actor.clone())
     }
 
     pub fn cancel_all(&self) {
