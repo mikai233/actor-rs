@@ -1,6 +1,7 @@
-use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
+
+use ahash::HashMap;
 
 use crate::actor_ref::ActorRef;
 use crate::DynMessage;

@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use std::time::Duration;
 
+use ahash::HashMap;
 use config::{File, FileFormat, Source};
 use config::builder::DefaultState;
 use serde::{Deserialize, Serialize};
@@ -48,7 +48,7 @@ impl ConfigBuilder for CoreConfigBuilder {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
+    use ahash::HashSet;
 
     use crate::actor::coordinated_shutdown::{Phase, PHASE_BEFORE_SERVICE_UNBIND, PHASE_SERVICE_UNBIND};
     use crate::config::core_config::CoreConfig;

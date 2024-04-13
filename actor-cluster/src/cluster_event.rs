@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use ahash::HashMap;
 use bincode::{Decode, Encode};
 
 use actor_derive::COrphanCodec;

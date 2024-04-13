@@ -1,10 +1,10 @@
 use std::cmp::{max, min};
-use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 use std::time::Duration;
 
-use eyre::anyhow;
+use ahash::{HashMap, HashSet, HashSetExt};
 use async_trait::async_trait;
+use eyre::anyhow;
 
 use actor_cluster::cluster::Cluster;
 use actor_cluster::cluster_state::ClusterState;

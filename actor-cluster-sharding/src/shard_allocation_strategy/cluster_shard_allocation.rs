@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use ahash::HashMap;
 use itertools::Itertools;
 
 use actor_cluster::cluster_state::ClusterState;

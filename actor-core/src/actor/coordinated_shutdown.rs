@@ -1,5 +1,5 @@
 use std::any::type_name;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashSet};
 use std::fmt::{Debug, Display, Formatter};
 use std::future::Future;
 use std::ops::Deref;
@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+use ahash::HashMap;
 use eyre::{anyhow, Error};
 use futures::future::{BoxFuture, join_all};
 use futures::FutureExt;

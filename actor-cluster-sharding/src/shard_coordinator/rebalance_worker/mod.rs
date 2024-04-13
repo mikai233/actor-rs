@@ -1,6 +1,6 @@
-use std::collections::HashSet;
 use std::time::Duration;
 
+use ahash::HashSet;
 use async_trait::async_trait;
 use imstr::ImString;
 use tracing::debug;

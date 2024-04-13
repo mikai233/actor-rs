@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
+use ahash::HashMap;
 use async_trait::async_trait;
 
 use actor_core::{Actor, DynMessage};

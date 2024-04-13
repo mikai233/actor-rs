@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use rand::Rng;
 use tracing::info;
 
-use actor_core::{Actor, DynMessage, Message};
+use actor_core::{Actor, Message};
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;

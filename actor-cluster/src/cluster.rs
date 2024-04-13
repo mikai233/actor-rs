@@ -1,11 +1,11 @@
 use std::any::type_name;
-use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use ahash::{HashMap, HashSet};
 use eyre::Context;
 use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 

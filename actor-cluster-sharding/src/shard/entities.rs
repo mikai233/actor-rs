@@ -1,5 +1,4 @@
-use std::collections::{HashMap, HashSet};
-
+use ahash::{HashMap, HashSet};
 use eyre::anyhow;
 use tracing::debug;
 

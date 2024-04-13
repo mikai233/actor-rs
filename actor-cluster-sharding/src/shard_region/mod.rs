@@ -1,9 +1,9 @@
-use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
 use std::ops::{Deref, Mul, Not};
 use std::sync::Arc;
 use std::time::Duration;
 
+use ahash::{HashMap, HashSet, HashSetExt};
 use async_trait::async_trait;
 use eyre::anyhow;
 use imstr::ImString;

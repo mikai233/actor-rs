@@ -1,9 +1,10 @@
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::BTreeSet;
 use std::collections::hash_map::Entry;
 use std::ops::Not;
 use std::sync::Arc;
 use std::time::Duration;
 
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use async_trait::async_trait;
 use imstr::ImString;
 use itertools::Itertools;

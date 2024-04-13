@@ -1,9 +1,9 @@
 use std::collections::hash_map::Entry;
-use std::collections::HashSet;
 
-use eyre::Context as _;
+use ahash::{HashSet, HashSetExt};
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
+use eyre::Context as _;
 use tracing::debug;
 
 use actor_core::actor::context::{ActorContext, Context};

@@ -1,8 +1,8 @@
-use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
 use std::ops::Not;
 use std::time::Duration;
 
+use ahash::{HashMap, HashSet, HashSetExt};
 use async_trait::async_trait;
 use eyre::Context as _;
 use tracing::debug;

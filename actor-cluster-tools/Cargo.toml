@@ -10,6 +10,7 @@ actor-core = { path = "../actor-core" }
 actor-cluster = { path = "../actor-cluster" }
 actor-derive = { path = "../actor-derive" }
 async-trait = { workspace = true }
+ahash = { workspace = true }
 dashmap = { workspace = true, features = ["inline"] }
 tracing = { workspace = true }
 eyre = { workspace = true }

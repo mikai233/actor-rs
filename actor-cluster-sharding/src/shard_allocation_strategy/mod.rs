@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
+use ahash::{HashMap, HashSet};
 use async_trait::async_trait;
 use dyn_clone::DynClone;
 

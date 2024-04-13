@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
+use ahash::{HashMap, HashSet, HashSetExt};
 use bincode::{Decode, Encode};
 use itertools::Itertools;
 

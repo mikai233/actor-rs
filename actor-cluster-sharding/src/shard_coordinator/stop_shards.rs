@@ -1,8 +1,8 @@
 use std::any::type_name;
 use std::collections::hash_map::Entry;
-use std::collections::HashSet;
 use std::ops::Not;
 
+use ahash::{HashSet, HashSetExt};
 use async_trait::async_trait;
 use eyre::Context as _;
 use itertools::Itertools;

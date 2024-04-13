@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use ahash::{HashMap, HashMapExt};
 use parking_lot::{RwLock, RwLockReadGuard};
 
 use actor_core::actor::address::Address;

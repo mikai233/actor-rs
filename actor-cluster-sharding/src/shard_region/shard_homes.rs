@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use ahash::HashMap;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use itertools::Itertools;

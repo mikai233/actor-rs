@@ -1,7 +1,7 @@
 use std::any::type_name;
-use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 
+use ahash::{HashMap, HashMapExt};
 use bincode::{Decode, Encode};
 use eyre::eyre;
 

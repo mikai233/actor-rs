@@ -1,9 +1,10 @@
 use std::any::type_name;
 use std::collections::hash_map::Entry;
-use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::marker::PhantomData;
+
+use ahash::HashMap;
 
 use crate::failure_detector::failure_detector_registry::FailureDetectorRegistry;
 use crate::failure_detector::FailureDetector;

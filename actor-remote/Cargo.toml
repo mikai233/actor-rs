@@ -19,6 +19,7 @@ tracing-subscriber = { workspace = true, features = ["local-time"] }
 async-trait = { workspace = true }
 bincode = { workspace = true }
 typed-builder = { workspace = true }
+ahash = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 toml = { workspace = true }
 quinn = { workspace = true, features = ["futures-io"] }

@@ -1,11 +1,12 @@
 use std::any::type_name;
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::future::Future;
 use std::ops::Not;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use ahash::HashSet;
 use arc_swap::Guard;
 use eyre::anyhow;
 use tokio::runtime::Handle;

@@ -1,5 +1,4 @@
-use std::collections::HashSet;
-
+use ahash::HashSet;
 use config::{File, FileFormat, Source};
 use config::builder::DefaultState;
 use serde::{Deserialize, Serialize};

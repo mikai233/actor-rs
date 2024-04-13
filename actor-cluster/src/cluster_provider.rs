@@ -1,7 +1,7 @@
 use std::any::type_name;
-use std::collections::HashSet;
 use std::fmt::Debug;
 
+use ahash::HashSet;
 use tokio::sync::broadcast::Receiver;
 
 use actor_core::actor::actor_system::ActorSystem;

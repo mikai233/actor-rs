@@ -1,4 +1,3 @@
-use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
@@ -6,6 +5,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::task::Poll;
 use std::time::Duration;
 
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use async_trait::async_trait;
 use futures::task::ArcWake;
 use tokio_util::time::delay_queue::Key;

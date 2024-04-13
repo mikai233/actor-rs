@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use ahash::{HashMap, HashMapExt};
 use async_trait::async_trait;
 use futures::StreamExt;
 use quick_cache::unsync::Cache;

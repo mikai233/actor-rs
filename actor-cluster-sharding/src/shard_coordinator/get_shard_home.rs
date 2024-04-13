@@ -1,10 +1,10 @@
 use std::any::type_name;
-use std::collections::HashMap;
 use std::ops::Not;
 
-use eyre::Context as _;
+use ahash::HashMap;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
+use eyre::Context as _;
 use itertools::Itertools;
 use tracing::error;
 

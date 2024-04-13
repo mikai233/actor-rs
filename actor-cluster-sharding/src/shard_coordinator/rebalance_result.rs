@@ -1,5 +1,4 @@
-use std::collections::HashSet;
-
+use ahash::HashSet;
 use async_trait::async_trait;
 
 use actor_core::actor::context::ActorContext;

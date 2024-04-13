@@ -1,10 +1,10 @@
 use std::any::type_name;
-use std::collections::HashSet;
 use std::ops::Not;
 use std::time::Duration;
 
-use eyre::Context as _;
+use ahash::HashSet;
 use async_trait::async_trait;
+use eyre::Context as _;
 use tracing::{debug, info, warn};
 
 use actor_core::actor::context::{ActorContext, Context};

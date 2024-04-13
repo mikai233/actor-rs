@@ -1,9 +1,9 @@
-use std::collections::HashMap;
 use std::ops::{Deref, Sub};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
+use ahash::{HashMap, HashMapExt};
 use futures::StreamExt;
 use tokio::select;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
