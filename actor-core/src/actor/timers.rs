@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use futures::task::ArcWake;
 use tokio_util::time::delay_queue::Key;
 use tokio_util::time::DelayQueue;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, trace, };
 
 use actor_derive::EmptyCodec;
 

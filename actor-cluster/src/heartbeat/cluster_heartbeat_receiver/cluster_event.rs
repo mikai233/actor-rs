@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use tracing::trace;
 
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::EmptyCodec;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::cluster_event::ClusterEvent;
 use crate::heartbeat::cluster_heartbeat_receiver::ClusterHeartbeatReceiver;

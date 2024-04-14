@@ -6,9 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-actor-core = { path = "../actor-core" }
+actor-core = { path = "../actor-core", features = ["derive"] }
 actor-cluster = { path = "../actor-cluster" }
-actor-derive = { path = "../actor-derive" }
 async-trait = { workspace = true }
 ahash = { workspace = true }
 dashmap = { workspace = true, features = ["inline"] }

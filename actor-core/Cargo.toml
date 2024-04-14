@@ -33,3 +33,6 @@ parking_lot = { workspace = true }
 
 [dev-dependencies]
 ctor = { workspace = true }
+
+[features]
+derive = []

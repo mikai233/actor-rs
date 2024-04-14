@@ -5,8 +5,8 @@ use config::builder::DefaultState;
 use serde::{Deserialize, Serialize};
 
 use actor_cluster_tools::config::singleton_config::SingletonConfig;
+use actor_core::AsAny;
 use actor_core::config::{Config, ConfigBuilder};
-use actor_derive::AsAny;
 
 use crate::CLUSTER_SHARDING_CONFIG;
 use crate::config::passivation::Passivation;

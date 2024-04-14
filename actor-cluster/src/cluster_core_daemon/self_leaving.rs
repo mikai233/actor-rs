@@ -6,8 +6,8 @@ use tracing::info;
 use actor_core::actor::context::ActorContext;
 use actor_core::actor::coordinated_shutdown::{ClusterLeavingReason, CoordinatedShutdown};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::EmptyCodec;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::cluster_core_daemon::ClusterCoreDaemon;
 

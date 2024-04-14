@@ -5,8 +5,8 @@ use itertools::Itertools;
 use tracing::info;
 
 use actor_core::actor::context::ActorContext;
+use actor_core::EmptyCodec;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::shard_coordinator::ShardCoordinator;
 

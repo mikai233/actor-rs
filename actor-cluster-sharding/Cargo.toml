@@ -6,11 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-actor-core = { path = "../actor-core" }
+actor-core = { path = "../actor-core", features = ["derive"] }
 actor-remote = { path = "../actor-remote" }
 actor-cluster = { path = "../actor-cluster" }
 actor-cluster-tools = { path = "../actor-cluster-tools" }
-actor-derive = { path = "../actor-derive" }
 tokio = { workspace = true, features = ["full"] }
 bincode = { workspace = true }
 eyre = { workspace = true }

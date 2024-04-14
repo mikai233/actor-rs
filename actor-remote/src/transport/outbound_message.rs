@@ -8,9 +8,9 @@ use tracing::{debug, warn};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::ActorRefExt;
+use actor_core::EmptyCodec;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::config::transport::Transport;
 use crate::transport::connect_quic::ConnectQuic;

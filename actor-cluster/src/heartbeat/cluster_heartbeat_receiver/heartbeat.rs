@@ -7,9 +7,9 @@ use tracing::trace;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;
+use actor_core::CMessageCodec;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
-use actor_derive::CMessageCodec;
 
 use crate::heartbeat::cluster_heartbeat_receiver::ClusterHeartbeatReceiver;
 use crate::heartbeat::cluster_heartbeat_sender::heartbeat_rsp::HeartbeatRsp;

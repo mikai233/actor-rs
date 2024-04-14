@@ -6,9 +6,9 @@ use imstr::ImString;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
+use actor_core::EmptyCodec;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::cluster_sharding::ClusterSharding;
 use crate::cluster_sharding_guardian::ClusterShardingGuardian;

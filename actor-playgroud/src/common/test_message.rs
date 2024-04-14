@@ -4,7 +4,7 @@ use tracing::info;
 
 use actor_core::{EmptyTestActor, Message};
 use actor_core::actor::context::{ActorContext, Context};
-use actor_derive::CMessageCodec;
+use actor_core::CMessageCodec;
 
 #[derive(Debug, Clone, Encode, Decode, CMessageCodec)]
 pub struct TestMessage;

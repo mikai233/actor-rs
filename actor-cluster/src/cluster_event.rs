@@ -1,7 +1,7 @@
 use ahash::HashMap;
 use bincode::{Decode, Encode};
 
-use actor_derive::COrphanCodec;
+use actor_core::COrphanCodec;
 
 use crate::member::{Member, MemberStatus};
 use crate::unique_address::UniqueAddress;

@@ -3,8 +3,8 @@ use tracing::info;
 
 use actor_cluster::cluster_event::ClusterEvent;
 use actor_core::actor::context::ActorContext;
+use actor_core::EmptyCodec;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::shard::Shard;
 

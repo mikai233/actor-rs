@@ -4,7 +4,7 @@ use tracing::trace;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::Message;
-use actor_derive::MessageCodec;
+use actor_core::MessageCodec;
 
 use crate::heartbeat::cluster_heartbeat_sender::ClusterHeartbeatSender;
 use crate::unique_address::UniqueAddress;

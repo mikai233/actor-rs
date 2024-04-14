@@ -3,9 +3,9 @@ use async_trait::async_trait;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::EmptyCodec;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::cluster_daemon::ClusterDaemon;
 use crate::coordinated_shutdown_leave::CoordinatedShutdownLeave;

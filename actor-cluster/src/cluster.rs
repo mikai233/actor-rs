@@ -15,12 +15,12 @@ use actor_core::actor::extension::Extension;
 use actor_core::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::AsAny;
 use actor_core::DynMessage;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::provider::{downcast_provider, TActorRefProvider};
-use actor_derive::AsAny;
 
 use crate::cluster_core_daemon::leave::Leave;
 use crate::cluster_daemon::add_on_member_removed_listener::AddOnMemberRemovedListener;

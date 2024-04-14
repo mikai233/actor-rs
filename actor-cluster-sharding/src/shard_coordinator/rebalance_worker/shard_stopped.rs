@@ -4,7 +4,7 @@ use tracing::debug;
 
 use actor_core::actor::context::ActorContext;
 use actor_core::Message;
-use actor_derive::MessageCodec;
+use actor_core::MessageCodec;
 
 use crate::shard_coordinator::rebalance_worker::RebalanceWorker;
 use crate::shard_region::ShardId;

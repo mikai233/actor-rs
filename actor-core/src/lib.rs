@@ -8,7 +8,8 @@ pub use eyre;
 use eyre::anyhow;
 use tracing::info;
 
-use actor_derive::MessageCodec;
+#[cfg(feature = "derive")]
+pub use actor_derive::{self, *};
 
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::directive::Directive;

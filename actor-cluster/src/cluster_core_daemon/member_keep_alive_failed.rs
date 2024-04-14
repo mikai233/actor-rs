@@ -3,7 +3,7 @@ use tracing::trace;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::Message;
-use actor_derive::EmptyCodec;
+use actor_core::EmptyCodec;
 
 use crate::cluster_core_daemon::ClusterCoreDaemon;
 use crate::etcd_actor::keep_alive::KeepAliveFailed;

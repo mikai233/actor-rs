@@ -1,9 +1,8 @@
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 
+use actor_core::{Message, MessageCodec};
 use actor_core::actor::context::ActorContext;
-use actor_core::Message;
-use actor_derive::MessageCodec;
 
 use crate::remote_watcher::RemoteWatcher;
 

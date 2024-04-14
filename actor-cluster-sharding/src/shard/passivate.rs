@@ -3,7 +3,7 @@ use tracing::warn;
 
 use actor_core::{DynMessage, Message};
 use actor_core::actor::context::{ActorContext, Context};
-use actor_derive::EmptyCodec;
+use actor_core::EmptyCodec;
 
 use crate::shard::Shard;
 

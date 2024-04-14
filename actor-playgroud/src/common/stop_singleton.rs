@@ -3,8 +3,8 @@ use tracing::info;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::CEmptyCodec;
 use actor_core::Message;
-use actor_derive::CEmptyCodec;
 
 use crate::common::singleton_actor::SingletonActor;
 

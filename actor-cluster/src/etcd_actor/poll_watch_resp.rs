@@ -9,7 +9,7 @@ use futures::task::ArcWake;
 use actor_core::{DynMessage, Message};
 use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
-use actor_derive::EmptyCodec;
+use actor_core::EmptyCodec;
 
 use crate::etcd_actor::EtcdActor;
 use crate::etcd_actor::watch::WatchResp;

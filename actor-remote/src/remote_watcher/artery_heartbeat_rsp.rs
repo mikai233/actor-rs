@@ -3,7 +3,7 @@ use bincode::{Decode, Encode};
 
 use actor_core::actor::context::ActorContext;
 use actor_core::Message;
-use actor_derive::MessageCodec;
+use actor_core::MessageCodec;
 
 use crate::remote_watcher::RemoteWatcher;
 

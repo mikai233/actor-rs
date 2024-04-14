@@ -4,8 +4,8 @@ use tracing::debug;
 
 use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::ActorRef;
+use actor_core::EmptyCodec;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::singleton::cluster_singleton_manager::ClusterSingletonManager;
 

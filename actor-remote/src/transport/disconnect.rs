@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use tracing::info;
 
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::EmptyCodec;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::transport::connection_status::ConnectionStatus;
 use crate::transport::TransportActor;

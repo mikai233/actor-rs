@@ -3,8 +3,8 @@ use config::{File, FileFormat, Source};
 use config::builder::DefaultState;
 use serde::{Deserialize, Serialize};
 
+use actor_core::AsAny;
 use actor_core::config::{Config, ConfigBuilder};
-use actor_derive::AsAny;
 use actor_remote::config::RemoteConfig;
 
 use crate::CLUSTER_CONFIG;

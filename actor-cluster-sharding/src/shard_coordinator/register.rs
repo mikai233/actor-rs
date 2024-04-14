@@ -6,8 +6,8 @@ use tracing::debug;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::CMessageCodec;
 use actor_core::Message;
-use actor_derive::CMessageCodec;
 
 use crate::shard_coordinator::coordinator_state::CoordinatorState;
 use crate::shard_coordinator::shard_region_terminated::ShardRegionTerminated;

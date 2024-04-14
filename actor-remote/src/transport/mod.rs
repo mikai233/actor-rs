@@ -256,6 +256,7 @@ mod test {
     use tracing::info;
 
     use actor_core::{Actor, EmptyTestActor, Message};
+    use actor_core::{EmptyCodec, MessageCodec, OrphanCodec};
     use actor_core::actor::actor_system::ActorSystem;
     use actor_core::actor::context::{ActorContext, Context};
     use actor_core::actor::props::Props;
@@ -265,7 +266,6 @@ mod test {
     use actor_core::config::ConfigBuilder;
     use actor_core::config::core_config::CoreConfig;
     use actor_core::pattern::patterns::Patterns;
-    use actor_derive::{EmptyCodec, MessageCodec, OrphanCodec};
 
     use crate::config::buffer::Buffer;
     use crate::config::RemoteConfig;

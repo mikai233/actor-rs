@@ -4,8 +4,8 @@ use actor_core::{CodecMessage, DynMessage, Message};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
+use actor_core::EmptyCodec;
 use actor_core::message::terminated::Terminated;
-use actor_derive::EmptyCodec;
 
 use crate::handoff_stopper::HandoffStopper;
 use crate::shard_coordinator::rebalance_worker::shard_stopped::ShardStopped;

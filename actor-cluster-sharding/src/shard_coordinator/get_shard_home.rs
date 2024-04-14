@@ -12,7 +12,7 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
-use actor_derive::MessageCodec;
+use actor_core::MessageCodec;
 
 use crate::shard_coordinator::allocate_shard_result::AllocateShardResult;
 use crate::shard_coordinator::ShardCoordinator;

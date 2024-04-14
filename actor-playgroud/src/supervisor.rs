@@ -9,8 +9,8 @@ use actor_core::actor::props::Props;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::config::actor_setting::ActorSetting;
+use actor_core::EmptyCodec;
 use actor_core::ext::init_logger;
-use actor_derive::EmptyCodec;
 
 struct TestActor;
 

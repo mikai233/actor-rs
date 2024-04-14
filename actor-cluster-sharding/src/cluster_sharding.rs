@@ -14,10 +14,10 @@ use actor_core::actor::extension::Extension;
 use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::AsAny;
 use actor_core::CodecMessage;
 use actor_core::config::ConfigBuilder;
 use actor_core::pattern::patterns::PatternsExt;
-use actor_derive::AsAny;
 
 use crate::cluster_sharding_guardian::ClusterShardingGuardian;
 use crate::cluster_sharding_guardian::start::Start;

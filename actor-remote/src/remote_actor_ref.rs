@@ -11,13 +11,13 @@ use actor_core::actor::actor_system::WeakActorSystem;
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
+use actor_core::AsAny;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_core::message::poison_pill::PoisonPill;
 use actor_core::message::resume::Resume;
 use actor_core::message::suspend::Suspend;
 use actor_core::message::unwatch::Unwatch;
 use actor_core::message::watch::Watch;
-use actor_derive::AsAny;
 
 use crate::remote_watcher::unwatch_remote::UnwatchRemote;
 use crate::remote_watcher::watch_remote::WatchRemote;

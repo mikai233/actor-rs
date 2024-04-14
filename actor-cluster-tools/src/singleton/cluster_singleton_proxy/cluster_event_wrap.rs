@@ -6,8 +6,8 @@ use actor_cluster::cluster_event::ClusterEvent;
 use actor_cluster::member::MemberStatus;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::EmptyCodec;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::singleton::cluster_singleton_proxy::ClusterSingletonProxy;
 

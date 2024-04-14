@@ -10,9 +10,9 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor::timers::Timers;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::CEmptyCodec;
 use actor_core::config::actor_setting::ActorSetting;
 use actor_core::ext::init_logger_with_filter;
-use actor_derive::CEmptyCodec;
 
 pub fn fibonacci(n: i32) -> u64 {
     if n < 0 {

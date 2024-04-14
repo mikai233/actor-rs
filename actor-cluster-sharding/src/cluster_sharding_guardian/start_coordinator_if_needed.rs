@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use imstr::ImString;
 
 use actor_core::actor::context::ActorContext;
+use actor_core::EmptyCodec;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::cluster_sharding_guardian::ClusterShardingGuardian;
 use crate::cluster_sharding_settings::ClusterShardingSettings;

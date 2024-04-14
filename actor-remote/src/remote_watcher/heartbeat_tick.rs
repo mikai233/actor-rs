@@ -10,7 +10,7 @@ use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
-use actor_derive::EmptyCodec;
+use actor_core::EmptyCodec;
 
 use crate::remote_watcher::artery_heartbeat::ArteryHeartbeat;
 use crate::remote_watcher::expected_first_heartbeat::ExpectedFirstHeartbeat;

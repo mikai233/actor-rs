@@ -7,7 +7,6 @@ name = "actor-cluster"
 version = "0.1.0"
 dependencies = [
  "actor-core",
- "actor-derive",
  "actor-remote",
  "ahash",
  "arc-swap",
@@ -36,7 +35,6 @@ dependencies = [
  "actor-cluster",
  "actor-cluster-tools",
  "actor-core",
- "actor-derive",
  "actor-remote",
  "ahash",
  "async-trait",
@@ -63,7 +61,6 @@ version = "0.1.0"
 dependencies = [
  "actor-cluster",
  "actor-core",
- "actor-derive",
  "ahash",
  "async-trait",
  "bincode",
@@ -126,7 +123,6 @@ dependencies = [
  "actor-cluster-sharding",
  "actor-cluster-tools",
  "actor-core",
- "actor-derive",
  "actor-remote",
  "async-trait",
  "bincode",
@@ -146,7 +142,6 @@ name = "actor-remote"
 version = "0.1.0"
 dependencies = [
  "actor-core",
- "actor-derive",
  "ahash",
  "async-trait",
  "bincode",
@@ -1004,7 +999,8 @@ dependencies = [
 [[package]]
 name = "imstr"
 version = "0.2.0"
-source = "git+https://github.com/xfbs/imstr.git#e9c1cf95efc403c84401e35db3a1dff8ee573a72"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d3441deb04ea9c6b472f313be54d585428cd6a68cdb8dcf40cf43744bec78fe"
 dependencies = [
  "serde",
 ]

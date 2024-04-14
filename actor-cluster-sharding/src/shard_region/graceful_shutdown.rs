@@ -6,8 +6,8 @@ use tracing::debug;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::EmptyCodec;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::shard_region::graceful_shutdown_timeout::GracefulShutdownTimeout;
 use crate::shard_region::ShardRegion;

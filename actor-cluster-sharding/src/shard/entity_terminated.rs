@@ -5,8 +5,8 @@ use tracing::{debug, warn};
 
 use actor_core::{CodecMessage, DynMessage, Message};
 use actor_core::actor::context::ActorContext;
+use actor_core::EmptyCodec;
 use actor_core::message::terminated::Terminated;
-use actor_derive::EmptyCodec;
 
 use crate::shard::entity_state::EntityState;
 use crate::shard::Shard;

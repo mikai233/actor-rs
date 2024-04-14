@@ -1,13 +1,13 @@
 use std::any::type_name;
 
-use eyre::Context as _;
 use async_trait::async_trait;
+use eyre::Context as _;
 use tracing::debug;
 
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::EmptyCodec;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::shard_region::{ImShardId, ShardRegion};
 use crate::shard_region::deliver_target::DeliverTarget;

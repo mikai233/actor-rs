@@ -8,7 +8,7 @@ use actor_core::actor::context::{ActorContext, Context, ContextExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
-use actor_derive::MessageCodec;
+use actor_core::MessageCodec;
 
 use crate::shard_coordinator::rebalance_worker::shard_stopped::ShardStopped;
 use crate::shard_region::ShardRegion;

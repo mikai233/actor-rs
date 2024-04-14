@@ -3,9 +3,9 @@ use etcd_client::{WatchOptions, WatchResponse};
 use tracing::debug;
 
 use actor_core::{DynMessage, Message};
+use actor_core::{EmptyCodec, OrphanEmptyCodec};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
-use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
 use crate::etcd_actor::EtcdActor;
 use crate::etcd_actor::watch_started::WatchStarted;

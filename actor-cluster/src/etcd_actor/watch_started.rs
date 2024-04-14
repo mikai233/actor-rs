@@ -3,8 +3,8 @@ use tracing::debug;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::EmptyCodec;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::etcd_actor::EtcdActor;
 use crate::etcd_actor::poll_watch_resp::PollWatchResp;

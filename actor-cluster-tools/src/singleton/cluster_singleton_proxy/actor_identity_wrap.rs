@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::EmptyCodec;
 use actor_core::Message;
 use actor_core::message::identify::ActorIdentity;
-use actor_derive::EmptyCodec;
 
 use crate::singleton::cluster_singleton_proxy::ClusterSingletonProxy;
 use crate::singleton::cluster_singleton_proxy::singleton_terminated::SingletonTerminated;

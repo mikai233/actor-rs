@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use tracing::debug;
 
 use actor_core::{DynMessage, Message};
+use actor_core::{EmptyCodec, OrphanEmptyCodec};
 use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::ActorRef;
 use actor_core::ext::option_ext::OptionExt;
-use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
 use crate::etcd_actor::EtcdActor;
 

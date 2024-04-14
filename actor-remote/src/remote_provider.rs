@@ -13,10 +13,10 @@ use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, TActorRef};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::local_ref::LocalActorRef;
+use actor_core::AsAny;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::provider::local_actor_ref_provider::LocalActorRefProvider;
-use actor_derive::AsAny;
 
 use crate::config::transport::Transport;
 use crate::failure_detector::default_failure_detector_registry::DefaultFailureDetectorRegistry;

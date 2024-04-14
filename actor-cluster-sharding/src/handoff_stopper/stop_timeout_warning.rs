@@ -4,8 +4,8 @@ use tracing::warn;
 use actor_core::actor::context::ActorContext;
 use actor_core::actor::coordinated_shutdown::CoordinatedShutdown;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::EmptyCodec;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::handoff_stopper::{HandoffStopper, STOP_TIMEOUT_WARNING_AFTER};
 

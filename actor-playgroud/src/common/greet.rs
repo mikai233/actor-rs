@@ -4,7 +4,7 @@ use tracing::info;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::Message;
-use actor_derive::MessageCodec;
+use actor_core::MessageCodec;
 
 use crate::common::singleton_actor::SingletonActor;
 

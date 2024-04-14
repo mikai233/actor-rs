@@ -10,9 +10,9 @@ use tracing::{debug, info, warn};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::EmptyCodec;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::handoff_stopper::HandoffStopper;
 use crate::shard::handoff_stopper_terminated::HandoffStopperTerminated;

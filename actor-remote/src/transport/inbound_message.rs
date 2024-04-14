@@ -2,8 +2,8 @@ use async_trait::async_trait;
 
 use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::PROVIDER;
+use actor_core::EmptyCodec;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::transport::remote_packet::RemotePacket;
 use crate::transport::TransportActor;

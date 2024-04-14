@@ -10,11 +10,11 @@ use actor_core::actor::props::{DeferredSpawn, FuncDeferredSpawn, Props};
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_ref::ActorRef;
 use actor_core::actor_ref::local_ref::LocalActorRef;
+use actor_core::AsAny;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::message::message_registration::MessageRegistration;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::provider::local_actor_ref_provider::LocalActorRefProvider;
-use actor_derive::AsAny;
 use actor_remote::remote_provider::RemoteActorRefProvider;
 use actor_remote::remote_setting::RemoteSetting;
 

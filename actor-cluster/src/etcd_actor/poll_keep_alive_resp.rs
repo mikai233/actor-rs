@@ -8,8 +8,8 @@ use futures::task::ArcWake;
 
 use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::EmptyCodec;
 use actor_core::Message;
-use actor_derive::EmptyCodec;
 
 use crate::etcd_actor::EtcdActor;
 
