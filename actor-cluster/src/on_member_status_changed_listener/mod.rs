@@ -6,31 +6,42 @@ use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::option_ext::OptionExt;
 
 use crate::cluster::Cluster;
-use crate::member::MemberStatus;
+use crate::member::{Member, MemberStatus};
 use crate::on_member_status_changed_listener::cluster_event::ClusterEventWrap;
 
 mod cluster_event;
 pub(crate) mod add_status_callback;
 
 pub(crate) struct OnMemberStatusChangedListener {
+    cluster: Cluster,
     callback: Option<Box<dyn FnOnce() + Send>>,
     status: MemberStatus,
 }
 
 impl OnMemberStatusChangedListener {
-    pub(crate) fn new(status: MemberStatus) -> Self {
+    pub(crate) fn new(context: &mut ActorContext, status: MemberStatus) -> Self {
+        let cluster = Cluster::get(context.system());
         Self {
             callback: None,
             status,
+            cluster,
         }
+    }
+
+    fn done(&mut self, context: &mut ActorContext) {
+        self.callback.take().into_foreach(|cb| cb());
+        context.stop(context.myself());
+    }
+
+    fn is_triggered(&self, m: &Member) -> bool {
+        &m.addr == self.cluster.self_unique_address() && m.status == self.status
     }
 }
 
 #[async_trait]
 impl Actor for OnMemberStatusChangedListener {
     async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
-        let cluster = Cluster::get(context.system());
-        cluster.subscribe_cluster_event(context.myself().clone(), |event| { ClusterEventWrap(event).into_dyn() })?;
+        self.cluster.subscribe_cluster_event(context.myself().clone(), |event| { ClusterEventWrap(event).into_dyn() })?;
         debug_assert!(matches!(self.status,MemberStatus::Up) || matches!(self.status,MemberStatus::Removed));
         Ok(())
     }
@@ -39,8 +50,7 @@ impl Actor for OnMemberStatusChangedListener {
         if matches!(self.status,MemberStatus::Removed) {
             self.callback.take().into_foreach(|cb| cb());
         };
-        let cluster = Cluster::get(context.system());
-        cluster.unsubscribe_cluster_event(context.myself())?;
+        self.cluster.unsubscribe_cluster_event(context.myself())?;
         Ok(())
     }
 }

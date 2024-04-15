@@ -2,7 +2,6 @@ use async_trait::async_trait;
 
 use actor_core::actor::context::ActorContext;
 use actor_core::EmptyCodec;
-use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
 
 use crate::cluster_event::ClusterEvent;
@@ -16,15 +15,27 @@ pub(super) struct ClusterEventWrap(pub(super) ClusterEvent);
 impl Message for ClusterEventWrap {
     type A = OnMemberStatusChangedListener;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         match self.0 {
-            ClusterEvent::MemberUp(_) if matches!(actor.status, MemberStatus::Up) => {
-                actor.callback.take().into_foreach(|callback| callback());
+            ClusterEvent::MemberUp(m) if matches!(actor.status, MemberStatus::Up) => {
+                if actor.is_triggered(&m) {
+                    actor.done(context);
+                }
             }
-            ClusterEvent::MemberRemoved(_) if matches!(actor.status,MemberStatus::Removed) => {
-                actor.callback.take().into_foreach(|callback| callback());
+            ClusterEvent::MemberRemoved(m) if matches!(actor.status, MemberStatus::Removed) => {
+                if actor.is_triggered(&m) {
+                    actor.done(context);
+                }
             }
-            _ => panic!("unreachable")
+            ClusterEvent::CurrentClusterState { members, .. } => {
+                for (_, m) in members {
+                    if actor.is_triggered(&m) {
+                        actor.done(context);
+                        break;
+                    }
+                }
+            }
+            _ => {}
         }
         Ok(())
     }
