@@ -115,17 +115,23 @@ impl<A> ActorRuntime<A> where A: Actor {
     async fn handle_message(context: &mut ActorContext, actor: &mut A, envelope: Envelope) -> bool {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
-        if let Some(message) = actor.on_recv(context, message) {
-            match message.downcast_user_delegate::<A>() {
-                Ok(message) => {
-                    if let Some(error) = message.handle(context, actor).await.err() {
-                        Self::handle_failure(context, error);
+        match actor.on_recv(context, message).await {
+            Ok(Some(message)) => {
+                match message.downcast_user_delegate::<A>() {
+                    Ok(message) => {
+                        if let Some(error) = message.handle(context, actor).await.err() {
+                            Self::handle_failure(context, error);
+                        }
+                    }
+                    Err(error) => {
+                        error!("{:?}", error);
                     }
                 }
-                Err(error) => {
-                    error!("{:?}", error);
-                }
             }
+            Err(error) => {
+                Self::handle_failure(context, error);
+            }
+            _ => {}
         }
         context.sender.take();
         return false;

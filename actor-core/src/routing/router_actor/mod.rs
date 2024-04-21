@@ -85,7 +85,7 @@ impl Actor for Box<dyn Router> {
         (&mut **self).on_child_failure(context, child, error)
     }
 
-    fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {
-        (&mut **self).on_recv(context, message)
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> eyre::Result<Option<DynMessage>> {
+        (&mut **self).on_recv(context, message).await
     }
 }

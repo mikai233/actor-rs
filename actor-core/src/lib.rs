@@ -53,8 +53,8 @@ pub trait Actor: Send + Any {
     }
 
     #[allow(unused_variables)]
-    fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {
-        Some(message)
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> eyre::Result<Option<DynMessage>> {
+        Ok(Some(message))
     }
 }
 
