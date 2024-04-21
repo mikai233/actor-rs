@@ -89,8 +89,10 @@ impl TActorRef for LocalActorRef {
                         ActorSelection::deliver_selection(self.clone().into(), sender, sel);
                     }
                 } else {
-                    let myself: ActorRef = self.clone().into();
-                    warn!("unexpected Orphan message {} to {}", message.name, myself);
+                    let envelop = Envelope { message, sender };
+                    if let Some(error) = self.sender.message.try_send(envelop).err() {
+                        self.log_send_error(error);
+                    }
                 }
             }
         }
