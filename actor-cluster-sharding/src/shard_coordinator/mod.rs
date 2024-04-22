@@ -553,6 +553,6 @@ impl ShardCoordinator {
 
     fn persistent_key(&self) -> String {
         let name = &self.cluster.system().unwrap().name;
-        format!("actor/{}/cluster/shard_coordinator/state", name)
+        format!("actor/{}/cluster/shard_coordinator/{}/state", name, self.type_name)
     }
 }
