@@ -3,7 +3,7 @@ use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
-use syn::{DeriveInput, parse_str, Path};
+use syn::{DeriveInput, parse_str};
 
 use crate::metadata::{CodecType, MessageImpl};
 
@@ -33,20 +33,6 @@ pub fn message_codec_derive(input: TokenStream) -> TokenStream {
 pub fn cloneable_message_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     message::expand(ast, MessageImpl::Message, CodecType::Codec, true).into()
-}
-
-#[proc_macro_derive(DelegateCodec, attributes(delegate))]
-pub fn delegate_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    let delegate = ast.attrs[0].parse_args::<Path>().unwrap();
-    message::expand(ast, MessageImpl::Delegate(delegate), CodecType::Codec, false).into()
-}
-
-#[proc_macro_derive(CDelegateCodec, attributes(delegate))]
-pub fn cloneable_delegate_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    let delegate = ast.attrs[0].parse_args::<Path>().unwrap();
-    message::expand(ast, MessageImpl::Delegate(delegate), CodecType::Codec, true).into()
 }
 
 #[proc_macro_derive(SystemEmptyCodec)]
