@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use crate::{Actor, CodecMessage, DynMessage, Message, MessageType};
 use crate::actor::context::ActorContext;
 use crate::delegate::downcast_box_message;
-use crate::message::message_registration::MessageRegistration;
+use crate::message::message_registry::MessageRegistry;
 use crate::message::MessageDecoder;
 
 pub struct UserDelegate<A> where A: Actor {
@@ -62,7 +62,7 @@ impl<A> CodecMessage for UserDelegate<A> where A: 'static + Actor + Send {
         None
     }
 
-    fn encode(self: Box<Self>, message_registration: &MessageRegistration) -> eyre::Result<Vec<u8>> {
+    fn encode(self: Box<Self>, message_registration: &MessageRegistry) -> eyre::Result<Vec<u8>> {
         self.message.encode(message_registration)
     }
 

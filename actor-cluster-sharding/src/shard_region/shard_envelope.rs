@@ -6,7 +6,7 @@ use tracing::debug;
 use actor_core::{CodecMessage, DynMessage, Message};
 use actor_core::actor::context::ActorContext;
 use actor_core::ext::{decode_bytes, encode_bytes};
-use actor_core::message::message_registration::MessageRegistration;
+use actor_core::message::message_registry::MessageRegistry;
 use actor_core::message::MessageDecoder;
 
 use crate::message_extractor::{CodecShardEnvelope, ShardEnvelope};
@@ -44,7 +44,7 @@ impl CodecMessage for ShardEnvelope<ShardRegion> {
         #[derive(Clone)]
         struct D;
         impl MessageDecoder for D {
-            fn decode(&self, bytes: &[u8], reg: &MessageRegistration) -> eyre::Result<DynMessage> {
+            fn decode(&self, bytes: &[u8], reg: &MessageRegistry) -> eyre::Result<DynMessage> {
                 let CodecShardEnvelope { entity_id, packet } = decode_bytes::<CodecShardEnvelope>(bytes)?;
                 let message = reg.decode(packet)?;
                 let message = ShardEnvelope::<ShardRegion> {
@@ -59,7 +59,7 @@ impl CodecMessage for ShardEnvelope<ShardRegion> {
         Some(Box::new(D))
     }
 
-    fn encode(self: Box<Self>, reg: &MessageRegistration) -> eyre::Result<Vec<u8>> {
+    fn encode(self: Box<Self>, reg: &MessageRegistry) -> eyre::Result<Vec<u8>> {
         let ShardEnvelope { entity_id, message, .. } = *self;
         let packet = reg.encode_boxed(message)?;
         let message = CodecShardEnvelope {

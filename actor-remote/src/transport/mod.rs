@@ -20,7 +20,7 @@ use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::decode_bytes;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_buffer::MessageBufferMap;
-use actor_core::message::message_registration::MessageRegistration;
+use actor_core::message::message_registry::MessageRegistry;
 use actor_core::provider::{ActorRefProvider, downcast_provider};
 
 use crate::config::buffer::Buffer;
@@ -57,7 +57,7 @@ pub struct TransportActor {
     connections: HashMap<SocketAddr, ConnectionStatus>,
     actor_ref_cache: Cache<String, ActorRef>,
     provider: Arc<ActorRefProvider>,
-    registration: MessageRegistration,
+    registration: MessageRegistry,
     message_buffer: MessageBufferMap<SocketAddr, TransportBufferEnvelope>,
 }
 

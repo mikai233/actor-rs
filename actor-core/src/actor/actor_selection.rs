@@ -22,7 +22,7 @@ use crate::actor_ref::empty_local_ref::EmptyLocalActorRef;
 use crate::cell::Cell;
 use crate::ext::{decode_bytes, encode_bytes};
 use crate::message::identify::{ActorIdentity, Identify};
-use crate::message::message_registration::{IDPacket, MessageRegistration};
+use crate::message::message_registry::{IDPacket, MessageRegistry};
 use crate::message::MessageDecoder;
 use crate::pattern::patterns::Patterns;
 
@@ -386,7 +386,7 @@ impl CodecMessage for ActorSelectionMessage {
         #[derive(Clone)]
         struct D;
         impl MessageDecoder for D {
-            fn decode(&self, bytes: &[u8], reg: &MessageRegistration) -> eyre::Result<DynMessage> {
+            fn decode(&self, bytes: &[u8], reg: &MessageRegistry) -> eyre::Result<DynMessage> {
                 let CodecSelectionMessage { packet, elements, wildcard_fan_out } = decode_bytes::<CodecSelectionMessage>(bytes)?;
                 let message = reg.decode(packet)?;
                 let message = ActorSelectionMessage {
@@ -401,7 +401,7 @@ impl CodecMessage for ActorSelectionMessage {
         Some(Box::new(D))
     }
 
-    fn encode(self: Box<Self>, reg: &MessageRegistration) -> eyre::Result<Vec<u8>> {
+    fn encode(self: Box<Self>, reg: &MessageRegistry) -> eyre::Result<Vec<u8>> {
         let ActorSelectionMessage { message, elements, wildcard_fan_out } = *self;
         let packet = reg.encode_boxed(message)?;
         let message = CodecSelectionMessage {

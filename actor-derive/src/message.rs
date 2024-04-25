@@ -17,7 +17,7 @@ pub fn expand(
     let decoder_trait = with_crate_str("message::MessageDecoder");
     let ext_path = with_crate_str("ext");
     let dy_message = with_crate_str("DynMessage");
-    let reg = with_crate_str("message::message_registration::MessageRegistration");
+    let reg = with_crate_str("message::message_registry::MessageRegistry");
     let eyre_result = with_crate_str("eyre::Result");
     let eyre = with_crate_str("eyre::eyre");
     let decoder = expand_decoder(

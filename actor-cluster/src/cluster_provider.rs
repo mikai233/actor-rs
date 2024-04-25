@@ -12,7 +12,7 @@ use actor_core::actor_ref::ActorRef;
 use actor_core::actor_ref::local_ref::LocalActorRef;
 use actor_core::AsAny;
 use actor_core::ext::etcd_client::EtcdClient;
-use actor_core::message::message_registration::MessageRegistration;
+use actor_core::message::message_registry::MessageRegistry;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::provider::local_actor_ref_provider::LocalActorRefProvider;
 use actor_remote::remote_provider::RemoteActorRefProvider;
@@ -56,7 +56,7 @@ impl ClusterActorRefProvider {
         spawns.push(Box::new(s));
     }
 
-    fn register_system_message(reg: &mut MessageRegistration) {
+    fn register_system_message(reg: &mut MessageRegistry) {
         reg.register_system::<Heartbeat>();
         reg.register_system::<HeartbeatRsp>();
     }

@@ -1,6 +1,6 @@
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::ActorRef;
-use actor_core::message::message_registration::IDPacket;
+use actor_core::message::message_registry::IDPacket;
 
 use crate::transport::remote_packet::RemotePacket;
 

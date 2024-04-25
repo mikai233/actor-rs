@@ -12,7 +12,7 @@ use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
 use actor_core::AsAny;
-use actor_core::message::message_registration::MessageRegistration;
+use actor_core::message::message_registry::MessageRegistry;
 use actor_core::message::poison_pill::PoisonPill;
 use actor_core::message::resume::Resume;
 use actor_core::message::suspend::Suspend;
@@ -33,7 +33,7 @@ pub struct Inner {
     pub(crate) system: WeakActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) transport: ActorRef,
-    pub(crate) registration: Arc<MessageRegistration>,
+    pub(crate) registration: Arc<MessageRegistry>,
     pub(crate) remote_watcher: ActorRef,
 }
 
@@ -42,7 +42,7 @@ impl RemoteActorRef {
         system: WeakActorSystem,
         path: ActorPath,
         transport: ActorRef,
-        registration: Arc<MessageRegistration>,
+        registration: Arc<MessageRegistry>,
         remote_watcher: ActorRef,
     ) -> Self {
         Self {

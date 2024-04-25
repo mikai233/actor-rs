@@ -1,4 +1,4 @@
-use actor_core::message::message_registration::MessageRegistration;
+use actor_core::message::message_registry::MessageRegistry;
 
 use crate::shard::Shard;
 use crate::shard_coordinator::get_shard_home::GetShardHome;
@@ -34,7 +34,7 @@ pub mod shard_allocation_strategy;
 
 pub type ShardEnvelope = message_extractor::ShardEnvelope<ShardRegion>;
 
-pub fn register_sharding(reg: &mut MessageRegistration) {
+pub fn register_sharding(reg: &mut MessageRegistry) {
     reg.register_system::<GetShardHome>();
     reg.register_system::<GracefulShutdownReq>();
     reg.register_system::<RegionStopped>();

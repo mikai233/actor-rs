@@ -14,7 +14,7 @@ use actor_core::actor_ref::{ActorRef, TActorRef};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::local_ref::LocalActorRef;
 use actor_core::AsAny;
-use actor_core::message::message_registration::MessageRegistration;
+use actor_core::message::message_registry::MessageRegistry;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::provider::local_actor_ref_provider::LocalActorRefProvider;
 
@@ -35,7 +35,7 @@ pub struct RemoteActorRefProvider {
     pub local: LocalActorRefProvider,
     pub address: Address,
     pub transport: ActorRef,
-    pub registration: Arc<MessageRegistration>,
+    pub registration: Arc<MessageRegistry>,
     pub remote_watcher: ActorRef,
 }
 
@@ -103,7 +103,7 @@ impl RemoteActorRefProvider {
         })
     }
 
-    fn register_system_message(reg: &mut MessageRegistration) {
+    fn register_system_message(reg: &mut MessageRegistry) {
         reg.register_system::<ArteryHeartbeat>();
         reg.register_system::<ArteryHeartbeatRsp>();
         reg.register_system::<Heartbeat>();

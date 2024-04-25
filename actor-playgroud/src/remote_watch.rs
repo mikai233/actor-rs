@@ -20,7 +20,7 @@ use actor_core::config::ConfigBuilder;
 use actor_core::config::core_config::CoreConfig;
 use actor_core::EmptyCodec;
 use actor_core::ext::init_logger_with_filter;
-use actor_core::message::message_registration::MessageRegistration;
+use actor_core::message::message_registry::MessageRegistry;
 use actor_core::message::terminated::Terminated;
 use actor_remote::config::buffer::Buffer;
 use actor_remote::config::RemoteConfig;
@@ -79,7 +79,7 @@ async fn main() -> eyre::Result<()> {
     init_logger_with_filter("debug,actor=debug,actor-core::scheduler=info,h2=info,tower=info,hyper=info");
     let remote_setting = RemoteSetting {
         config: RemoteConfig { transport: Transport::tcp(addr, Buffer::default()) },
-        reg: MessageRegistration::new(),
+        reg: MessageRegistry::new(),
     };
     let setting = ActorSetting::new(
         RemoteActorRefProvider::builder(remote_setting),

@@ -25,16 +25,16 @@ pub struct IDPacket {
 }
 
 #[derive(Clone)]
-pub struct MessageRegistration {
+pub struct MessageRegistry {
     pub next_user: u32,
     pub next_system: u32,
     pub id: HashMap<&'static str, u32>,
     pub decoder: HashMap<u32, Box<dyn MessageDecoder>>,
 }
 
-impl Debug for MessageRegistration {
+impl Debug for MessageRegistry {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        f.debug_struct("MessageRegistration")
+        f.debug_struct("MessageRegistry")
             .field("next_user", &self.next_user)
             .field("next_system", &self.next_system)
             .field("id", &self.id)
@@ -43,7 +43,7 @@ impl Debug for MessageRegistration {
     }
 }
 
-impl MessageRegistration {
+impl MessageRegistry {
     pub fn new() -> Self {
         let mut reg = Self {
             next_user: 500,
@@ -110,8 +110,8 @@ impl MessageRegistration {
     }
 }
 
-impl Default for MessageRegistration {
+impl Default for MessageRegistry {
     fn default() -> Self {
-        MessageRegistration::new()
+        MessageRegistry::new()
     }
 }

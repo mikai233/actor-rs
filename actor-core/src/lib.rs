@@ -17,7 +17,7 @@ use crate::actor_ref::ActorRef;
 use crate::delegate::downcast_box_message;
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::UserDelegate;
-use crate::message::message_registration::MessageRegistration;
+use crate::message::message_registry::MessageRegistry;
 use crate::message::MessageDecoder;
 
 pub(crate) const CORE_CONFIG: &'static str = include_str!("../core.toml");
@@ -67,7 +67,7 @@ pub trait CodecMessage: Any + Send {
 
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized;
 
-    fn encode(self: Box<Self>, reg: &MessageRegistration) -> eyre::Result<Vec<u8>>;
+    fn encode(self: Box<Self>, reg: &MessageRegistry) -> eyre::Result<Vec<u8>>;
 
     fn clone_box(&self) -> eyre::Result<Box<dyn CodecMessage>>;
 
