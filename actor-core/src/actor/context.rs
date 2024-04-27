@@ -238,8 +238,12 @@ impl ActorContext {
     }
 
     pub fn stash<M>(&mut self, message: M) where M: Message {
+        self.stash_dyn(DynMessage::user(message));
+    }
+
+    pub fn stash_dyn(&mut self, message: DynMessage) {
         let sender = self.sender.clone();
-        self.stash.push_back(Envelope::new(DynMessage::user(message), sender));
+        self.stash.push_back(Envelope::new(message, sender));
         if let Some(stash_capacity) = self.stash_capacity {
             if self.stash.len() > stash_capacity {
                 if let Some(oldest) = self.stash.pop_front() {
