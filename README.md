@@ -3,8 +3,7 @@
 本项目的目标是移植一个最小功能的java actor
 框架（[akka](https://doc.akka.io/docs/akka/current/typed/guide/introduction.html)）
 到 rust 这边，大部分逻辑参考 akka 的实现方式，部分地方受限于 不同语言之间的差异以及自己的理解，采用了不同的逻辑实现相同的功能。
-akka 采用的
-是 gossip 协议来保持集群状态的一致性， 这边没有使用 gossip（太复杂了） ，而是采用了 etcd 来作为整个集群的配置中心。
+akka 采用的是 gossip 协议来保持集群状态的一致性， 这边没有使用 gossip ，而是采用了 etcd 来作为整个集群的配置中心，逻辑更简单一些。
 
 # 计划实现的核心功能
 
@@ -12,11 +11,11 @@ akka 采用的
 - [x] router
 - [ ] cluster router
 - [x] remote
-- [ ] cluster
-- [ ] cluster-sharding
+- [x] cluster (unstable)
+- [x] cluster-sharding
 - [x] cluster singleton
 - [ ] distributed pubsub
-- [ ] circuit breaker
+- [x] circuit breaker
 
 # 使用
 
@@ -84,13 +83,14 @@ pub trait Actor: Send + Any {
         Ok(())
     }
 
-    fn supervisor_strategy(&self) -> Box<dyn SupervisorStrategy> {
-        default_strategy()
+    #[allow(unused_variables)]
+    fn on_child_failure(&mut self, context: &mut ActorContext, child: &ActorRef, error: &eyre::Error) -> Directive {
+        Directive::Resume
     }
 
     #[allow(unused_variables)]
-    fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> Option<DynMessage> {
-        Some(message)
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> eyre::Result<Option<DynMessage>> {
+        Ok(Some(message))
     }
 }
 ```
@@ -105,13 +105,17 @@ pub trait CodecMessage: Any + Send {
 
     fn as_any(&self) -> &dyn Any;
 
+    fn into_codec(self: Box<Self>) -> Box<dyn CodecMessage>;
+
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized;
 
-    fn encode(&self, reg: &MessageRegistration) -> Result<Vec<u8>, EncodeError>;
+    fn encode(self: Box<Self>, reg: &MessageRegistry) -> eyre::Result<Vec<u8>>;
 
-    fn dyn_clone(&self) -> Option<DynMessage>;
+    fn clone_box(&self) -> eyre::Result<Box<dyn CodecMessage>>;
 
-    fn is_cloneable(&self) -> bool;
+    fn cloneable(&self) -> bool;
+
+    fn into_dyn(self) -> DynMessage;
 }
 ```
 
@@ -158,7 +162,7 @@ pub trait CodecMessage: Any + Send {
 
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized;
 
-    fn encode(&self, reg: &MessageRegistration) -> Result<Vec<u8>, EncodeError>;
+    fn encode(&self, reg: &MessageRegistry) -> Result<Vec<u8>, EncodeError>;
 
     fn dyn_clone(&self) -> Option<DynMessage>;
 
@@ -167,5 +171,37 @@ pub trait CodecMessage: Any + Send {
 ```
 
 同样的，还有 `SystemCodec` `CSystemCode` `OrphanCodec` 等不同的类型， `system`
-开头的属于actor的系统消息，业务中一般不使用，`orphan`
-开头的属于 `ask` 消息的返回消息（response）需要派生的宏。
+开头的属于actor的系统消息，业务中一般不使用，`orphan` 开头的属于 `ask` 消息的返回消息（response）需要派生的宏。
+
+# Cluster Sharding
+
+此模块是本项目比较核心的一个功能，通过 Cluster Sharding ，可以实现一个大型的集群系统，每个节点上的 actor 都可以通过一个唯一的
+id 来访问，而不需要关心这个 actor 在哪个节点上。并且可以实现动态的扩容与缩容，实现的逻辑也参考 akka 的实现方式。
+
+## 使用
+
+sharding 的例子可以参考[sharding.rs](actor-playgroud/src/sharding.rs)
+
+大致的使用流程为：
+
+1. 构建 `ActorSetting` 时，向 `MessageRegistry` 中注册所有的 cluster sharding 需要的内部消息
+2. 向 `ActorSystem` 中注册 `ClusterSharding` 的拓展模块
+3. 定义消息路由 `MessageExtractor` ，每条消息都会调用 `MessageExtractor` 的 `entity_id` 方法，根据返回的 id
+   来路由消息， `shard_id`
+   用来确定这个Actor属于哪个Shard管理
+4. 通过 `ClusterSharding` 的 `start` 方法启动一个 `ShardRegion` ， `ShardRegion` 是一个特殊的 Actor
+   ，用来管理一组 `Shard` ， `Shard`
+   是一组具有相同 `shard_id` 的 Actor
+
+然后通过向 `ShardRegion` 发送消息， `ShardRegion` 会根据 `MessageExtractor` 的 `entity_id`
+方法来路由消息，如果这个 `entity_id`
+对应的 `Shard` 不存在，那么会创建一个新的 `Shard` ，然后再创建一个新的 Actor 来处理这个消息。
+
+# 更多的例子可以参考[actor-playground](actor-playgroud/src)
+
+## 后续计划
+
+- [ ] 完善测试用例
+- [ ] 完善文档
+- [ ] 清理todo
+- [ ] 优化实现逻辑
