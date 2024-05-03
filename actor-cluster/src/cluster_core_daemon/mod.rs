@@ -166,6 +166,7 @@ impl ClusterCoreDaemon {
     }
 
     async fn try_keep_alive(&mut self, context: &mut ActorContext) {
+        const RETRY: Duration = Duration::from_secs(3);
         match self.member_keep_alive().await {
             Ok(lease_id) => {
                 let member = Member::new(
@@ -175,13 +176,19 @@ impl ClusterCoreDaemon {
                     lease_id,
                 );
                 if let Some(error) = self.update_member_to_etcd(&member).await.err() {
-                    error!("{} update self member error {:?}, retry it", context.myself(), error);
-                    context.myself().cast_ns(MemberKeepAliveFailed(None));
+                    error!("{} update self member error {:?}, retry after {:?}", context.myself(), error, RETRY);
+                    let myself = context.myself().clone();
+                    context.system().scheduler.schedule_once(RETRY, move || {
+                        myself.cast_ns(MemberKeepAliveFailed(None));
+                    });
                 }
             }
             Err(error) => {
-                error!("{} lease error {:?}, retry it", context.myself(), error);
-                context.myself().cast_ns(MemberKeepAliveFailed(None));
+                error!("{} lease error {:?}, retry after {:?}", context.myself(), error, RETRY);
+                let myself = context.myself().clone();
+                context.system().scheduler.schedule_once(RETRY, move || {
+                    myself.cast_ns(MemberKeepAliveFailed(None));
+                });
             }
         }
     }

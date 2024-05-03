@@ -162,4 +162,12 @@ impl ClusterSharding {
     pub(crate) fn proxy_name(type_name: &str) -> String {
         format!("{}_proxy", type_name)
     }
+
+    pub fn shard_region(&self, type_name: &str) -> Option<ActorRef> {
+        self.regions.get(type_name).map(|r| r.clone())
+    }
+
+    pub fn shard_region_proxy(&self, type_name: &str) -> Option<ActorRef> {
+        self.proxies.get(Self::proxy_name(type_name).as_str()).map(|r| r.clone())
+    }
 }
