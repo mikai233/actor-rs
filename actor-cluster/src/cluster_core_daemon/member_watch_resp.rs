@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use async_trait::async_trait;
 use etcd_client::{EventType, WatchResponse};
 use tracing::warn;
@@ -10,9 +12,12 @@ use actor_core::Message;
 
 use crate::cluster_core_daemon::ClusterCoreDaemon;
 use crate::cluster_core_daemon::self_removed::SelfRemoved;
+use crate::cluster_core_daemon::watch_failed::WatchFailed;
 use crate::cluster_event::ClusterEvent;
 use crate::etcd_actor::watch::WatchResp;
 use crate::member::MemberStatus;
+
+const WATCH_RETRY_DELAY: Duration = Duration::from_secs(3);
 
 #[derive(Debug, EmptyCodec)]
 pub(crate) struct MemberWatchResp(pub(crate) WatchResp);
@@ -35,7 +40,10 @@ impl Message for MemberWatchResp {
                         warn!("{} watch members status error {:?}, try rewatch it", context.myself(), error);
                     }
                 }
-                actor.watch_cluster_members();
+                let myself = context.myself().clone();
+                context.system().scheduler.schedule_once(WATCH_RETRY_DELAY, move || {
+                    myself.cast_ns(WatchFailed);
+                });
             }
             WatchResp::Started => {
                 match actor.get_all_members(context).await {
@@ -44,7 +52,10 @@ impl Message for MemberWatchResp {
                     }
                     Err(error) => {
                         warn!("get members form etcd error {:?}", error);
-                        actor.watch_cluster_members();
+                        let myself = context.myself().clone();
+                        context.system().scheduler.schedule_once(WATCH_RETRY_DELAY, move || {
+                            myself.cast_ns(WatchFailed);
+                        });
                     }
                 }
             }

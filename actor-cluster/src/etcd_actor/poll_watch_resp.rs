@@ -6,10 +6,10 @@ use async_trait::async_trait;
 use futures::StreamExt;
 use futures::task::ArcWake;
 
-use actor_core::{DynMessage, Message};
 use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::EmptyCodec;
+use actor_core::Message;
 
 use crate::etcd_actor::EtcdActor;
 use crate::etcd_actor::watch::WatchResp;
@@ -28,26 +28,19 @@ impl Message for PollWatchResp {
             while let Poll::Ready(resp) = watcher.stream.poll_next_unpin(&mut cx) {
                 match resp {
                     None => {
-                        watcher.applicant.tell(
-                            DynMessage::orphan(WatchResp::Failed(None)),
-                            ActorRef::no_sender(),
-                        );
+                        watcher.applicant.cast_orphan_ns(WatchResp::Failed(None));
                         failed.push(*id);
+                        break;
                     }
                     Some(resp) => {
                         match resp {
                             Ok(resp) => {
-                                watcher.applicant.tell(
-                                    DynMessage::orphan(WatchResp::Update(resp)),
-                                    ActorRef::no_sender(),
-                                );
+                                watcher.applicant.cast_orphan_ns(WatchResp::Update(resp));
                             }
                             Err(error) => {
-                                watcher.applicant.tell(
-                                    DynMessage::orphan(WatchResp::Failed(Some(error))),
-                                    ActorRef::no_sender(),
-                                );
+                                watcher.applicant.cast_orphan_ns(WatchResp::Failed(Some(error)));
                                 failed.push(*id);
+                                break;
                             }
                         }
                     }

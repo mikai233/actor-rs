@@ -45,6 +45,7 @@ mod member_keep_alive_failed;
 pub mod self_removed;
 mod self_leaving;
 mod member_watch_resp;
+mod watch_failed;
 
 #[derive(Debug)]
 pub(crate) struct ClusterCoreDaemon {

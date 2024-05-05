@@ -33,7 +33,7 @@ impl Message for SingletonKeepAliveFailed {
             Err(error) => {
                 let myself = context.myself().clone();
                 let name = myself.path().name();
-                let retry = Duration::from_secs(1);
+                let retry = Duration::from_secs(3);
                 warn!("{} keep alive failed {:?}, retry after {:?}", name, error, retry);
                 context.system().scheduler.schedule_once(retry, move || {
                     myself.cast_ns(SingletonKeepAliveFailed(None));

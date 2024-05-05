@@ -34,6 +34,10 @@ mod lock_failed;
 mod lock_success;
 mod singleton_keep_alive_failed;
 
+const SINGLETON_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(3);
+const SINGLETON_LEASE_TTL: i64 = 30;
+
+
 #[derive(Debug, Clone, TypedBuilder)]
 pub struct ClusterSingletonManagerSettings {
     #[builder(default = "singleton".to_string())]
@@ -110,12 +114,12 @@ impl ClusterSingletonManager {
     }
 
     async fn keep_alive(&mut self) -> eyre::Result<i64> {
-        let resp = self.client.lease_grant(30, None).await?;
+        let resp = self.client.lease_grant(SINGLETON_LEASE_TTL, None).await?;
         let lease_id = resp.id();
         let keep_alive = KeepAlive {
             id: lease_id,
             applicant: self.singleton_keep_alive_adapter.clone(),
-            interval: Duration::from_secs(3),
+            interval: SINGLETON_KEEP_ALIVE_INTERVAL,
         };
         self.cluster.etcd_actor().cast_ns(keep_alive);
         Ok(lease_id)

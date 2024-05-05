@@ -30,6 +30,8 @@ use crate::message_extractor::MessageExtractor;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
 use crate::shard_region::ImEntityId;
 
+const ASK_TIMEOUT: Duration = Duration::from_secs(3);
+
 #[derive(Debug, Clone, AsAny)]
 pub struct ClusterSharding {
     inner: Arc<Inner>,
@@ -110,7 +112,7 @@ impl ClusterSharding {
                         allocation_strategy: Box::new(allocation_strategy),
                         handoff_stop_message: handoff_message,
                     };
-                    let started: Started = self.guardian.ask(start, Duration::from_secs(3)).await?;
+                    let started: Started = self.guardian.ask(start, ASK_TIMEOUT).await?;
                     let shard_region = started.shard_region;
                     v.insert(shard_region.clone());
                     Ok(shard_region)
@@ -150,7 +152,7 @@ impl ClusterSharding {
                     settings,
                     message_extractor: Box::new(extractor),
                 };
-                let started: Started = self.guardian.ask(start_msg, Duration::from_secs(3)).await?;
+                let started: Started = self.guardian.ask(start_msg, ASK_TIMEOUT).await?;
                 let shard_region = started.shard_region;
                 self.proxies.insert(proxy_name.into(), shard_region.clone());
                 Ok(shard_region)

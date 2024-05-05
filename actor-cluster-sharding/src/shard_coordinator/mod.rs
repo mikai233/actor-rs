@@ -58,6 +58,10 @@ mod resend_shard_host;
 mod allocate_shard_result;
 pub(crate) mod region_stopped;
 
+const SHARD_COORDINATOR_RETRY_DELAY: Duration = Duration::from_secs(3);
+const SHARD_COORDINATOR_LEASE_TTL: i64 = 30;
+const SHARD_COORDINATOR_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(5);
+
 #[derive(Debug)]
 pub struct ShardCoordinator {
     type_name: ImString,
@@ -132,13 +136,13 @@ impl Actor for ShardCoordinator {
         );
         let mut client = self.cluster.etcd_client();
         let lease_id = loop {
-            match client.lease_grant(30, None).await {
+            match client.lease_grant(SHARD_COORDINATOR_LEASE_TTL, None).await {
                 Ok(resp) => {
                     break resp.id();
                 }
                 Err(error) => {
                     error!("lease error {:?}", error);
-                    tokio::time::sleep(Duration::from_secs(3)).await;
+                    tokio::time::sleep(SHARD_COORDINATOR_RETRY_DELAY).await;
                 }
             }
         };
@@ -147,7 +151,7 @@ impl Actor for ShardCoordinator {
         self.cluster.etcd_actor().cast_ns(KeepAlive {
             id: lease_id,
             applicant: context.myself().clone(),
-            interval: Duration::from_secs(5),
+            interval: SHARD_COORDINATOR_KEEPALIVE_INTERVAL,
         });
         let kvs = loop {
             match client.get(self.persistent_key(), None).await {
@@ -156,7 +160,7 @@ impl Actor for ShardCoordinator {
                 }
                 Err(error) => {
                     error!("ShardCoordinator get state from etcd error {:?}", error);
-                    tokio::time::sleep(Duration::from_secs(3)).await;
+                    tokio::time::sleep(SHARD_COORDINATOR_RETRY_DELAY).await;
                 }
             }
         };

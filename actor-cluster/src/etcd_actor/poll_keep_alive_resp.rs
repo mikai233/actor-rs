@@ -29,6 +29,7 @@ impl Message for PollKeepAliveResp {
                     None => {
                         EtcdActor::keep_alive_failed(*id, &lease.applicant, None);
                         failed.push(*id);
+                        break;
                     }
                     Some(resp) => {
                         if let Some(error) = resp.err() {
