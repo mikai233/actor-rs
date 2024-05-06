@@ -32,6 +32,7 @@ use crate::shard_coordinator::rebalance_worker::shard_region_terminated::ShardRe
 use crate::shard_coordinator::resend_shard_host::ResendShardHost;
 use crate::shard_coordinator::state::{BinState, State};
 use crate::shard_coordinator::state_update::ShardState;
+use crate::shard_coordinator::update_failed::UpdateFailed;
 use crate::shard_region::{ImShardId, ShardId};
 use crate::shard_region::host_shard::HostShard;
 use crate::shard_region::shard_home::ShardHome;
@@ -57,6 +58,7 @@ mod shard_region_proxy_terminated;
 mod resend_shard_host;
 mod allocate_shard_result;
 pub(crate) mod region_stopped;
+mod update_failed;
 
 const SHARD_COORDINATOR_RETRY_DELAY: Duration = Duration::from_secs(3);
 const SHARD_COORDINATOR_LEASE_TTL: i64 = 30;
@@ -176,7 +178,7 @@ impl Actor for ShardCoordinator {
                 }
             })
         }
-        self.update(None).await;
+        self.update(context, None).await;
         //TODO 从etcd获取持久化状态
         self.coordinator_state = CoordinatorState::Active;
         Ok(())
@@ -379,7 +381,7 @@ impl ShardCoordinator {
                     Some(self.ignore_ref.clone()),
                 );
             }
-            self.update_state(ShardState::ShardRegionTerminated { region: region.clone() }).await;
+            self.update_state(context, ShardState::ShardRegionTerminated { region: region.clone() }).await;
             self.graceful_shutdown_in_progress.remove(&region);
             self.region_termination_in_progress.remove(&region);
             self.alive_regions.remove(&region);
@@ -387,21 +389,21 @@ impl ShardCoordinator {
         }
     }
 
-    async fn region_proxy_terminated(&mut self, proxy: ActorRef) {
+    async fn region_proxy_terminated(&mut self, context: &mut ActorContext, proxy: ActorRef) {
         for worker in &self.rebalance_workers {
             worker.cast_ns(ShardRegionTerminated { region: proxy.clone() });
         }
         if self.state.region_proxies.contains(&proxy) {
             debug!("{}: ShardRegion proxy terminated: [{}]", self.type_name, proxy);
-            self.update_state(ShardState::ShardRegionProxyTerminated { region_proxy: proxy }).await;
+            self.update_state(context, ShardState::ShardRegionProxyTerminated { region_proxy: proxy }).await;
         }
     }
 
-    async fn update_state(&mut self, state: ShardState) {
-        self.update(Some(state)).await;
+    async fn update_state(&mut self, context: &mut ActorContext, state: ShardState) {
+        self.update(context, Some(state)).await;
     }
 
-    async fn update(&mut self, state: Option<ShardState>) {
+    async fn update(&mut self, context: &mut ActorContext, state: Option<ShardState>) {
         if let Some(state) = state {
             self.state.updated(state);
         }
@@ -411,21 +413,15 @@ impl ShardCoordinator {
         match bin_state {
             Ok(bytes) => {
                 let mut client = self.cluster.etcd_client();
-                loop {
-                    let put_opts = PutOptions::new().with_lease(self.state_lease_id);
-                    match client.put(self.persistent_key(), bytes.clone(), Some(put_opts)).await {
-                        Ok(_) => {
-                            break;
-                        }
-                        Err(error) => {
-                            error!("put ShardCoordinator state to etcd error {:?}", error);
-                            tokio::time::sleep(Duration::from_secs(3)).await;
-                        }
-                    }
+                let put_opts = PutOptions::new().with_lease(self.state_lease_id);
+                if let Some(error) = client.put(self.persistent_key(), bytes, Some(put_opts)).await.err() {
+                    error!("put ShardCoordinator state to etcd error {:?}", error);
+                    self.timers.start_single_timer(SHARD_COORDINATOR_RETRY_DELAY, UpdateFailed, context.myself().clone());
                 }
             }
             Err(error) => {
                 error!("ShardCoordinator state {} serialize error {:?}", self.state, error);
+                self.timers.start_single_timer(SHARD_COORDINATOR_RETRY_DELAY, UpdateFailed, context.myself().clone());
             }
         }
     }
@@ -451,7 +447,7 @@ impl ShardCoordinator {
             true
         } else if !self.has_all_regions_registered() {
             debug!(
-                "{}: GetShardHome [{}] request from [{}] ignored, becasue not all regions have registered yet.",
+                "{}: GetShardHome [{}] request from [{}] ignored, because not all regions have registered yet.",
                 self.type_name,
                 shard,
                 sender,
@@ -534,7 +530,7 @@ impl ShardCoordinator {
                     if self.state.regions.contains_key(&region) &&
                         !self.graceful_shutdown_in_progress.contains(&region) &&
                         !self.region_termination_in_progress.contains(&region) {
-                        self.update_state(ShardState::ShardHomeAllocated { shard: shard.clone(), region: region.clone() }).await;
+                        self.update_state(context, ShardState::ShardHomeAllocated { shard: shard.clone(), region: region.clone() }).await;
                         debug!("{}: Shard [{}] allocated at [{}]", self.type_name, shard, region);
                         self.send_host_shard_msg(context, shard.clone(), region.clone());
                         get_shard_home_sender.cast_ns(ShardHome { shard: shard.into(), shard_region: region });

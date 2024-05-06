@@ -34,7 +34,7 @@ impl Message for RegisterProxy {
             if actor.state.region_proxies.contains(&proxy) {
                 proxy.cast_ns(RegisterAck { coordinator: context.myself().clone() });
             } else {
-                actor.update_state(ShardState::ShardRegionProxyRegistered { region_proxy: proxy.clone() }).await;
+                actor.update_state(context, ShardState::ShardRegionProxyRegistered { region_proxy: proxy.clone() }).await;
                 context.watch(proxy.clone(), ShardRegionProxyTerminated::new)?;
                 proxy.cast_ns(RegisterAck { coordinator: context.myself().clone() });
             }

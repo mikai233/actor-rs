@@ -37,7 +37,7 @@ impl Message for RebalanceDone {
                 }
             }
             if actor.state.shards.contains_key(self.shard.as_str()) {
-                actor.update_state(ShardState::ShardHomeDeallocated { shard: self.shard.clone() }).await;
+                actor.update_state(context, ShardState::ShardHomeDeallocated { shard: self.shard.clone() }).await;
                 debug!("{}: Shard [{}] deallocated after", actor.type_name, self.shard);
                 actor.clear_rebalance_in_progress(context, self.shard.clone().into());
                 context.myself().cast(

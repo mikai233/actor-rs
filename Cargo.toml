@@ -45,4 +45,4 @@ rustls = { version = "0.21", default-features = false }
 config = "0.14"
 
 [profile.release]
-debug = true
+debug = "line-tables-only"
