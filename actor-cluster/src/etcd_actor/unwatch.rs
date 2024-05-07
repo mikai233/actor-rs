@@ -38,7 +38,7 @@ impl Message for Unwatch {
                 });
             }
             Some(mut watcher) => {
-                context.spawn_fut(async move {
+                context.spawn_fut(format!("unwatch-{}", self.id), async move {
                     match watcher.watcher.cancel().await {
                         Ok(_) => {
                             self.applicant.foreach(|applicant| {
@@ -57,7 +57,7 @@ impl Message for Unwatch {
                             });
                         }
                     }
-                });
+                })?;
             }
         }
         Ok(())

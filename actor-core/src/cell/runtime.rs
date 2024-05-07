@@ -5,7 +5,7 @@ use std::panic::AssertUnwindSafe;
 use eyre::{anyhow, Error};
 use futures::FutureExt;
 use tokio::task::yield_now;
-use tracing::error;
+use tracing::{debug, error};
 
 use crate::{Actor, Message};
 use crate::actor::context::{ActorContext, Context};
@@ -46,7 +46,6 @@ impl<A> ActorRuntime<A> where A: Actor {
                     if matches!(context.state, ActorState::CanTerminate) {
                         break;
                     }
-                    context.remove_finished_tasks();
                 }
                 Some(message) = mailbox.message.recv(), if matches!(context.state, ActorState::Started) => {
                     match AssertUnwindSafe(Self::handle_message(&mut context, &mut actor, message)).catch_unwind().await {
@@ -62,7 +61,6 @@ impl<A> ActorRuntime<A> where A: Actor {
                     throughput += 1;
                     if throughput >= mailbox.throughput {
                         throughput = 0;
-                        context.remove_finished_tasks();
                         yield_now().await;
                     }
                 }
@@ -76,8 +74,9 @@ impl<A> ActorRuntime<A> where A: Actor {
         }
         mailbox.close();
         context.state = ActorState::Terminated;
-        for task in context.fut_handle {
-            task.abort();
+        for (name, handle) in context.abort_handles {
+            handle.abort();
+            debug!("{} abort task: {}", type_name::<A>(), name);
         }
     }
 

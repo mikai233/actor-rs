@@ -65,7 +65,7 @@ async fn main() -> eyre::Result<()> {
             HandoffPlayer,
         ).await?;
         let players = players.clone();
-        system.handle().spawn(async move {
+        tokio::spawn(async move {
             let mut index = 0;
             for player_id in &players {
                 player_shard_region.cast_ns(ShardEnvelope::new(player_id.to_string(), Init));

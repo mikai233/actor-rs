@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use futures::task::ArcWake;
 use tokio_util::time::delay_queue::Key;
 use tokio_util::time::DelayQueue;
-use tracing::{debug, error, trace, };
+use tracing::{debug, error, trace};
 
 use actor_derive::EmptyCodec;
 
@@ -134,7 +134,7 @@ enum Schedule {
         index: u64,
         initial_delay: Option<Duration>,
         interval: Duration,
-        block: Arc<Box<dyn Fn() + Send + Sync + 'static>>,
+        block: Box<dyn Fn() + Send + Sync + 'static>,
     },
 }
 
@@ -324,11 +324,10 @@ impl Message for PollExpired {
                 }
                 Schedule::OnceWith { index, block, .. } => {
                     indexes.remove(&index);
-                    context.spawn_fut(async move { block() });
+                    block();
                 }
                 Schedule::FixedDelayWith { index, interval, block, .. } => {
-                    let block_clone = block.clone();
-                    context.spawn_fut(async move { block_clone() });
+                    block();
                     let next_delay = interval;
                     let reschedule = Schedule::FixedDelayWith {
                         index,
@@ -472,7 +471,7 @@ impl Timers {
             index,
             initial_delay,
             interval,
-            block: Arc::new(Box::new(block)),
+            block: Box::new(block),
         };
         self.scheduler_actor.cast_ns(fixed_delay_with);
         ScheduleKey::new::<F>(index, self.scheduler_actor.clone())

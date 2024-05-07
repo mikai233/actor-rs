@@ -18,6 +18,7 @@ pub mod message_registry;
 pub mod stop_child;
 pub mod message_buffer;
 pub mod address_terminated;
+pub(crate) mod task_finish;
 
 pub trait MessageDecoder: Send + Sync + DynClone + 'static {
     fn decode(&self, bytes: &[u8], reg: &MessageRegistry) -> eyre::Result<DynMessage>;

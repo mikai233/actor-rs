@@ -15,7 +15,6 @@ use futures::FutureExt;
 use parking_lot::Mutex;
 use pin_project::pin_project;
 use rand::random;
-use tokio::runtime::Handle;
 use tokio::sync::mpsc::{channel, Sender};
 
 use crate::actor::address::Address;
@@ -35,7 +34,6 @@ use crate::config::actor_setting::ActorSetting;
 use crate::config::core_config::CoreConfig;
 use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::event::event_stream::EventStream;
-use crate::ext::maybe_ref::MaybeRef;
 use crate::ext::option_ext::OptionExt;
 use crate::message::stop_child::StopChild;
 use crate::provider::ActorRefProvider;
@@ -52,7 +50,6 @@ pub struct Inner {
     pub uid: i64,
     pub start_time: u128,
     provider: ArcSwap<ActorRefProvider>,
-    handle: Option<Handle>,
     pub scheduler: SchedulerSender,
     pub event_stream: EventStream,
     pub extension: SystemExtension,
@@ -72,23 +69,14 @@ impl Deref for ActorSystem {
 
 impl ActorSystem {
     pub fn new(name: impl Into<String>, setting: ActorSetting) -> eyre::Result<ActorSystemRunner> {
-        let ActorSetting { provider, config: core_config, handle } = setting;
-        let scheduler = match &handle {
-            None => {
-                scheduler()
-            }
-            Some(handle) => {
-                let _guard = handle.enter();
-                scheduler()
-            }
-        };
+        let ActorSetting { provider, config: core_config } = setting;
+        let scheduler = scheduler();
         let (signal_tx, mut signal_rx) = channel(1);
         let inner = Inner {
             name: name.into(),
             uid: random(),
             start_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
             provider: ArcSwap::new(Arc::new(EmptyActorRefProvider.into())),
-            handle,
             scheduler,
             event_stream: EventStream::default(),
             extension: SystemExtension::default(),
@@ -158,17 +146,6 @@ impl ActorSystem {
 
     pub fn system_guardian(&self) -> LocalActorRef {
         self.provider().system_guardian().clone()
-    }
-
-    pub fn handle(&self) -> MaybeRef<Handle> {
-        match &self.handle {
-            None => {
-                MaybeRef::Own(Handle::current())
-            }
-            Some(handle) => {
-                MaybeRef::Ref(handle)
-            }
-        }
     }
 
     pub fn spawn_system(&self, props: Props, name: Option<String>) -> eyre::Result<ActorRef> {

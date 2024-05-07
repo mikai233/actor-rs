@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use eyre::Context as _;
 use tracing::debug;
 
-use actor_core::Actor;
+use actor_core::{Actor, DynMessage};
 use actor_core::actor::address::Address;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
@@ -71,6 +71,7 @@ impl Actor for RemoteWatcher {
         self.failure_detector_reaper_task = Some(failure_detector_reaper_task);
         Ok(())
     }
+
 
     async fn stopped(&mut self, _context: &mut ActorContext) -> eyre::Result<()> {
         if let Some(task) = self.heartbeat_task.take() {

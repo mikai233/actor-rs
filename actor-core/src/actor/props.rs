@@ -3,7 +3,6 @@ use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use eyre::anyhow;
-use tokio::runtime::Handle;
 use tokio::sync::mpsc::channel;
 
 use crate::Actor;
@@ -14,12 +13,11 @@ use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
 
-type ActorSpawner = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem, Option<Handle>) -> eyre::Result<()> + Send>;
+type ActorSpawner = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem) -> eyre::Result<()> + Send>;
 
 pub struct Props {
     pub(crate) actor_name: &'static str,
     pub(crate) spawner: ActorSpawner,
-    pub(crate) handle: Option<Handle>,
     pub(crate) mailbox: Option<String>,
 }
 
@@ -27,7 +25,6 @@ impl Debug for Props {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("Props")
             .field("actor_name", &self.actor_name)
-            .field("handle", &self.handle)
             .field("mailbox", &self.mailbox)
             .finish_non_exhaustive()
     }
@@ -38,19 +35,16 @@ impl Props {
         where
             F: FnOnce() -> eyre::Result<A> + Send + 'static,
             A: Actor {
-        let actor_name = type_name::<A>();
-        let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem, handle: Option<Handle>| {
-            let context = ActorContext::new(myself, system, handle.clone());
-            let handle = handle.unwrap_or(context.system.handle().clone());
+        let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
+            let context = ActorContext::new(myself, system);
             let actor = func()?;
             let runtime = ActorRuntime { actor, context, mailbox };
-            handle.spawn(runtime.run());
+            Self::run_actor(runtime)?;
             Ok::<_, eyre::Error>(())
         };
         Self {
-            actor_name,
+            actor_name: type_name::<A>(),
             spawner: Box::new(spawner),
-            handle: None,
             mailbox: None,
         }
     }
@@ -60,18 +54,16 @@ impl Props {
             F: FnOnce(&mut ActorContext) -> eyre::Result<A> + Send + 'static,
             A: Actor {
         let actor_name = type_name::<A>();
-        let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem, handle: Option<Handle>| {
-            let mut context = ActorContext::new(myself, system, handle.clone());
-            let handle = handle.unwrap_or(context.system.handle().clone());
+        let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
+            let mut context = ActorContext::new(myself, system);
             let actor = func(&mut context)?;
             let runtime = ActorRuntime { actor, context, mailbox };
-            handle.spawn(runtime.run());
+            Self::run_actor(runtime)?;
             Ok::<_, eyre::Error>(())
         };
         Self {
             actor_name,
             spawner: Box::new(spawner),
-            handle: None,
             mailbox: None,
         }
     }
@@ -101,7 +93,21 @@ impl Props {
     }
 
     pub(crate) fn spawn(self, myself: ActorRef, mailbox: Mailbox, system: WeakActorSystem) -> eyre::Result<()> {
-        (self.spawner)(myself, mailbox, system.upgrade()?, self.handle)
+        (self.spawner)(myself, mailbox, system.upgrade()?)
+    }
+
+    #[cfg(feature = "tokio-tracing")]
+    pub(crate) fn run_actor<A>(rt: ActorRuntime<A>) -> eyre::Result<()> where A: Actor {
+        tokio::task::Builder::new()
+            .name(type_name::<A>())
+            .spawn(rt.run())?;
+        Ok(())
+    }
+
+    #[cfg(not(feature = "tokio-tracing"))]
+    pub(crate) fn run_actor<A>(rt: ActorRuntime<A>) -> eyre::Result<()> where A: Actor {
+        tokio::spawn(rt.run());
+        Ok(())
     }
 }
 
@@ -113,24 +119,22 @@ pub struct ActorDeferredSpawn {
     pub actor_ref: ActorRef,
     pub mailbox: Mailbox,
     pub spawner: ActorSpawner,
-    pub handle: Option<Handle>,
 }
 
 impl ActorDeferredSpawn {
-    pub fn new(actor_ref: ActorRef, mailbox: Mailbox, spawner: ActorSpawner, handle: Option<Handle>) -> Self {
+    pub fn new(actor_ref: ActorRef, mailbox: Mailbox, spawner: ActorSpawner) -> Self {
         Self {
             actor_ref,
             mailbox,
             spawner,
-            handle,
         }
     }
 }
 
 impl DeferredSpawn for ActorDeferredSpawn {
     fn spawn(self: Box<Self>, system: ActorSystem) -> eyre::Result<()> {
-        let Self { actor_ref, mailbox, spawner, handle } = *self;
-        spawner(actor_ref, mailbox, system, handle)
+        let Self { actor_ref, mailbox, spawner } = *self;
+        spawner(actor_ref, mailbox, system)
     }
 }
 
@@ -139,7 +143,6 @@ impl Debug for ActorDeferredSpawn {
         f.debug_struct("ActorDeferredSpawn")
             .field("actor_ref", &self.actor_ref)
             .field("mailbox", &self.mailbox)
-            .field("handle", &self.handle)
             .finish_non_exhaustive()
     }
 }

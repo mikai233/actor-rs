@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use eyre::anyhow;
-use tokio::task::AbortHandle;
+use tokio::task::{AbortHandle, JoinHandle};
 use tracing::trace;
 use typed_builder::TypedBuilder;
 
@@ -65,7 +65,7 @@ pub struct ClusterSingletonManager {
     client: EtcdClient,
     lease_id: i64,
     lock_key: Option<Vec<u8>>,
-    lock_handle: Option<AbortHandle>,
+    lock_handle: Option<JoinHandle<()>>,
     singleton: Option<ActorRef>,
     singleton_shutdown_notifier: Option<tokio::sync::oneshot::Sender<()>>,
     singleton_keep_alive_adapter: ActorRef,
@@ -132,14 +132,14 @@ impl ClusterSingletonManager {
         Ok(())
     }
 
-    fn lock(&mut self, context: &mut ActorContext) {
+    fn lock(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         if let Some(role) = &self.settings.role {
             let self_member = self.cluster.self_member();
             if !self_member.has_role(role) {
                 let addr = &self_member.addr;
                 let name = context.myself().path().name();
                 trace!("{} do not has role {}, no need to start singleton {}", addr, role, name);
-                return;
+                return Ok(());
             }
         }
         let myself = context.myself().clone();
@@ -148,7 +148,7 @@ impl ClusterSingletonManager {
         let lock_path = singleton_path(system_name, singleton_name);
         let lock_options = LockOptions::new().with_lease(self.lease_id);
         let mut client = self.client.clone();
-        let handle = context.spawn_fut(async move {
+        let handle = context.spawn_fut(format!("lock-{}", lock_path), async move {
             match client.lock(lock_path.clone(), Some(lock_options)).await {
                 Ok(resp) => {
                     myself.cast_ns(LockSuccess(resp.key().to_vec()));
@@ -161,8 +161,9 @@ impl ClusterSingletonManager {
                     myself.cast_ns(lock_failed);
                 }
             }
-        });
+        })?;
         self.lock_handle = Some(handle);
+        Ok(())
     }
 
     pub fn props(props: PropsBuilder<()>, termination_message: DynMessage, settings: ClusterSingletonManagerSettings) -> eyre::Result<Props> {
@@ -185,7 +186,7 @@ impl Actor for ClusterSingletonManager {
     async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
         let lease_id = self.keep_alive().await?;
         self.lease_id = lease_id;
-        self.lock(context);
+        self.lock(context)?;
         Ok(())
     }
 

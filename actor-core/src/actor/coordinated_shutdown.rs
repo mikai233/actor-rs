@@ -199,7 +199,7 @@ impl CoordinatedShutdown {
                 for (phase, timeout, tasks) in run_tasks {
                     let mut task_futures = vec![];
                     for task in tasks {
-                        let fut = system.handle().spawn(async move {
+                        let fut = tokio::spawn(async move {
                             let TaskRun { name, phase, task } = task;
                             debug!("execute task [{}] at phase [{}]", name, phase);
                             task.await;
@@ -233,9 +233,8 @@ impl CoordinatedShutdown {
     }
 
     fn init_ctrl_c_signal(&self) -> eyre::Result<()> {
-        let system = self.system.upgrade()?;
         let coordinated = self.clone();
-        system.handle().spawn(async move {
+        tokio::spawn(async move {
             if let Some(error) = tokio::signal::ctrl_c().await.err() {
                 error!("ctrl c signal error {}", error);
             }

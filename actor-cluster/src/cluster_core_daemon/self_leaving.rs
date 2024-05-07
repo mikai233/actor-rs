@@ -26,7 +26,7 @@ impl Message for SelfLeaving {
                 info!("Exiting, starting coordinated shutdown");
             }
             let _ = actor.self_exiting.send(()).await;
-            context.system().handle().spawn(async move {
+            tokio::spawn(async move {
                 coord_shutdown.run(ClusterLeavingReason).await;
             });
         }

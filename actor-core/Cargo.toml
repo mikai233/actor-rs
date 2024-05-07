@@ -36,3 +36,4 @@ ctor = { workspace = true }
 
 [features]
 derive = []
+tokio-tracing = ["tokio/tracing"]

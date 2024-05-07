@@ -242,7 +242,6 @@ impl LocalActorRef {
             child_ref.clone(),
             mailbox,
             props.spawner,
-            props.handle,
         );
         Ok((child_ref, deferred_spawn))
     }

@@ -25,7 +25,7 @@ impl Message for Watch {
         debug!("{} request watch key {}", self.applicant, self.key);
         let mut client = actor.client.clone();
         let myself = context.myself().clone();
-        context.spawn_fut(async move {
+        context.spawn_fut(format!("watch-{}", self.key), async move {
             match client.watch(self.key, self.options).await {
                 Ok((watcher, stream)) => {
                     self.applicant.tell(DynMessage::orphan(WatchResp::Started), ActorRef::no_sender());
@@ -43,7 +43,7 @@ impl Message for Watch {
                     );
                 }
             }
-        });
+        })?;
         Ok(())
     }
 }

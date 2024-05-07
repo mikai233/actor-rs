@@ -28,7 +28,7 @@ impl Message for SingletonKeepAliveFailed {
                     handle.abort();
                 }
                 //TODO stop singleton
-                actor.lock(context);
+                actor.lock(context)?;
             }
             Err(error) => {
                 let myself = context.myself().clone();

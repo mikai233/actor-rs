@@ -21,7 +21,7 @@ impl Message for LockFailed {
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
         let Self { path, error } = *self;
         error!("lock singleton {} failed {:?}, retry it", path, error);
-        actor.lock(context);
+        actor.lock(context)?;
         Ok(())
     }
 }

@@ -6,10 +6,9 @@ use std::ops::Not;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use ahash::HashSet;
+use ahash::{HashMap, HashSet};
 use arc_swap::Guard;
-use eyre::anyhow;
-use tokio::runtime::Handle;
+use eyre::eyre;
 use tokio::task::{AbortHandle, JoinHandle};
 use tracing::{debug, error, warn};
 
@@ -32,6 +31,7 @@ use crate::ext::random_name;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::execute::Execute;
 use crate::message::failed::Failed;
+use crate::message::task_finish::TaskFinish;
 use crate::message::terminate::Terminate;
 use crate::message::terminated::Terminated;
 use crate::message::unwatch::Unwatch;
@@ -78,11 +78,11 @@ pub struct ActorContext {
     pub(crate) myself: ActorRef,
     pub(crate) sender: Option<ActorRef>,
     pub(crate) stash: VecDeque<Envelope>,
-    pub(crate) fut_handle: Vec<JoinHandle<()>>,
+    pub(crate) task_id: usize,
+    pub(crate) abort_handles: HashMap<String, AbortHandle>,
     pub(crate) system: ActorSystem,
     pub(crate) watching: Watching,
     pub(crate) watched_by: HashSet<ActorRef>,
-    pub(crate) handle: Option<Handle>,
     pub(crate) stash_capacity: Option<usize>,
 }
 
@@ -109,7 +109,7 @@ impl ActorRefFactory for ActorContext {
 
     fn spawn(&self, props: Props, name: impl Into<String>) -> eyre::Result<ActorRef> {
         if !matches!(self.state, ActorState::Init | ActorState::Started) {
-            return Err(anyhow!(
+            return Err(eyre!(
                 "cannot spawn child actor while parent actor {} is terminating",
                 self.myself
             ));
@@ -119,7 +119,7 @@ impl ActorRefFactory for ActorContext {
 
     fn spawn_anonymous(&self, props: Props) -> eyre::Result<ActorRef> {
         if !matches!(self.state, ActorState::Init | ActorState::Started) {
-            return Err(anyhow!(
+            return Err(eyre!(
                 "cannot spawn child actor while parent actor {} is terminating",
                 self.myself
             ));
@@ -172,11 +172,11 @@ impl Context for ActorContext {
                     });
                 }
                 Some(_) => {
-                    return Err(anyhow!("duplicate watch {}, you should unwatch it first.", watchee));
+                    return Err(eyre!("duplicate watch {}, you should unwatch it first.", watchee));
                 }
             }
         } else {
-            return Err(anyhow!("cannot watch self"));
+            return Err(eyre!("cannot watch self"));
         }
         Ok(())
     }
@@ -220,7 +220,7 @@ impl Context for ActorContext {
 }
 
 impl ActorContext {
-    pub(crate) fn new(myself: ActorRef, system: ActorSystem, handle: Option<Handle>) -> Self {
+    pub(crate) fn new(myself: ActorRef, system: ActorSystem) -> Self {
         static ID: AtomicUsize = AtomicUsize::new(0);
         Self {
             id: ID.fetch_add(1, Ordering::Relaxed),
@@ -228,11 +228,11 @@ impl ActorContext {
             myself,
             sender: None,
             stash: Default::default(),
-            fut_handle: vec![],
+            task_id: 1,
+            abort_handles: Default::default(),
             system,
             watching: Default::default(),
             watched_by: Default::default(),
-            handle,
             stash_capacity: None,
         }
     }
@@ -366,27 +366,56 @@ impl ActorContext {
         });
     }
 
-    pub fn spawn_fut<F>(&mut self, future: F) -> AbortHandle
+    pub fn spawn_fut<F>(&mut self, name: impl Into<String>, future: F) -> eyre::Result<JoinHandle<F::Output>>
         where
-            F: Future<Output=()> + Send + 'static,
+            F: Future + Send + 'static,
+            F::Output: Send + 'static,
     {
-        let handle = match &self.handle {
-            None => {
-                self.system.handle().spawn(future)
-            }
-            Some(handle) => {
-                handle.spawn(future)
-            }
-        };
-        let abort_handle = handle.abort_handle();
-        self.fut_handle.push(handle);
-        abort_handle
+        self.spawn_inner(name.into(), future)
     }
 
-    pub(crate) fn remove_finished_tasks(&mut self) {
-        if !self.fut_handle.is_empty() {
-            self.fut_handle.retain(|t| !t.is_finished());
+
+    #[cfg(feature = "tokio-tracing")]
+    pub(crate) fn spawn_inner<F>(&mut self, name: String, future: F) -> eyre::Result<JoinHandle<F::Output>>
+        where
+            F: Future + Send + 'static,
+            F::Output: Send + 'static,
+    {
+        let name = format!("{}-{}", name, self.task_id);
+        self.task_id = self.task_id.wrapping_add(1);
+        let myself = self.myself.clone();
+        let task_name = name.clone();
+        let handle = tokio::task::Builder::new()
+            .name(&name)
+            .spawn(async move {
+                let output = future.await;
+                myself.cast_system(TaskFinish { name: task_name }, ActorRef::no_sender());
+                output
+            })?;
+        let abort_handle = handle.abort_handle();
+        self.abort_handles.insert(name, abort_handle);
+        Ok(handle)
+    }
+
+    #[cfg(not(feature = "tokio-tracing"))]
+    pub(crate) fn spawn_inner<F>(&mut self, name: String, future: F) -> eyre::Result<JoinHandle<F::Output>>
+        where
+            F: Future + Send + 'static,
+            F::Output: Send + 'static,
+    {
+        if self.abort_handles.contains_key(&name) {
+            return Err(eyre!("duplicate task name {}", name));
         }
+        let myself = self.myself.clone();
+        let task_name = name.clone();
+        let handle = tokio::spawn(async move {
+            let output = future.await;
+            myself.cast_system(TaskFinish { name: task_name }, ActorRef::no_sender());
+            output
+        });
+        let abort_handle = handle.abort_handle();
+        self.abort_handles.insert(name, abort_handle);
+        Ok(handle)
     }
 
     pub(crate) fn add_function_ref<F>(&self, func: F, name: Option<String>) -> FunctionRef

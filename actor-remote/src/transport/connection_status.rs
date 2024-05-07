@@ -1,4 +1,4 @@
-use tokio::task::AbortHandle;
+use tokio::task::JoinHandle;
 
 use crate::transport::connection::ConnectionTx;
 
@@ -6,6 +6,6 @@ use crate::transport::connection::ConnectionTx;
 pub(super) enum ConnectionStatus {
     NotConnected,
     PrepareForConnect,
-    Connecting(AbortHandle),
+    Connecting(JoinHandle<()>),
     Connected(ConnectionTx),
 }

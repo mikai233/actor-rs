@@ -48,6 +48,7 @@ mod inbound_message;
 mod transport_buffer_envelop;
 mod disconnected;
 mod connect_quic;
+mod connect_tcp_failed;
 
 pub const ACTOR_REF_CACHE: usize = 10000;
 
@@ -167,10 +168,10 @@ impl TransportActor {
         }
     }
 
-    fn spawn_tcp_listener(context: &mut ActorContext, addr: SocketAddr) {
+    fn spawn_tcp_listener(context: &mut ActorContext, addr: SocketAddr) -> eyre::Result<()> {
         let myself = context.myself().clone();
         let system = context.system().clone();
-        context.spawn_fut(async move {
+        context.spawn_fut(format!("tcp_listener_{}", addr), async move {
             info!("start bind tcp addr {}", addr);
             match TcpListener::bind(addr).await {
                 Ok(tcp_listener) => {
@@ -181,7 +182,7 @@ impl TransportActor {
                                 let connection_fut = async move {
                                     TransportActor::accept_inbound_connection(stream, peer_addr, actor).await;
                                 };
-                                myself.cast_ns(SpawnInbound { fut: Box::pin(connection_fut) });
+                                myself.cast_ns(SpawnInbound { peer_addr, fut: Box::pin(connection_fut) });
                             }
                             Err(error) => {
                                 warn!("{} accept connection error {:?}", addr, error);
@@ -191,10 +192,11 @@ impl TransportActor {
                 }
                 Err(error) => {
                     let fut = system.run_coordinated_shutdown(ActorSystemStartFailedReason(eyre::Error::from(error)));
-                    system.handle().spawn(fut);
+                    tokio::spawn(fut);
                 }
             }
-        });
+        })?;
+        Ok(())
     }
 
 
@@ -208,7 +210,7 @@ impl TransportActor {
         let (server_config, _) = config.as_result()?;
         let endpoint = Endpoint::server(server_config.clone(), addr)?;
         info!("start bind quic addr {}", addr);
-        context.spawn_fut(async move {
+        context.spawn_fut(format!("quic_listener_{}", addr), async move {
             while let Some(conn) = endpoint.accept().await {
                 match conn.await {
                     Ok(connection) => {
@@ -219,7 +221,7 @@ impl TransportActor {
                                 let connection_fut = async move {
                                     TransportActor::accept_inbound_connection(stream, peer_addr, actor).await;
                                 };
-                                myself.cast_ns(SpawnInbound { fut: Box::pin(connection_fut) });
+                                myself.cast_ns(SpawnInbound { peer_addr, fut: Box::pin(connection_fut) });
                             }
                             Err(error) => {
                                 warn!("{} accept connection error {:?}", addr, error);
@@ -231,7 +233,7 @@ impl TransportActor {
                     }
                 }
             }
-        });
+        })?;
         Ok(())
     }
 
@@ -243,6 +245,19 @@ impl TransportActor {
 
         let client_config = ClientConfig::with_root_certificates(certs);
         Ok(client_config)
+    }
+
+    fn is_connecting_or_connected(&self, addr: &SocketAddr) -> bool {
+        if let Some(status) = self.connections.get(&addr) {
+            match status {
+                ConnectionStatus::Connecting(_) |
+                ConnectionStatus::Connected(_) => {
+                    return true;
+                }
+                _ => {}
+            }
+        }
+        return false;
     }
 }
 
@@ -285,10 +300,10 @@ mod test {
         async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
             let myself = context.myself().clone();
             let sender = context.sender().unwrap().clone();
-            context.spawn_fut(async move {
+            context.spawn_fut("pong", async move {
                 sender.cast(Pong, Some(myself));
                 tokio::time::sleep(Duration::from_secs(1)).await;
-            });
+            })?;
             Ok(())
         }
     }

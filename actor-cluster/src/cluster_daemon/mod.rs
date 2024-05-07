@@ -64,9 +64,7 @@ impl Actor for ClusterDaemon {
             let coord_shutdown = CoordinatedShutdown::get(&system);
             coord_shutdown.run(ClusterDowningReason)
         };
-        system.handle().spawn(async move {
-            fut.await;
-        });
+        tokio::spawn(fut);
         Ok(())
     }
 }

@@ -63,7 +63,6 @@ impl LocalActorRefProvider {
                     root_guardian.clone().into(),
                     mailbox,
                     root_props.spawner,
-                    root_props.handle,
                 ),
             ),
         );
