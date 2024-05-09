@@ -205,3 +205,9 @@ sharding 的例子可以参考[sharding.rs](actor-playgroud/src/sharding.rs)
 - [ ] 完善文档
 - [ ] 清理todo
 - [ ] 优化实现逻辑
+
+## 鸣谢
+
+特别感谢 [JetBrains](https://www.jetbrains.com/?from=actor-rs) 为开源项目提供免费的 IDE 授权
+
+![JetBrains logo](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.png)
