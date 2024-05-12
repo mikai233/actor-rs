@@ -403,9 +403,8 @@ impl ActorContext {
             F: Future + Send + 'static,
             F::Output: Send + 'static,
     {
-        if self.abort_handles.contains_key(&name) {
-            return Err(eyre!("duplicate task name {}", name));
-        }
+        let name = format!("{}-{}", name, self.task_id);
+        self.task_id = self.task_id.wrapping_add(1);
         let myself = self.myself.clone();
         let task_name = name.clone();
         let handle = tokio::spawn(async move {
