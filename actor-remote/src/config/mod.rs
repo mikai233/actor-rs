@@ -32,11 +32,11 @@ pub struct RemoteConfigBuilder {
 impl ConfigBuilder for RemoteConfigBuilder {
     type C = RemoteConfig;
 
-    fn add_source<T>(self, source: T) -> eyre::Result<Self> where T: Source + Send + Sync + 'static {
+    fn add_source<T>(self, source: T) -> anyhow::Result<Self> where T: Source + Send + Sync + 'static {
         Ok(Self { builder: self.builder.add_source(source) })
     }
 
-    fn build(self) -> eyre::Result<Self::C> {
+    fn build(self) -> anyhow::Result<Self::C> {
         let builder = self.builder.add_source(File::from_str(REMOTE_CONFIG, FileFormat::Toml));
         let remote_config = builder.build()?.try_deserialize::<Self::C>()?;
         Ok(remote_config)

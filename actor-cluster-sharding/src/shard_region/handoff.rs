@@ -1,6 +1,6 @@
+use anyhow::Context as _;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
-use eyre::Context as _;
 use tracing::{debug, warn};
 
 use actor_core::{CodecMessage, Message};
@@ -22,7 +22,7 @@ pub(crate) struct Handoff {
 impl Message for Handoff {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let type_name = &actor.type_name;
         let shard_id = self.shard.into();
         debug!("{type_name}: Handoff shard [{shard_id}]");

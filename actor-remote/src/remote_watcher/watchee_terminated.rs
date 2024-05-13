@@ -23,7 +23,7 @@ impl WatcheeTerminated {
 impl Message for WatcheeTerminated {
     type A = RemoteWatcher;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Terminated { actor: watchee, existence_confirmed, address_terminated } = self.0;
         debug!("Watchee terminated: [{}]", watchee.path());
         // When watchee is stopped it sends DeathWatchNotification to this RemoteWatcher,

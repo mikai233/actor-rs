@@ -1,4 +1,4 @@
-use eyre::Error;
+use anyhow::Error;
 use async_trait::async_trait;
 
 use crate::{Actor, DynMessage};
@@ -42,7 +42,7 @@ impl RouterActor {
 
 #[async_trait]
 impl Actor for RouterActor {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         match &self.router_config {
             RouterConfig::PoolRouterConfig(pool) => {
                 let n = pool.nr_of_instances(context.system());
@@ -73,11 +73,11 @@ impl Router for RouterActor {
 
 #[async_trait]
 impl Actor for Box<dyn Router> {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         (&mut **self).started(context).await
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         (&mut **self).stopped(context).await
     }
 
@@ -85,7 +85,7 @@ impl Actor for Box<dyn Router> {
         (&mut **self).on_child_failure(context, child, error)
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> eyre::Result<Option<DynMessage>> {
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<Option<DynMessage>> {
         (&mut **self).on_recv(context, message).await
     }
 }

@@ -29,7 +29,7 @@ pub mod greet;
 pub mod singleton_actor;
 pub mod stop_singleton;
 
-pub fn build_cluster_setting(addr: SocketAddrV4, client: impl Into<EtcdClient>) -> eyre::Result<ActorSetting> {
+pub fn build_cluster_setting(addr: SocketAddrV4, client: impl Into<EtcdClient>) -> anyhow::Result<ActorSetting> {
     let client = client.into();
     let config = ClusterConfig {
         remote: RemoteConfig { transport: Transport::tcp(addr, Buffer::default()) },
@@ -44,7 +44,7 @@ pub fn build_cluster_setting(addr: SocketAddrV4, client: impl Into<EtcdClient>) 
     ActorSetting::new_with_default_config(ClusterActorRefProvider::builder(cluster_setting))
 }
 
-pub fn actor_sharding_setting(addr: SocketAddrV4, client: impl Into<EtcdClient>) -> eyre::Result<ActorSetting> {
+pub fn actor_sharding_setting(addr: SocketAddrV4, client: impl Into<EtcdClient>) -> anyhow::Result<ActorSetting> {
     let client = client.into();
     let mut config = ClusterConfig::builder().build()?;
     config.remote.transport = Transport::tcp(addr, Buffer::default());

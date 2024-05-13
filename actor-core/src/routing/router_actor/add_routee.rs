@@ -16,7 +16,7 @@ pub struct AddRoutee {
 impl Message for AddRoutee {
     type A = Box<dyn Router>;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { routee, .. } = *self;
         actor.routees_mut().push(routee);
         Ok(())

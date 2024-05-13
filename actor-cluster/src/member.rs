@@ -54,7 +54,20 @@ impl Display for Member {
     }
 }
 
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Encode, Decode, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Hash,
+    Encode,
+    Decode,
+    Serialize,
+    Deserialize
+)]
 pub enum MemberStatus {
     Up,
     PrepareForLeaving,

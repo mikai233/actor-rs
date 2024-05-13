@@ -40,7 +40,7 @@ pub struct RemoteActorRefProvider {
 }
 
 impl RemoteActorRefProvider {
-    pub fn new(system: ActorSystem, setting: RemoteSetting) -> eyre::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+    pub fn new(system: ActorSystem, setting: RemoteSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
         let RemoteSetting { config: remote_config, mut reg } = setting;
         Self::register_system_message(&mut reg);
         let transport = remote_config.transport.clone();
@@ -64,7 +64,7 @@ impl RemoteActorRefProvider {
     pub(crate) fn spawn_transport(
         provider: &LocalActorRefProvider,
         transport: Transport,
-    ) -> eyre::Result<(ActorRef, ActorDeferredSpawn)> {
+    ) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
         provider.system_guardian()
             .attach_child_deferred_start(
                 Props::new_with_ctx(
@@ -81,7 +81,7 @@ impl RemoteActorRefProvider {
         address == self.local.root_path().address() || address == self.root_path().address() || address == &self.address
     }
 
-    fn create_remote_watcher(provider: &LocalActorRefProvider) -> eyre::Result<(ActorRef, ActorDeferredSpawn)> {
+    fn create_remote_watcher(provider: &LocalActorRefProvider) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
         provider.system_guardian()
             .attach_child_deferred_start(
                 RemoteWatcher::props(Self::create_remote_watcher_failure_detector()),
@@ -110,7 +110,7 @@ impl RemoteActorRefProvider {
         reg.register_system::<HeartbeatRsp>();
     }
 
-    pub fn builder(remote_setting: RemoteSetting) -> impl Fn(ActorSystem) -> eyre::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
+    pub fn builder(remote_setting: RemoteSetting) -> impl Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
         move |system: ActorSystem| {
             Self::new(system, remote_setting.clone()).map(|t| { (t.0.into(), t.1) })
         }
@@ -169,7 +169,7 @@ impl TActorRefProvider for RemoteActorRefProvider {
         self.local.unregister_temp_actor(path)
     }
 
-    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> eyre::Result<ActorRef> {
+    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
         // TODO remote spawn
         self.local.spawn_actor(props, supervisor)
     }

@@ -37,7 +37,7 @@ pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
 
     fn unregister_temp_actor(&self, path: &ActorPath);
 
-    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> eyre::Result<ActorRef>;
+    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef>;
 
     fn resolve_actor_ref(&self, path: &str) -> ActorRef {
         match path.parse::<ActorPath>() {

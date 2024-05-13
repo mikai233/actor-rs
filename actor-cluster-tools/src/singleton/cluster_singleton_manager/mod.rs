@@ -1,9 +1,9 @@
 use std::fmt::Debug;
 use std::time::Duration;
 
+use anyhow::anyhow;
 use async_trait::async_trait;
-use eyre::anyhow;
-use tokio::task::{AbortHandle, JoinHandle};
+use tokio::task::JoinHandle;
 use tracing::trace;
 use typed_builder::TypedBuilder;
 
@@ -77,7 +77,7 @@ impl ClusterSingletonManager {
         props: PropsBuilder<()>,
         termination_message: DynMessage,
         settings: ClusterSingletonManagerSettings,
-    ) -> eyre::Result<Self> {
+    ) -> anyhow::Result<Self> {
         let cluster = Cluster::get(context.system()).clone();
         let singleton_keep_alive_adapter = context.adapter(|m| { SingletonKeepAliveFailed(Some(m)).into_dyn() });
         let myself = context.myself().clone();
@@ -113,7 +113,7 @@ impl ClusterSingletonManager {
         &self.settings.singleton_name
     }
 
-    async fn keep_alive(&mut self) -> eyre::Result<i64> {
+    async fn keep_alive(&mut self) -> anyhow::Result<i64> {
         let resp = self.client.lease_grant(SINGLETON_LEASE_TTL, None).await?;
         let lease_id = resp.id();
         let keep_alive = KeepAlive {
@@ -125,14 +125,14 @@ impl ClusterSingletonManager {
         Ok(lease_id)
     }
 
-    async fn unlock(&mut self) -> eyre::Result<()> {
+    async fn unlock(&mut self) -> anyhow::Result<()> {
         if let Some(lock_key) = self.lock_key.take() {
             self.client.unlock(lock_key).await?;
         }
         Ok(())
     }
 
-    fn lock(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    fn lock(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         if let Some(role) = &self.settings.role {
             let self_member = self.cluster.self_member();
             if !self_member.has_role(role) {
@@ -166,7 +166,7 @@ impl ClusterSingletonManager {
         Ok(())
     }
 
-    pub fn props(props: PropsBuilder<()>, termination_message: DynMessage, settings: ClusterSingletonManagerSettings) -> eyre::Result<Props> {
+    pub fn props(props: PropsBuilder<()>, termination_message: DynMessage, settings: ClusterSingletonManagerSettings) -> anyhow::Result<Props> {
         if !termination_message.cloneable() {
             return Err(anyhow!("termination message {} require cloneable", termination_message.name()));
         }
@@ -183,14 +183,14 @@ fn singleton_path(system_name: &str, name: &str) -> String {
 
 #[async_trait]
 impl Actor for ClusterSingletonManager {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let lease_id = self.keep_alive().await?;
         self.lease_id = lease_id;
         self.lock(context)?;
         Ok(())
     }
 
-    async fn stopped(&mut self, _context: &mut ActorContext) -> eyre::Result<()> {
+    async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
         self.unlock().await?;
         Ok(())
     }

@@ -17,7 +17,7 @@ pub(crate) struct UnwatchRemote {
 impl Message for UnwatchRemote {
     type A = RemoteWatcher;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { watchee, watcher } = *self;
         actor.remove_watch(context, watchee, watcher);
         Ok(())

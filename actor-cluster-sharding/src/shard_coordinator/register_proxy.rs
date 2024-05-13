@@ -22,7 +22,7 @@ pub(crate) struct RegisterProxy {
 impl Message for RegisterProxy {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let proxy = self.shard_region_proxy;
         if matches!(actor.coordinator_state, CoordinatorState::WaitingForStateInitialized) {
             debug!("{}: ShardRegion proxy tried to register bug ShardCoordinator not initialized yet: [{}]", actor.type_name, proxy);

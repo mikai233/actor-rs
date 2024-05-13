@@ -11,7 +11,7 @@ actor-remote = { path = "../actor-remote" }
 bincode = { workspace = true }
 arc-swap = { workspace = true }
 async-trait = { workspace = true }
-eyre = { workspace = true }
+anyhow = { workspace = true }
 etcd-client = { workspace = true }
 typed-builder = { workspace = true }
 futures = { workspace = true }

@@ -3,8 +3,8 @@ use std::iter::Peekable;
 use std::ops::Deref;
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use dashmap::DashMap;
-use eyre::anyhow;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
@@ -225,7 +225,7 @@ impl LocalActorRef {
         props: Props,
         name: Option<String>,
         uid: Option<i32>,
-    ) -> eyre::Result<ActorRef> {
+    ) -> anyhow::Result<ActorRef> {
         let (child_ref, mailbox) = self.make_child(&props, name, uid)?;
         props.spawn(child_ref.clone(), mailbox, self.system().clone())?;
         Ok(child_ref)
@@ -236,7 +236,7 @@ impl LocalActorRef {
         props: Props,
         name: Option<String>,
         uid: Option<i32>,
-    ) -> eyre::Result<(ActorRef, ActorDeferredSpawn)> {
+    ) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
         let (child_ref, mailbox) = self.make_child(&props, name, uid)?;
         let deferred_spawn = ActorDeferredSpawn::new(
             child_ref.clone(),
@@ -251,7 +251,7 @@ impl LocalActorRef {
         props: &Props,
         name: Option<String>,
         uid: Option<i32>,
-    ) -> eyre::Result<(ActorRef, Mailbox)> {
+    ) -> anyhow::Result<(ActorRef, Mailbox)> {
         if let Some(name) = &name {
             if name.is_empty() {
                 return Err(anyhow!("name cannot be empty"));

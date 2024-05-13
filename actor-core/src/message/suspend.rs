@@ -13,7 +13,7 @@ pub struct Suspend;
 
 #[async_trait]
 impl SystemMessage for Suspend {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
         context.state = ActorState::Suspend;
         trace!("{} suspend", context.myself);
         Ok(())

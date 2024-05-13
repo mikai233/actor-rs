@@ -20,7 +20,7 @@ impl ShardRegionProxyTerminated {
 impl Message for ShardRegionProxyTerminated {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.region_proxy_terminated(context, self.0.actor).await;
         Ok(())
     }

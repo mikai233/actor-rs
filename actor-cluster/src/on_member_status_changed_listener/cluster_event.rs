@@ -15,7 +15,7 @@ pub(super) struct ClusterEventWrap(pub(super) ClusterEvent);
 impl Message for ClusterEventWrap {
     type A = OnMemberStatusChangedListener;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match self.0 {
             ClusterEvent::MemberUp(m) if matches!(actor.status, MemberStatus::Up) => {
                 if actor.is_triggered(&m) {

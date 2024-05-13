@@ -19,7 +19,7 @@ pub struct Unwatch {
 impl Message for Unwatch {
     type A = EtcdActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match self.applicant.as_ref() {
             None => {
                 debug!("unwatch {}", self.id);

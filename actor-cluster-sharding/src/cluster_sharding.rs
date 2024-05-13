@@ -57,7 +57,7 @@ impl Deref for ClusterSharding {
 impl Extension for ClusterSharding {}
 
 impl ClusterSharding {
-    pub fn new(system: ActorSystem, sharding_config: ClusterShardingConfig) -> eyre::Result<Self> {
+    pub fn new(system: ActorSystem, sharding_config: ClusterShardingConfig) -> anyhow::Result<Self> {
         let guardian_name = sharding_config.guardian_name.clone();
         system.add_config(sharding_config)?;
         let guardian = system.spawn_system(Props::new_with_ctx(|context| {
@@ -74,7 +74,7 @@ impl ClusterSharding {
         Ok(ClusterSharding { inner: Arc::new(inner) })
     }
 
-    pub fn new_with_default_config(system: ActorSystem) -> eyre::Result<Self> {
+    pub fn new_with_default_config(system: ActorSystem) -> anyhow::Result<Self> {
         let config = ClusterShardingConfig::builder().build()?;
         Self::new(system, config)
     }
@@ -91,7 +91,7 @@ impl ClusterSharding {
         extractor: E,
         allocation_strategy: S,
         handoff_message: M,
-    ) -> eyre::Result<ActorRef> where
+    ) -> anyhow::Result<ActorRef> where
         E: MessageExtractor + 'static,
         S: ShardAllocationStrategy + 'static,
         M: CodecMessage,
@@ -138,7 +138,7 @@ impl ClusterSharding {
         type_name: impl Into<String>,
         role: Option<String>,
         extractor: E,
-    ) -> eyre::Result<ActorRef> where
+    ) -> anyhow::Result<ActorRef> where
         E: MessageExtractor + 'static {
         let type_name: ImString = type_name.into().into();
         let proxy_name = Self::proxy_name(type_name.as_str());

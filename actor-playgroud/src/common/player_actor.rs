@@ -17,7 +17,7 @@ pub struct PlayerActor {
 
 #[async_trait]
 impl Actor for PlayerActor {
-    async fn started(&mut self, _context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
         info!("player {} started", self.id);
         Ok(())
     }

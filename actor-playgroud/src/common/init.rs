@@ -14,7 +14,7 @@ pub struct Init;
 impl Message for Init {
     type A = PlayerActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         Ok(())
     }
 }

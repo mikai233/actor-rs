@@ -64,10 +64,10 @@ pub struct TransportActor {
 
 #[async_trait]
 impl Actor for TransportActor {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         match &self.transport {
             Transport::Tcp(tcp) => {
-                Self::spawn_tcp_listener(context, tcp.addr.into());
+                Self::spawn_tcp_listener(context, tcp.addr.into())?;
             }
             Transport::Kcp(_) => {
                 unimplemented!("kcp unimplemented");
@@ -168,7 +168,7 @@ impl TransportActor {
         }
     }
 
-    fn spawn_tcp_listener(context: &mut ActorContext, addr: SocketAddr) -> eyre::Result<()> {
+    fn spawn_tcp_listener(context: &mut ActorContext, addr: SocketAddr) -> anyhow::Result<()> {
         let myself = context.myself().clone();
         let system = context.system().clone();
         context.spawn_fut(format!("tcp_listener_{}", addr), async move {
@@ -191,7 +191,7 @@ impl TransportActor {
                     }
                 }
                 Err(error) => {
-                    let fut = system.run_coordinated_shutdown(ActorSystemStartFailedReason(eyre::Error::from(error)));
+                    let fut = system.run_coordinated_shutdown(ActorSystemStartFailedReason(anyhow::Error::from(error)));
                     tokio::spawn(fut);
                 }
             }
@@ -203,7 +203,7 @@ impl TransportActor {
     fn spawn_quic_listener(
         context: &mut ActorContext,
         transport: &QuicTransport,
-    ) -> eyre::Result<()> {
+    ) -> anyhow::Result<()> {
         let QuicTransport { addr, config, .. } = transport;
         let addr: SocketAddr = (*addr).into();
         let myself = context.myself().clone();
@@ -237,7 +237,7 @@ impl TransportActor {
         Ok(())
     }
 
-    fn configure_client(server_certs: &[&[u8]]) -> eyre::Result<ClientConfig> {
+    fn configure_client(server_certs: &[&[u8]]) -> anyhow::Result<ClientConfig> {
         let mut certs = rustls::RootCertStore::empty();
         for cert in server_certs {
             certs.add(&rustls::Certificate(cert.to_vec()))?;
@@ -278,8 +278,6 @@ mod test {
     use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
     use actor_core::actor_ref::ActorRefExt;
     use actor_core::config::actor_setting::ActorSetting;
-    use actor_core::config::ConfigBuilder;
-    use actor_core::config::core_config::CoreConfig;
     use actor_core::pattern::patterns::Patterns;
 
     use crate::config::buffer::Buffer;
@@ -297,7 +295,7 @@ mod test {
     impl Message for Ping {
         type A = PingPongActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             let myself = context.myself().clone();
             let sender = context.sender().unwrap().clone();
             context.spawn_fut("pong", async move {
@@ -315,7 +313,7 @@ mod test {
     impl Message for Pong {
         type A = PingPongActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             info!("{} pong", context.myself());
             Ok(())
         }
@@ -330,7 +328,7 @@ mod test {
     impl Message for PingTo {
         type A = PingPongActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             let to = context.system().provider().resolve_actor_ref(&self.to);
             to.cast(Ping, Some(context.myself().clone()));
             Ok(())
@@ -339,13 +337,13 @@ mod test {
 
     #[async_trait]
     impl Actor for PingPongActor {
-        async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+        async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
             info!("{} started", context.myself());
             Ok(())
         }
     }
 
-    fn build_setting(addr: SocketAddrV4) -> eyre::Result<ActorSetting> {
+    fn build_setting(addr: SocketAddrV4) -> anyhow::Result<ActorSetting> {
         let mut remote_setting = RemoteSetting {
             config: RemoteConfig { transport: Transport::tcp(addr, Buffer::default()) },
             reg: Default::default(),
@@ -358,7 +356,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test() -> eyre::Result<()> {
+    async fn test() -> anyhow::Result<()> {
         let system_a = ActorSystem::new("game", build_setting("127.0.0.1:12121".parse()?)?)?;
         let actor_a = system_a.spawn(Props::new(|| { Ok(PingPongActor) }), "actor_a")?;
         let system_b = ActorSystem::new("game", build_setting("127.0.0.1:12122".parse()?)?)?;
@@ -376,11 +374,11 @@ mod test {
     impl Message for MessageToAsk {
         type A = EmptyTestActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             context.sender().unwrap().cast_orphan_ns(MessageToAns {
                 content: "hello world".to_string(),
             });
-            eyre::Ok(())
+            Ok(())
         }
     }
 
@@ -390,7 +388,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_remote_ask() -> eyre::Result<()> {
+    async fn test_remote_ask() -> anyhow::Result<()> {
         let system1 = ActorSystem::new("mikai233", build_setting("127.0.0.1:12121".parse()?)?)?;
         let system2 = ActorSystem::new("mikai233", build_setting("127.0.0.1:12123".parse()?)?)?;
         let actor_a = system1.spawn_anonymous(Props::new(|| Ok(EmptyTestActor)))?;

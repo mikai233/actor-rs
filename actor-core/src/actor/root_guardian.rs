@@ -19,12 +19,12 @@ impl RootGuardian {
 
 #[async_trait]
 impl Actor for RootGuardian {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{} started", context.myself());
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{} stopped", context.myself());
         let _ = self.termination_tx.send(());
         Ok(())

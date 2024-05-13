@@ -2,14 +2,14 @@ use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
-use eyre::anyhow;
+use anyhow::anyhow;
 use dashmap::DashMap;
 use dashmap::mapref::one::{MappedRef, MappedRefMut};
 
 use crate::ext::as_any::AsAny;
 
 pub trait Extension: AsAny + Send + Sync + 'static {
-    fn init(&self) -> eyre::Result<()> {
+    fn init(&self) -> anyhow::Result<()> {
         Ok(())
     }
 }
@@ -20,7 +20,7 @@ pub struct SystemExtension {
 }
 
 impl SystemExtension {
-    pub fn register<E>(&self, extension: E) -> eyre::Result<()> where E: Extension {
+    pub fn register<E>(&self, extension: E) -> anyhow::Result<()> where E: Extension {
         let name = type_name::<E>();
         if !self.extensions.contains_key(name) {
             self.extensions.insert(name, Box::new(extension));
@@ -108,7 +108,7 @@ mod test {
     impl Extension for ExtensionB {}
 
     #[test]
-    fn test_extension() -> eyre::Result<()> {
+    fn test_extension() -> anyhow::Result<()> {
         let extensions = SystemExtension::default();
         assert!(extensions.get::<ExtensionA>().is_none());
         extensions.register(ExtensionA)?;

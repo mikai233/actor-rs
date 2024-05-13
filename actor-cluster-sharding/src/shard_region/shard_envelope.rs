@@ -17,7 +17,7 @@ use crate::shard_region::ShardRegion;
 impl Message for ShardEnvelope<ShardRegion> {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if actor.graceful_shutdown_in_progress {
             debug!("{}: Ignore {}[{}] when ShardRegion is graceful shutdown in progress", actor.type_name, type_name::<Self>(),self.message.name());
         } else {
@@ -44,7 +44,7 @@ impl CodecMessage for ShardEnvelope<ShardRegion> {
         #[derive(Clone)]
         struct D;
         impl MessageDecoder for D {
-            fn decode(&self, bytes: &[u8], reg: &MessageRegistry) -> eyre::Result<DynMessage> {
+            fn decode(&self, bytes: &[u8], reg: &MessageRegistry) -> anyhow::Result<DynMessage> {
                 let CodecShardEnvelope { entity_id, packet } = decode_bytes::<CodecShardEnvelope>(bytes)?;
                 let message = reg.decode(packet)?;
                 let message = ShardEnvelope::<ShardRegion> {
@@ -59,7 +59,7 @@ impl CodecMessage for ShardEnvelope<ShardRegion> {
         Some(Box::new(D))
     }
 
-    fn encode(self: Box<Self>, reg: &MessageRegistry) -> eyre::Result<Vec<u8>> {
+    fn encode(self: Box<Self>, reg: &MessageRegistry) -> anyhow::Result<Vec<u8>> {
         let ShardEnvelope { entity_id, message, .. } = *self;
         let packet = reg.encode_boxed(message)?;
         let message = CodecShardEnvelope {
@@ -69,7 +69,7 @@ impl CodecMessage for ShardEnvelope<ShardRegion> {
         encode_bytes(&message)
     }
 
-    fn clone_box(&self) -> eyre::Result<Box<dyn CodecMessage>> {
+    fn clone_box(&self) -> anyhow::Result<Box<dyn CodecMessage>> {
         let envelope = Self {
             entity_id: self.entity_id.clone(),
             message: self.message.dyn_clone()?,

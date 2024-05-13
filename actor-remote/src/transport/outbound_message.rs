@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
+use anyhow::anyhow;
 use async_trait::async_trait;
-use eyre::anyhow;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::{debug, warn};
 
@@ -30,7 +30,7 @@ pub(crate) struct OutboundMessage {
 impl Message for OutboundMessage {
     type A = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let addr: SocketAddr = self.envelope.target.path()
             .address().addr
             .map(|a| a.into())

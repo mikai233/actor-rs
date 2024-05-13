@@ -18,7 +18,7 @@ pub(crate) struct SelfLeaving;
 impl Message for SelfLeaving {
     type A = ClusterCoreDaemon;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if !actor.exiting_tasks_in_progress {
             actor.exiting_tasks_in_progress = true;
             let coord_shutdown = CoordinatedShutdown::get(context.system());

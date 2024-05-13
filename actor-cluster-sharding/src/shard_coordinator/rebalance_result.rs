@@ -17,7 +17,7 @@ pub(super) struct RebalanceResult {
 impl Message for RebalanceResult {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.continue_rebalance(context, self.shards)?;
         Ok(())
     }

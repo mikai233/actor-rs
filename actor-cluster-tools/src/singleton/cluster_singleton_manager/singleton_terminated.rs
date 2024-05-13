@@ -21,7 +21,7 @@ impl SingletonTerminated {
 impl Message for SingletonTerminated {
     type A = ClusterSingletonManager;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let singleton = self.0.actor;
         debug!("singleton manager watch singleton actor {} terminated", singleton);
         actor.singleton = None;

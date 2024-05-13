@@ -19,7 +19,7 @@ pub(super) struct RebalanceTick;
 impl Message for RebalanceTick {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if actor.state.regions.is_empty().not() && actor.preparing_for_shutdown.not() {
             let strategy = actor.allocation_strategy.clone();
             let regions = actor.state.regions

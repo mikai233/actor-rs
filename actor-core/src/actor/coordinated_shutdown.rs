@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use ahash::HashMap;
-use eyre::{anyhow, Error};
+use anyhow::{anyhow, Error};
 use futures::future::{BoxFuture, join_all};
 use futures::FutureExt;
 use parking_lot::Mutex;
@@ -56,7 +56,7 @@ impl Deref for CoordinatedShutdown {
 }
 
 impl CoordinatedShutdown {
-    pub(crate) fn new(system: ActorSystem) -> eyre::Result<Self> {
+    pub(crate) fn new(system: ActorSystem) -> anyhow::Result<Self> {
         let ordered_phases = Self::topological_sort(&system.core_config().phases)?;
         let inner = Inner {
             system: system.downgrade(),
@@ -72,7 +72,7 @@ impl CoordinatedShutdown {
         Ok(shutdown)
     }
 
-    fn topological_sort(phases: &HashMap<String, Phase>) -> eyre::Result<Vec<String>> {
+    fn topological_sort(phases: &HashMap<String, Phase>) -> anyhow::Result<Vec<String>> {
         let mut result = vec![];
         let mut unmarked = phases.keys()
             .cloned()
@@ -85,7 +85,7 @@ impl CoordinatedShutdown {
             unmarked: &mut BTreeSet<String>,
             temp_mark: &mut HashSet<String>,
             u: String,
-        ) -> eyre::Result<()> {
+        ) -> anyhow::Result<()> {
             if temp_mark.contains(&u) {
                 return Err(anyhow!("Cycle detected in graph of phases. It must be a DAG. phase [{}] depends transitively on itself. All dependencies: {:?}", u, phases));
             }
@@ -124,7 +124,7 @@ impl CoordinatedShutdown {
         phase: impl Into<String>,
         task_name: impl Into<String>,
         fut: F,
-    ) -> eyre::Result<()> where F: Future<Output=()> + Send + 'static {
+    ) -> anyhow::Result<()> where F: Future<Output=()> + Send + 'static {
         let phase = phase.into();
         let known_phases = Self::known_phases(system);
         if !known_phases.contains(&phase) {
@@ -220,7 +220,7 @@ impl CoordinatedShutdown {
         self.run_started.load(Ordering::Relaxed)
     }
 
-    fn init_phase_actor_system_terminate(&self, system: ActorSystem) -> eyre::Result<()> {
+    fn init_phase_actor_system_terminate(&self, system: ActorSystem) -> anyhow::Result<()> {
         let sys = system.clone();
         self.add_task(&system, PHASE_ACTOR_SYSTEM_TERMINATE, "terminate-system", async move {
             let provider = sys.provider();
@@ -232,7 +232,7 @@ impl CoordinatedShutdown {
         Ok(())
     }
 
-    fn init_ctrl_c_signal(&self) -> eyre::Result<()> {
+    fn init_ctrl_c_signal(&self) -> anyhow::Result<()> {
         let coordinated = self.clone();
         tokio::spawn(async move {
             if let Some(error) = tokio::signal::ctrl_c().await.err() {

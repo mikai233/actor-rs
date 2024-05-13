@@ -16,7 +16,7 @@ pub(super) struct ConnectFailed {
 impl Message for ConnectFailed {
     type A = TransportActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.connections.remove(&self.addr);
         Ok(())
     }

@@ -4,8 +4,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ahash::{HashMap, HashSet, HashSetExt};
+use anyhow::anyhow;
 use async_trait::async_trait;
-use eyre::anyhow;
 use imstr::ImString;
 use itertools::Itertools;
 use tokio::sync::mpsc::{channel, Sender};
@@ -110,7 +110,7 @@ impl ShardRegion {
         coordinator_path: String,
         extractor: Box<dyn MessageExtractor>,
         handoff_stop_message: DynMessage,
-    ) -> eyre::Result<Self> {
+    ) -> anyhow::Result<Self> {
         let timers = Timers::new(context)?;
         let cluster = Cluster::get(context.system()).clone();
         let (graceful_shutdown_progress_tx, mut graceful_shutdown_progress_rx) = channel(1);
@@ -196,14 +196,14 @@ impl ShardRegion {
         })
     }
 
-    fn start_registration(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    fn start_registration(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         self.next_registration_delay = self.init_registration_delay;
         self.register(context)?;
         self.scheduler_next_registration(context);
         Ok(())
     }
 
-    fn register(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    fn register(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let actor_selections = self.coordinator_selection(context)?;
         for selection in &actor_selections {
             selection.tell(self.registration_message(context), ActorRef::no_sender());
@@ -271,7 +271,7 @@ impl ShardRegion {
         }
     }
 
-    fn coordinator_selection(&self, context: &mut ActorContext) -> eyre::Result<Vec<ActorSelection>> {
+    fn coordinator_selection(&self, context: &mut ActorContext) -> anyhow::Result<Vec<ActorSelection>> {
         let mut selections = vec![];
         for member in self.members.values() {
             if matches!(member.status, MemberStatus::Up) {
@@ -293,7 +293,7 @@ impl ShardRegion {
         }
     }
 
-    fn deliver_message(&mut self, context: &mut ActorContext, envelope: ShardEnvelope<ShardRegion>) -> eyre::Result<()> {
+    fn deliver_message(&mut self, context: &mut ActorContext, envelope: ShardEnvelope<ShardRegion>) -> anyhow::Result<()> {
         let shard_id = self.extractor.shard_id(&envelope);
         let type_name = &self.type_name;
         match self.region_by_shard.get_key_value(shard_id.as_str()) {
@@ -389,7 +389,7 @@ impl ShardRegion {
         self.retry_count = 0;
     }
 
-    fn get_shard(&mut self, context: &mut ActorContext, id: ImShardId) -> eyre::Result<Option<ActorRef>> {
+    fn get_shard(&mut self, context: &mut ActorContext, id: ImShardId) -> anyhow::Result<Option<ActorRef>> {
         if self.starting_shards.contains(&id) {
             Ok(None)
         } else {
@@ -453,7 +453,7 @@ impl ShardRegion {
         });
     }
 
-    fn send_graceful_shutdown_to_coordinator_if_in_progress(&self, context: &mut ActorContext) -> eyre::Result<()> {
+    fn send_graceful_shutdown_to_coordinator_if_in_progress(&self, context: &mut ActorContext) -> anyhow::Result<()> {
         if self.graceful_shutdown_in_progress {
             let actor_selections = self.coordinator_selection(context)?;
             let selection_str = actor_selections.iter().map(|selection| selection.to_string()).join(", ");
@@ -472,7 +472,7 @@ impl ShardRegion {
         }
     }
 
-    fn receive_shard_home(&mut self, context: &mut ActorContext, shard: ImShardId, shard_region_ref: ActorRef) -> eyre::Result<()> {
+    fn receive_shard_home(&mut self, context: &mut ActorContext, shard: ImShardId, shard_region_ref: ActorRef) -> anyhow::Result<()> {
         let type_name = &self.type_name;
         debug!("{type_name}: Shard [{shard}] located at [{shard_region_ref}]");
         if let Some(r) = self.region_by_shard.get(&shard) {
@@ -509,7 +509,7 @@ impl ShardRegion {
 
 #[async_trait]
 impl Actor for ShardRegion {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         self.cluster.subscribe_cluster_event(
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
@@ -524,7 +524,7 @@ impl Actor for ShardRegion {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{}: Region {} stopped", self.type_name, context.myself());
         self.cluster.unsubscribe_cluster_event(context.myself())?;
         self.coordinator.foreach(|coordinator| {

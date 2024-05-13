@@ -1,6 +1,6 @@
 use std::any::{Any, type_name};
 
-use eyre::anyhow;
+use anyhow::anyhow;
 
 use crate::{Actor, CodecMessage};
 use crate::delegate::system::SystemDelegate;
@@ -58,7 +58,7 @@ impl<'a, A> MessageDelegateRef<'a, A> where A: Actor {
     }
 }
 
-pub(crate) fn downcast_box_message<M: CodecMessage>(name: &'static str, msg: Box<dyn Any>) -> eyre::Result<M> {
+pub(crate) fn downcast_box_message<M: CodecMessage>(name: &'static str, msg: Box<dyn Any>) -> anyhow::Result<M> {
     match msg.downcast::<M>() {
         Ok(m) => {
             Ok(*m)

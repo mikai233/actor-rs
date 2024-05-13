@@ -4,7 +4,7 @@ use etcd_client::Client;
 use tracing::info;
 
 use actor_cluster::cluster::Cluster;
-use actor_core::{DynMessage, EmptyTestActor, };
+use actor_core::{DynMessage, EmptyTestActor};
 use actor_core::actor::actor_selection::ActorSelectionPath;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
@@ -18,7 +18,7 @@ use actor_playgroud::common::test_message::TestMessage;
 mod node;
 
 #[tokio::main]
-async fn main() -> eyre::Result<()> {
+async fn main() -> anyhow::Result<()> {
     init_logger_with_filter("actor=trace");
     let client = Client::connect(["localhost:2379"], None).await?;
     let system1 = ActorSystem::new("mikai233", build_cluster_setting("127.0.0.1:12121".parse()?, client.clone())?)?;

@@ -21,11 +21,11 @@ pub trait ActorRefFactory {
 
     fn lookup_root(&self) -> ActorRef;
 
-    fn spawn(&self, props: Props, name: impl Into<String>) -> eyre::Result<ActorRef>;
+    fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef>;
 
-    fn spawn_anonymous(&self, props: Props) -> eyre::Result<ActorRef>;
+    fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef>;
 
-    fn actor_selection(&self, path: ActorSelectionPath) -> eyre::Result<ActorSelection> {
+    fn actor_selection(&self, path: ActorSelectionPath) -> anyhow::Result<ActorSelection> {
         match path {
             ActorSelectionPath::RelativePath(rp) => {
                 let mut elements = rp.split("/").peekable();

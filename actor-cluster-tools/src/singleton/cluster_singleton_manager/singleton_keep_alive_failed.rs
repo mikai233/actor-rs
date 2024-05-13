@@ -20,7 +20,7 @@ pub(super) struct SingletonKeepAliveFailed(pub(super) Option<KeepAliveFailed>);
 impl Message for SingletonKeepAliveFailed {
     type A = ClusterSingletonManager;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match actor.keep_alive().await {
             Ok(lease_id) => {
                 actor.lease_id = lease_id;

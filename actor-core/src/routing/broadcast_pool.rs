@@ -38,7 +38,7 @@ impl<A> Pool for BroadcastPool<A> where A: Clone + Send + 'static {
         self.nr_of_instances
     }
 
-    fn new_routee(&self, context: &mut ActorContext) -> eyre::Result<Routee> {
+    fn new_routee(&self, context: &mut ActorContext) -> anyhow::Result<Routee> {
         let routee = spawn_actor_routee(context, &self.routee_props, self.arg.clone())?;
         Ok(routee.into())
     }

@@ -7,9 +7,9 @@ use std::sync::{Arc, Weak};
 use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use anyhow::{anyhow, Context as _};
 use arc_swap::{ArcSwap, Guard};
 use dashmap::mapref::one::MappedRef;
-use eyre::{anyhow, Context as _};
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use parking_lot::Mutex;
@@ -54,9 +54,9 @@ pub struct Inner {
     pub event_stream: EventStream,
     pub extension: SystemExtension,
     pub config: ActorConfig,
-    signal: Sender<eyre::Result<()>>,
+    signal: Sender<anyhow::Result<()>>,
     termination_callbacks: TerminationCallbacks,
-    pub(crate) termination_error: Mutex<Option<eyre::Error>>,
+    pub(crate) termination_error: Mutex<Option<anyhow::Error>>,
 }
 
 impl Deref for ActorSystem {
@@ -68,7 +68,7 @@ impl Deref for ActorSystem {
 }
 
 impl ActorSystem {
-    pub fn new(name: impl Into<String>, setting: ActorSetting) -> eyre::Result<ActorSystemRunner> {
+    pub fn new(name: impl Into<String>, setting: ActorSetting) -> anyhow::Result<ActorSystemRunner> {
         let ActorSetting { provider, config: core_config } = setting;
         let scheduler = scheduler();
         let (signal_tx, mut signal_rx) = channel(1);
@@ -148,7 +148,7 @@ impl ActorSystem {
         self.provider().system_guardian().clone()
     }
 
-    pub fn spawn_system(&self, props: Props, name: Option<String>) -> eyre::Result<ActorRef> {
+    pub fn spawn_system(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
         self.system_guardian().attach_child(props, name, None)
     }
 
@@ -156,11 +156,11 @@ impl ActorSystem {
         &self,
         props: Props,
         name: Option<String>,
-    ) -> eyre::Result<(ActorRef, ActorDeferredSpawn)> {
+    ) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
         self.system_guardian().attach_child_deferred_start(props, name, None)
     }
 
-    pub fn register_extension<E, F>(&self, ext_fn: F) -> eyre::Result<()> where E: Extension, F: Fn(ActorSystem) -> eyre::Result<E> {
+    pub fn register_extension<E, F>(&self, ext_fn: F) -> anyhow::Result<()> where E: Extension, F: Fn(ActorSystem) -> anyhow::Result<E> {
         let extension = ext_fn(self.clone())?;
         self.extension.register(extension)?;
         Ok(())
@@ -179,7 +179,7 @@ impl ActorSystem {
         self.config.get().expect(&msg)
     }
 
-    pub fn add_config<C>(&self, config: C) -> eyre::Result<()> where C: Config {
+    pub fn add_config<C>(&self, config: C) -> anyhow::Result<()> where C: Config {
         self.config.add(config)
     }
 
@@ -222,11 +222,11 @@ impl ActorRefFactory for ActorSystem {
         self.provider().root_guardian().clone().into()
     }
 
-    fn spawn(&self, props: Props, name: impl Into<String>) -> eyre::Result<ActorRef> {
+    fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
         self.guardian().attach_child(props, Some(name.into()), None)
     }
 
-    fn spawn_anonymous(&self, props: Props) -> eyre::Result<ActorRef> {
+    fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
         self.guardian().attach_child(props, None, None)
     }
 
@@ -251,7 +251,7 @@ pub struct WeakActorSystem {
 }
 
 impl WeakActorSystem {
-    pub fn upgrade(&self) -> eyre::Result<ActorSystem> {
+    pub fn upgrade(&self) -> anyhow::Result<ActorSystem> {
         let inner = self.inner.upgrade()
             .into_result()
             .context("ActorSystem destroyed, any system week reference is invalid")?;
@@ -263,7 +263,7 @@ impl WeakActorSystem {
 pub struct ActorSystemRunner {
     pub system: ActorSystem,
     #[pin]
-    pub signal: BoxFuture<'static, eyre::Result<()>>,
+    pub signal: BoxFuture<'static, anyhow::Result<()>>,
 }
 
 impl Deref for ActorSystemRunner {
@@ -275,7 +275,7 @@ impl Deref for ActorSystemRunner {
 }
 
 impl Future for ActorSystemRunner {
-    type Output = eyre::Result<()>;
+    type Output = anyhow::Result<()>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let this = self.project();
@@ -333,7 +333,7 @@ impl Debug for TerminationCallbacks {
 //     use crate::system::ActorSystem;
 //
 //     #[tokio::test]
-//     async fn test_spawn_actor() -> eyre::Result<()> {
+//     async fn test_spawn_actor() -> anyhow::Result<()> {
 //         let system = ActorSystem::default();
 //         for i in 0..10 {
 //             let name = format!("testActor{}", i);

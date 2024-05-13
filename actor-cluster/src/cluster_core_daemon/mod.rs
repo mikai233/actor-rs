@@ -4,9 +4,9 @@ use std::ops::Not;
 use std::time::Duration;
 
 use ahash::{HashMap, HashSet};
+use anyhow::Context as _;
 use async_trait::async_trait;
 use etcd_client::{GetOptions, KeyValue, PutOptions, WatchOptions};
-use eyre::Context as _;
 use parking_lot::RwLockWriteGuard;
 use tokio::sync::mpsc::{channel, Sender};
 use tracing::{debug, error};
@@ -62,7 +62,7 @@ pub(crate) struct ClusterCoreDaemon {
 }
 
 impl ClusterCoreDaemon {
-    pub(crate) fn new(context: &mut ActorContext) -> eyre::Result<Self> {
+    pub(crate) fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
         let (self_exiting_tx, mut self_exiting_rx) = channel(1);
         let members_watch_adapter = context.adapter(|m| DynMessage::user(MemberWatchResp(m)));
         let keep_alive_adapter = context.adapter(|m| DynMessage::user(MemberKeepAliveFailed(Some(m))));
@@ -109,7 +109,7 @@ impl ClusterCoreDaemon {
         Ok(daemon)
     }
 
-    fn cluster_core(context: &mut ActorContext, address: Address) -> eyre::Result<ActorSelection> {
+    fn cluster_core(context: &mut ActorContext, address: Address) -> anyhow::Result<ActorSelection> {
         let path = RootActorPath::new(address, "/")
             .child("system")
             .child("cluster")
@@ -122,7 +122,7 @@ impl ClusterCoreDaemon {
         format!("actor/{}/cluster/lease", self.self_addr.system_name())
     }
 
-    async fn member_keep_alive(&mut self) -> eyre::Result<i64> {
+    async fn member_keep_alive(&mut self) -> anyhow::Result<i64> {
         let resp = self.client.lease_grant(60, None).await?;
         let lease_id = resp.id();
         let keep_alive = KeepAlive {
@@ -134,7 +134,7 @@ impl ClusterCoreDaemon {
         Ok(lease_id)
     }
 
-    async fn update_member_to_etcd(&mut self, member: &Member) -> eyre::Result<()> {
+    async fn update_member_to_etcd(&mut self, member: &Member) -> anyhow::Result<()> {
         let socket_addr = member.addr.socket_addr_with_uid();
         let member_addr = socket_addr.as_result()?;
         let lease_path = self.lease_path();
@@ -145,7 +145,7 @@ impl ClusterCoreDaemon {
         Ok(())
     }
 
-    async fn get_all_members(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn get_all_members(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let lease_path = self.lease_path();
         let resp = self.client.get(
             lease_path,
@@ -194,7 +194,7 @@ impl ClusterCoreDaemon {
         }
     }
 
-    fn update_local_member_status(&mut self, context: &mut ActorContext, kv: &KeyValue) -> eyre::Result<()> {
+    fn update_local_member_status(&mut self, context: &mut ActorContext, kv: &KeyValue) -> anyhow::Result<()> {
         let stream = &context.system().event_stream;
         let member = serde_json::from_slice::<Member>(kv.value())?;
         self.key_addr.insert(kv.key_str()?.to_string(), member.addr.clone());
@@ -262,13 +262,13 @@ impl ClusterCoreDaemon {
 
 #[async_trait]
 impl Actor for ClusterCoreDaemon {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         context.spawn(ClusterHeartbeatSender::props(), ClusterHeartbeatSender::name())?;
         self.watch_cluster_members();
         Ok(())
     }
 
-    async fn stopped(&mut self, _context: &mut ActorContext) -> eyre::Result<()> {
+    async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
         let _ = self.self_exiting.send(()).await;
         let lease_path = self.lease_path();
         let key = format!("{}/{}", lease_path, self.self_addr.socket_addr_with_uid().into_result()?);

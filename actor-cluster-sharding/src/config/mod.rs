@@ -47,11 +47,11 @@ pub struct ClusterShardingConfigBuilder {
 impl ConfigBuilder for ClusterShardingConfigBuilder {
     type C = ClusterShardingConfig;
 
-    fn add_source<T>(self, source: T) -> eyre::Result<Self> where T: Source + Send + Sync + 'static {
+    fn add_source<T>(self, source: T) -> anyhow::Result<Self> where T: Source + Send + Sync + 'static {
         Ok(Self { builder: self.builder.add_source(source) })
     }
 
-    fn build(self) -> eyre::Result<Self::C> {
+    fn build(self) -> anyhow::Result<Self::C> {
         let builder = self.builder.add_source(File::from_str(CLUSTER_SHARDING_CONFIG, FileFormat::Toml));
         let cluster_sharding_config = builder.build()?.try_deserialize::<Self::C>()?;
         Ok(cluster_sharding_config)

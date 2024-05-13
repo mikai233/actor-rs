@@ -1,12 +1,11 @@
 use std::ops::{Deref, DerefMut};
 
+use anyhow::Context;
 use bincode::{Decode, Encode};
-use eyre::Context;
 use tokio_util::bytes::{BufMut, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
 
 use actor_core::ext::read_u32;
-use actor_core::eyre;
 
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct Packet {
@@ -39,7 +38,7 @@ impl DerefMut for Packet {
 pub struct PacketCodec;
 
 impl Encoder<Packet> for PacketCodec {
-    type Error = eyre::Error;
+    type Error = anyhow::Error;
 
     fn encode(&mut self, item: Packet, dst: &mut BytesMut) -> Result<(), Self::Error> {
         let len = item.len();
@@ -52,7 +51,7 @@ impl Encoder<Packet> for PacketCodec {
 
 impl Decoder for PacketCodec {
     type Item = Packet;
-    type Error = eyre::Error;
+    type Error = anyhow::Error;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         let buf_len = src.len();

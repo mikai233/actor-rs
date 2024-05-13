@@ -3,7 +3,7 @@ use std::future::Future;
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
 
-use eyre::anyhow;
+use anyhow::anyhow;
 use tokio::time::error::Elapsed;
 
 use crate::{CodecMessage, DynMessage, Message, MessageType, OrphanMessage, SystemMessage};
@@ -20,7 +20,7 @@ impl Patterns {
         actor: &ActorRef,
         message: Req,
         timeout: Duration,
-    ) -> eyre::Result<Resp>
+    ) -> anyhow::Result<Resp>
         where
             Req: Message,
             Resp: OrphanMessage {
@@ -32,7 +32,7 @@ impl Patterns {
         actor: &ActorRef,
         message: Req,
         timeout: Duration,
-    ) -> eyre::Result<Resp>
+    ) -> anyhow::Result<Resp>
         where
             Req: SystemMessage,
             Resp: OrphanMessage {
@@ -44,7 +44,7 @@ impl Patterns {
         actor: &ActorRef,
         timeout: Duration,
         message: DynMessage,
-    ) -> eyre::Result<Resp>
+    ) -> anyhow::Result<Resp>
         where
             Req: CodecMessage,
             Resp: OrphanMessage {
@@ -62,7 +62,7 @@ impl Patterns {
         sel: &ActorSelection,
         message: Req,
         timeout: Duration,
-    ) -> eyre::Result<Resp>
+    ) -> anyhow::Result<Resp>
         where
             Req: Message,
             Resp: OrphanMessage {
@@ -74,7 +74,7 @@ impl Patterns {
         sel: &ActorSelection,
         message: Req,
         timeout: Duration,
-    ) -> eyre::Result<Resp>
+    ) -> anyhow::Result<Resp>
         where
             Req: SystemMessage,
             Resp: OrphanMessage {
@@ -86,7 +86,7 @@ impl Patterns {
         sel: &ActorSelection,
         timeout: Duration,
         message: DynMessage,
-    ) -> eyre::Result<Resp>
+    ) -> anyhow::Result<Resp>
         where
             Req: CodecMessage,
             Resp: OrphanMessage {
@@ -107,7 +107,7 @@ impl Patterns {
         target: String,
         resp: Result<Option<DynMessage>, Elapsed>,
         timeout: Duration,
-    ) -> eyre::Result<Resp>
+    ) -> anyhow::Result<Resp>
         where
             Req: CodecMessage,
             Resp: OrphanMessage {
@@ -148,7 +148,7 @@ pub trait PatternsExt {
         &self,
         message: Req,
         timeout: Duration,
-    ) -> impl Future<Output=eyre::Result<Resp>> + Send
+    ) -> impl Future<Output=anyhow::Result<Resp>> + Send
         where
             Req: Message,
             Resp: OrphanMessage;
@@ -159,7 +159,7 @@ impl PatternsExt for ActorRef {
         &self,
         message: Req,
         timeout: Duration,
-    ) -> impl Future<Output=eyre::Result<Resp>> + Send
+    ) -> impl Future<Output=anyhow::Result<Resp>> + Send
         where
             Req: Message,
             Resp: OrphanMessage {
@@ -172,7 +172,7 @@ impl PatternsExt for ActorSelection {
         &self,
         message: Req,
         timeout: Duration,
-    ) -> impl Future<Output=eyre::Result<Resp>> + Send
+    ) -> impl Future<Output=anyhow::Result<Resp>> + Send
         where
             Req: Message,
             Resp: OrphanMessage {

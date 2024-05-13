@@ -38,7 +38,7 @@ pub(crate) struct RebalanceWorker {
 
 #[async_trait]
 impl Actor for RebalanceWorker {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         for region in &self.regions {
             region.cast(BeginHandoff { shard: self.shard.clone().into() }, Some(context.myself().clone()));
         }
@@ -67,7 +67,7 @@ impl RebalanceWorker {
         handoff_timeout: Duration,
         regions: HashSet<ActorRef>,
         is_rebalance: bool,
-    ) -> eyre::Result<Self> {
+    ) -> anyhow::Result<Self> {
         let timers = Timers::new(context)?;
         let remaining = regions.clone();
         let myself = Self {

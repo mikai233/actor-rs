@@ -13,7 +13,7 @@ struct PassivateIntervalTick;
 impl Message for PassivateIntervalTick {
     type A = Shard;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         todo!()
     }
 }

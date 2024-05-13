@@ -20,7 +20,7 @@ pub(super) struct SpawnInbound {
 impl Message for SpawnInbound {
     type A = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         context.spawn_fut(format!("connection_in_{}", self.peer_addr), self.fut)?;
         Ok(())
     }

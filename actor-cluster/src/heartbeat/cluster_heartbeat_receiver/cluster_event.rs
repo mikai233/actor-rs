@@ -15,7 +15,7 @@ pub(super) struct ClusterEventWrap(pub(super) ClusterEvent);
 impl Message for ClusterEventWrap {
     type A = ClusterHeartbeatReceiver;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         trace!("{} {:?}", context.myself(), self);
         match self.0 {
             ClusterEvent::MemberUp(m) => {

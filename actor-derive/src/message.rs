@@ -18,8 +18,6 @@ pub fn expand(
     let ext_path = with_crate_str("ext");
     let dy_message = with_crate_str("DynMessage");
     let reg = with_crate_str("message::message_registry::MessageRegistry");
-    let eyre_result = with_crate_str("eyre::Result");
-    let eyre = with_crate_str("eyre::eyre");
     let decoder = expand_decoder(
         &message_ty,
         &message_impl,
@@ -27,10 +25,9 @@ pub fn expand(
         &ext_path,
         &dy_message,
         &reg,
-        &eyre_result,
     );
-    let encode = expand_encode(&message_ty, &ty_generics, &codec_type, &ext_path, &eyre);
-    let clone_box = expand_clone_box(&message_ty, &message_impl, &ty_generics, &eyre, cloneable);
+    let encode = expand_encode(&message_ty, &ty_generics, &codec_type, &ext_path);
+    let clone_box = expand_clone_box(&message_ty, &message_impl, &ty_generics, cloneable);
 
     let into_dyn = match message_impl {
         MessageImpl::Message => {
@@ -60,7 +57,6 @@ pub fn expand(
         decoder_trait,
         dy_message,
         reg,
-        eyre_result,
         decoder,
         encode,
         clone_box,
@@ -79,7 +75,6 @@ fn impl_trait(
     decoder_trait: TokenStream,
     dy_message: TokenStream,
     reg: TokenStream,
-    eyre_result: TokenStream,
     decoder: TokenStream,
     encode: TokenStream,
     clone_box: TokenStream,
@@ -103,11 +98,11 @@ fn impl_trait(
                 #decoder
             }
 
-            fn encode(self: std::boxed::Box<Self>, _reg: &#reg) -> #eyre_result<Vec<u8>> {
+            fn encode(self: std::boxed::Box<Self>, _reg: &#reg) -> anyhow::Result<Vec<u8>> {
                 #encode
             }
 
-            fn clone_box(&self) -> #eyre_result<std::boxed::Box<dyn #codec_trait>> {
+            fn clone_box(&self) -> anyhow::Result<std::boxed::Box<dyn #codec_trait>> {
                 #clone_box
             }
 
@@ -148,7 +143,6 @@ pub(crate) fn expand_decoder(
     ext_path: &TokenStream,
     dy_message: &TokenStream,
     reg: &TokenStream,
-    eyre_result: &TokenStream,
 ) -> TokenStream {
     let decoder_trait = with_crate_str("message::MessageDecoder");
     match codec_type {
@@ -158,7 +152,7 @@ pub(crate) fn expand_decoder(
         CodecType::Codec => {
             match message_impl {
                 MessageImpl::Message => {
-                    decoder(decoder_trait, dy_message, reg, eyre_result, || {
+                    decoder(decoder_trait, dy_message, reg, || {
                         quote! {
                             let message: #message_ty = #ext_path::decode_bytes(bytes)?;
                             let message = #dy_message::user(message);
@@ -167,7 +161,7 @@ pub(crate) fn expand_decoder(
                     })
                 }
                 MessageImpl::SystemMessage => {
-                    decoder(decoder_trait, dy_message, reg, eyre_result, || {
+                    decoder(decoder_trait, dy_message, reg, || {
                         quote! {
                             let message: #message_ty = #ext_path::decode_bytes(bytes)?;
                             let message = #dy_message::system(message);
@@ -176,7 +170,7 @@ pub(crate) fn expand_decoder(
                     })
                 }
                 MessageImpl::OrphanMessage => {
-                    decoder(decoder_trait, dy_message, reg, eyre_result, || {
+                    decoder(decoder_trait, dy_message, reg, || {
                         quote! {
                             let message: #message_ty = #ext_path::decode_bytes(bytes)?;
                             let message = #dy_message::orphan(message);
@@ -193,7 +187,6 @@ pub(crate) fn decoder<F>(
     decoder_trait: TokenStream,
     dy_message: &TokenStream,
     reg: &TokenStream,
-    eyre_result: &TokenStream,
     fn_body: F,
 ) -> TokenStream where F: FnOnce() -> TokenStream {
     let body = fn_body();
@@ -201,7 +194,7 @@ pub(crate) fn decoder<F>(
         #[derive(Clone)]
         struct D;
         impl #decoder_trait for D {
-            fn decode(&self, bytes: &[u8], _reg: &#reg) -> #eyre_result<#dy_message> {
+            fn decode(&self, bytes: &[u8], _reg: &#reg) -> anyhow::Result<#dy_message> {
                 #body
             }
         }
@@ -214,12 +207,11 @@ pub(crate) fn expand_encode(
     ty_generics: &TypeGenerics,
     codec_type: &CodecType,
     ext_path: &TokenStream,
-    eyre: &TokenStream,
 ) -> TokenStream {
     match codec_type {
         CodecType::NonCodec => {
             quote! {
-                Err(#eyre!("{} cannot codec", std::any::type_name::<#message_ty #ty_generics>()))
+                Err(anyhow::anyhow!("{} cannot codec", std::any::type_name::<#message_ty #ty_generics>()))
             }
         }
         CodecType::Codec => {
@@ -234,12 +226,11 @@ pub(crate) fn expand_clone_box(
     message_ty: &Ident,
     message_impl: &MessageImpl,
     ty_generics: &TypeGenerics,
-    eyre: &TokenStream,
     cloneable: bool,
 ) -> TokenStream {
     if !cloneable {
         quote! {
-            Err(#eyre!("message {} is not cloneable", std::any::type_name::<#message_ty #ty_generics>()))
+            Err(anyhow::anyhow!("message {} is not cloneable", std::any::type_name::<#message_ty #ty_generics>()))
         }
     } else {
         match message_impl {

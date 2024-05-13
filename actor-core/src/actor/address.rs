@@ -4,7 +4,19 @@ use std::net::SocketAddrV4;
 use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Encode, Decode, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Encode,
+    Decode,
+    Serialize,
+    Deserialize
+)]
 pub struct Address {
     pub protocol: String,
     pub system: String,

@@ -357,7 +357,7 @@ mod tests {
     use crate::ext::init_logger;
 
     #[tokio::test]
-    async fn test_scheduler() -> eyre::Result<()> {
+    async fn test_scheduler() -> anyhow::Result<()> {
         init_logger(Level::DEBUG);
         let scheduler = scheduler();
         let (tx, rx) = tokio::sync::oneshot::channel::<()>();

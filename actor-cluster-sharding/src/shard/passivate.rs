@@ -16,7 +16,7 @@ pub struct Passivate {
 impl Message for Passivate {
     type A = Shard;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match context.sender() {
             None => {
                 let name = self.stop_message.name();

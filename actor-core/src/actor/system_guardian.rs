@@ -9,7 +9,7 @@ pub(crate) struct SystemGuardian;
 
 #[async_trait]
 impl Actor for SystemGuardian {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{} started", context.myself());
         Ok(())
     }

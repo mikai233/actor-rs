@@ -13,7 +13,7 @@ pub struct MessageToAsk;
 impl Message for MessageToAsk {
     type A = EmptyTestActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         context.sender().unwrap().cast_orphan_ns(MessageToAns {
             content: "hello world".to_string(),
         });

@@ -18,7 +18,7 @@ pub(super) struct HeartbeatTick;
 impl Message for HeartbeatTick {
     type A = ClusterHeartbeatSender;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if let Some(self_member) = &actor.self_member {
             if self_member.status == MemberStatus::Up {
                 for receiver in &actor.active_receivers {

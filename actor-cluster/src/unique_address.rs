@@ -6,7 +6,19 @@ use serde::{Deserialize, Serialize};
 
 use actor_core::actor::address::Address;
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Encode, Decode, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Encode,
+    Decode,
+    Serialize,
+    Deserialize
+)]
 pub struct UniqueAddress {
     pub address: Address,
     pub uid: i64,

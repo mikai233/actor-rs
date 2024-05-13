@@ -31,7 +31,7 @@ pub struct ClusterActorRefProvider {
 }
 
 impl ClusterActorRefProvider {
-    pub fn new(system: ActorSystem, setting: ClusterSetting) -> eyre::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+    pub fn new(system: ActorSystem, setting: ClusterSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
         let ClusterSetting { config: cluster_config, mut reg, client } = setting;
         let remote_config = cluster_config.remote.clone();
         let roles = cluster_config.roles.clone();
@@ -61,7 +61,7 @@ impl ClusterActorRefProvider {
         reg.register_system::<HeartbeatRsp>();
     }
 
-    pub fn builder(cluster_setting: ClusterSetting) -> impl Fn(ActorSystem) -> eyre::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
+    pub fn builder(cluster_setting: ClusterSetting) -> impl Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
         move |system: ActorSystem| {
             Self::new(system, cluster_setting.clone()).map(|t| { (t.0.into(), t.1) })
         }
@@ -109,7 +109,7 @@ impl TActorRefProvider for ClusterActorRefProvider {
         self.remote.unregister_temp_actor(path)
     }
 
-    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> eyre::Result<ActorRef> {
+    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
         self.remote.spawn_actor(props, supervisor)
     }
 

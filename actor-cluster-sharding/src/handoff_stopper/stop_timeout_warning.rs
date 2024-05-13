@@ -16,7 +16,7 @@ pub(super) struct StopTimeoutWarning;
 impl Message for StopTimeoutWarning {
     type A = HandoffStopper;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let is_terminating = CoordinatedShutdown::get(context.system()).is_terminating();
         let type_name = &actor.type_name;
         let remaining_size = actor.remaining_entities.len();

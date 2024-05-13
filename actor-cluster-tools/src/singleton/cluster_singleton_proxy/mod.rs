@@ -140,7 +140,7 @@ impl ClusterSingletonProxy {
 
 #[async_trait]
 impl Actor for ClusterSingletonProxy {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         self.cluster.subscribe_cluster_event(
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
@@ -150,7 +150,7 @@ impl Actor for ClusterSingletonProxy {
     }
 
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         self.cancel_timer();
         self.cluster.unsubscribe_cluster_event(context.myself())?;
         if let Some(singleton) = &self.singleton {
@@ -159,7 +159,7 @@ impl Actor for ClusterSingletonProxy {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> eyre::Result<Option<DynMessage>> {
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<Option<DynMessage>> {
         if self.is_proxy_message(message.name()) {
             Ok(Some(message))
         } else {

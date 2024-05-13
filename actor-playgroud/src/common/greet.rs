@@ -15,7 +15,7 @@ pub struct Greet(pub usize);
 impl Message for Greet {
     type A = SingletonActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         println!("{:?}", *self);
         info!("{} recv {:?}", context.myself(), *self);
         Ok(())

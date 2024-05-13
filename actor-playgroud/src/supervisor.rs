@@ -1,5 +1,5 @@
+use anyhow::anyhow;
 use async_trait::async_trait;
-use eyre::anyhow;
 use tracing::{info, Level};
 
 use actor_core::{Actor, Message};
@@ -16,7 +16,7 @@ struct TestActor;
 
 #[async_trait]
 impl Actor for TestActor {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         info!("{} started", context.myself());
         Ok(())
     }
@@ -29,7 +29,7 @@ struct ErrorMessage;
 impl Message for ErrorMessage {
     type A = TestActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         Err(anyhow!("test error message"))
     }
 }
@@ -41,14 +41,14 @@ struct NormalMessage;
 impl Message for NormalMessage {
     type A = TestActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         info!("recv {:?}", *self);
         Ok(())
     }
 }
 
 #[tokio::main]
-async fn main() -> eyre::Result<()> {
+async fn main() -> anyhow::Result<()> {
     init_logger(Level::DEBUG);
     let system = ActorSystem::new("mikai233", ActorSetting::default())?;
     let test_actor = system.spawn_anonymous(Props::new(|| Ok(TestActor)))?;

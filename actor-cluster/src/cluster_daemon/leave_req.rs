@@ -17,7 +17,7 @@ pub(super) struct LeaveReq;
 impl Message for LeaveReq {
     type A = ClusterDaemon;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         let reply_to = context.sender().into_result()?.clone();
         context.spawn_anonymous(Props::new_with_ctx(|ctx| {
             Ok(CoordinatedShutdownLeave::new(ctx, reply_to))

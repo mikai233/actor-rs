@@ -15,7 +15,7 @@ pub struct StopSingleton;
 impl Message for StopSingleton {
     type A = SingletonActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         info!("stop singleton {}", context.myself());
         context.stop(context.myself());
         Ok(())

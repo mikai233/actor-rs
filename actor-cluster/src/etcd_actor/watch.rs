@@ -21,7 +21,7 @@ pub struct Watch {
 impl Message for Watch {
     type A = EtcdActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         debug!("{} request watch key {}", self.applicant, self.key);
         let mut client = actor.client.clone();
         let myself = context.myself().clone();

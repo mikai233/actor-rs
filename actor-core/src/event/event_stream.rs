@@ -107,14 +107,14 @@ mod event_tests {
     impl Message for EventWrap {
         type A = EmptyTestActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             info!("{} handle event message {:?}", context.myself(), self);
             Ok(())
         }
     }
 
     #[tokio::test]
-    async fn test_event_stream() -> eyre::Result<()> {
+    async fn test_event_stream() -> anyhow::Result<()> {
         let system = ActorSystem::new("mikai233", ActorSetting::default())?;
         let props_builder = PropsBuilder::new(|()| { Ok(EmptyTestActor) });
         let actor1 = system.spawn(props_builder.props(()), "actor1")?;

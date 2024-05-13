@@ -12,7 +12,7 @@ pub(super) struct UpdateFailed;
 impl Message for UpdateFailed {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.update(context, None).await;
         Ok(())
     }

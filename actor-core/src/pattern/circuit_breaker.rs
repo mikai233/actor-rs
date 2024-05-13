@@ -3,7 +3,7 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use eyre::anyhow;
+use anyhow::anyhow;
 use rand::random;
 use tracing::debug;
 
@@ -54,7 +54,7 @@ impl CircuitBreaker {
         exponential_backoff_factor: f64,
         random_factor: f64,
         change_to_half_open: F,
-    ) -> eyre::Result<Self> where F: Fn() + Send + Sync + 'static {
+    ) -> anyhow::Result<Self> where F: Fn() + Send + Sync + 'static {
         if exponential_backoff_factor < 1.0 {
             return Err(anyhow!("exponential_backoff_factor must be >= 1.0"));
         }
@@ -141,7 +141,7 @@ impl CircuitBreaker {
         }
     }
 
-    async fn call_through<Fut, R>(&mut self, body: Fut) -> eyre::Result<R> where Fut: Future<Output=eyre::Result<R>> {
+    async fn call_through<Fut, R>(&mut self, body: Fut) -> anyhow::Result<R> where Fut: Future<Output=anyhow::Result<R>> {
         match tokio::time::timeout(self.call_timeout, body).await {
             Ok(Ok(result)) => {
                 self.notify_call_success_listeners();
@@ -161,7 +161,7 @@ impl CircuitBreaker {
         }
     }
 
-    async fn invoke<Fut, R>(&mut self, body: Fut) -> eyre::Result<R> where Fut: Future<Output=eyre::Result<R>> {
+    async fn invoke<Fut, R>(&mut self, body: Fut) -> anyhow::Result<R> where Fut: Future<Output=anyhow::Result<R>> {
         match self.state {
             State::Closed { .. } => {
                 self.call_through(body).await
@@ -335,7 +335,7 @@ impl Display for State {
 mod test {
     use std::time::Duration;
 
-    use eyre::anyhow;
+    use anyhow::anyhow;
     use async_trait::async_trait;
     use tracing::info;
 
@@ -356,7 +356,7 @@ mod test {
     }
 
     impl LogicActor {
-        fn new_breaker(context: &mut ActorContext) -> eyre::Result<CircuitBreaker> {
+        fn new_breaker(context: &mut ActorContext) -> anyhow::Result<CircuitBreaker> {
             let myself = context.myself().clone();
             let breaker = CircuitBreaker::new(
                 context.system().scheduler.clone(),
@@ -376,7 +376,7 @@ mod test {
 
     #[async_trait]
     impl Actor for LogicActor {
-        async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+        async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
             self.breaker.on_open(|| {
                 info!("breaker now open");
             });
@@ -406,7 +406,7 @@ mod test {
     impl Message for ChangeToHalfOpen {
         type A = LogicActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
             actor.breaker.change_to_half_open();
             Ok(())
         }
@@ -419,7 +419,7 @@ mod test {
     impl Message for SuccessCall {
         type A = LogicActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
             for _ in 0..self.0 {
                 let _ = actor.breaker.invoke(async {
                     actor.counter += 1;
@@ -438,7 +438,7 @@ mod test {
     impl Message for FailCall {
         type A = LogicActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
             for _ in 0..self.0 {
                 let _ = actor.breaker.invoke::<_, ()>(async {
                     Err(anyhow!("test error"))
@@ -449,7 +449,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_breaker() -> eyre::Result<()> {
+    async fn test_breaker() -> anyhow::Result<()> {
         let system = ActorSystem::new("mikai233", ActorSetting::default())?;
         let actor = system.spawn_anonymous(Props::new_with_ctx(|ctx| {
             let breaker = LogicActor::new_breaker(ctx)?;

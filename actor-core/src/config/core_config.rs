@@ -35,11 +35,11 @@ pub struct CoreConfigBuilder {
 impl ConfigBuilder for CoreConfigBuilder {
     type C = CoreConfig;
 
-    fn add_source<T>(self, source: T) -> eyre::Result<Self> where T: Source + Send + Sync + 'static {
+    fn add_source<T>(self, source: T) -> anyhow::Result<Self> where T: Source + Send + Sync + 'static {
         Ok(Self { builder: self.builder.add_source(source) })
     }
 
-    fn build(self) -> eyre::Result<Self::C> {
+    fn build(self) -> anyhow::Result<Self::C> {
         let builder = self.builder.add_source(File::from_str(CORE_CONFIG, FileFormat::Toml));
         let core_config = builder.build()?.try_deserialize::<Self::C>()?;
         Ok(core_config)
@@ -55,7 +55,7 @@ mod tests {
     use crate::config::mailbox::Mailbox;
 
     #[test]
-    fn test_config() -> eyre::Result<()> {
+    fn test_config() -> anyhow::Result<()> {
         let mut config = CoreConfig::default();
         config.mailbox.insert(
             "default".to_string(),

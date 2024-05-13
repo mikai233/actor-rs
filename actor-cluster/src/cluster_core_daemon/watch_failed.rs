@@ -12,7 +12,7 @@ pub(crate) struct WatchFailed;
 impl Message for WatchFailed {
     type A = ClusterCoreDaemon;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.watch_cluster_members();
         Ok(())
     }

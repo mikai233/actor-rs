@@ -21,7 +21,7 @@ impl HandoffStopperTerminated {
 impl Message for HandoffStopperTerminated {
     type A = Shard;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if actor.handoff_stopper.as_ref().is_some_and(|a| a == &*self.0) {
             context.stop(context.myself());
         }

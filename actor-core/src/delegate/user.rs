@@ -34,7 +34,7 @@ impl<A> UserDelegate<A> where A: Actor {
         }
     }
 
-    pub fn downcast<M>(self) -> eyre::Result<M> where M: Message {
+    pub fn downcast<M>(self) -> anyhow::Result<M> where M: Message {
         let Self { name, message, .. } = self;
         downcast_box_message(name, message.into_any())
     }
@@ -62,11 +62,11 @@ impl<A> CodecMessage for UserDelegate<A> where A: 'static + Actor + Send {
         None
     }
 
-    fn encode(self: Box<Self>, message_registration: &MessageRegistry) -> eyre::Result<Vec<u8>> {
+    fn encode(self: Box<Self>, message_registration: &MessageRegistry) -> anyhow::Result<Vec<u8>> {
         self.message.encode(message_registration)
     }
 
-    fn clone_box(&self) -> eyre::Result<Box<dyn CodecMessage>> {
+    fn clone_box(&self) -> anyhow::Result<Box<dyn CodecMessage>> {
         let message = self.message.clone_box()?.into_codec();
         Ok(message)
     }
@@ -85,7 +85,7 @@ impl<A> CodecMessage for UserDelegate<A> where A: 'static + Actor + Send {
 impl<A> Message for UserDelegate<A> where A: Actor + Send + 'static {
     type A = A;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         self.message.handle(context, actor).await
     }
 }

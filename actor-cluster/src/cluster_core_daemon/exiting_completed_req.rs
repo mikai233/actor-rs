@@ -17,7 +17,7 @@ pub(super) struct ExitingCompletedReq;
 impl Message for ExitingCompletedReq {
     type A = ClusterCoreDaemon;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let sender = context.sender().into_result()?;
         info!("Exiting completed");
         actor.exiting_tasks_in_progress = false;

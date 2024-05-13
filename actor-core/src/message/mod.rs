@@ -21,7 +21,7 @@ pub mod address_terminated;
 pub(crate) mod task_finish;
 
 pub trait MessageDecoder: Send + Sync + DynClone + 'static {
-    fn decode(&self, bytes: &[u8], reg: &MessageRegistry) -> eyre::Result<DynMessage>;
+    fn decode(&self, bytes: &[u8], reg: &MessageRegistry) -> anyhow::Result<DynMessage>;
 }
 
 dyn_clone::clone_trait_object!(MessageDecoder);

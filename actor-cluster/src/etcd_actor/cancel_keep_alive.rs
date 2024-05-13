@@ -15,7 +15,7 @@ pub struct CancelKeepAlive(pub i64);
 impl Message for CancelKeepAlive {
     type A = EtcdActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if let Some(lease) = actor.lease.remove(&self.0) {
             context.stop(&lease.keeper);
             debug!("cancel keep alive with lease {}", self.0);

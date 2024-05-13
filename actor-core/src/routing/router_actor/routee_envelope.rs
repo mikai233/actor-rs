@@ -25,7 +25,7 @@ impl RouteeEnvelope {
 impl Message for RouteeEnvelope {
     type A = Box<dyn Router>;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let routee = actor.router_config().routing_logic().select(&self.message, actor.routees());
         routee.send(self.message, context.sender().cloned());
         Ok(())

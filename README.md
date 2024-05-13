@@ -41,7 +41,7 @@ struct MyMessage {
 impl Message for MyMessage {
     type A = MyActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         println!("{:?}", self.name);
         Ok(())
     }
@@ -52,7 +52,7 @@ impl Message for MyMessage {
 
 ```rust
 #[tokio::main]
-async fn main() -> eyre::Result<()> {
+async fn main() -> anyhow::Result<()> {
     let system = ActorSystem::create("mikai233", ActorSetting::default())?;
     let my_actor = system.spawn(Props::create(|_| Ok(MyActor)), "my_actor")?;
     system.await?;
@@ -74,22 +74,22 @@ my_actor.tell(DynMessage::user(MyMessage { name: "hello".to_string() }), ActorRe
 #[async_trait]
 pub trait Actor: Send + Any {
     #[allow(unused_variables)]
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         Ok(())
     }
 
     #[allow(unused_variables)]
-    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         Ok(())
     }
 
     #[allow(unused_variables)]
-    fn on_child_failure(&mut self, context: &mut ActorContext, child: &ActorRef, error: &eyre::Error) -> Directive {
+    fn on_child_failure(&mut self, context: &mut ActorContext, child: &ActorRef, error: &anyhow::Error) -> Directive {
         Directive::Resume
     }
 
     #[allow(unused_variables)]
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> eyre::Result<Option<DynMessage>> {
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<Option<DynMessage>> {
         Ok(Some(message))
     }
 }
@@ -109,9 +109,9 @@ pub trait CodecMessage: Any + Send {
 
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized;
 
-    fn encode(self: Box<Self>, reg: &MessageRegistry) -> eyre::Result<Vec<u8>>;
+    fn encode(self: Box<Self>, reg: &MessageRegistry) -> anyhow::Result<Vec<u8>>;
 
-    fn clone_box(&self) -> eyre::Result<Box<dyn CodecMessage>>;
+    fn clone_box(&self) -> anyhow::Result<Box<dyn CodecMessage>>;
 
     fn cloneable(&self) -> bool;
 
@@ -126,7 +126,7 @@ actor消息需要实现的顶层 `trait` ，用于决定此消息需不需要序
 pub trait Message: CodecMessage {
     type A: Actor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()>;
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()>;
 }
 ```
 

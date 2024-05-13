@@ -42,7 +42,7 @@ impl ConnectTcp {
 impl Message for ConnectTcp {
     type A = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { addr, opts } = *self;
         if actor.is_connecting_or_connected(&addr) {
             debug!("ignore connect to {} because it is already connected", addr);

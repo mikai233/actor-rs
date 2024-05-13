@@ -1,8 +1,8 @@
 use std::any::type_name;
 use std::ops::Not;
 
+use anyhow::anyhow;
 use async_trait::async_trait;
-use eyre::anyhow;
 
 use actor_derive::EmptyCodec;
 
@@ -17,7 +17,7 @@ pub struct Broadcast {
 }
 
 impl Broadcast {
-    pub fn new<M>(message: M) -> eyre::Result<Self> where M: Message {
+    pub fn new<M>(message: M) -> anyhow::Result<Self> where M: Message {
         if message.cloneable().not() {
             return Err(anyhow!("broadcast message {} require cloneable", type_name::<M>()));
         }
@@ -32,7 +32,7 @@ impl Broadcast {
 impl Message for Broadcast {
     type A = Box<dyn Router>;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         for routee in actor.routees() {
             routee.send(self.message.dyn_clone()?, context.sender().cloned());
         }

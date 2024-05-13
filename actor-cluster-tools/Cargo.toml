@@ -12,7 +12,7 @@ async-trait = { workspace = true }
 ahash = { workspace = true }
 dashmap = { workspace = true, features = ["inline"] }
 tracing = { workspace = true }
-eyre = { workspace = true }
+anyhow = { workspace = true }
 typed-builder = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 futures = { workspace = true }

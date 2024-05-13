@@ -10,7 +10,7 @@ actor-core = { path = "../actor-core", features = ["derive"] }
 tokio = { workspace = true }
 tokio-util = { workspace = true, features = ["codec"] }
 futures = { workspace = true }
-eyre = { workspace = true }
+anyhow = { workspace = true }
 quick_cache = { workspace = true }
 stubborn-io = { workspace = true }
 tracing = { workspace = true }

@@ -17,7 +17,7 @@ pub(crate) struct ShardRegionTerminated {
 impl Message for ShardRegionTerminated {
     type A = RebalanceWorker;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let region = self.region;
         if !actor.stopping_shard {
             if actor.remaining.contains(&region) {

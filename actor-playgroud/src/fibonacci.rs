@@ -39,7 +39,7 @@ struct FibActor {
 }
 
 impl FibActor {
-    fn new(context: &mut ActorContext) -> eyre::Result<Self> {
+    fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
         let timers = Timers::new(context)?;
         Ok(Self {
             timers,
@@ -49,7 +49,7 @@ impl FibActor {
 
 #[async_trait]
 impl Actor for FibActor {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let n = rand::thread_rng().gen_range(1..=50);
         self.timers.start_timer_with_fixed_delay(None, Duration::from_millis(100), Fib(n), context.myself().clone());
         info!("{} started", context.myself());
@@ -64,14 +64,14 @@ struct Fib(i32);
 impl Message for Fib {
     type A = FibActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         fibonacci(self.0);
         Ok(())
     }
 }
 
 #[tokio::main]
-async fn main() -> eyre::Result<()> {
+async fn main() -> anyhow::Result<()> {
     init_logger_with_filter("actor=info");
     let system = ActorSystem::new("mikai233", ActorSetting::default())?;
     system.spawn_anonymous(Props::new_with_ctx(|ctx| { FibActor::new(ctx) }))?;

@@ -20,7 +20,7 @@ pub(super) struct AllocateShardResult {
 impl Message for AllocateShardResult {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { shard, shard_region, get_shard_home_sender } = *self;
         match shard_region {
             None => {

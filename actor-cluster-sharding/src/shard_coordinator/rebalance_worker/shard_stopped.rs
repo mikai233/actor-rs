@@ -18,7 +18,7 @@ pub(crate) struct ShardStopped {
 impl Message for ShardStopped {
     type A = RebalanceWorker;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let shard = self.shard;
         if shard == actor.shard.as_str() {
             if actor.stopping_shard {

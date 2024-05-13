@@ -24,7 +24,7 @@ pub(crate) struct Register {
 impl Message for Register {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let region = self.shard_region;
         if matches!(actor.coordinator_state, CoordinatorState::WaitingForStateInitialized) {
             debug!("{}: Ignoring registration from region [{}] while initializing", actor.type_name, region);

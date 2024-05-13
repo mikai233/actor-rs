@@ -15,5 +15,5 @@ pub trait EventBus {
 
     fn unsubscribe_all(&self, subscriber: &Self::Subscriber);
 
-    fn publish(&self, event: Self::Event) -> eyre::Result<()>;
+    fn publish(&self, event: Self::Event) -> anyhow::Result<()>;
 }

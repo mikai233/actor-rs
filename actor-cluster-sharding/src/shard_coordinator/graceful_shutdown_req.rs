@@ -20,7 +20,7 @@ pub(crate) struct GracefulShutdownReq {
 impl Message for GracefulShutdownReq {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let region = self.shard_region;
         if actor.graceful_shutdown_in_progress.contains(&region).not() {
             match actor.state.regions.get(&region) {

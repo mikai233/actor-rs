@@ -3,8 +3,8 @@ use std::ops::Not;
 use std::time::Duration;
 
 use ahash::HashSet;
+use anyhow::Context as _;
 use async_trait::async_trait;
-use eyre::Context as _;
 use tracing::{debug, info, warn};
 
 use actor_core::actor::context::{ActorContext, Context};
@@ -29,7 +29,7 @@ pub(crate) struct Handoff {
 impl Message for Handoff {
     type A = Shard;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let shard_id = self.shard;
         if shard_id.as_str() == actor.shard_id.as_str() {
             match &actor.handoff_stopper {

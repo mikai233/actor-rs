@@ -2,7 +2,7 @@ use std::any::Any;
 use std::any::type_name;
 use std::panic::AssertUnwindSafe;
 
-use eyre::{anyhow, Error};
+use anyhow::{anyhow, Error};
 use futures::FutureExt;
 use tokio::task::yield_now;
 use tracing::{debug, error};
@@ -95,7 +95,7 @@ impl<A> ActorRuntime<A> where A: Actor {
         context.sender.take();
     }
 
-    fn catch_handle_error(context: &mut ActorContext, catch_unwind_result: Result<eyre::Result<()>, Box<dyn Any + Send>>) {
+    fn catch_handle_error(context: &mut ActorContext, catch_unwind_result: Result<anyhow::Result<()>, Box<dyn Any + Send>>) {
         match catch_unwind_result {
             Ok(Err(logic_error)) => {
                 let name = type_name::<A>();

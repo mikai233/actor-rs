@@ -96,7 +96,7 @@ impl ShardCoordinator {
         type_name: ImString,
         settings: Arc<ClusterShardingSettings>,
         allocation_strategy: Box<dyn ShardAllocationStrategy>,
-    ) -> eyre::Result<Self> {
+    ) -> anyhow::Result<Self> {
         let cluster = Cluster::get(context.system()).clone();
         let timers = Timers::new(context)?;
         let coordinator = Self {
@@ -129,7 +129,7 @@ impl ShardCoordinator {
 
 #[async_trait]
 impl Actor for ShardCoordinator {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         self.timers.start_timer_with_fixed_delay(
             None,
             self.settings.rebalance_interval,
@@ -184,7 +184,7 @@ impl Actor for ShardCoordinator {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{}: ShardCoordinator {} stopped", self.type_name, context.myself());
         Ok(())
     }
@@ -247,7 +247,7 @@ impl ShardCoordinator {
         context: &mut ActorContext,
         shutting_down_region: ActorRef,
         shards: HashSet<ImShardId>,
-    ) -> eyre::Result<()> {
+    ) -> anyhow::Result<()> {
         if shards.is_empty().not() {
             let shards_str = shards.iter().join(", ");
             info!("{}: Starting shutting down shards [{}] due to region shutting down or explicit stopping of shards.", self.type_name, shards_str);
@@ -264,7 +264,7 @@ impl ShardCoordinator {
         Ok(())
     }
 
-    fn continue_rebalance(&mut self, context: &mut ActorContext, shards: HashSet<ImShardId>) -> eyre::Result<()> {
+    fn continue_rebalance(&mut self, context: &mut ActorContext, shards: HashSet<ImShardId>) -> anyhow::Result<()> {
         if shards.is_empty().not() || self.rebalance_in_progress.is_empty().not() {
             let shards_str = shards.iter().join(", ");
             let rebalance_str = self.rebalance_in_progress.keys().join(", ");
@@ -304,7 +304,7 @@ impl ShardCoordinator {
         from: ActorRef,
         handoff_timeout: Duration,
         is_rebalance: bool,
-    ) -> eyre::Result<()> {
+    ) -> anyhow::Result<()> {
         if let Entry::Vacant(v) = self.rebalance_in_progress.entry(shard.clone()) {
             v.insert(HashSet::new());
             let regions = self.state.regions.keys().map(|region| region.clone()).collect::<HashSet<_>>();

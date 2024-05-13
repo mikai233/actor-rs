@@ -28,7 +28,7 @@ pub(super) struct ConnectQuic {
 impl Message for ConnectQuic {
     type A = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { addr, config } = *self;
         if actor.is_connecting_or_connected(&addr) {
             debug!("ignore connect to {} because it is already connected", addr);
@@ -61,7 +61,7 @@ impl Message for ConnectQuic {
 }
 
 impl ConnectQuic {
-    async fn connect(addr: SocketAddr, config: ClientConfig) -> eyre::Result<SendStream> {
+    async fn connect(addr: SocketAddr, config: ClientConfig) -> anyhow::Result<SendStream> {
         let mut endpoint = Endpoint::client("0.0.0.0:0".parse()?)?;
         endpoint.set_default_client_config(config);
         let connection = endpoint.connect(addr, "localhost")?.await?;

@@ -7,8 +7,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use ahash::{HashMap, HashSet};
+use anyhow::anyhow;
 use arc_swap::Guard;
-use eyre::eyre;
 use tokio::task::{AbortHandle, JoinHandle};
 use tracing::{debug, error, warn};
 
@@ -49,7 +49,7 @@ pub trait Context: ActorRefFactory {
 
     fn parent(&self) -> Option<&ActorRef>;
 
-    fn watch<F>(&mut self, watchee: ActorRef, termination: F) -> eyre::Result<()>
+    fn watch<F>(&mut self, watchee: ActorRef, termination: F) -> anyhow::Result<()>
         where
             F: FnOnce(Terminated) -> DynMessage + Send + 'static;
 
@@ -107,9 +107,9 @@ impl ActorRefFactory for ActorContext {
         self.myself().clone()
     }
 
-    fn spawn(&self, props: Props, name: impl Into<String>) -> eyre::Result<ActorRef> {
+    fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
         if !matches!(self.state, ActorState::Init | ActorState::Started) {
-            return Err(eyre!(
+            return Err(anyhow!(
                 "cannot spawn child actor while parent actor {} is terminating",
                 self.myself
             ));
@@ -117,9 +117,9 @@ impl ActorRefFactory for ActorContext {
         self.myself.local().unwrap().attach_child(props, Some(name.into()), None)
     }
 
-    fn spawn_anonymous(&self, props: Props) -> eyre::Result<ActorRef> {
+    fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
         if !matches!(self.state, ActorState::Init | ActorState::Started) {
-            return Err(eyre!(
+            return Err(anyhow!(
                 "cannot spawn child actor while parent actor {} is terminating",
                 self.myself
             ));
@@ -155,7 +155,7 @@ impl Context for ActorContext {
         self.myself().local().unwrap().cell.parent()
     }
 
-    fn watch<F>(&mut self, watchee: ActorRef, termination: F) -> eyre::Result<()>
+    fn watch<F>(&mut self, watchee: ActorRef, termination: F) -> anyhow::Result<()>
         where
             F: FnOnce(Terminated) -> DynMessage + Send + 'static
     {
@@ -172,11 +172,11 @@ impl Context for ActorContext {
                     });
                 }
                 Some(_) => {
-                    return Err(eyre!("duplicate watch {}, you should unwatch it first.", watchee));
+                    return Err(anyhow!("duplicate watch {}, you should unwatch it first.", watchee));
                 }
             }
         } else {
-            return Err(eyre!("cannot watch self"));
+            return Err(anyhow!("cannot watch self"));
         }
         Ok(())
     }
@@ -366,7 +366,7 @@ impl ActorContext {
         });
     }
 
-    pub fn spawn_fut<F>(&mut self, name: impl Into<String>, future: F) -> eyre::Result<JoinHandle<F::Output>>
+    pub fn spawn_fut<F>(&mut self, name: impl Into<String>, future: F) -> anyhow::Result<JoinHandle<F::Output>>
         where
             F: Future + Send + 'static,
             F::Output: Send + 'static,
@@ -376,7 +376,7 @@ impl ActorContext {
 
 
     #[cfg(feature = "tokio-tracing")]
-    pub(crate) fn spawn_inner<F>(&mut self, name: String, future: F) -> eyre::Result<JoinHandle<F::Output>>
+    pub(crate) fn spawn_inner<F>(&mut self, name: String, future: F) -> anyhow::Result<JoinHandle<F::Output>>
         where
             F: Future + Send + 'static,
             F::Output: Send + 'static,
@@ -398,7 +398,7 @@ impl ActorContext {
     }
 
     #[cfg(not(feature = "tokio-tracing"))]
-    pub(crate) fn spawn_inner<F>(&mut self, name: String, future: F) -> eyre::Result<JoinHandle<F::Output>>
+    pub(crate) fn spawn_inner<F>(&mut self, name: String, future: F) -> anyhow::Result<JoinHandle<F::Output>>
         where
             F: Future + Send + 'static,
             F::Output: Send + 'static,
@@ -445,7 +445,7 @@ impl ActorContext {
 
     pub fn execute<F, A>(&self, f: F)
         where
-            F: FnOnce(&mut ActorContext, &mut A) -> eyre::Result<()> + Send + 'static,
+            F: FnOnce(&mut ActorContext, &mut A) -> anyhow::Result<()> + Send + 'static,
             A: Actor {
         let execute = Execute {
             closure: Box::new(f),
@@ -453,7 +453,7 @@ impl ActorContext {
         self.myself.cast_ns(execute);
     }
 
-    pub(crate) fn handle_invoke_failure(&mut self, child: ActorRef, name: &str, error: eyre::Error) {
+    pub(crate) fn handle_invoke_failure(&mut self, child: ActorRef, name: &str, error: anyhow::Error) {
         error!("{} handle message error {:?}", name, error);
         self.state = ActorState::Suspend;
         for child in self.children() {

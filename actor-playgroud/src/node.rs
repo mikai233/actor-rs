@@ -18,7 +18,7 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> eyre::Result<()> {
+async fn main() -> anyhow::Result<()> {
     let Args { system_name, addr, etcd } = Args::parse();
     init_logger_with_filter("actor=trace");
     let client = Client::connect([etcd.to_string()], None).await?;

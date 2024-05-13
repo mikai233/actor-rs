@@ -58,10 +58,10 @@ mod arc_test {
     use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
     use crate::{Actor, Message};
-    use crate::actor::scoped_rc::Src;
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::Props;
+    use crate::actor::scoped_rc::Src;
     use crate::actor_ref::actor_ref_factory::ActorRefFactory;
     use crate::actor_ref::ActorRefExt;
     use crate::pattern::patterns::PatternsExt;
@@ -86,7 +86,7 @@ mod arc_test {
     impl Message for Incr {
         type A = RefActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
             *actor.value.get(context).borrow_mut() += 1;
             Ok(())
         }
@@ -102,14 +102,14 @@ mod arc_test {
     impl Message for Get {
         type A = RefActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
             context.sender().unwrap().cast_orphan_ns(GetRsp(*actor.value.get(context).borrow()));
             Ok(())
         }
     }
 
     #[tokio::test]
-    async fn test() -> eyre::Result<()> {
+    async fn test() -> anyhow::Result<()> {
         let system = ActorSystem::new("mikai233", Default::default())?;
         let ref_actor = system.spawn_anonymous(Props::new_with_ctx(|ctx| { Ok(RefActor::new(ctx)) }))?;
         for _ in 0..1000 {

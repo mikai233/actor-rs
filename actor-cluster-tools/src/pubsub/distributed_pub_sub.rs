@@ -15,7 +15,7 @@ pub struct DistributedPubSub {
 }
 
 impl DistributedPubSub {
-    pub fn new(system: ActorSystem) -> eyre::Result<Self> {
+    pub fn new(system: ActorSystem) -> anyhow::Result<Self> {
         let mediator = system.spawn_system(
             Props::new(|| Ok(DistributedPubSubMediator {})),
             Some("distributed_pub_sub_mediator".to_string()),

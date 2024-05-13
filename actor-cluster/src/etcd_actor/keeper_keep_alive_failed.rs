@@ -16,7 +16,7 @@ pub(super) struct KeeperKeepAliveFailed {
 impl Message for KeeperKeepAliveFailed {
     type A = EtcdActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if let Some(lease) = actor.lease.remove(&self.id) {
             EtcdActor::keep_alive_failed(self.id, &lease.applicant, Some(self.error));
         }

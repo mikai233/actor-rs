@@ -85,7 +85,7 @@ impl QuicTransport {
         "quic"
     }
 
-    pub fn configure_server() -> eyre::Result<(ServerConfig, Vec<u8>)> {
+    pub fn configure_server() -> anyhow::Result<(ServerConfig, Vec<u8>)> {
         let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
         let cert_der = cert.serialize_der().unwrap();
         let priv_key = cert.serialize_private_key_der();

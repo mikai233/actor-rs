@@ -12,7 +12,7 @@ actor-cluster = { path = "../actor-cluster" }
 actor-cluster-tools = { path = "../actor-cluster-tools" }
 tokio = { workspace = true, features = ["full"] }
 bincode = { workspace = true }
-eyre = { workspace = true }
+anyhow = { workspace = true }
 dashmap = { workspace = true, features = ["inline"] }
 ahash = { workspace = true }
 tracing = { workspace = true }

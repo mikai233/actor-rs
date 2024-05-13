@@ -21,7 +21,7 @@ impl SystemDelegate where {
         }
     }
 
-    pub fn downcast<M>(self) -> eyre::Result<M> where M: CodecMessage {
+    pub fn downcast<M>(self) -> anyhow::Result<M> where M: CodecMessage {
         let Self { name, message } = self;
         downcast_box_message(name, message.into_any())
     }
@@ -49,11 +49,11 @@ impl CodecMessage for SystemDelegate {
         None
     }
 
-    fn encode(self: Box<Self>, reg: &MessageRegistry) -> eyre::Result<Vec<u8>> {
+    fn encode(self: Box<Self>, reg: &MessageRegistry) -> anyhow::Result<Vec<u8>> {
         self.message.encode(reg)
     }
 
-    fn clone_box(&self) -> eyre::Result<Box<dyn CodecMessage>> {
+    fn clone_box(&self) -> anyhow::Result<Box<dyn CodecMessage>> {
         let message = self.message.clone_box()?.into_codec();
         Ok(message)
     }
@@ -70,7 +70,7 @@ impl CodecMessage for SystemDelegate {
 
 #[async_trait]
 impl SystemMessage for SystemDelegate {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut dyn Actor) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut dyn Actor) -> anyhow::Result<()> {
         self.message.handle(context, actor).await
     }
 }

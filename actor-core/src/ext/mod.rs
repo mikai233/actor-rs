@@ -1,9 +1,9 @@
 use std::any::type_name;
 use std::sync::atomic::{AtomicI64, Ordering};
 
+use anyhow::{anyhow, Context, Ok};
 use bincode::{Decode, Encode};
 use bytes::BytesMut;
-use eyre::{anyhow, Context, Ok};
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::time::LocalTime;
 
@@ -28,11 +28,11 @@ pub fn read_u32(src: &BytesMut, offset: usize) -> u32 {
     u32::from_be_bytes(u32_bytes)
 }
 
-pub fn encode_bytes<T>(value: &T) -> eyre::Result<Vec<u8>> where T: Encode {
+pub fn encode_bytes<T>(value: &T) -> anyhow::Result<Vec<u8>> where T: Encode {
     bincode::encode_to_vec(value, bincode::config::standard()).context(type_name::<T>())
 }
 
-pub fn decode_bytes<T>(bytes: &[u8]) -> eyre::Result<T> where T: Decode {
+pub fn decode_bytes<T>(bytes: &[u8]) -> anyhow::Result<T> where T: Decode {
     bincode::decode_from_slice(bytes, bincode::config::standard()).context(type_name::<T>()).map(|(t, _)| t)
 }
 
@@ -80,7 +80,7 @@ pub(crate) fn random_name(prefix: String) -> String {
     base64(num, prefix)
 }
 
-pub(crate) fn check_name(name: &String) -> eyre::Result<()> {
+pub(crate) fn check_name(name: &String) -> anyhow::Result<()> {
     let valid = name.chars().all(|c| match c {
         'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => true,
         _ => false

@@ -2,10 +2,9 @@ use std::any::Any;
 use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 
+use anyhow::anyhow;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
-pub use eyre;
-use eyre::anyhow;
 use tracing::info;
 
 #[cfg(feature = "derive")]
@@ -39,22 +38,22 @@ pub mod async_ref;
 #[async_trait]
 pub trait Actor: Send + Any {
     #[allow(unused_variables)]
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         Ok(())
     }
 
     #[allow(unused_variables)]
-    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         Ok(())
     }
 
     #[allow(unused_variables)]
-    fn on_child_failure(&mut self, context: &mut ActorContext, child: &ActorRef, error: &eyre::Error) -> Directive {
+    fn on_child_failure(&mut self, context: &mut ActorContext, child: &ActorRef, error: &anyhow::Error) -> Directive {
         Directive::Resume
     }
 
     #[allow(unused_variables)]
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> eyre::Result<Option<DynMessage>> {
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<Option<DynMessage>> {
         Ok(Some(message))
     }
 }
@@ -68,9 +67,9 @@ pub trait CodecMessage: Any + Send {
 
     fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized;
 
-    fn encode(self: Box<Self>, reg: &MessageRegistry) -> eyre::Result<Vec<u8>>;
+    fn encode(self: Box<Self>, reg: &MessageRegistry) -> anyhow::Result<Vec<u8>>;
 
-    fn clone_box(&self) -> eyre::Result<Box<dyn CodecMessage>>;
+    fn clone_box(&self) -> anyhow::Result<Box<dyn CodecMessage>>;
 
     fn cloneable(&self) -> bool;
 
@@ -81,12 +80,12 @@ pub trait CodecMessage: Any + Send {
 pub trait Message: CodecMessage {
     type A: Actor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()>;
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()>;
 }
 
 #[async_trait]
 pub trait SystemMessage: CodecMessage {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut dyn Actor) -> eyre::Result<()>;
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut dyn Actor) -> anyhow::Result<()>;
 }
 
 pub trait OrphanMessage: CodecMessage {}
@@ -138,7 +137,7 @@ impl DynMessage {
         }
     }
 
-    pub fn dyn_clone(&self) -> eyre::Result<DynMessage> {
+    pub fn dyn_clone(&self) -> anyhow::Result<DynMessage> {
         let dyn_message = DynMessage {
             name: self.name,
             ty: self.ty,
@@ -173,7 +172,7 @@ impl DynMessage {
         self.name() == name
     }
 
-    pub fn downcast_user_delegate<A>(self) -> eyre::Result<Box<UserDelegate<A>>> where A: Actor {
+    pub fn downcast_user_delegate<A>(self) -> anyhow::Result<Box<UserDelegate<A>>> where A: Actor {
         let Self { name, ty, message } = self;
         let message = message.into_any();
         let user_delegate = if matches!(ty, MessageType::User) {
@@ -185,7 +184,7 @@ impl DynMessage {
         user_delegate
     }
 
-    pub fn downcast_system_delegate(self) -> eyre::Result<Box<SystemDelegate>> {
+    pub fn downcast_system_delegate(self) -> anyhow::Result<Box<SystemDelegate>> {
         let Self { name, ty, message } = self;
         let message = message.into_any();
         let system_delegate = if matches!(ty, MessageType::System) {
@@ -217,7 +216,7 @@ impl DynMessage {
         }
     }
 
-    pub fn downcast_user<A, M>(self) -> eyre::Result<M> where A: Actor, M: Message {
+    pub fn downcast_user<A, M>(self) -> anyhow::Result<M> where A: Actor, M: Message {
         let message: M = self.downcast_user_delegate::<A>().map(|d| d.downcast())??;
         Ok(message)
     }
@@ -226,7 +225,7 @@ impl DynMessage {
         self.downcast_user_delegate_ref::<A>().map(|d| d.downcast_ref()).unwrap_or_default()
     }
 
-    pub fn downcast_system<M>(self) -> eyre::Result<M> where M: SystemMessage {
+    pub fn downcast_system<M>(self) -> anyhow::Result<M> where M: SystemMessage {
         let message: M = self.downcast_system_delegate().map(|d| d.downcast())??;
         Ok(message)
     }
@@ -235,7 +234,7 @@ impl DynMessage {
         self.downcast_system_delegate_ref().map(|d| d.downcast_ref()).unwrap_or_default()
     }
 
-    pub fn downcast_orphan<M>(self) -> eyre::Result<M> where M: OrphanMessage {
+    pub fn downcast_orphan<M>(self) -> anyhow::Result<M> where M: OrphanMessage {
         let Self { name, message, .. } = self;
         downcast_box_message(name, message.into_any())
     }
@@ -251,12 +250,12 @@ pub struct EmptyTestActor;
 
 #[async_trait]
 impl Actor for EmptyTestActor {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         info!("{} started", context.myself());
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         info!("{} stopped", context.myself());
         Ok(())
     }
@@ -269,7 +268,7 @@ pub struct EmptyTestMessage;
 impl Message for EmptyTestMessage {
     type A = EmptyTestActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         info!("{} handle {:?}", context.myself(), self);
         Ok(())
     }
@@ -299,7 +298,7 @@ mod actor_test {
     }
 
     #[tokio::test]
-    async fn test_death_watch() -> eyre::Result<()> {
+    async fn test_death_watch() -> anyhow::Result<()> {
         #[derive(Debug)]
         struct DeathWatchActor {
             depth: usize,
@@ -307,7 +306,7 @@ mod actor_test {
 
         #[async_trait]
         impl Actor for DeathWatchActor {
-            async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+            async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
                 info!("{} started", context.myself);
                 for _ in 0..3 {
                     let n = self.depth - 1;
@@ -318,7 +317,7 @@ mod actor_test {
                 Ok(())
             }
 
-            async fn stopped(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+            async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
                 info!("{} stopped", context.myself);
                 Ok(())
             }
@@ -334,7 +333,7 @@ mod actor_test {
     }
 
     // #[tokio::test]
-    // async fn test_watch() -> eyre::Result<()> {
+    // async fn test_watch() -> anyhow::Result<()> {
     //     #[derive(Debug, EmptyCodec)]
     //     struct WatchActorTerminate {
     //         watch: ActorRef,
@@ -350,7 +349,7 @@ mod actor_test {
     //     impl Message for WatchActorTerminate {
     //         type A = EmptyTestActor;
     //
-    //         async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+    //         async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
     //             info!("{} watch actor {} terminate", context.myself, self.watch);
     //             Ok(())
     //         }
@@ -365,7 +364,7 @@ mod actor_test {
     //     impl Message for WatchFor {
     //         type A = EmptyTestActor;
     //
-    //         async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+    //         async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
     //             info!("{} watch {}", context.myself, self.actor);
     //             let watch = WatchActorTerminate {
     //                 watch: self.actor,
@@ -384,7 +383,7 @@ mod actor_test {
     //     impl Message for UnwatchFor {
     //         type A = EmptyTestActor;
     //
-    //         async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+    //         async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
     //             info!("{} unwatch {}", context.myself, self.actor);
     //             context.unwatch(&self.actor);
     //             Ok(())
@@ -431,14 +430,14 @@ mod actor_test {
         impl Message for LocalMessage {
             type A = EmptyTestActor;
 
-            async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+            async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
                 Ok(())
             }
         }
     }
 
     #[tokio::test]
-    async fn test_adapter() -> eyre::Result<()> {
+    async fn test_adapter() -> anyhow::Result<()> {
         #[derive(OrphanEmptyCodec)]
         struct TestOrphanMessage;
 
@@ -449,7 +448,7 @@ mod actor_test {
         impl Message for TestMessage {
             type A = AdapterActor;
 
-            async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+            async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
                 info!("get transform message");
                 Ok(())
             }
@@ -458,7 +457,7 @@ mod actor_test {
 
         #[async_trait]
         impl Actor for AdapterActor {
-            async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+            async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
                 let adapter = context.adapter::<TestOrphanMessage>(|_| {
                     DynMessage::user(TestMessage)
                 });

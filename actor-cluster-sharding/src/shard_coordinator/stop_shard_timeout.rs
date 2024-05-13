@@ -17,7 +17,7 @@ pub(super) struct StopShardTimeout(pub(super) uuid::Uuid);
 impl Message for StopShardTimeout {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let request_id = self.0;
         let mut timed_out_shards = vec![];
         let mut empty_shards = vec![];

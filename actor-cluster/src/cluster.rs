@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use ahash::{HashMap, HashSet};
-use eyre::Context;
+use anyhow::Context;
 use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
@@ -62,7 +62,7 @@ impl Deref for Cluster {
 }
 
 impl Extension for Cluster {
-    fn init(&self) -> eyre::Result<()> {
+    fn init(&self) -> anyhow::Result<()> {
         let actor_spawn = self.cluster_daemons_spawn.lock()
             .take()
             .into_result()
@@ -81,7 +81,7 @@ impl Extension for Cluster {
 }
 
 impl Cluster {
-    pub fn new(system: ActorSystem) -> eyre::Result<Self> {
+    pub fn new(system: ActorSystem) -> anyhow::Result<Self> {
         let provider = system.provider();
         let cluster_provider = downcast_provider::<ClusterActorRefProvider>(&provider);
         let etcd_client = cluster_provider.client.clone();
@@ -130,7 +130,7 @@ impl Cluster {
         system.get_ext::<Self>().expect(&format!("{} not found", type_name::<Self>()))
     }
 
-    pub fn subscribe_cluster_event<T>(&self, subscriber: ActorRef, transform: T) -> eyre::Result<()>
+    pub fn subscribe_cluster_event<T>(&self, subscriber: ActorRef, transform: T) -> anyhow::Result<()>
         where
             T: Fn(ClusterEvent) -> DynMessage + Send + Sync + 'static,
     {
@@ -142,7 +142,7 @@ impl Cluster {
         Ok(())
     }
 
-    pub fn unsubscribe_cluster_event(&self, subscriber: &ActorRef) -> eyre::Result<()> {
+    pub fn unsubscribe_cluster_event(&self, subscriber: &ActorRef) -> anyhow::Result<()> {
         self.system.upgrade()?.event_stream.unsubscribe::<ClusterEvent>(subscriber);
         Ok(())
     }
@@ -209,7 +209,7 @@ impl Cluster {
         role_members.first().map(|leader| *leader).cloned()
     }
 
-    pub(crate) fn shutdown(&self) -> eyre::Result<()> {
+    pub(crate) fn shutdown(&self) -> anyhow::Result<()> {
         if !self.is_terminated.swap(true, Ordering::Relaxed) {
             self.system.upgrade()?.stop(&self.cluster_daemons);
         }
@@ -228,7 +228,7 @@ impl Cluster {
         &self.etcd_actor
     }
 
-    pub fn system(&self) -> eyre::Result<ActorSystem> {
+    pub fn system(&self) -> anyhow::Result<ActorSystem> {
         self.system.upgrade()
     }
 

@@ -18,13 +18,13 @@ pub trait ShardAllocationStrategy: Send + Sync + Debug + DynClone {
         requester: ActorRef,
         shard_id: ImShardId,
         current_shard_allocations: HashMap<ActorRef, Vec<ImShardId>>,
-    ) -> eyre::Result<ActorRef>;
+    ) -> anyhow::Result<ActorRef>;
 
     async fn rebalance(
         &self,
         current_shard_allocations: HashMap<ActorRef, Vec<ImShardId>>,
         rebalance_in_progress: Vec<ImShardId>,
-    ) -> eyre::Result<HashSet<ImShardId>>;
+    ) -> anyhow::Result<HashSet<ImShardId>>;
 }
 
 dyn_clone::clone_trait_object!(ShardAllocationStrategy);

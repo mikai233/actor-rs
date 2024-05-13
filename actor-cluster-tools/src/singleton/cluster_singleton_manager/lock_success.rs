@@ -17,7 +17,7 @@ pub(super) struct LockSuccess(pub(super) Vec<u8>);
 impl Message for LockSuccess {
     type A = ClusterSingletonManager;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.lock_key = Some(self.0);
         match context.spawn(actor.singleton_props.props(()), actor.singleton_name()) {
             Ok(singleton) => {

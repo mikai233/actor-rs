@@ -73,7 +73,7 @@ impl<T> Connection<T> where T: AsyncWrite + Unpin + Send + 'static {
         self.transport.cast(Disconnected { addr: self.peer }, None);
     }
 
-    async fn send(&mut self, envelope: RemoteEnvelope) -> eyre::Result<()> {
+    async fn send(&mut self, envelope: RemoteEnvelope) -> anyhow::Result<()> {
         let packet: RemotePacket = envelope.into();
         let bytes = encode_bytes(&packet)?;
         self.framed.send(Packet::new(bytes)).await?;

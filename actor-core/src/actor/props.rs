@@ -2,7 +2,7 @@ use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
-use eyre::anyhow;
+use anyhow::anyhow;
 use tokio::sync::mpsc::channel;
 
 use crate::Actor;
@@ -13,7 +13,7 @@ use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
 
-type ActorSpawner = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem) -> eyre::Result<()> + Send>;
+type ActorSpawner = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem) -> anyhow::Result<()> + Send>;
 
 pub struct Props {
     pub(crate) actor_name: &'static str,
@@ -33,14 +33,14 @@ impl Debug for Props {
 impl Props {
     pub fn new<F, A>(func: F) -> Self
         where
-            F: FnOnce() -> eyre::Result<A> + Send + 'static,
+            F: FnOnce() -> anyhow::Result<A> + Send + 'static,
             A: Actor {
         let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
             let context = ActorContext::new(myself, system);
             let actor = func()?;
             let runtime = ActorRuntime { actor, context, mailbox };
             Self::run_actor(runtime)?;
-            Ok::<_, eyre::Error>(())
+            Ok::<_, anyhow::Error>(())
         };
         Self {
             actor_name: type_name::<A>(),
@@ -51,7 +51,7 @@ impl Props {
 
     pub fn new_with_ctx<F, A>(func: F) -> Self
         where
-            F: FnOnce(&mut ActorContext) -> eyre::Result<A> + Send + 'static,
+            F: FnOnce(&mut ActorContext) -> anyhow::Result<A> + Send + 'static,
             A: Actor {
         let actor_name = type_name::<A>();
         let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
@@ -59,7 +59,7 @@ impl Props {
             let actor = func(&mut context)?;
             let runtime = ActorRuntime { actor, context, mailbox };
             Self::run_actor(runtime)?;
-            Ok::<_, eyre::Error>(())
+            Ok::<_, anyhow::Error>(())
         };
         Self {
             actor_name,
@@ -68,7 +68,7 @@ impl Props {
         }
     }
 
-    pub(crate) fn mailbox(&self, system: &ActorSystem) -> eyre::Result<(MailboxSender, Mailbox)> {
+    pub(crate) fn mailbox(&self, system: &ActorSystem) -> anyhow::Result<(MailboxSender, Mailbox)> {
         let core_config = system.core_config();
         let mailbox_name = self.mailbox.as_ref().map(|m| m.as_str()).unwrap_or("default");
         let mailbox = core_config.mailbox.get(mailbox_name).ok_or(anyhow!("mailbox {} config not found", mailbox_name))?;
@@ -92,12 +92,12 @@ impl Props {
         self
     }
 
-    pub(crate) fn spawn(self, myself: ActorRef, mailbox: Mailbox, system: WeakActorSystem) -> eyre::Result<()> {
+    pub(crate) fn spawn(self, myself: ActorRef, mailbox: Mailbox, system: WeakActorSystem) -> anyhow::Result<()> {
         (self.spawner)(myself, mailbox, system.upgrade()?)
     }
 
     #[cfg(feature = "tokio-tracing")]
-    pub(crate) fn run_actor<A>(rt: ActorRuntime<A>) -> eyre::Result<()> where A: Actor {
+    pub(crate) fn run_actor<A>(rt: ActorRuntime<A>) -> anyhow::Result<()> where A: Actor {
         tokio::task::Builder::new()
             .name(type_name::<A>())
             .spawn(rt.run())?;
@@ -105,14 +105,14 @@ impl Props {
     }
 
     #[cfg(not(feature = "tokio-tracing"))]
-    pub(crate) fn run_actor<A>(rt: ActorRuntime<A>) -> eyre::Result<()> where A: Actor {
+    pub(crate) fn run_actor<A>(rt: ActorRuntime<A>) -> anyhow::Result<()> where A: Actor {
         tokio::spawn(rt.run());
         Ok(())
     }
 }
 
 pub trait DeferredSpawn {
-    fn spawn(self: Box<Self>, system: ActorSystem) -> eyre::Result<()>;
+    fn spawn(self: Box<Self>, system: ActorSystem) -> anyhow::Result<()>;
 }
 
 pub struct ActorDeferredSpawn {
@@ -132,7 +132,7 @@ impl ActorDeferredSpawn {
 }
 
 impl DeferredSpawn for ActorDeferredSpawn {
-    fn spawn(self: Box<Self>, system: ActorSystem) -> eyre::Result<()> {
+    fn spawn(self: Box<Self>, system: ActorSystem) -> anyhow::Result<()> {
         let Self { actor_ref, mailbox, spawner } = *self;
         spawner(actor_ref, mailbox, system)
     }
@@ -148,11 +148,11 @@ impl Debug for ActorDeferredSpawn {
 }
 
 pub struct FuncDeferredSpawn {
-    func: Box<dyn FnOnce(ActorSystem) -> eyre::Result<()>>,
+    func: Box<dyn FnOnce(ActorSystem) -> anyhow::Result<()>>,
 }
 
 impl FuncDeferredSpawn {
-    pub fn new<F>(f: F) -> Self where F: FnOnce(ActorSystem) -> eyre::Result<()> + 'static {
+    pub fn new<F>(f: F) -> Self where F: FnOnce(ActorSystem) -> anyhow::Result<()> + 'static {
         Self {
             func: Box::new(f),
         }
@@ -160,7 +160,7 @@ impl FuncDeferredSpawn {
 }
 
 impl DeferredSpawn for FuncDeferredSpawn {
-    fn spawn(self: Box<Self>, system: ActorSystem) -> eyre::Result<()> {
+    fn spawn(self: Box<Self>, system: ActorSystem) -> anyhow::Result<()> {
         let Self { func } = *self;
         func(system)?;
         Ok(())
@@ -176,7 +176,7 @@ pub struct PropsBuilder<Arg> {
 impl<Arg> PropsBuilder<Arg> {
     pub fn new<A, Builder>(builder: Builder) -> Self
         where
-            Builder: Fn(Arg) -> eyre::Result<A> + Send + Sync + 'static,
+            Builder: Fn(Arg) -> anyhow::Result<A> + Send + Sync + 'static,
             Arg: Send + 'static,
             A: Actor {
         let builder = Arc::new(builder);
@@ -193,7 +193,7 @@ impl<Arg> PropsBuilder<Arg> {
 
     pub fn new_wit_ctx<A, Builder>(builder: Builder) -> Self
         where
-            Builder: Fn(&mut ActorContext, Arg) -> eyre::Result<A> + Send + Sync + 'static,
+            Builder: Fn(&mut ActorContext, Arg) -> anyhow::Result<A> + Send + Sync + 'static,
             Arg: Send + 'static,
             A: Actor {
         let builder = Arc::new(builder);

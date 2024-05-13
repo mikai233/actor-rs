@@ -1,5 +1,5 @@
 use ahash::{HashMap, HashSet};
-use eyre::anyhow;
+use anyhow::anyhow;
 use tracing::debug;
 
 use actor_core::actor_ref::ActorRef;
@@ -67,7 +67,7 @@ impl Entities {
         }
     }
 
-    pub(super) fn entity_passivating(&mut self, entity_id: ImEntityId) -> eyre::Result<()> {
+    pub(super) fn entity_passivating(&mut self, entity_id: ImEntityId) -> anyhow::Result<()> {
         debug!("[{}] passivating", entity_id);
         match self.entities.remove(&entity_id) {
             None => {

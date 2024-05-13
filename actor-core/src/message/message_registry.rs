@@ -2,8 +2,8 @@ use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 
 use ahash::{HashMap, HashMapExt};
+use anyhow::anyhow;
 use bincode::{Decode, Encode};
-use eyre::eyre;
 
 use crate::{CodecMessage, DynMessage};
 use crate::actor::actor_selection::ActorSelectionMessage;
@@ -73,13 +73,13 @@ impl MessageRegistry {
         self.next_system += 1;
     }
 
-    pub fn encode_boxed(&self, message: DynMessage) -> eyre::Result<IDPacket> {
+    pub fn encode_boxed(&self, message: DynMessage) -> anyhow::Result<IDPacket> {
         let DynMessage { name, message, .. } = message;
         self.encode(name, message)
     }
 
-    pub fn encode(&self, name: &'static str, message: Box<dyn CodecMessage>) -> eyre::Result<IDPacket> {
-        let id = *self.id.get(name).ok_or(eyre!("message {} is not registered", name))?;
+    pub fn encode(&self, name: &'static str, message: Box<dyn CodecMessage>) -> anyhow::Result<IDPacket> {
+        let id = *self.id.get(name).ok_or(anyhow!("message {} is not registered", name))?;
         let bytes = message.encode(self)?;
         let packet = IDPacket {
             id,
@@ -88,9 +88,9 @@ impl MessageRegistry {
         Ok(packet)
     }
 
-    pub fn decode(&self, packet: IDPacket) -> eyre::Result<DynMessage> {
+    pub fn decode(&self, packet: IDPacket) -> anyhow::Result<DynMessage> {
         let id = packet.id;
-        let decoder = self.decoder.get(&id).ok_or(eyre!("message with id {} is not registered", id))?;
+        let decoder = self.decoder.get(&id).ok_or(anyhow!("message with id {} is not registered", id))?;
         let message = decoder.decode(&packet.bytes, self)?;
         Ok(message)
     }

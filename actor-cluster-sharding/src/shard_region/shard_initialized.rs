@@ -1,7 +1,7 @@
 use std::any::type_name;
 
+use anyhow::Context as _;
 use async_trait::async_trait;
-use eyre::Context as _;
 use tracing::debug;
 
 use actor_core::actor::context::{ActorContext, Context};
@@ -21,7 +21,7 @@ pub(crate) struct ShardInitialized {
 impl Message for ShardInitialized {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let shard = context.sender().into_result().context(type_name::<ShardInitialized>())?;
         debug!("{}: Shard was initialized [{}]", actor.type_name, self.shard_id);
         actor.starting_shards.remove(&self.shard_id);

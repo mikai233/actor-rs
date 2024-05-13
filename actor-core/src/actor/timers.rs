@@ -46,7 +46,7 @@ impl TimersActor {
         context: &mut ActorContext,
         receiver: &ActorRef,
         index: u64,
-    ) -> eyre::Result<()> {
+    ) -> anyhow::Result<()> {
         match watching_receivers.entry(receiver.clone()) {
             Entry::Occupied(mut o) => {
                 o.get_mut().insert(index);
@@ -79,7 +79,7 @@ impl TimersActor {
 
 #[async_trait]
 impl Actor for TimersActor {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{} started", context.myself);
         Ok(())
     }
@@ -142,7 +142,7 @@ enum Schedule {
 impl Message for Schedule {
     type A = TimersActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match &*self {
             Schedule::Once { index, delay, receiver, .. } => {
                 let index = *index;
@@ -246,7 +246,7 @@ struct CancelSchedule {
 impl Message for CancelSchedule {
     type A = TimersActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match actor.index.remove(&self.index) {
             None => {
                 debug!("{}[{}] not found in TimerScheduler", self.message, self.index);
@@ -269,7 +269,7 @@ struct CancelAllSchedule;
 impl Message for CancelAllSchedule {
     type A = TimersActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.index.clear();
         actor.queue.clear();
         for receiver in actor.watching_receivers.keys() {
@@ -288,7 +288,7 @@ struct PollExpired;
 impl Message for PollExpired {
     type A = TimersActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let waker = &actor.waker;
         let queue = &mut actor.queue;
         let indexes = &mut actor.index;
@@ -357,7 +357,7 @@ impl ReceiverTerminated {
 impl Message for ReceiverTerminated {
     type A = TimersActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let watchee = self.0.actor;
         if let Some(indexes) = actor.watching_receivers.remove(&watchee) {
             for index in &indexes {
@@ -390,7 +390,7 @@ pub struct Timers {
 }
 
 impl Timers {
-    pub fn new(context: &mut ActorContext) -> eyre::Result<Self> {
+    pub fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
         let scheduler_actor = context
             .spawn(
                 Props::new_with_ctx(move |context| Ok(TimersActor::new(context.myself.clone()))),
@@ -503,7 +503,7 @@ impl Timers {
 //     impl Message for OnOnceSchedule {
 //         type A = EmptyTestActor;
 //
-//         fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+//         fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
 //             info!("{} OnOnceSchedule", context.myself());
 //             Ok(())
 //         }
@@ -515,14 +515,14 @@ impl Timers {
 //     impl Message for OnFixedSchedule {
 //         type A = EmptyTestActor;
 //
-//         fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+//         fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
 //             info!("{} OnFixedSchedule", context.myself());
 //             Ok(())
 //         }
 //     }
 //
 //     #[tokio::test]
-//     async fn test_scheduler() -> eyre::Result<()> {
+//     async fn test_scheduler() -> anyhow::Result<()> {
 //         let system = ActorSystem::create(ActorSystemConfig::default()).await?;
 //         let scheduler_actor = system.spawn_anonymous_actor(Props::create(|context| TimerSchedulerActor::new(context.myself.clone())))?;
 //         let scheduler = TimerScheduler::with_actor(scheduler_actor);

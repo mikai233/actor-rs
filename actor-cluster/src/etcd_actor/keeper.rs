@@ -21,7 +21,7 @@ pub(super) struct Keeper {
 
 #[async_trait]
 impl Actor for Keeper {
-    async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let myself = context.myself().clone();
         let tick_key = context.system().scheduler.schedule_with_fixed_delay(None, self.interval, move || {
             myself.cast_ns(KeepAliveTick);
@@ -30,7 +30,7 @@ impl Actor for Keeper {
         Ok(())
     }
 
-    async fn stopped(&mut self, _context: &mut ActorContext) -> eyre::Result<()> {
+    async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
         if let Some(key) = self.tick_key.take() {
             key.cancel();
         }
@@ -45,7 +45,7 @@ struct KeepAliveTick;
 impl Message for KeepAliveTick {
     type A = Keeper;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> eyre::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         if let Some(error) = actor.keeper.keep_alive().await.err() {
             context.parent().foreach(|parent| {
                 parent.cast_ns(KeeperKeepAliveFailed {

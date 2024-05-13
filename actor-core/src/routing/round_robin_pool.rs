@@ -38,7 +38,7 @@ impl<A> Pool for RoundRobinPool<A> where A: Clone + Send + 'static {
         self.nr_of_instances
     }
 
-    fn new_routee(&self, context: &mut ActorContext) -> eyre::Result<Routee> {
+    fn new_routee(&self, context: &mut ActorContext) -> anyhow::Result<Routee> {
         let routee = spawn_actor_routee(context, &self.routee_props, self.arg.clone())?;
         Ok(routee.into())
     }
@@ -79,7 +79,7 @@ mod test {
 
     #[async_trait]
     impl Actor for TestActor {
-        async fn started(&mut self, context: &mut ActorContext) -> eyre::Result<()> {
+        async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
             info!("{} started", context.myself());
             Ok(())
         }
@@ -92,7 +92,7 @@ mod test {
     impl Message for TestMessage {
         type A = TestActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> eyre::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
             let myself = context.myself();
             info!("{} handle round robin message {:?}", myself, self);
             Ok(())
@@ -100,7 +100,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_round_robin() -> eyre::Result<()> {
+    async fn test_round_robin() -> anyhow::Result<()> {
         let system = ActorSystem::new("mikai233", ActorSetting::default())?;
         let router_props = RoundRobinPool::new(
             5,

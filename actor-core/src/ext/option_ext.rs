@@ -1,6 +1,6 @@
 use std::any::type_name;
 
-use eyre::anyhow;
+use anyhow::anyhow;
 
 pub trait OptionExt<T> {
     fn foreach<F, U>(&self, f: F) where F: FnOnce(&T) -> U;
@@ -9,11 +9,11 @@ pub trait OptionExt<T> {
 
     fn into_foreach<F, U>(self, f: F) where F: FnOnce(T) -> U;
 
-    fn as_result(&self) -> eyre::Result<&T>;
+    fn as_result(&self) -> anyhow::Result<&T>;
 
-    fn as_result_mut(&mut self) -> eyre::Result<&mut T>;
+    fn as_result_mut(&mut self) -> anyhow::Result<&mut T>;
 
-    fn into_result(self) -> eyre::Result<T>;
+    fn into_result(self) -> anyhow::Result<T>;
 }
 
 impl<T> OptionExt<T> for Option<T> {
@@ -35,15 +35,15 @@ impl<T> OptionExt<T> for Option<T> {
         }
     }
 
-    fn as_result(&self) -> eyre::Result<&T> {
+    fn as_result(&self) -> anyhow::Result<&T> {
         Ok(self.as_ref().ok_or(anyhow!("Option<{}> is none", type_name::<T>()))?)
     }
 
-    fn as_result_mut(&mut self) -> eyre::Result<&mut T> {
+    fn as_result_mut(&mut self) -> anyhow::Result<&mut T> {
         Ok(self.as_mut().ok_or(anyhow!("Option<{}> is none", type_name::<T>()))?)
     }
 
-    fn into_result(self) -> eyre::Result<T> {
+    fn into_result(self) -> anyhow::Result<T> {
         Ok(self.ok_or(anyhow!("Option<{}> is none", type_name::<T>()))?)
     }
 }
