@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use tracing::{debug, error};
+use tracing::{error, trace};
 
 use actor_derive::SystemEmptyCodec;
 
@@ -19,7 +19,7 @@ impl SystemMessage for TaskFinish {
                 error!("finish task not found: {}", self.name);
             }
             Some(_) => {
-                debug!("finish task: {}", self.name);
+                trace!("finish task: {}", self.name);
             }
         }
         Ok(())
