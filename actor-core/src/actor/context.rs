@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use std::future::Future;
 use std::ops::Not;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::Ordering;
 
 use ahash::{HashMap, HashSet};
 use anyhow::anyhow;
@@ -73,7 +73,6 @@ pub trait ContextExt: Context {
 
 #[derive(Debug)]
 pub struct ActorContext {
-    pub(crate) id: usize,
     pub(crate) state: ActorState,
     pub(crate) myself: ActorRef,
     pub(crate) sender: Option<ActorRef>,
@@ -221,9 +220,7 @@ impl Context for ActorContext {
 
 impl ActorContext {
     pub(crate) fn new(myself: ActorRef, system: ActorSystem) -> Self {
-        static ID: AtomicUsize = AtomicUsize::new(0);
         Self {
-            id: ID.fetch_add(1, Ordering::Relaxed),
             state: ActorState::Init,
             myself,
             sender: None,
