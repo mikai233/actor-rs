@@ -110,6 +110,26 @@ impl ScheduleKey {
     }
 }
 
+impl PartialEq for ScheduleKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.index == other.index && self.message == other.message
+    }
+}
+
+impl Eq for ScheduleKey {}
+
+impl PartialOrd for ScheduleKey {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.index.partial_cmp(&other.index)
+    }
+}
+
+impl Ord for ScheduleKey {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.index.cmp(&other.index)
+    }
+}
+
 #[derive(EmptyCodec)]
 enum Schedule {
     Once {
