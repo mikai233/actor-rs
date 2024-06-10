@@ -341,7 +341,7 @@ mod test {
 
     use actor_derive::EmptyCodec;
 
-    use crate::{Actor, Message};
+    use crate::{Actor, DynMessage, Message};
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::Props;
@@ -396,6 +396,10 @@ mod test {
                 info!("breaker call timeout");
             });
             Ok(())
+        }
+
+        async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+            Self::handle_message(self, context, message).await
         }
     }
 

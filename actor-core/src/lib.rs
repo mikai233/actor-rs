@@ -5,7 +5,7 @@ use std::fmt::{Debug, Formatter};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
-use tracing::info;
+use tracing::{error, info};
 
 #[cfg(feature = "derive")]
 pub use actor_derive::{self, *};
@@ -53,8 +53,25 @@ pub trait Actor: Send + Any {
     }
 
     #[allow(unused_variables)]
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<Option<DynMessage>> {
-        Ok(Some(message))
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()>;
+
+    async fn handle_message<A: Actor>(
+        actor: &mut A,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()>
+        where
+            Self: Sized
+    {
+        match message.downcast_user_delegate::<A>() {
+            Ok(message) => {
+                message.handle(context, actor).await?;
+            }
+            Err(error) => {
+                error!("{:?}", error);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -259,6 +276,10 @@ impl Actor for EmptyTestActor {
         info!("{} stopped", context.myself());
         Ok(())
     }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
+    }
 }
 
 #[derive(Debug, Encode, Decode, MessageCodec)]
@@ -320,6 +341,10 @@ mod actor_test {
             async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
                 info!("{} stopped", context.myself);
                 Ok(())
+            }
+
+            async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+                Self::handle_message(self, context, message).await
             }
         }
 

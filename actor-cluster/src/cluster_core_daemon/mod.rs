@@ -275,4 +275,8 @@ impl Actor for ClusterCoreDaemon {
         self.client.delete(key, None).await?;
         Ok(())
     }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
+    }
 }

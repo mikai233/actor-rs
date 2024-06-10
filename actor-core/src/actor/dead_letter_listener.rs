@@ -9,7 +9,12 @@ use crate::actor_ref::ActorRef;
 #[derive(Debug)]
 pub struct DeadLetterListener;
 
-impl Actor for DeadLetterListener {}
+#[async_trait]
+impl Actor for DeadLetterListener {
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
+    }
+}
 
 #[derive(Debug, EmptyCodec)]
 pub struct Dropped {

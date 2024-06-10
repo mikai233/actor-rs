@@ -55,6 +55,10 @@ impl Actor for RouterActor {
         }
         Ok(())
     }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
+    }
 }
 
 impl Router for RouterActor {
@@ -85,7 +89,7 @@ impl Actor for Box<dyn Router> {
         (&mut **self).on_child_failure(context, child, error)
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<Option<DynMessage>> {
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
         (&mut **self).on_recv(context, message).await
     }
 }

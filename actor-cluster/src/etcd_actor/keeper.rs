@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use actor_core::{Actor, Message};
+use actor_core::{Actor, DynMessage, Message};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -35,6 +35,10 @@ impl Actor for Keeper {
             key.cancel();
         }
         Ok(())
+    }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
     }
 }
 

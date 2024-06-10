@@ -219,4 +219,8 @@ impl Actor for Shard {
         debug!("{}: Shard [{}] shutting down", self.type_name, self.shard_id);
         Ok(())
     }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
+    }
 }

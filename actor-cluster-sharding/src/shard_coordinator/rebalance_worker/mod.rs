@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use imstr::ImString;
 use tracing::debug;
 
-use actor_core::Actor;
+use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::timers::Timers;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
@@ -55,6 +55,10 @@ impl Actor for RebalanceWorker {
         }
         self.timers.start_single_timer(self.handoff_timeout, ReceiveTimeout, context.myself().clone());
         Ok(())
+    }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
     }
 }
 

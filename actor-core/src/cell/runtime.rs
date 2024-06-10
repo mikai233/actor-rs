@@ -7,7 +7,7 @@ use futures::FutureExt;
 use tokio::task::yield_now;
 use tracing::{debug, error};
 
-use crate::{Actor, Message};
+use crate::Actor;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::mailbox::Mailbox;
 use crate::actor::state::ActorState;
@@ -48,15 +48,8 @@ impl<A> ActorRuntime<A> where A: Actor {
                     }
                 }
                 Some(message) = mailbox.message.recv(), if matches!(context.state, ActorState::Started) => {
-                    match AssertUnwindSafe(Self::handle_message(&mut context, &mut actor, message)).catch_unwind().await {
-                        Ok(should_break) => {
-                            if should_break {
-                                break;
-                            }
-                        }
-                        Err(_) => {
-                            Self::handle_failure(&mut context, anyhow!("{} panic", type_name::<A>()));
-                        }
+                    if let Some(_) = AssertUnwindSafe(Self::handle_message(&mut context, &mut actor, message)).catch_unwind().await.err() {
+                        Self::handle_failure(&mut context, anyhow!("{} panic", type_name::<A>()));
                     }
                     throughput += 1;
                     if throughput >= mailbox.throughput {
@@ -111,29 +104,13 @@ impl<A> ActorRuntime<A> where A: Actor {
         }
     }
 
-    async fn handle_message(context: &mut ActorContext, actor: &mut A, envelope: Envelope) -> bool {
+    async fn handle_message(context: &mut ActorContext, actor: &mut A, envelope: Envelope) {
         let Envelope { message, sender } = envelope;
         context.sender = sender;
-        match actor.on_recv(context, message).await {
-            Ok(Some(message)) => {
-                match message.downcast_user_delegate::<A>() {
-                    Ok(message) => {
-                        if let Some(error) = message.handle(context, actor).await.err() {
-                            Self::handle_failure(context, error);
-                        }
-                    }
-                    Err(error) => {
-                        error!("{:?}", error);
-                    }
-                }
-            }
-            Err(error) => {
-                Self::handle_failure(context, error);
-            }
-            _ => {}
+        if let Some(error) = actor.on_recv(context, message).await.err() {
+            Self::handle_failure(context, error);
         }
         context.sender.take();
-        return false;
     }
 
     fn handle_failure(context: &mut ActorContext, error: Error) {

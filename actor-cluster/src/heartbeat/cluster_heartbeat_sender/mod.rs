@@ -4,7 +4,7 @@ use ahash::HashSet;
 use async_trait::async_trait;
 use tracing::trace;
 
-use actor_core::{Actor, CodecMessage};
+use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor::scheduler::ScheduleKey;
@@ -53,6 +53,10 @@ impl Actor for ClusterHeartbeatSender {
         }
         Cluster::get(context.system()).unsubscribe_cluster_event(context.myself())?;
         Ok(())
+    }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
     }
 }
 

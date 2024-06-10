@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use actor_core::{Actor, CodecMessage};
+use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::option_ext::OptionExt;
@@ -52,5 +52,9 @@ impl Actor for OnMemberStatusChangedListener {
         };
         self.cluster.unsubscribe_cluster_event(context.myself())?;
         Ok(())
+    }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
     }
 }

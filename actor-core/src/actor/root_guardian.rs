@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use tokio::sync::broadcast::Sender;
 use tracing::debug;
 
-use crate::Actor;
+use crate::{Actor, DynMessage};
 use crate::actor::context::{ActorContext, Context};
 
 pub(crate) struct RootGuardian {
@@ -28,5 +28,9 @@ impl Actor for RootGuardian {
         debug!("{} stopped", context.myself());
         let _ = self.termination_tx.send(());
         Ok(())
+    }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
     }
 }

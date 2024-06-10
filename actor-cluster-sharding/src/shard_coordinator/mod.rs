@@ -13,7 +13,7 @@ use tracing::{debug, error, info};
 use actor_cluster::cluster::Cluster;
 use actor_cluster::etcd_actor::keep_alive::KeepAlive;
 use actor_cluster::etcd_client::PutOptions;
-use actor_core::{Actor, CodecMessage};
+use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor::timers::{ScheduleKey, Timers};
@@ -187,6 +187,10 @@ impl Actor for ShardCoordinator {
     async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         debug!("{}: ShardCoordinator {} stopped", self.type_name, context.myself());
         Ok(())
+    }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
     }
 }
 

@@ -61,4 +61,8 @@ impl EtcdActor {
 }
 
 #[async_trait]
-impl Actor for EtcdActor {}
+impl Actor for EtcdActor {
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
+    }
+}

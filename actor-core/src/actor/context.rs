@@ -4,7 +4,6 @@ use std::fmt::Debug;
 use std::future::Future;
 use std::ops::Not;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
 
 use ahash::{HashMap, HashSet};
 use anyhow::anyhow;

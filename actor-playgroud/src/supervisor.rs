@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use tracing::{info, Level};
 
-use actor_core::{Actor, Message};
+use actor_core::{Actor, DynMessage, Message};
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
@@ -19,6 +19,10 @@ impl Actor for TestActor {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         info!("{} started", context.myself());
         Ok(())
+    }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
     }
 }
 

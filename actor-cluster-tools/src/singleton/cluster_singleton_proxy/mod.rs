@@ -159,9 +159,9 @@ impl Actor for ClusterSingletonProxy {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<Option<DynMessage>> {
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
         if self.is_proxy_message(message.name()) {
-            Ok(Some(message))
+            Self::handle_message(self, context, message).await?;
         } else {
             match &self.singleton {
                 None => {
@@ -172,7 +172,7 @@ impl Actor for ClusterSingletonProxy {
                     context.forward(singleton, message);
                 }
             }
-            Ok(None)
         }
+        Ok(())
     }
 }

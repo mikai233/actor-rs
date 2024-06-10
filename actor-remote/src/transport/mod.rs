@@ -78,6 +78,10 @@ impl Actor for TransportActor {
         }
         Ok(())
     }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
+    }
 }
 
 
@@ -270,7 +274,7 @@ mod test {
     use bincode::{Decode, Encode};
     use tracing::info;
 
-    use actor_core::{Actor, EmptyTestActor, Message};
+    use actor_core::{Actor, DynMessage, EmptyTestActor, Message};
     use actor_core::{EmptyCodec, MessageCodec, OrphanCodec};
     use actor_core::actor::actor_system::ActorSystem;
     use actor_core::actor::context::{ActorContext, Context};
@@ -340,6 +344,10 @@ mod test {
         async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
             info!("{} started", context.myself());
             Ok(())
+        }
+
+        async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+            Self::handle_message(self, context, message).await
         }
     }
 

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use tracing::trace;
 
-use actor_core::{Actor, CodecMessage};
+use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::actor::address::Address;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
@@ -30,6 +30,10 @@ impl Actor for ClusterHeartbeatReceiver {
             |event| { ClusterEventWrap(event).into_dyn() },
         )?;
         Ok(())
+    }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
     }
 }
 

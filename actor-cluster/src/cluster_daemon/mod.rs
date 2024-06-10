@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use tokio::sync::mpsc::{channel, Sender};
 use tracing::{debug, warn};
 
-use actor_core::Actor;
+use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::coordinated_shutdown::{ClusterDowningReason, CoordinatedShutdown, PHASE_CLUSTER_LEAVE, PHASE_CLUSTER_SHUTDOWN};
 use actor_core::actor::props::Props;
@@ -66,6 +66,10 @@ impl Actor for ClusterDaemon {
         };
         tokio::spawn(fut);
         Ok(())
+    }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
     }
 }
 

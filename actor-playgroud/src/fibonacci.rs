@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use rand::Rng;
 use tracing::info;
 
-use actor_core::{Actor, Message};
+use actor_core::{Actor, DynMessage, Message};
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
@@ -54,6 +54,10 @@ impl Actor for FibActor {
         self.timers.start_timer_with_fixed_delay(None, Duration::from_millis(100), Fib(n), context.myself().clone());
         info!("{} started", context.myself());
         Ok(())
+    }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
     }
 }
 

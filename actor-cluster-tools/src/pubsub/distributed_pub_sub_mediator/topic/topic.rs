@@ -17,7 +17,11 @@ pub(crate) struct Topic {
 }
 
 #[async_trait]
-impl Actor for Topic {}
+impl Actor for Topic {
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
+    }
+}
 
 impl CodecMessage for Subscribe<Topic> {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {

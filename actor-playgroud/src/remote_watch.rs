@@ -43,6 +43,10 @@ impl Actor for RemoteActor {
         }
         Ok(())
     }
+
+    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
+    }
 }
 
 #[derive(Debug, EmptyCodec)]
@@ -84,7 +88,6 @@ async fn main() -> anyhow::Result<()> {
     let setting = ActorSetting::new(
         RemoteActorRefProvider::builder(remote_setting),
         CoreConfig::builder().build()?,
-        None,
     )?;
     let system = ActorSystem::new("mikai233", setting)?;
     match arg.remote_addr {
