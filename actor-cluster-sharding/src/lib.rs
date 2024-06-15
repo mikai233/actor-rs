@@ -27,7 +27,7 @@ pub mod config;
 pub mod shard_coordinator;
 pub mod cluster_sharding_settings;
 pub mod message_extractor;
-pub(crate) mod shard;
+pub mod shard;
 mod entity_passivation_strategy;
 mod handoff_stopper;
 pub mod shard_allocation_strategy;

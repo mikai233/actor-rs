@@ -30,7 +30,7 @@ use crate::shard_region::{ImEntityId, ImShardId};
 use crate::shard_region::shard_initialized::ShardInitialized;
 
 mod cluster_event;
-mod passivate;
+pub mod passivate;
 mod entities;
 pub(crate) mod handoff;
 mod passivate_interval_tick;
@@ -52,7 +52,7 @@ pub struct Shard {
     message_buffers: MessageBufferMap<ImEntityId, ShardBufferEnvelope>,
     handoff_stopper: Option<ActorRef>,
     passivate_interval_task: Option<ScheduleKey>,
-    preparing_for_shutdown: bool,//TODO
+    preparing_for_shutdown: bool, //TODO
 }
 
 impl Shard {
