@@ -6,7 +6,7 @@ use std::time::Duration;
 use anyhow::anyhow;
 use tokio::time::error::Elapsed;
 
-use crate::{CodecMessage, DynMessage, Message, MessageType, OrphanMessage, SystemMessage};
+use crate::{CodecMessage, DynMessage, MessageType, OrphanMessage, SystemMessage};
 use crate::actor::actor_selection::ActorSelection;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::ActorRef;
@@ -22,9 +22,9 @@ impl Patterns {
         timeout: Duration,
     ) -> anyhow::Result<Resp>
         where
-            Req: Message,
+            Req: CodecMessage,
             Resp: OrphanMessage {
-        let message = DynMessage::user(message);
+        let message = message.into_dyn();
         Self::internal_ask::<Req, Resp>(actor, timeout, message).await
     }
 
@@ -64,9 +64,9 @@ impl Patterns {
         timeout: Duration,
     ) -> anyhow::Result<Resp>
         where
-            Req: Message,
+            Req: CodecMessage,
             Resp: OrphanMessage {
-        let message = DynMessage::user(message);
+        let message = message.into_dyn();
         Self::internal_ask_selection::<Req, Resp>(sel, timeout, message).await
     }
 
@@ -150,7 +150,7 @@ pub trait PatternsExt {
         timeout: Duration,
     ) -> impl Future<Output=anyhow::Result<Resp>> + Send
         where
-            Req: Message,
+            Req: CodecMessage,
             Resp: OrphanMessage;
 }
 
@@ -161,7 +161,7 @@ impl PatternsExt for ActorRef {
         timeout: Duration,
     ) -> impl Future<Output=anyhow::Result<Resp>> + Send
         where
-            Req: Message,
+            Req: CodecMessage,
             Resp: OrphanMessage {
         Patterns::ask(self, message, timeout)
     }
@@ -174,7 +174,7 @@ impl PatternsExt for ActorSelection {
         timeout: Duration,
     ) -> impl Future<Output=anyhow::Result<Resp>> + Send
         where
-            Req: Message,
+            Req: CodecMessage,
             Resp: OrphanMessage {
         Patterns::ask_selection(self, message, timeout)
     }

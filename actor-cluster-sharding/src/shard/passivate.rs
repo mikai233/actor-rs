@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use tracing::warn;
 
-use actor_core::{DynMessage, Message};
+use actor_core::{CodecMessage, DynMessage, Message};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::EmptyCodec;
 
@@ -10,6 +10,15 @@ use crate::shard::Shard;
 #[derive(Debug, EmptyCodec)]
 pub struct Passivate {
     pub stop_message: DynMessage,
+}
+
+impl Passivate {
+    pub fn new<M>(stop_message: M) -> Self
+    where
+        M: CodecMessage,
+    {
+        Self { stop_message: stop_message.into_dyn() }
+    }
 }
 
 #[async_trait]
