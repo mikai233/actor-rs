@@ -19,3 +19,4 @@ mod coordinated_shutdown_leave;
 pub(crate) mod cluster_core_supervisor;
 mod cluster_core_daemon;
 mod reachability;
+mod vector_clock;
