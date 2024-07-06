@@ -1,9 +1,9 @@
 # actor-rs
 
-本项目的目标是移植一个最小功能的java actor
+本项目的目标是移植一个最小功能的scala actor
 框架（[akka](https://doc.akka.io/docs/akka/current/typed/guide/introduction.html)）
-到 rust 这边，大部分逻辑参考 akka 的实现方式，部分地方受限于 不同语言之间的差异以及自己的理解，采用了不同的逻辑实现相同的功能。
-akka 采用的是 gossip 协议来保持集群状态的一致性， 这边没有使用 gossip ，而是采用了 etcd 来作为整个集群的配置中心，逻辑更简单一些。
+到 rust 这边，大部分逻辑参考 akka 的实现方式，部分地方受限于不同语言之间的差异以及自己的理解，采用了不同的逻辑实现相同的功能。
+akka 采用的是 gossip 协议来保持集群状态的一致性， 这边暂时没有使用 gossip ，而是采用了 etcd 来作为整个集群的配置中心，后续会实现 gossip 协议。
 
 # 计划实现的核心功能
 
