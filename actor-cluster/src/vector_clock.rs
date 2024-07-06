@@ -382,4 +382,108 @@ mod test {
 
         assert!(merged1.same(&merged2));
     }
+
+    #[test]
+    fn correctly_merge_two_disjoint_vector_clocks() {
+        let node1 = Node::new("1");
+        let node2 = Node::new("2");
+        let node3 = Node::new("3");
+        let node4 = Node::new("4");
+
+        let clock1_1 = VectorClock::default();
+        let clock2_1 = clock1_1 + node1.clone();
+        let clock3_1 = clock2_1 + node2.clone();
+        let clock4_1 = clock3_1 + node2.clone();
+        let clock5_1 = clock4_1.clone() + node3.clone();
+
+        let clock1_2 = VectorClock::default();
+        let clock2_2 = clock1_2 + node4.clone();
+        let clock3_2 = clock2_2 + node4.clone();
+
+        let merged1 = clock3_2.merge(&clock5_1);
+        assert_eq!(merged1.versions.len(), 4);
+        assert!(merged1.versions.contains_key(&node1));
+        assert!(merged1.versions.contains_key(&node2));
+        assert!(merged1.versions.contains_key(&node3));
+        assert!(merged1.versions.contains_key(&node4));
+
+        let merged2 = clock5_1.merge(&clock3_2);
+        assert_eq!(merged2.versions.len(), 4);
+        assert!(merged2.versions.contains_key(&node1));
+        assert!(merged2.versions.contains_key(&node2));
+        assert!(merged2.versions.contains_key(&node3));
+        assert!(merged2.versions.contains_key(&node4));
+
+        assert!(clock3_2.before(&merged1));
+        assert!(clock5_1.before(&merged1));
+
+        assert!(clock3_2.before(&merged2));
+        assert!(clock5_1.before(&merged2));
+
+        assert!(merged1.same(&merged2));
+    }
+
+    #[test]
+    fn pass_blank_clock_incrementing() {
+        let node1 = Node::new("1");
+        let node2 = Node::new("2");
+
+        let v1 = VectorClock::default();
+        let v2 = VectorClock::default();
+
+        let vv1 = v1.clone() + node1;
+        let vv2 = v2.clone() + node2;
+
+        assert!(vv1.after(&v1));
+        assert!(vv2.after(&v2));
+
+        assert!(vv1.after(&v2));
+        assert!(vv2.after(&v1));
+
+        assert!(!vv2.after(&vv1));
+        assert!(!vv1.after(&vv2));
+    }
+
+    #[test]
+    fn pass_merging_behavior() {
+        let node1 = Node::new("1");
+        let node2 = Node::new("2");
+        let node3 = Node::new("3");
+
+        let a = VectorClock::default();
+        let b = VectorClock::default();
+
+        let a1 = a + node1.clone();
+        let b1 = b + node2;
+
+        let a2 = a1 + node1;
+        let c = a2.merge(&b1);
+        let c1 = c + node3;
+
+        assert!(c1.after(&a2));
+        assert!(c1.after(&b1));
+    }
+
+    #[test]
+    fn support_pruning() {
+        let node1 = Node::new("1");
+        let node2 = Node::new("2");
+        let node3 = Node::new("3");
+
+        let a = VectorClock::default();
+        let b = VectorClock::default();
+
+        let a1 = a + node1.clone();
+        let b1 = b + node2.clone();
+
+        let c = a1.merge(&b1);
+        let c1 = c.prune(&node1) + node3;
+        assert!(!c1.versions.contains_key(&node1));
+        assert!(c1.concurrent(&c));
+
+        assert!(!c.prune(&node1).merge(&c1).versions.contains_key(&node1));
+
+        let c2 = c + node2;
+        assert!(c1.concurrent(&c2));
+    }
 }
