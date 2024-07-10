@@ -5,7 +5,7 @@ use std::time::Duration;
 use tokio::sync::broadcast::Receiver;
 
 use actor_core::actor::actor_system::ActorSystem;
-use actor_core::actor::address::Address;
+use actor_core::actor::address::{Address, Protocol};
 use actor_core::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::root_actor_path::RootActorPath;
@@ -44,7 +44,7 @@ impl RemoteActorRefProvider {
         let RemoteSetting { config: remote_config, mut reg } = setting;
         Self::register_system_message(&mut reg);
         let transport = remote_config.transport.clone();
-        let address = Address::new(transport.name(), system.name.clone(), Some(transport.addr()));
+        let address = Address::new(Protocol::Akka, system.name.clone(), Some(transport.addr()));
         system.add_config(remote_config)?;
         let (local, mut spawns) = LocalActorRefProvider::new(system, Some(address.clone()))?;
         let (transport, deferred) = RemoteActorRefProvider::spawn_transport(&local, transport)?;

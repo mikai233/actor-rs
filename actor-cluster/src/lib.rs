@@ -20,3 +20,6 @@ pub(crate) mod cluster_core_supervisor;
 mod cluster_core_daemon;
 mod reachability;
 mod vector_clock;
+mod gossip;
+mod membership_state;
+mod cluster_settings;

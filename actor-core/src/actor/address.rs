@@ -2,10 +2,12 @@ use std::fmt::{Display, Formatter};
 use std::net::SocketAddrV4;
 
 use bincode::{Decode, Encode};
+use imstr::ImString;
 use serde::{Deserialize, Serialize};
 
 #[derive(
     Debug,
+    Copy,
     Clone,
     Eq,
     PartialEq,
@@ -15,16 +17,38 @@ use serde::{Deserialize, Serialize};
     Encode,
     Decode,
     Serialize,
-    Deserialize
+    Deserialize,
+)]
+#[repr(u8)]
+pub enum Protocol {
+    Akka,
+}
+
+impl Display for Protocol {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Protocol::Akka => {
+                write!(f, "akka")
+            }
+        }
+    }
+}
+
+#[derive(
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Encode, Decode, Serialize, Deserialize,
 )]
 pub struct Address {
-    pub protocol: String,
-    pub system: String,
+    pub protocol: Protocol,
+    pub system: ImString,
     pub addr: Option<SocketAddrV4>,
 }
 
 impl Address {
-    pub fn new(protocol: impl Into<String>, system: impl Into<String>, addr: Option<SocketAddrV4>) -> Self {
+    pub fn new(
+        protocol: Protocol,
+        system: impl Into<ImString>,
+        addr: Option<SocketAddrV4>,
+    ) -> Self {
         let protocol = protocol.into();
         let system = system.into();
         Self {

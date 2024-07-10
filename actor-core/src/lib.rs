@@ -34,6 +34,7 @@ pub mod actor_path;
 pub mod actor_ref;
 pub mod provider;
 pub mod async_ref;
+pub mod util;
 
 #[async_trait]
 pub trait Actor: Send + Any {

@@ -34,7 +34,7 @@ impl OnMemberStatusChangedListener {
     }
 
     fn is_triggered(&self, m: &Member) -> bool {
-        &m.addr == self.cluster.self_unique_address() && m.status == self.status
+        &m.unique_address == self.cluster.self_unique_address() && m.status == self.status
     }
 }
 

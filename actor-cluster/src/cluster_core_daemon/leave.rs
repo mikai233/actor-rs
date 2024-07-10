@@ -19,7 +19,7 @@ impl Message for Leave {
         let member = {
             actor.cluster.members()
                 .iter()
-                .find(|(_, m)| m.addr.address == self.0)
+                .find(|(_, m)| m.unique_address.address == self.0)
                 .map(|(_, m)| m)
                 .cloned()
         };

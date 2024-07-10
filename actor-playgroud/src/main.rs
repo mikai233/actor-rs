@@ -7,7 +7,7 @@ use actor_cluster::cluster::Cluster;
 use actor_core::{DynMessage, EmptyTestActor};
 use actor_core::actor::actor_selection::ActorSelectionPath;
 use actor_core::actor::actor_system::ActorSystem;
-use actor_core::actor::address::Address;
+use actor_core::actor::address::{Address, Protocol};
 use actor_core::actor::props::Props;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRef;
@@ -41,8 +41,7 @@ async fn main() -> anyhow::Result<()> {
         tokio::time::sleep(Duration::from_secs(2)).await;
         let cluster = Cluster::get(&system2);
         let m = cluster.members();
-        info!("aaaaaaaaa{:?}", m);
-        cluster.leave(Address::new("tcp", "mikai233", Some("127.0.0.1:12123".parse()?)));
+        cluster.leave(Address::new(Protocol::Akka, "mikai233", Some("127.0.0.1:12123".parse()?)));
     }
     system2.await?;
     Ok(())

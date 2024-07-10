@@ -18,18 +18,18 @@ impl Message for ClusterEventWrap {
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match self.0 {
             ClusterEvent::MemberLeaving(m) => {
-                if actor.cluster.self_unique_address() == &m.addr {
+                if actor.cluster.self_unique_address() == &m.unique_address {
                     actor.done(context);
                 }
             }
             ClusterEvent::MemberRemoved(m) => {
-                if actor.cluster.self_unique_address() == &m.addr {
+                if actor.cluster.self_unique_address() == &m.unique_address {
                     actor.done(context);
                 }
             }
             ClusterEvent::CurrentClusterState { members, .. } => {
                 let removed = members.into_values().find(|m| {
-                    &m.addr == actor.cluster.self_unique_address() && m.status == MemberStatus::Removed
+                    &m.unique_address == actor.cluster.self_unique_address() && m.status == MemberStatus::Removed
                 }).is_some();
                 if removed {
                     actor.done(context);

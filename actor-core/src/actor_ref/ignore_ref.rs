@@ -6,7 +6,7 @@ use std::sync::Arc;
 use actor_derive::AsAny;
 
 use crate::actor::actor_system::WeakActorSystem;
-use crate::actor::address::Address;
+use crate::actor::address::{Address, Protocol};
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_path::root_actor_path::RootActorPath;
 use crate::actor_ref::{ActorRef, get_child_default, TActorRef};
@@ -80,7 +80,7 @@ impl IgnoreActorRef {
     }
 
     fn path() -> ActorPath {
-        RootActorPath::new(Address::new("tcp", Self::fake_system_name(), None), "/")
+        RootActorPath::new(Address::new(Protocol::Akka, Self::fake_system_name(), None), "/")
             .child("ignore")
             .into()
     }

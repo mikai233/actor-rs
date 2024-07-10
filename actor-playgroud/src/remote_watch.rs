@@ -8,7 +8,7 @@ use tracing::info;
 use actor_core::{Actor, CodecMessage, DynMessage, Message};
 use actor_core::actor::actor_selection::ActorSelectionPath;
 use actor_core::actor::actor_system::ActorSystem;
-use actor_core::actor::address::Address;
+use actor_core::actor::address::{Address, Protocol};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor_path::root_actor_path::RootActorPath;
@@ -99,7 +99,7 @@ async fn main() -> anyhow::Result<()> {
             }), "watchee")?;
         }
         Some(remote_addr) => {
-            let path = RootActorPath::new(Address::new("tcp", "mikai233", Some(remote_addr)), "/")
+            let path = RootActorPath::new(Address::new(Protocol::Akka, "mikai233", Some(remote_addr)), "/")
                 .child("user")
                 .child("watchee");
             let selection = system.actor_selection(ActorSelectionPath::FullPath(path))?;

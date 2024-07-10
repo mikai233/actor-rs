@@ -19,22 +19,22 @@ impl Message for ClusterEventWrap {
         trace!("{} {:?}", context.myself(), self);
         match self.0 {
             ClusterEvent::MemberUp(m) => {
-                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                if actor.self_member.as_ref().is_some_and(|sm| sm.unique_address == m.unique_address) {
                     actor.self_member = Some(m.clone());
                 }
             }
             ClusterEvent::MemberPrepareForLeaving(m) => {
-                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                if actor.self_member.as_ref().is_some_and(|sm| sm.unique_address == m.unique_address) {
                     actor.self_member = Some(m.clone());
                 }
             }
             ClusterEvent::MemberLeaving(m) => {
-                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                if actor.self_member.as_ref().is_some_and(|sm| sm.unique_address == m.unique_address) {
                     actor.self_member = Some(m.clone());
                 }
             }
             ClusterEvent::MemberRemoved(m) => {
-                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                if actor.self_member.as_ref().is_some_and(|sm| sm.unique_address == m.unique_address) {
                     actor.self_member = Some(m.clone());
                 }
             }

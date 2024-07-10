@@ -6,7 +6,7 @@ use tokio::sync::broadcast::{channel, Receiver, Sender};
 use actor_derive::AsAny;
 
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::address::Address;
+use crate::actor::address::{Address, Protocol};
 use crate::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
 use crate::actor::root_guardian::RootGuardian;
 use crate::actor::system_guardian::SystemGuardian;
@@ -42,7 +42,7 @@ impl LocalActorRefProvider {
         let mut spawns: Vec<Box<dyn DeferredSpawn>> = vec![];
         let address = match address {
             None => {
-                Address::new("tcp", system.name.clone(), None)
+                Address::new(Protocol::Akka, system.name.clone(), None)
             }
             Some(address) => address
         };

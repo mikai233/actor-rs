@@ -18,6 +18,7 @@ dependencies = [
  "dashmap",
  "etcd-client",
  "futures",
+ "imstr",
  "itertools 0.12.1",
  "parking_lot",
  "serde",
@@ -93,6 +94,7 @@ dependencies = [
  "enum_dispatch",
  "etcd-client",
  "futures",
+ "imstr",
  "parking_lot",
  "pin-project",
  "rand",
@@ -962,9 +964,9 @@ dependencies = [
 [[package]]
 name = "imstr"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d3441deb04ea9c6b472f313be54d585428cd6a68cdb8dcf40cf43744bec78fe"
+source = "git+https://github.com/mikai233/imstr.git#56748ada8de47d05ba2a2510d525b2e0a1578278"
 dependencies = [
+ "bincode",
  "serde",
 ]
 

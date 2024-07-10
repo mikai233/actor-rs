@@ -29,7 +29,7 @@ impl Message for Heartbeat {
         trace!("{} recv Heartbeat from {}", context.myself(), self.from);
         if let Some(self_member) = &actor.self_member {
             if self_member.status == MemberStatus::Up {
-                let resp = HeartbeatRsp { from: self_member.addr.clone() };
+                let resp = HeartbeatRsp { from: self_member.unique_address.clone() };
                 context.sender().into_result().context(type_name::<Heartbeat>())?.cast_ns(resp);
             }
         }

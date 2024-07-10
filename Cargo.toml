@@ -34,7 +34,7 @@ serde_json = "1.0"
 clap = "4.4"
 toml = "0.8"
 pin-project = "1.1"
-imstr = "0.2"
+imstr = { git = "https://github.com/mikai233/imstr.git", features = ["serde", "bincode"] }
 itertools = "0.12"
 uuid = "1.7"
 parking_lot = "0.12"

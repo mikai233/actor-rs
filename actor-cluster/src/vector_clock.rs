@@ -7,7 +7,7 @@ use itertools::Itertools;
 use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct Node(String);
+pub(crate) struct Node(String);
 
 impl Node {
     fn from_hash(hash: impl Into<String>) -> Self {
@@ -21,7 +21,7 @@ impl Node {
         hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect()
     }
 
-    fn new(name: impl Into<String>) -> Self {
+    pub(crate) fn new(name: impl Into<String>) -> Self {
         Self(Self::hash(name))
     }
 }
@@ -56,7 +56,7 @@ impl Display for Ordering {
 static CMP_END_MARKER: OnceLock<(Node, i64)> = OnceLock::new();
 
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
-struct VectorClock {
+pub(crate) struct VectorClock {
     versions: BTreeMap<Node, i64>,
 }
 
@@ -170,7 +170,7 @@ impl VectorClock {
         self.compare_only_to(that, Ordering::FullOrder)
     }
 
-    fn merge(&self, that: &VectorClock) -> VectorClock {
+    pub(crate) fn merge(&self, that: &VectorClock) -> VectorClock {
         let mut merged_versions = that.versions.clone();
         for (node, time) in &self.versions {
             let merged_versions_current_time = merged_versions.get(node).copied().unwrap_or(0);
@@ -181,7 +181,7 @@ impl VectorClock {
         VectorClock::new(merged_versions)
     }
 
-    fn prune(&self, removed_node: &Node) -> VectorClock {
+    pub(crate) fn prune(&self, removed_node: &Node) -> VectorClock {
         if self.versions.contains_key(removed_node) {
             let mut pruned_versions = self.versions.clone();
             pruned_versions.remove(removed_node);

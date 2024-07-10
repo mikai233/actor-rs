@@ -196,7 +196,7 @@ impl Cluster {
         let mut members = members.values()
             .filter(|m| m.status == MemberStatus::Up)
             .collect::<Vec<_>>();
-        members.sort_by_key(|m| &m.addr);
+        members.sort_by_key(|m| &m.unique_address);
         members.first().map(|leader| *leader).cloned()
     }
 
@@ -205,7 +205,7 @@ impl Cluster {
         let mut role_members = members.values()
             .filter(|m| m.has_role(role) && m.status == MemberStatus::Up)
             .collect::<Vec<_>>();
-        role_members.sort_by_key(|m| &m.addr);
+        role_members.sort_by_key(|m| &m.unique_address);
         role_members.first().map(|leader| *leader).cloned()
     }
 

@@ -24,7 +24,7 @@ impl Message for HeartbeatTick {
                 for receiver in &actor.active_receivers {
                     let path = ActorSelectionPath::FullPath(ClusterHeartbeatReceiver::path(receiver.address.clone()));
                     let sel = context.actor_selection(path)?;
-                    sel.tell(DynMessage::user(Heartbeat { from: self_member.addr.clone() }), Some(context.myself().clone()));
+                    sel.tell(DynMessage::user(Heartbeat { from: self_member.unique_address.clone() }), Some(context.myself().clone()));
                 }
             }
         }

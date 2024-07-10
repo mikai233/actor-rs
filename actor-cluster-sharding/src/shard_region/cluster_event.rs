@@ -40,10 +40,10 @@ impl Message for ClusterEventWrap {
 
 impl ClusterEventWrap {
     fn update_member(actor: &mut ShardRegion, member: Member) {
-        actor.members.insert(member.addr.clone(), member);
+        actor.members.insert(member.unique_address.clone(), member);
     }
 
     fn remove_member(actor: &mut ShardRegion, member: Member) {
-        actor.members.remove(&member.addr);
+        actor.members.remove(&member.unique_address);
     }
 }

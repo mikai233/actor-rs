@@ -18,26 +18,26 @@ impl Message for ClusterEventWrap {
     async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match self.0 {
             ClusterEvent::MemberUp(m) => {
-                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                if actor.self_member.as_ref().is_some_and(|sm| sm.unique_address == m.unique_address) {
                     actor.self_member = Some(m.clone());
                 }
-                actor.active_receivers.insert(m.addr);
+                actor.active_receivers.insert(m.unique_address);
             }
             ClusterEvent::MemberPrepareForLeaving(m) => {
-                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                if actor.self_member.as_ref().is_some_and(|sm| sm.unique_address == m.unique_address) {
                     actor.self_member = Some(m.clone());
                 }
             }
             ClusterEvent::MemberLeaving(m) => {
-                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                if actor.self_member.as_ref().is_some_and(|sm| sm.unique_address == m.unique_address) {
                     actor.self_member = Some(m.clone());
                 }
             }
             ClusterEvent::MemberRemoved(m) => {
-                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                if actor.self_member.as_ref().is_some_and(|sm| sm.unique_address == m.unique_address) {
                     actor.self_member = Some(m.clone());
                 }
-                actor.active_receivers.remove(&m.addr);
+                actor.active_receivers.remove(&m.unique_address);
             }
             ClusterEvent::CurrentClusterState { members, self_member } => {
                 actor.self_member = Some(self_member);

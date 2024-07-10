@@ -91,7 +91,7 @@ impl ClusterCoreDaemon {
         let cluster_provider = downcast_provider::<ClusterActorRefProvider>(&provider);
         let transport = cluster_provider.remote.transport.clone();
         let self_member = cluster.self_member().clone();
-        let self_addr = self_member.addr.clone();
+        let self_addr = self_member.unique_address.clone();
         let roles = self_member.roles.clone();
         let client = cluster.etcd_client();
         let daemon = Self {
@@ -135,7 +135,7 @@ impl ClusterCoreDaemon {
     }
 
     async fn update_member_to_etcd(&mut self, member: &Member) -> anyhow::Result<()> {
-        let socket_addr = member.addr.socket_addr_with_uid();
+        let socket_addr = member.unique_address.socket_addr_with_uid();
         let member_addr = socket_addr.as_result()?;
         let lease_path = self.lease_path();
         let key = format!("{}/{}", lease_path, member_addr);
@@ -197,9 +197,9 @@ impl ClusterCoreDaemon {
     fn update_local_member_status(&mut self, context: &mut ActorContext, kv: &KeyValue) -> anyhow::Result<()> {
         let stream = &context.system().event_stream;
         let member = serde_json::from_slice::<Member>(kv.value())?;
-        self.key_addr.insert(kv.key_str()?.to_string(), member.addr.clone());
+        self.key_addr.insert(kv.key_str()?.to_string(), member.unique_address.clone());
         debug!("{} update member {}", context.myself(), member);
-        if member.addr == self.self_addr {
+        if member.unique_address == self.self_addr {
             *self.cluster.self_member_write() = member.clone();
         }
         match member.status {
@@ -214,7 +214,7 @@ impl ClusterCoreDaemon {
                 }
             }
             MemberStatus::Leaving => {
-                if member.addr == self.self_addr {
+                if member.unique_address == self.self_addr {
                     context.myself().cast_ns(SelfLeaving);
                 }
                 if Self::update_member(member.clone(), self.cluster.members_write()) {
@@ -222,8 +222,8 @@ impl ClusterCoreDaemon {
                 }
             }
             MemberStatus::Removed => {
-                if self.cluster.members_write().remove(&member.addr).is_some() {
-                    if member.addr != self.self_addr {
+                if self.cluster.members_write().remove(&member.unique_address).is_some() {
+                    if member.unique_address != self.self_addr {
                         self.disconnect_member(&member);
                     }
                     stream.publish(ClusterEvent::member_removed(member));
@@ -234,7 +234,7 @@ impl ClusterCoreDaemon {
     }
 
     fn update_member(member: Member, mut members: RwLockWriteGuard<HashMap<UniqueAddress, Member>>) -> bool {
-        match members.entry(member.addr.clone()) {
+        match members.entry(member.unique_address.clone()) {
             Entry::Occupied(mut o) => {
                 if &member != o.get() {
                     o.insert(member);
@@ -251,7 +251,7 @@ impl ClusterCoreDaemon {
     }
 
     fn disconnect_member(&self, member: &Member) {
-        if let Some(addr) = member.addr.socket_addr() {
+        if let Some(addr) = member.unique_address.socket_addr() {
             let disconnect = Disconnect {
                 addr: addr.clone().into(),
             };

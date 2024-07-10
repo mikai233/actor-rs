@@ -136,7 +136,7 @@ impl ClusterSingletonManager {
         if let Some(role) = &self.settings.role {
             let self_member = self.cluster.self_member();
             if !self_member.has_role(role) {
-                let addr = &self_member.addr;
+                let addr = &self_member.unique_address;
                 let name = context.myself().path().name();
                 trace!("{} do not has role {}, no need to start singleton {}", addr, role, name);
                 return Ok(());

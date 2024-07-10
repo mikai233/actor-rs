@@ -30,6 +30,7 @@ toml = { workspace = true }
 pin-project = { workspace = true }
 config = { workspace = true }
 parking_lot = { workspace = true }
+imstr = { workspace = true, features = ["serde"] }
 
 [dev-dependencies]
 ctor = { workspace = true }

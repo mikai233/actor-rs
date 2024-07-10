@@ -26,6 +26,7 @@ itertools = { workspace = true }
 parking_lot = { workspace = true }
 config = { workspace = true }
 sha2 = { workspace = true }
+imstr = { workspace = true, features = ["serde"] }
 
 [dev-dependencies]
 ctor = { workspace = true }
