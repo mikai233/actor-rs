@@ -13,7 +13,7 @@ use enum_dispatch::enum_dispatch;
 use rand::random;
 use url::Url;
 
-use crate::actor::address::Address;
+use crate::actor::address::{Address, Protocol};
 use crate::actor_path::child_actor_path::{ChildActorPath, Inner};
 use crate::actor_path::root_actor_path::RootActorPath;
 
@@ -202,9 +202,9 @@ impl FromStr for ActorPath {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let url = Url::parse(s).context(format!("invalid url {}", s))?;
-        let scheme = url.scheme().to_string();
-        let username = url.username().to_string();
-        let host = url.domain().ok_or(anyhow!("no host found in url {}", s))?;
+        let scheme = Protocol::from_str(url.scheme())?;
+        let username = url.username().into();
+        let host = url.domain().ok_or(anyhow!("no domain found in url {}", s))?;
         let port = url.port().ok_or(anyhow!("no port found in url {}", s))?;
         let addr: SocketAddrV4 = format!("{}:{}", host, port).parse()?;
         let mut path_str = url
@@ -242,7 +242,7 @@ mod test {
     use crate::actor_path::root_actor_path::RootActorPath;
 
     fn build_address() -> Address {
-        Address::new("tcp", "mikai233", Some("127.0.0.1:12121".parse().unwrap()))
+        Address::new(Protocol::Akka, "mikai233", Some("127.0.0.1:12121".parse().unwrap()))
     }
 
     fn build_actor_path() -> ActorPath {

@@ -10,9 +10,9 @@ use imstr::ImString;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use actor_core::{hashmap, hashset};
 use actor_core::actor::address::Address;
 use actor_core::util::version::Version;
+use actor_core::{hashmap, hashset};
 
 use crate::cluster_settings::ClusterSettings;
 use crate::membership_state::MembershipState;
@@ -20,12 +20,11 @@ use crate::unique_address::UniqueAddress;
 
 #[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
 pub struct Member {
-    pub(crate) unique_address: UniqueAddress,
+    pub unique_address: UniqueAddress,
     pub(crate) up_number: i32,
-    pub(crate) status: MemberStatus,
-    pub(crate) roles: HashSet<ImString>,
+    pub status: MemberStatus,
+    pub roles: HashSet<ImString>,
     pub(crate) app_version: Version,
-    pub(crate) data_center: ImString,
 }
 
 impl Member {
@@ -36,21 +35,22 @@ impl Member {
         roles: HashSet<ImString>,
         app_version: Version,
     ) -> Self {
-        let data_center = roles
-            .iter()
-            .find(|r| r.starts_with(ClusterSettings::dc_role_prefix()))
-            .expect("DataCenter undefined, should not be possible")
-            .strip_prefix(ClusterSettings::dc_role_prefix())
-            .unwrap()
-            .to_string();
         Self {
             unique_address,
             up_number,
             status,
             roles,
-            data_center: data_center.to_string(),
             app_version,
         }
+    }
+
+    pub fn data_center(&self) -> &str {
+        roles
+            .iter()
+            .find(|r| r.starts_with(ClusterSettings::dc_role_prefix()))
+            .expect("DataCenter undefined, should not be possible")
+            .strip_prefix(ClusterSettings::dc_role_prefix())
+            .unwrap()
     }
 
     pub fn has_role(&self, role: &str) -> bool {
@@ -59,18 +59,6 @@ impl Member {
 
     pub fn address(&self) -> &Address {
         &self.unique_address.address
-    }
-
-    pub fn unique_address(&self) -> &UniqueAddress {
-        &self.unique_address
-    }
-
-    pub fn data_center(&self) -> &String {
-        &self.data_center
-    }
-
-    pub fn roles(&self) -> &HashSet<String> {
-        &self.roles
     }
 
     fn is_older_than(&self, other: &Member) -> bool {
@@ -150,7 +138,7 @@ impl Member {
                     if let Some(m) = members.first() {
                         if !(tombstones.contains_key(&m.unique_address)
                             || MembershipState::remove_unreachable_with_member_status()
-                            .contains(&m.status))
+                                .contains(&m.status))
                         {
                             acc.insert(m);
                         }
@@ -274,18 +262,7 @@ impl Ord for Member {
 }
 
 #[derive(
-    Debug,
-    Copy,
-    Clone,
-    Ord,
-    PartialOrd,
-    Eq,
-    PartialEq,
-    Hash,
-    Encode,
-    Decode,
-    Serialize,
-    Deserialize,
+    Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Encode, Decode, Serialize, Deserialize,
 )]
 #[repr(u8)]
 pub enum MemberStatus {

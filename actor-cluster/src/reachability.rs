@@ -284,7 +284,7 @@ impl Reachability {
         observers_grouped_by_unreachable
     }
 
-    fn all_observers(&self) -> HashSet<&UniqueAddress> {
+    pub(crate) fn all_observers(&self) -> HashSet<&UniqueAddress> {
         self.records.iter().map(|r| &r.observer).collect()
     }
 

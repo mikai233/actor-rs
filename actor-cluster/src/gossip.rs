@@ -3,20 +3,19 @@ use std::fmt::Display;
 use std::ops::Add;
 use std::time::Duration;
 
-use actor_core::hashset;
 use ahash::{HashMap, HashSet};
-
-use actor_core::ext::maybe_ref::MaybeRef;
-use anyhow::Ok;
 use itertools::Itertools;
 use sha2::{Digest, Sha256};
+
+use actor_core::ext::maybe_ref::MaybeRef;
+use actor_core::hashset;
 
 use crate::member::{Member, MemberStatus};
 use crate::reachability::Reachability;
 use crate::unique_address::UniqueAddress;
 use crate::vector_clock::{Node, VectorClock};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Gossip {
     pub(crate) members: BTreeSet<Member>,
     pub(crate) overview: GossipOverview,
@@ -38,6 +37,39 @@ impl Gossip {
             tombstones,
         };
         gossip
+    }
+
+    fn assert_invariants(&self) {
+        assert!(
+            !self
+                .members
+                .iter()
+                .any(|m| matches!(m.status, MemberStatus::Removed)),
+            "Live members must not have status [{}]",
+            MemberStatus::Removed
+        );
+
+        let in_reachability_but_not_member = self
+            .overview
+            .reachability
+            .all_observers()
+            .difference(&self.members_map().keys().collect::<HashSet<_>>())
+            .collect::<HashSet<_>>();
+        assert!(
+            in_reachability_but_not_member.is_empty(),
+            "Nodes not part of cluster in reachability table"
+        );
+
+        let seen_but_not_member = self
+            .overview
+            .seen
+            .difference(self.members.iter().map(|m| &m.unique_address))
+            .collect_vec();
+        assert!(
+            seen_but_not_member.is_empty(),
+            "Nodes not part of cluster have marked the Gossip as seen"
+        );
+    
     }
 
     fn members_map(&self) -> HashMap<&UniqueAddress, &Member> {
@@ -264,17 +296,6 @@ impl Add<Member> for Gossip {
             let mut gossip = self.clone();
             gossip.members.insert(rhs);
             gossip
-        }
-    }
-}
-
-impl Clone for Gossip {
-    fn clone(&self) -> Self {
-        Self {
-            members: self.members.clone(),
-            overview: self.overview.clone(),
-            version: self.version.clone(),
-            tombstones: self.tombstones.clone(),
         }
     }
 }

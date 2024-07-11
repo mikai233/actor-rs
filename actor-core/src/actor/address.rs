@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 use std::net::SocketAddrV4;
+use std::str::FromStr;
 
 use bincode::{Decode, Encode};
 use imstr::ImString;
@@ -30,6 +31,17 @@ impl Display for Protocol {
             Protocol::Akka => {
                 write!(f, "akka")
             }
+        }
+    }
+}
+
+impl FromStr for Protocol {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "akka" => Ok(Protocol::Akka),
+            _ => Err(anyhow::anyhow!("Unknown protocol: {}", s)),
         }
     }
 }

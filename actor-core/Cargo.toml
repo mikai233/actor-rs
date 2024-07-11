@@ -16,7 +16,7 @@ etcd-client = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["local-time", "env-filter"] }
 bincode = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["derive", "rc"] }
 bytes = { workspace = true }
 dashmap = { workspace = true, features = ["inline"] }
 ahash = { workspace = true }
