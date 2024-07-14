@@ -38,6 +38,7 @@ use crate::etcd_actor::watch::Watch;
 use crate::heartbeat::cluster_heartbeat_sender::ClusterHeartbeatSender;
 use crate::member::{Member, MemberStatus};
 use crate::unique_address::UniqueAddress;
+use crate::vector_clock::{Node, VectorClock};
 
 mod exiting_completed_req;
 pub(crate) mod leave;
@@ -47,16 +48,19 @@ mod self_leaving;
 mod member_watch_resp;
 mod watch_failed;
 
+const NUMBER_OF_GOSSIPS_BEFORE_SHUTDOWN_WHEN_LEADER_EXITS: usize = 5;
+const MAX_GOSSIPS_BEFORE_SHUTTING_DOWN_MYSELF: usize = 5;
+const MAX_TICKS_BEFORE_SHUTTING_DOWN_MYSELF: usize = 4;
+
 #[derive(Debug)]
 pub(crate) struct ClusterCoreDaemon {
     transport: ActorRef,
     key_addr: HashMap<String, UniqueAddress>,
     self_addr: UniqueAddress,
     roles: HashSet<String>,
-    client: EtcdClient,
     cluster: Cluster,
-    members_watch_adapter: ActorRef,
-    keep_alive_adapter: ActorRef,
+    self_dc: String,
+    vclock_node: Node,
     self_exiting: Sender<()>,
     exiting_tasks_in_progress: bool,
 }
@@ -118,119 +122,8 @@ impl ClusterCoreDaemon {
         context.actor_selection(ActorSelectionPath::FullPath(path))
     }
 
-    fn lease_path(&self) -> String {
-        format!("actor/{}/cluster/lease", self.self_addr.system_name())
-    }
-
-    async fn member_keep_alive(&mut self) -> anyhow::Result<i64> {
-        let resp = self.client.lease_grant(60, None).await?;
-        let lease_id = resp.id();
-        let keep_alive = KeepAlive {
-            id: lease_id,
-            applicant: self.keep_alive_adapter.clone(),
-            interval: Duration::from_secs(3),
-        };
-        self.cluster.etcd_actor().cast_ns(keep_alive);
-        Ok(lease_id)
-    }
-
-    async fn update_member_to_etcd(&mut self, member: &Member) -> anyhow::Result<()> {
-        let socket_addr = member.unique_address.socket_addr_with_uid();
-        let member_addr = socket_addr.as_result()?;
-        let lease_path = self.lease_path();
-        let key = format!("{}/{}", lease_path, member_addr);
-        let value = serde_json::to_vec(&member)?;
-        let put_options = PutOptions::new().with_lease(member.lease);
-        self.client.put(key, value, Some(put_options)).await?;
-        Ok(())
-    }
-
-    async fn get_all_members(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        let lease_path = self.lease_path();
-        let resp = self.client.get(
-            lease_path,
-            Some(GetOptions::new().with_prefix()),
-        ).await?;
-        for kv in resp.kvs() {
-            self.update_local_member_status(context, kv)?;
-        }
-        Ok(())
-    }
-
-    fn watch_cluster_members(&mut self) {
-        let watch = Watch {
-            key: self.lease_path(),
-            options: Some(WatchOptions::new().with_prefix()),
-            applicant: self.members_watch_adapter.clone(),
-        };
-        self.cluster.etcd_actor().cast_ns(watch);
-    }
-
-    async fn try_keep_alive(&mut self, context: &mut ActorContext) {
-        const RETRY: Duration = Duration::from_secs(3);
-        match self.member_keep_alive().await {
-            Ok(lease_id) => {
-                let member = Member::new(
-                    self.self_addr.clone(),
-                    MemberStatus::Up,
-                    self.roles.clone(),
-                    lease_id,
-                );
-                if let Some(error) = self.update_member_to_etcd(&member).await.err() {
-                    error!("{} update self member error {:?}, retry after {:?}", context.myself(), error, RETRY);
-                    let myself = context.myself().clone();
-                    context.system().scheduler.schedule_once(RETRY, move || {
-                        myself.cast_ns(MemberKeepAliveFailed(None));
-                    });
-                }
-            }
-            Err(error) => {
-                error!("{} lease error {:?}, retry after {:?}", context.myself(), error, RETRY);
-                let myself = context.myself().clone();
-                context.system().scheduler.schedule_once(RETRY, move || {
-                    myself.cast_ns(MemberKeepAliveFailed(None));
-                });
-            }
-        }
-    }
-
-    fn update_local_member_status(&mut self, context: &mut ActorContext, kv: &KeyValue) -> anyhow::Result<()> {
-        let stream = &context.system().event_stream;
-        let member = serde_json::from_slice::<Member>(kv.value())?;
-        self.key_addr.insert(kv.key_str()?.to_string(), member.unique_address.clone());
-        debug!("{} update member {}", context.myself(), member);
-        if member.unique_address == self.self_addr {
-            *self.cluster.self_member_write() = member.clone();
-        }
-        match member.status {
-            MemberStatus::Up => {
-                if Self::update_member(member.clone(), self.cluster.members_write()) {
-                    stream.publish(ClusterEvent::member_up(member));
-                }
-            }
-            MemberStatus::PrepareForLeaving => {
-                if Self::update_member(member.clone(), self.cluster.members_write()) {
-                    stream.publish(ClusterEvent::member_prepare_for_leaving(member));
-                }
-            }
-            MemberStatus::Leaving => {
-                if member.unique_address == self.self_addr {
-                    context.myself().cast_ns(SelfLeaving);
-                }
-                if Self::update_member(member.clone(), self.cluster.members_write()) {
-                    stream.publish(ClusterEvent::member_leaving(member));
-                }
-            }
-            MemberStatus::Removed => {
-                if self.cluster.members_write().remove(&member.unique_address).is_some() {
-                    if member.unique_address != self.self_addr {
-                        self.disconnect_member(&member);
-                    }
-                    stream.publish(ClusterEvent::member_removed(member));
-                }
-            }
-        }
-        Ok(())
+    fn self_unique_address(&self) -> &UniqueAddress {
+        self.cluster.self_unique_address()
     }
 
     fn update_member(member: Member, mut members: RwLockWriteGuard<HashMap<UniqueAddress, Member>>) -> bool {

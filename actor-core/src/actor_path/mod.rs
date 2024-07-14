@@ -5,11 +5,12 @@ use std::format;
 use std::hash::{Hash, Hasher};
 use std::net::SocketAddrV4;
 use std::str::FromStr;
-use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use enum_dispatch::enum_dispatch;
+use imstr::ImString;
 use rand::random;
 use url::Url;
 
@@ -39,12 +40,13 @@ pub trait TActorPath {
                 uid,
                 cached_hash: AtomicU64::default(),
             }),
-        }.into()
+        }
+        .into()
     }
 
     fn descendant<'a, I>(&self, names: I) -> ActorPath
-        where
-            I: IntoIterator<Item=&'a str>,
+    where
+        I: IntoIterator<Item = &'a str>,
     {
         let init: ActorPath = self.myself();
         names.into_iter().fold(init, |path, elem| {
@@ -65,7 +67,11 @@ pub trait TActorPath {
     fn with_uid(&self, uid: i32) -> ActorPath;
 
     fn to_string_without_address(&self) -> String {
-        self.elements().iter().map(|e| e.as_str()).collect::<Vec<_>>().join("/")
+        self.elements()
+            .iter()
+            .map(|e| e.as_str())
+            .collect::<Vec<_>>()
+            .join("/")
     }
 
     fn to_string_with_address(&self, address: &Address) -> String;
@@ -112,10 +118,8 @@ impl PartialOrd for ActorPath {
         let other_address = other.address();
         let order = self_address.partial_cmp(&other_address);
         match &order {
-            Some(Ordering::Equal) => {
-                self_elements.partial_cmp(&other_elements)
-            }
-            _ => order
+            Some(Ordering::Equal) => self_elements.partial_cmp(&other_elements),
+            _ => order,
         }
     }
 }
@@ -128,10 +132,8 @@ impl Ord for ActorPath {
         let other_address = other.address();
         let order = self_address.cmp(&other_address);
         match &order {
-            Ordering::Equal => {
-                self_elements.cmp(&other_elements)
-            }
-            _ => order
+            Ordering::Equal => self_elements.cmp(&other_elements),
+            _ => order,
         }
     }
 }
@@ -139,8 +141,8 @@ impl Ord for ActorPath {
 impl Hash for ActorPath {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let cached_hash = match self {
-            ActorPath::RootActorPath(r) => { r.cached_hash() }
-            ActorPath::ChildActorPath(c) => { c.cached_hash() }
+            ActorPath::RootActorPath(r) => r.cached_hash(),
+            ActorPath::ChildActorPath(c) => c.cached_hash(),
         };
         let hash = cached_hash.load(std::sync::atomic::Ordering::Relaxed);
         if hash != 0 {
@@ -203,8 +205,10 @@ impl FromStr for ActorPath {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let url = Url::parse(s).context(format!("invalid url {}", s))?;
         let scheme = Protocol::from_str(url.scheme())?;
-        let username = url.username().into();
-        let host = url.domain().ok_or(anyhow!("no domain found in url {}", s))?;
+        let username: ImString = url.username().into();
+        let host = url
+            .domain()
+            .ok_or(anyhow!("no domain found in url {}", s))?;
         let port = url.port().ok_or(anyhow!("no port found in url {}", s))?;
         let addr: SocketAddrV4 = format!("{}:{}", host, port).parse()?;
         let mut path_str = url
@@ -228,7 +232,6 @@ impl FromStr for ActorPath {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use std::collections::hash_map::DefaultHasher;
@@ -237,23 +240,31 @@ mod test {
     use anyhow::Ok;
 
     use crate::actor::address::{Address, Protocol};
-    use crate::actor_path::{ActorPath, TActorPath};
     use crate::actor_path::child_actor_path::ChildActorPath;
     use crate::actor_path::root_actor_path::RootActorPath;
+    use crate::actor_path::{ActorPath, TActorPath};
 
     fn build_address() -> Address {
-        Address::new(Protocol::Akka, "mikai233", Some("127.0.0.1:12121".parse().unwrap()))
+        Address::new(
+            Protocol::Akka,
+            "mikai233",
+            Some("127.0.0.1:12121".parse().unwrap()),
+        )
     }
 
     fn build_actor_path() -> ActorPath {
         let addr = build_address();
         let root: ActorPath = RootActorPath::new(addr, "/".to_string()).into();
-        let actor_path = root.descendant(vec![
-            "user".to_string(),
-            "$a".to_string(),
-            "$a".to_string(),
-            format!("$aa#{}", ActorPath::new_uid()),
-        ].iter().map(|e| e.as_str()));
+        let actor_path = root.descendant(
+            vec![
+                "user".to_string(),
+                "$a".to_string(),
+                "$a".to_string(),
+                format!("$aa#{}", ActorPath::new_uid()),
+            ]
+            .iter()
+            .map(|e| e.as_str()),
+        );
         actor_path
     }
 
@@ -329,9 +340,19 @@ mod test {
     fn test_to_string_with_address() {
         let actor_path = build_actor_path();
         let address = Address::new(Protocol::Akka, "mikai", None);
-        assert_eq!(actor_path.to_string_with_address(&address), "tcp://mikai/user/$a/$a/$aa");
-        let address = Address::new(Protocol::Akka, "mikai", Some("127.0.0.1:9988".parse().unwrap()));
-        assert_eq!(actor_path.to_string_with_address(&address), "tcp://mikai@127.0.0.1:9988/user/$a/$a/$aa");
+        assert_eq!(
+            actor_path.to_string_with_address(&address),
+            "tcp://mikai/user/$a/$a/$aa"
+        );
+        let address = Address::new(
+            Protocol::Akka,
+            "mikai",
+            Some("127.0.0.1:9988".parse().unwrap()),
+        );
+        assert_eq!(
+            actor_path.to_string_with_address(&address),
+            "tcp://mikai@127.0.0.1:9988/user/$a/$a/$aa"
+        );
     }
 
     #[test]
@@ -341,12 +362,16 @@ mod test {
         assert_ne!(actor_path, actor_path.child("u"));
         let addr = Address::new(Protocol::Akka, "mikai233", None);
         let root: ActorPath = RootActorPath::new(addr, "/".to_string()).into();
-        let actor_path2 = root.descendant(vec![
-            "user".to_string(),
-            "$a".to_string(),
-            "$a".to_string(),
-            format!("$aa#{}", ActorPath::new_uid()),
-        ].iter().map(|e| e.as_str()));
+        let actor_path2 = root.descendant(
+            vec![
+                "user".to_string(),
+                "$a".to_string(),
+                "$a".to_string(),
+                format!("$aa#{}", ActorPath::new_uid()),
+            ]
+            .iter()
+            .map(|e| e.as_str()),
+        );
         assert_ne!(actor_path, actor_path2);
     }
 
@@ -361,12 +386,16 @@ mod test {
         assert!(actor_path3 < actor_path2);
         let addr = Address::new(Protocol::Akka, "mikai234", None);
         let root: ActorPath = RootActorPath::new(addr, "/".to_string()).into();
-        let actor_path4 = root.descendant(vec![
-            "user".to_string(),
-            "$a".to_string(),
-            "$a".to_string(),
-            format!("$aa#{}", ActorPath::new_uid()),
-        ].iter().map(|e| e.as_str()));
+        let actor_path4 = root.descendant(
+            vec![
+                "user".to_string(),
+                "$a".to_string(),
+                "$a".to_string(),
+                format!("$aa#{}", ActorPath::new_uid()),
+            ]
+            .iter()
+            .map(|e| e.as_str()),
+        );
         assert!(actor_path < actor_path4);
     }
 

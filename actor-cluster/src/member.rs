@@ -7,7 +7,6 @@ use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::ensure;
 use bincode::{Decode, Encode};
 use imstr::ImString;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use actor_core::actor::address::Address;
@@ -45,7 +44,7 @@ impl Member {
     }
 
     pub fn data_center(&self) -> &str {
-        roles
+        self.roles
             .iter()
             .find(|r| r.starts_with(ClusterSettings::dc_role_prefix()))
             .expect("DataCenter undefined, should not be possible")
@@ -62,7 +61,7 @@ impl Member {
     }
 
     fn is_older_than(&self, other: &Member) -> bool {
-        if self.data_center != other.data_center {
+        if self.data_center() != other.data_center() {
             panic!("Comparing members of different data centers with isOlderThan is not allowed. [{}] vs. [{}]", self, other);
         }
         if self.up_number == other.up_number {
@@ -176,7 +175,7 @@ impl Member {
 
     pub(crate) fn removed(node: UniqueAddress) -> Member {
         let mut roles = HashSet::new();
-        roles.insert(format!("{}-N/A", ClusterSettings::dc_role_prefix()));
+        roles.insert(format!("{}-N/A", ClusterSettings::dc_role_prefix()).into());
         Member::new(
             node,
             i32::MAX,
@@ -227,7 +226,7 @@ impl Display for Member {
             "Member({}, {}{}{})",
             self.address(),
             self.status,
-            if self.data_center == ClusterSettings::default_data_center() {
+            if self.data_center() == ClusterSettings::default_data_center() {
                 ""
             } else {
                 ", "

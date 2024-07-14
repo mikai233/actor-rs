@@ -69,7 +69,6 @@ impl Gossip {
             seen_but_not_member.is_empty(),
             "Nodes not part of cluster have marked the Gossip as seen"
         );
-    
     }
 
     fn members_map(&self) -> HashMap<&UniqueAddress, &Member> {
@@ -206,7 +205,7 @@ impl Gossip {
         }
     }
 
-    fn member(&self, node: &UniqueAddress) -> MaybeRef<Member> {
+    pub(crate) fn member(&self, node: &UniqueAddress) -> MaybeRef<Member> {
         self.members_map()
             .get(node)
             .map(|m| MaybeRef::Ref(*m))
@@ -302,8 +301,8 @@ impl Add<Member> for Gossip {
 
 #[derive(Debug, Clone)]
 pub(crate) struct GossipOverview {
-    seen: HashSet<UniqueAddress>,
-    reachability: Reachability,
+    pub(crate) seen: HashSet<UniqueAddress>,
+    pub(crate) reachability: Reachability,
 }
 
 impl GossipOverview {

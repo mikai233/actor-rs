@@ -180,7 +180,7 @@ impl Reachability {
         Reachability::new(records, new_versions)
     }
 
-    pub(crate) fn remove(&self, nodes: impl IntoIterator<Item = UniqueAddress>) -> Reachability {
+    pub(crate) fn remove<'a>(&self, nodes: impl IntoIterator<Item=&'a UniqueAddress>) -> Reachability {
         let nodes_set = nodes.into_iter().collect::<HashSet<_>>();
         let new_records = self
             .records
@@ -209,7 +209,7 @@ impl Reachability {
         }
     }
 
-    fn filter_records(&self, predicate: impl Fn(&Record) -> bool) -> Reachability {
+    pub(crate) fn filter_records(&self, predicate: impl Fn(&Record) -> bool) -> Reachability {
         let new_records = self
             .records
             .iter()
@@ -328,11 +328,11 @@ impl Display for Reachability {
 }
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq)]
-struct Record {
-    observer: UniqueAddress,
-    subject: UniqueAddress,
-    status: ReachabilityStatus,
-    version: i64,
+pub(crate) struct Record {
+    pub(crate) observer: UniqueAddress,
+    pub(crate) subject: UniqueAddress,
+    pub(crate) status: ReachabilityStatus,
+    pub(crate) version: i64,
 }
 
 impl Record {
@@ -427,7 +427,8 @@ mod test {
 
     use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 
-    use actor_core::actor::address::Address;
+    use actor_core::actor::address::{Address, Protocol};
+    use actor_core::hashset;
 
     use crate::reachability::{Reachability, ReachabilityStatus, Record};
     use crate::unique_address::UniqueAddress;
@@ -435,8 +436,8 @@ mod test {
     fn node_a() -> UniqueAddress {
         UniqueAddress {
             address: Address {
-                protocol: "akka".to_string(),
-                system: "sys".to_string(),
+                protocol: Protocol::Akka,
+                system: "sys".into(),
                 addr: Some(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 2552)),
             },
             uid: 1,
@@ -446,8 +447,8 @@ mod test {
     fn node_b() -> UniqueAddress {
         UniqueAddress {
             address: Address {
-                protocol: "akka".to_string(),
-                system: "sys".to_string(),
+                protocol: Protocol::Akka,
+                system: "sys".into(),
                 addr: Some(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 2552)),
             },
             uid: 2,
@@ -457,8 +458,8 @@ mod test {
     fn node_c() -> UniqueAddress {
         UniqueAddress {
             address: Address {
-                protocol: "akka".to_string(),
-                system: "sys".to_string(),
+                protocol: Protocol::Akka,
+                system: "sys".into(),
                 addr: Some(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 2552)),
             },
             uid: 3,
@@ -468,8 +469,8 @@ mod test {
     fn node_d() -> UniqueAddress {
         UniqueAddress {
             address: Address {
-                protocol: "akka".to_string(),
-                system: "sys".to_string(),
+                protocol: Protocol::Akka,
+                system: "sys".into(),
                 addr: Some(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 2552)),
             },
             uid: 4,
@@ -479,8 +480,8 @@ mod test {
     fn node_e() -> UniqueAddress {
         UniqueAddress {
             address: Address {
-                protocol: "akka".to_string(),
-                system: "sys".to_string(),
+                protocol: Protocol::Akka,
+                system: "sys".into(),
                 addr: Some(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 2552)),
             },
             uid: 5,
@@ -496,19 +497,23 @@ mod test {
 
     #[test]
     fn be_unreachable_when_one_observed_unreachable() {
-        let reachability = Reachability::empty().unreachable(&node_b(), &node_a());
-        assert_eq!(reachability.is_reachable_by_node(&node_a()), false);
+        let node_a = node_a();
+        let node_b = node_b();
+        let reachability = Reachability::empty().unreachable(&node_b, &node_a);
+        assert_eq!(reachability.is_reachable_by_node(&node_a), false);
         let mut all_unreachable = HashSet::new();
-        all_unreachable.insert(node_a());
+        all_unreachable.insert(node_a);
         assert_eq!(reachability.all_unreachable(), &all_unreachable);
     }
 
     #[test]
     fn not_be_reachable_when_terminated() {
-        let reachability = Reachability::empty().terminated(&node_b(), &node_a());
-        assert_eq!(reachability.is_reachable_by_node(&node_a()), false);
+        let node_a = node_a();
+        let node_b = node_b();
+        let reachability = Reachability::empty().terminated(&node_b, &node_a);
+        assert_eq!(reachability.is_reachable_by_node(&node_a), false);
         let mut all_terminated = HashSet::new();
-        all_terminated.insert(node_a());
+        all_terminated.insert(node_a);
         assert_eq!(
             reachability.all_unreachable_or_terminated(),
             &all_terminated
@@ -517,108 +522,129 @@ mod test {
 
     #[test]
     fn not_change_terminated_entry() {
-        let reachability = Reachability::empty().terminated(&node_b(), &node_a());
-        let new_reachability = reachability.reachable(&node_b(), &node_a());
+        let node_a = node_a();
+        let node_b = node_b();
+        let reachability = Reachability::empty().terminated(&node_b, &node_a);
+        let new_reachability = reachability.reachable(&node_b, &node_a);
         assert_eq!(reachability, new_reachability);
-        let new_reachability = reachability.unreachable(&node_b(), &node_a());
+        let new_reachability = reachability.unreachable(&node_b, &node_a);
         assert_eq!(reachability, new_reachability);
     }
 
     #[test]
     fn not_change_when_same_status() {
-        let reachability = Reachability::empty().unreachable(&node_b(), &node_a());
-        let new_reachability = reachability.unreachable(&node_b(), &node_a());
+        let node_a = node_a();
+        let node_b = node_b();
+        let reachability = Reachability::empty().unreachable(&node_b, &node_a);
+        let new_reachability = reachability.unreachable(&node_b, &node_a);
         assert_eq!(reachability, new_reachability);
     }
 
     #[test]
     fn be_unreachable_when_some_observed_unreachable_and_others_reachable() {
+        let node_a = node_a();
+        let node_b = node_b();
+        let node_c = node_c();
+        let node_d = node_d();
         let reachability = Reachability::empty()
-            .unreachable(&node_b(), &node_a())
-            .reachable(&node_c(), &node_a())
-            .reachable(&node_d(), &node_a());
-        assert_eq!(reachability.is_reachable_by_node(&node_a()), false);
+            .unreachable(&node_b, &node_a)
+            .reachable(&node_c, &node_a)
+            .reachable(&node_d, &node_a);
+        assert_eq!(reachability.is_reachable_by_node(&node_a), false);
     }
 
     #[test]
     fn be_reachable_when_all_observed_reachable_again() {
+        let node_a = node_a();
+        let node_b = node_b();
+        let node_c = node_c();
         let reachability = Reachability::empty()
-            .unreachable(&node_b(), &node_a())
-            .unreachable(&node_c(), &node_a())
-            .reachable(&node_b(), &node_a())
-            .reachable(&node_c(), &node_a())
-            .unreachable(&node_b(), &node_c())
-            .unreachable(&node_c(), &node_b());
-        assert_eq!(reachability.is_reachable_by_node(&node_a()), true);
+            .unreachable(&node_b, &node_a)
+            .unreachable(&node_c, &node_a)
+            .reachable(&node_b, &node_a)
+            .reachable(&node_c, &node_a)
+            .unreachable(&node_b, &node_c)
+            .unreachable(&node_c, &node_b);
+        assert_eq!(reachability.is_reachable_by_node(&node_a), true);
     }
 
     #[test]
     fn exclude_observations_from_specific_downed_nodes() {
+        let node_a = node_a();
+        let node_b = node_b();
+        let node_c = node_c();
+        let node_d = node_d();
         let reachability = Reachability::empty()
-            .unreachable(&node_c(), &node_a())
-            .reachable(&node_c(), &node_a())
-            .unreachable(&node_c(), &node_b())
-            .unreachable(&node_b(), &node_a())
-            .unreachable(&node_b(), &node_c());
-        assert_eq!(reachability.is_reachable_by_node(&node_a()), false);
-        assert_eq!(reachability.is_reachable_by_node(&node_b()), false);
-        assert_eq!(reachability.is_reachable_by_node(&node_c()), false);
-        let mut all_unreachable_or_terminated = HashSet::new();
-        all_unreachable_or_terminated.insert(node_a());
-        all_unreachable_or_terminated.insert(node_b());
-        all_unreachable_or_terminated.insert(node_c());
+            .unreachable(&node_c, &node_a)
+            .reachable(&node_c, &node_a)
+            .unreachable(&node_c, &node_b)
+            .unreachable(&node_b, &node_a)
+            .unreachable(&node_b, &node_c);
+        assert_eq!(reachability.is_reachable_by_node(&node_a), false);
+        assert_eq!(reachability.is_reachable_by_node(&node_b), false);
+        assert_eq!(reachability.is_reachable_by_node(&node_c), false);
+        let all_unreachable_or_terminated = hashset! {
+            node_a.clone(),
+            node_b.clone(),
+            node_c.clone(),
+        };
         assert_eq!(
             reachability.all_unreachable_or_terminated(),
             &all_unreachable_or_terminated
         );
         let mut all_unreachable_or_terminated = HashSet::new();
-        all_unreachable_or_terminated.insert(node_b());
+        all_unreachable_or_terminated.insert(&node_b);
         assert_eq!(
             reachability
                 .remove_observers(all_unreachable_or_terminated.clone())
                 .all_unreachable_or_terminated(),
-            &all_unreachable_or_terminated
+            &all_unreachable_or_terminated.iter().cloned().collect()
         );
     }
 
     #[test]
     fn be_pruned_when_all_records_of_an_observer_are_reachable() {
+        let node_a = node_a();
+        let node_b = node_b();
+        let node_c = node_c();
+        let node_d = node_d();
+        let node_e = node_e();
         let reachability = Reachability::empty()
-            .unreachable(&node_b(), &node_a())
-            .unreachable(&node_b(), &node_c())
-            .unreachable(&node_d(), &node_c())
-            .reachable(&node_b(), &node_a())
-            .reachable(&node_b(), &node_c());
-        assert_eq!(reachability.is_reachable_by_node(&node_a()), true);
-        assert_eq!(reachability.is_reachable_by_node(&node_c()), false);
+            .unreachable(&node_b, &node_a)
+            .unreachable(&node_b, &node_c)
+            .unreachable(&node_d, &node_c)
+            .reachable(&node_b, &node_a)
+            .reachable(&node_b, &node_c);
+        assert_eq!(reachability.is_reachable_by_node(&node_a), true);
+        assert_eq!(reachability.is_reachable_by_node(&node_c), false);
         assert_eq!(
             reachability.records,
             vec![Record::new(
-                node_d(),
-                node_c(),
+                node_d.clone(),
+                node_c.clone(),
                 ReachabilityStatus::Unreachable,
                 1
             )]
         );
         let reachability2 = reachability
-            .unreachable(&node_b(), &node_d())
-            .unreachable(&node_b(), &node_e());
+            .unreachable(&node_b, &node_d)
+            .unreachable(&node_b, &node_e);
         let mut records = HashSet::new();
         records.insert(Record::new(
-            node_d(),
-            node_c(),
+            node_d.clone(),
+            node_c.clone(),
             ReachabilityStatus::Unreachable,
             1,
         ));
         records.insert(Record::new(
-            node_b(),
-            node_d(),
+            node_b.clone(),
+            node_d.clone(),
             ReachabilityStatus::Unreachable,
             5,
         ));
         records.insert(Record::new(
-            node_b(),
-            node_e(),
+            node_b.clone(),
+            node_e.clone(),
             ReachabilityStatus::Unreachable,
             6,
         ));
