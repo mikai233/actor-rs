@@ -427,8 +427,8 @@ mod test {
 
     use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 
+    use actor_core::{hashmap, hashset};
     use actor_core::actor::address::{Address, Protocol};
-    use actor_core::hashset;
 
     use crate::reachability::{Reachability, ReachabilityStatus, Record};
     use crate::unique_address::UniqueAddress;
@@ -512,8 +512,7 @@ mod test {
         let node_b = node_b();
         let reachability = Reachability::empty().terminated(&node_b, &node_a);
         assert_eq!(reachability.is_reachable_by_node(&node_a), false);
-        let mut all_terminated = HashSet::new();
-        all_terminated.insert(node_a);
+        let all_terminated = hashset!(node_a);
         assert_eq!(
             reachability.all_unreachable_or_terminated(),
             &all_terminated
@@ -592,8 +591,7 @@ mod test {
             reachability.all_unreachable_or_terminated(),
             &all_unreachable_or_terminated
         );
-        let mut all_unreachable_or_terminated = HashSet::new();
-        all_unreachable_or_terminated.insert(&node_b);
+        let all_unreachable_or_terminated = hashset!(&node_b);
         assert_eq!(
             reachability
                 .remove_observers(all_unreachable_or_terminated.clone())
@@ -662,10 +660,11 @@ mod test {
             Record::new(node_a(), node_d(), ReachabilityStatus::Unreachable, 3),
             Record::new(node_d(), node_b(), ReachabilityStatus::Terminated, 4),
         ];
-        let mut versions = HashMap::new();
-        versions.insert(node_a(), 3);
-        versions.insert(node_c(), 3);
-        versions.insert(node_d(), 4);
+        let versions = hashmap! {
+            node_a() => 3,
+            node_c() => 3,
+            node_d() => 4,
+        };
         let reachability = Reachability::new(records, versions);
         assert_eq!(
             reachability.status_by_node(&node_a()),
@@ -683,98 +682,102 @@ mod test {
 
     #[test]
     fn have_correct_status_for_a_mix_of_nodes() {
+        let node_a = node_a();
+        let node_b = node_b();
+        let node_c = node_c();
+        let node_d = node_d();
+        let node_e = node_e();
         let reachability = Reachability::empty()
-            .unreachable(&node_b(), &node_a())
-            .unreachable(&node_c(), &node_a())
-            .unreachable(&node_d(), &node_a())
-            .unreachable(&node_c(), &node_b())
-            .reachable(&node_c(), &node_b())
-            .unreachable(&node_d(), &node_b())
-            .unreachable(&node_d(), &node_c())
-            .reachable(&node_d(), &node_c())
-            .reachable(&node_e(), &node_d())
-            .unreachable(&node_a(), &node_e())
-            .terminated(&node_b(), &node_e());
+            .unreachable(&node_b, &node_a)
+            .unreachable(&node_c, &node_a)
+            .unreachable(&node_d, &node_a)
+            .unreachable(&node_c, &node_b)
+            .reachable(&node_c, &node_b)
+            .unreachable(&node_d, &node_b)
+            .unreachable(&node_d, &node_c)
+            .reachable(&node_d, &node_c)
+            .reachable(&node_e, &node_d)
+            .unreachable(&node_a, &node_e)
+            .terminated(&node_b, &node_e);
         assert_eq!(
-            reachability.status(&node_b(), &node_a()),
+            reachability.status(&node_b, &node_a),
             ReachabilityStatus::Unreachable
         );
         assert_eq!(
-            reachability.status(&node_c(), &node_a()),
+            reachability.status(&node_c, &node_a),
             ReachabilityStatus::Unreachable
         );
         assert_eq!(
-            reachability.status(&node_d(), &node_a()),
+            reachability.status(&node_d, &node_a),
             ReachabilityStatus::Unreachable
         );
 
         assert_eq!(
-            reachability.status(&node_c(), &node_b()),
+            reachability.status(&node_c, &node_b),
             ReachabilityStatus::Reachable
         );
         assert_eq!(
-            reachability.status(&node_d(), &node_b()),
+            reachability.status(&node_d, &node_b),
             ReachabilityStatus::Unreachable
         );
 
         assert_eq!(
-            reachability.status(&node_a(), &node_e()),
+            reachability.status(&node_a, &node_e),
             ReachabilityStatus::Unreachable
         );
         assert_eq!(
-            reachability.status(&node_b(), &node_e()),
+            reachability.status(&node_b, &node_e),
             ReachabilityStatus::Terminated
         );
 
-        assert_eq!(reachability.is_reachable_by_node(&node_a()), false);
-        assert_eq!(reachability.is_reachable_by_node(&node_b()), false);
-        assert_eq!(reachability.is_reachable_by_node(&node_c()), true);
-        assert_eq!(reachability.is_reachable_by_node(&node_d()), true);
-        assert_eq!(reachability.is_reachable_by_node(&node_e()), false);
+        assert_eq!(reachability.is_reachable_by_node(&node_a), false);
+        assert_eq!(reachability.is_reachable_by_node(&node_b), false);
+        assert_eq!(reachability.is_reachable_by_node(&node_c), true);
+        assert_eq!(reachability.is_reachable_by_node(&node_d), true);
+        assert_eq!(reachability.is_reachable_by_node(&node_e), false);
 
-        let mut all_unreachable = HashSet::new();
-        all_unreachable.insert(node_a());
-        all_unreachable.insert(node_b());
+        let all_unreachable = hashset! {
+            node_a.clone(),
+            node_b.clone(),
+        };
         assert_eq!(reachability.all_unreachable(), &all_unreachable);
-        let mut all_unreachable_from = HashSet::new();
-        all_unreachable_from.insert(node_e());
+        let all_unreachable_from = hashset!(node_e.clone());
         assert_eq!(
             reachability
-                .all_unreachable_from(&node_a())
+                .all_unreachable_from(&node_a)
                 .unwrap()
                 .into_iter()
                 .map(|a| a.clone())
                 .collect::<HashSet<_>>(),
             all_unreachable_from
         );
-        let mut all_unreachable_from = HashSet::new();
-        all_unreachable_from.insert(node_a());
+        let all_unreachable_from = hashset!(node_a.clone());
         assert_eq!(
             reachability
-                .all_unreachable_from(&node_b())
+                .all_unreachable_from(&node_b)
                 .unwrap()
                 .into_iter()
                 .map(|a| a.clone())
                 .collect::<HashSet<_>>(),
             all_unreachable_from
         );
-        let mut all_unreachable_from = HashSet::new();
-        all_unreachable_from.insert(node_a());
+        let all_unreachable_from = hashset!(node_a.clone());
         assert_eq!(
             reachability
-                .all_unreachable_from(&node_c())
+                .all_unreachable_from(&node_c)
                 .unwrap()
                 .into_iter()
                 .map(|a| a.clone())
                 .collect::<HashSet<_>>(),
             all_unreachable_from
         );
-        let mut all_unreachable_from = HashSet::new();
-        all_unreachable_from.insert(node_a());
-        all_unreachable_from.insert(node_b());
+        let all_unreachable_from = hashset! {
+            node_a.clone(),
+            node_b.clone(),
+        };
         assert_eq!(
             reachability
-                .all_unreachable_from(&node_d())
+                .all_unreachable_from(&node_d)
                 .unwrap()
                 .into_iter()
                 .map(|a| a.clone())
@@ -782,21 +785,20 @@ mod test {
             all_unreachable_from
         );
 
-        let mut expected_observers_grouped_by_unreachable = HashMap::new();
-        let r = expected_observers_grouped_by_unreachable
-            .entry(node_a())
-            .or_insert_with(HashSet::new);
-        r.insert(node_b());
-        r.insert(node_c());
-        r.insert(node_d());
-        let r = expected_observers_grouped_by_unreachable
-            .entry(node_b())
-            .or_insert_with(HashSet::new);
-        r.insert(node_d());
-        let r = expected_observers_grouped_by_unreachable
-            .entry(node_e())
-            .or_insert_with(HashSet::new);
-        r.insert(node_a());
+        let expected_observers_grouped_by_unreachable = hashmap! {
+            node_a.clone() => hashset!{
+                node_b.clone(),
+                node_c.clone(),
+                node_d.clone(),
+            },
+            node_b.clone() => hashset!{
+                node_d.clone(),
+            },
+            node_e.clone() => hashset!{
+                node_a.clone(),
+            },
+
+        };
         let observers_grouped_by_unreachable = reachability
             .observers_grouped_by_unreachable()
             .into_iter()
@@ -815,47 +817,53 @@ mod test {
 
     #[test]
     fn merge_by_picking_latest_version_of_each_record() {
+        let node_a = node_a();
+        let node_b = node_b();
+        let node_c = node_c();
+        let node_d = node_d();
+        let node_e = node_e();
         let r1 = Reachability::empty()
-            .unreachable(&node_b(), &node_a())
-            .unreachable(&node_c(), &node_d());
+            .unreachable(&node_b, &node_a)
+            .unreachable(&node_c, &node_d);
         let r2 = r1
-            .reachable(&node_b(), &node_a())
-            .unreachable(&node_d(), &node_e())
-            .unreachable(&node_c(), &node_a());
-        let mut set = HashSet::new();
-        set.insert(node_a());
-        set.insert(node_b());
-        set.insert(node_c());
-        set.insert(node_d());
-        set.insert(node_e());
-        let merged = r1.merge(set.clone(), r2.clone());
+            .reachable(&node_b, &node_a)
+            .unreachable(&node_d, &node_e)
+            .unreachable(&node_c, &node_a);
+        let set = hashset! {
+            node_a.clone(),
+            node_b.clone(),
+            node_c.clone(),
+            node_d.clone(),
+            node_e.clone(),
+        };
+        let merged = r1.merge(&set, &r2);
 
         assert_eq!(
-            merged.status(&node_b(), &node_a()),
+            merged.status(&node_b, &node_a),
             ReachabilityStatus::Reachable
         );
         assert_eq!(
-            merged.status(&node_c(), &node_a()),
+            merged.status(&node_c, &node_a),
             ReachabilityStatus::Unreachable
         );
         assert_eq!(
-            merged.status(&node_c(), &node_d()),
+            merged.status(&node_c, &node_d),
             ReachabilityStatus::Unreachable
         );
         assert_eq!(
-            merged.status(&node_d(), &node_e()),
+            merged.status(&node_d, &node_e),
             ReachabilityStatus::Unreachable
         );
         assert_eq!(
-            merged.status(&node_e(), &node_a()),
+            merged.status(&node_e, &node_a),
             ReachabilityStatus::Reachable
         );
 
-        assert_eq!(merged.is_reachable_by_node(&node_a()), false);
-        assert_eq!(merged.is_reachable_by_node(&node_d()), false);
-        assert_eq!(merged.is_reachable_by_node(&node_e()), false);
+        assert_eq!(merged.is_reachable_by_node(&node_a), false);
+        assert_eq!(merged.is_reachable_by_node(&node_d), false);
+        assert_eq!(merged.is_reachable_by_node(&node_e), false);
 
-        let merged2 = r2.merge(set, r1);
+        let merged2 = r2.merge(&set, &r1);
         assert_eq!(
             merged2.records.into_iter().collect::<HashSet<_>>(),
             merged.records.into_iter().collect::<HashSet<_>>()
@@ -864,54 +872,61 @@ mod test {
 
     #[test]
     fn merge_by_taking_allowed_set_into_account() {
+        let node_a = node_a();
+        let node_b = node_b();
+        let node_c = node_c();
+        let node_d = node_d();
+        let node_e = node_e();
         let r1 = Reachability::empty()
-            .unreachable(&node_b(), &node_a())
-            .unreachable(&node_c(), &node_d());
+            .unreachable(&node_b, &node_a)
+            .unreachable(&node_c, &node_d);
         let r2 = r1
-            .reachable(&node_b(), &node_a())
-            .unreachable(&node_d(), &node_e())
-            .unreachable(&node_c(), &node_a());
-        let mut allowed = HashSet::new();
-        allowed.insert(node_a());
-        allowed.insert(node_b());
-        allowed.insert(node_c());
-        allowed.insert(node_e());
-        let merged = r1.merge(allowed.clone(), r2.clone());
+            .reachable(&node_b, &node_a)
+            .unreachable(&node_d, &node_e)
+            .unreachable(&node_c, &node_a);
+        let allowed = hashset! {
+            node_a.clone(),
+            node_b.clone(),
+            node_c.clone(),
+            node_e.clone(),
+        };
+        let merged = r1.merge(&allowed, &r2);
 
         assert_eq!(
-            merged.status(&node_b(), &node_a()),
+            merged.status(&node_b, &node_a),
             ReachabilityStatus::Reachable
         );
         assert_eq!(
-            merged.status(&node_c(), &node_a()),
+            merged.status(&node_c, &node_a),
             ReachabilityStatus::Unreachable
         );
         assert_eq!(
-            merged.status(&node_c(), &node_d()),
+            merged.status(&node_c, &node_d),
             ReachabilityStatus::Reachable
         );
         assert_eq!(
-            merged.status(&node_d(), &node_e()),
+            merged.status(&node_d, &node_e),
             ReachabilityStatus::Reachable
         );
         assert_eq!(
-            merged.status(&node_e(), &node_a()),
+            merged.status(&node_e, &node_a),
             ReachabilityStatus::Reachable
         );
 
-        assert_eq!(merged.is_reachable_by_node(&node_a()), false);
-        assert_eq!(merged.is_reachable_by_node(&node_d()), true);
-        assert_eq!(merged.is_reachable_by_node(&node_e()), true);
+        assert_eq!(merged.is_reachable_by_node(&node_a), false);
+        assert_eq!(merged.is_reachable_by_node(&node_d), true);
+        assert_eq!(merged.is_reachable_by_node(&node_e), true);
 
-        let mut versions = HashSet::new();
-        versions.insert(node_b());
-        versions.insert(node_c());
+        let versions = hashset! {
+            node_b.clone(),
+            node_c.clone(),
+        };
         assert_eq!(
             merged.versions.keys().cloned().collect::<HashSet<_>>(),
             versions
         );
 
-        let merged2 = r2.merge(allowed, r1);
+        let merged2 = r2.merge(&allowed, &r1);
         assert_eq!(
             merged2.records.into_iter().collect::<HashSet<_>>(),
             merged.records.into_iter().collect::<HashSet<_>>()
@@ -921,132 +936,146 @@ mod test {
 
     #[test]
     fn merge_correctly_after_pruning() {
+        let node_a = node_a();
+        let node_b = node_b();
+        let node_c = node_c();
+        let node_d = node_d();
+        let node_e = node_e();
         let r1 = Reachability::empty()
-            .unreachable(&node_b(), &node_a())
-            .unreachable(&node_c(), &node_d());
-        let r2 = r1.unreachable(&node_a(), &node_e());
-        let r3 = r1.reachable(&node_b(), &node_a());
-        let mut set = HashSet::new();
-        set.insert(node_a());
-        set.insert(node_b());
-        set.insert(node_c());
-        set.insert(node_d());
-        set.insert(node_e());
-        let merged = r2.merge(set.clone(), r3.clone());
-        let mut records = HashSet::new();
-        records.insert(Record::new(
-            node_a(),
-            node_e(),
-            ReachabilityStatus::Unreachable,
-            1,
-        ));
-        records.insert(Record::new(
-            node_c(),
-            node_d(),
-            ReachabilityStatus::Unreachable,
-            1,
-        ));
+            .unreachable(&node_b, &node_a)
+            .unreachable(&node_c, &node_d);
+        let r2 = r1.unreachable(&node_a, &node_e);
+        let r3 = r1.reachable(&node_b, &node_a);
+        let set = hashset! {
+            node_a.clone(),
+            node_b.clone(),
+            node_c.clone(),
+            node_d.clone(),
+            node_e.clone(),
+        };
+        let merged = r2.merge(&set, &r3);
+        let records = hashset! {
+            Record::new(node_a.clone(), node_e.clone(), ReachabilityStatus::Unreachable, 1),
+            Record::new(node_c.clone(), node_d.clone(), ReachabilityStatus::Unreachable, 1),
+        };
         assert_eq!(merged.records.into_iter().collect::<HashSet<_>>(), records);
 
-        let merged3 = r3.merge(set, r2);
+        let merged3 = r3.merge(&set, &r2);
         assert_eq!(merged3.records.into_iter().collect::<HashSet<_>>(), records);
     }
 
     #[test]
     fn merge_versions_correctly() {
-        let mut versions = HashMap::new();
-        versions.insert(node_a(), 3);
-        versions.insert(node_b(), 5);
-        versions.insert(node_c(), 7);
+        let node_a = node_a();
+        let node_b = node_b();
+        let node_c = node_c();
+        let node_d = node_d();
+        let node_e = node_e();
+        let versions = hashmap! {
+            node_a.clone() => 3,
+            node_b.clone() => 5,
+            node_c.clone() => 7,
+        };
         let r1 = Reachability::new(vec![], versions);
-        let mut versions = HashMap::new();
-        versions.insert(node_a(), 6);
-        versions.insert(node_b(), 2);
-        versions.insert(node_d(), 1);
+        let versions = hashmap! {
+            node_a.clone() => 6,
+            node_b.clone() => 2,
+            node_d.clone() => 1,
+        };
         let r2 = Reachability::new(vec![], versions);
-        let mut set = HashSet::new();
-        set.insert(node_a());
-        set.insert(node_b());
-        set.insert(node_c());
-        set.insert(node_d());
-        set.insert(node_e());
-        let merged = r1.merge(set.clone(), r2.clone());
+        let set = hashset! {
+            node_a.clone(),
+            node_b.clone(),
+            node_c.clone(),
+            node_d.clone(),
+            node_e.clone(),
+        };
+        let merged = r1.merge(&set, &r2);
 
-        let mut expected = HashMap::new();
-        expected.insert(node_a(), 6);
-        expected.insert(node_b(), 5);
-        expected.insert(node_c(), 7);
-        expected.insert(node_d(), 1);
+        let expected = hashmap! {
+            node_a.clone() => 6,
+            node_b.clone() => 5,
+            node_c.clone() => 7,
+            node_d.clone() => 1,
+        };
         assert_eq!(merged.versions, expected);
 
-        let merged2 = r2.merge(set, r1);
+        let merged2 = r2.merge(&set, &r1);
         assert_eq!(merged2.versions, expected);
     }
 
     #[test]
     fn remove_node() {
+        let node_a = node_a();
+        let node_b = node_b();
+        let node_c = node_c();
+        let node_d = node_d();
+        let node_e = node_e();
         let r = Reachability::empty()
-            .unreachable(&node_b(), &node_a())
-            .unreachable(&node_c(), &node_d())
-            .unreachable(&node_b(), &node_c())
-            .unreachable(&node_b(), &node_e())
-            .remove(vec![node_a(), node_b()]);
+            .unreachable(&node_b, &node_a)
+            .unreachable(&node_c, &node_d)
+            .unreachable(&node_b, &node_c)
+            .unreachable(&node_b, &node_e)
+            .remove(vec![&node_a, &node_b]);
 
         assert_eq!(
-            r.status(&node_b(), &node_a()),
+            r.status(&node_b, &node_a),
             ReachabilityStatus::Reachable
         );
         assert_eq!(
-            r.status(&node_c(), &node_d()),
+            r.status(&node_c, &node_d),
             ReachabilityStatus::Unreachable
         );
         assert_eq!(
-            r.status(&node_b(), &node_c()),
+            r.status(&node_b, &node_c),
             ReachabilityStatus::Reachable
         );
         assert_eq!(
-            r.status(&node_b(), &node_e()),
+            r.status(&node_b, &node_e),
             ReachabilityStatus::Reachable
         );
     }
 
     #[test]
     fn remove_correctly_after_pruning() {
+        let node_a = node_a();
+        let node_b = node_b();
+        let node_c = node_c();
+        let node_d = node_d();
         let r = Reachability::empty()
-            .unreachable(&node_b(), &node_a())
-            .unreachable(&node_b(), &node_c())
-            .unreachable(&node_d(), &node_c())
-            .reachable(&node_b(), &node_a())
-            .reachable(&node_b(), &node_c());
+            .unreachable(&node_b, &node_a)
+            .unreachable(&node_b, &node_c)
+            .unreachable(&node_d, &node_c)
+            .reachable(&node_b, &node_a)
+            .reachable(&node_b, &node_c);
         assert_eq!(
             r.records,
             vec![Record::new(
-                node_d(),
-                node_c(),
+                node_d.clone(),
+                node_c.clone(),
                 ReachabilityStatus::Unreachable,
                 1
             )]
         );
-        let r2 = r.remove(vec![node_b()]);
-        let mut set = HashSet::new();
-        let node_d = node_d();
-        set.insert(&node_d);
+        let r2 = r.remove(vec![&node_b]);
+        let set = hashset!(&node_d);
         assert_eq!(r2.all_observers(), set);
         assert_eq!(r2.versions.keys().collect::<HashSet::<_>>(), set);
     }
 
     #[test]
     fn be_able_to_filter_records() {
-        let r = Reachability::empty()
-            .unreachable(&node_c(), &node_b())
-            .unreachable(&node_b(), &node_a())
-            .unreachable(&node_b(), &node_c());
-        let filtered1 = r.filter_records(|record| record.observer != node_c());
-        assert_eq!(filtered1.is_reachable_by_node(&node_b()), true);
-        assert_eq!(filtered1.is_reachable_by_node(&node_a()), false);
-        let mut set = HashSet::new();
+        let node_a = node_a();
         let node_b = node_b();
-        set.insert(&node_b);
+        let node_c = node_c();
+        let r = Reachability::empty()
+            .unreachable(&node_c, &node_b)
+            .unreachable(&node_b, &node_a)
+            .unreachable(&node_b, &node_c);
+        let filtered1 = r.filter_records(|record| record.observer != node_c);
+        assert_eq!(filtered1.is_reachable_by_node(&node_b), true);
+        assert_eq!(filtered1.is_reachable_by_node(&node_a), false);
+        let set = hashset!(&node_b);
         assert_eq!(filtered1.all_observers(), set);
     }
 }

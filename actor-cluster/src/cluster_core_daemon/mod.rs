@@ -7,6 +7,7 @@ use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
 use async_trait::async_trait;
 use etcd_client::{GetOptions, KeyValue, PutOptions, WatchOptions};
+use imstr::ImString;
 use parking_lot::RwLockWriteGuard;
 use tokio::sync::mpsc::{channel, Sender};
 use tracing::{debug, error};
@@ -28,8 +29,6 @@ use actor_remote::transport::disconnect::Disconnect;
 
 use crate::cluster::Cluster;
 use crate::cluster_core_daemon::exiting_completed_req::{ExitingCompletedReq, ExitingCompletedResp};
-use crate::cluster_core_daemon::member_keep_alive_failed::MemberKeepAliveFailed;
-use crate::cluster_core_daemon::member_watch_resp::MemberWatchResp;
 use crate::cluster_core_daemon::self_leaving::SelfLeaving;
 use crate::cluster_event::ClusterEvent;
 use crate::cluster_provider::ClusterActorRefProvider;
@@ -42,11 +41,8 @@ use crate::vector_clock::{Node, VectorClock};
 
 mod exiting_completed_req;
 pub(crate) mod leave;
-mod member_keep_alive_failed;
 pub mod self_removed;
 mod self_leaving;
-mod member_watch_resp;
-mod watch_failed;
 
 const NUMBER_OF_GOSSIPS_BEFORE_SHUTDOWN_WHEN_LEADER_EXITS: usize = 5;
 const MAX_GOSSIPS_BEFORE_SHUTTING_DOWN_MYSELF: usize = 5;
@@ -55,9 +51,8 @@ const MAX_TICKS_BEFORE_SHUTTING_DOWN_MYSELF: usize = 4;
 #[derive(Debug)]
 pub(crate) struct ClusterCoreDaemon {
     transport: ActorRef,
-    key_addr: HashMap<String, UniqueAddress>,
     self_addr: UniqueAddress,
-    roles: HashSet<String>,
+    roles: HashSet<ImString>,
     cluster: Cluster,
     self_dc: String,
     vclock_node: Node,
@@ -68,8 +63,6 @@ pub(crate) struct ClusterCoreDaemon {
 impl ClusterCoreDaemon {
     pub(crate) fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
         let (self_exiting_tx, mut self_exiting_rx) = channel(1);
-        let members_watch_adapter = context.adapter(|m| DynMessage::user(MemberWatchResp(m)));
-        let keep_alive_adapter = context.adapter(|m| DynMessage::user(MemberKeepAliveFailed(Some(m))));
         let coord_shutdown = CoordinatedShutdown::get(context.system());
         let cluster_ext = Cluster::get(context.system()).clone();
         let cluster = cluster_ext.clone();
@@ -97,16 +90,13 @@ impl ClusterCoreDaemon {
         let self_member = cluster.self_member().clone();
         let self_addr = self_member.unique_address.clone();
         let roles = self_member.roles.clone();
-        let client = cluster.etcd_client();
         let daemon = Self {
             transport,
-            key_addr: Default::default(),
             self_addr,
             roles,
-            client,
             cluster,
-            members_watch_adapter,
-            keep_alive_adapter,
+            self_dc: "".to_string(),
+            vclock_node: (),
             self_exiting: self_exiting_tx,
             exiting_tasks_in_progress: false,
         };
@@ -157,15 +147,11 @@ impl ClusterCoreDaemon {
 impl Actor for ClusterCoreDaemon {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         context.spawn(ClusterHeartbeatSender::props(), ClusterHeartbeatSender::name())?;
-        self.watch_cluster_members();
         Ok(())
     }
 
     async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
         let _ = self.self_exiting.send(()).await;
-        let lease_path = self.lease_path();
-        let key = format!("{}/{}", lease_path, self.self_addr.socket_addr_with_uid().into_result()?);
-        self.client.delete(key, None).await?;
         Ok(())
     }
 

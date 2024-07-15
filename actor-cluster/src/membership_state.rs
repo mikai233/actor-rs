@@ -1,7 +1,8 @@
 use std::collections::BTreeSet;
+use std::collections::hash_map::Entry;
 use std::sync::OnceLock;
 
-use ahash::{HashSet, HashSetExt};
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 
 use actor_core::ext::maybe_ref::MaybeRef;
 use actor_core::hashset;
@@ -57,7 +58,7 @@ impl MembershipState {
             })
         };
         let mut unreachable_in_dc = self
-            .dc_reachability_excluding_downed_observers
+            .dc_reachability_excluding_downed_observers()
             .all_unreachable_or_terminated()
             .iter()
             .filter(|node| **node != self.self_unique_address && !exiting_confirmed.contains(node))
@@ -99,8 +100,29 @@ impl MembershipState {
             } else {
                 None
             }
-        }).collect();
-        self.overview().reachability.remove_observers(members_to_exclude).remove()
+        });
+        self.overview().reachability.remove_observers(members_to_exclude).remove(nodes)
+    }
+
+    fn dc_reachability_no_outside_nodes(&self) -> Reachability {
+        let nodes = self.members().iter().filter_map(|m| {
+            if m.data_center() != self.self_dc {
+                Some(&m.unique_address)
+            } else {
+                None
+            }
+        });
+        self.overview().reachability.remove(nodes)
+    }
+
+    fn age_sorted_top_oldest_members_per_dc(&self) -> HashMap<&str, BTreeSet<Member>> {
+        self.latest_gossip.members.iter().fold(HashMap::new(), |mut acc, m| {
+            match acc.entry(m.data_center()) {
+                Entry::Occupied(o) => {}
+                Entry::Vacant(o) => {}
+            }
+            acc
+        })
     }
 
     fn leader_member_status() -> &'static HashSet<MemberStatus> {
