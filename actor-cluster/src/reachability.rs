@@ -236,7 +236,7 @@ impl Reachability {
         }
     }
 
-    fn is_reachable_by_node(&self, node: &UniqueAddress) -> bool {
+    pub(crate) fn is_reachable_by_node(&self, node: &UniqueAddress) -> bool {
         self.is_all_unreachable() || !self.all_unreachable_or_terminated().contains(node)
     }
 
@@ -247,11 +247,11 @@ impl Reachability {
         )
     }
 
-    fn is_all_unreachable(&self) -> bool {
+    pub(crate) fn is_all_unreachable(&self) -> bool {
         self.records.is_empty()
     }
 
-    fn all_unreachable(&self) -> &HashSet<UniqueAddress> {
+    pub(crate) fn all_unreachable(&self) -> &HashSet<UniqueAddress> {
         &self.cache.all_unreachable
     }
 
@@ -259,7 +259,7 @@ impl Reachability {
         &self.cache.all_unreachable_or_terminated
     }
 
-    fn all_unreachable_from(&self, observer: &UniqueAddress) -> Option<HashSet<&UniqueAddress>> {
+    pub(crate) fn all_unreachable_from(&self, observer: &UniqueAddress) -> Option<HashSet<&UniqueAddress>> {
         self.observer_rows(observer).map(|rows| {
             rows.values()
                 .filter(|r| matches!(r.status, ReachabilityStatus::Unreachable))
@@ -268,7 +268,7 @@ impl Reachability {
         })
     }
 
-    fn observers_grouped_by_unreachable(&self) -> HashMap<&UniqueAddress, HashSet<&UniqueAddress>> {
+    pub(crate) fn observers_grouped_by_unreachable(&self) -> HashMap<&UniqueAddress, HashSet<&UniqueAddress>> {
         let mut observers_grouped_by_unreachable = HashMap::new();
         for (subject, records_for_subject) in
             self.records.iter().group_by(|r| &r.subject).into_iter()
@@ -288,7 +288,7 @@ impl Reachability {
         self.records.iter().map(|r| &r.observer).collect()
     }
 
-    fn records_from(&self, observer: &UniqueAddress) -> Vec<&Record> {
+    pub(crate) fn records_from(&self, observer: &UniqueAddress) -> Vec<&Record> {
         self.observer_rows(observer)
             .map(|rows| rows.values().collect())
             .unwrap_or_default()

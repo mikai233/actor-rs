@@ -27,6 +27,7 @@ parking_lot = { workspace = true }
 config = { workspace = true }
 sha2 = { workspace = true }
 imstr = { workspace = true, features = ["serde"] }
+rand = { workspace = true }
 
 [dev-dependencies]
 ctor = { workspace = true }

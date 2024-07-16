@@ -71,25 +71,25 @@ impl Gossip {
         );
     }
 
-    fn members_map(&self) -> HashMap<&UniqueAddress, &Member> {
+    pub(crate) fn members_map(&self) -> HashMap<&UniqueAddress, &Member> {
         self.members
             .iter()
             .map(|m| (&m.unique_address, m))
             .collect()
     }
 
-    fn is_multi_dc(&self) -> bool {
+    pub(crate) fn is_multi_dc(&self) -> bool {
         if self.members.len() <= 1 {
             true
         } else {
             let dc1 = self.members.first().unwrap();
             self.members
                 .iter()
-                .any(|m| m.data_center != dc1.data_center)
+                .any(|m| m.data_center() != dc1.data_center())
         }
     }
 
-    fn reachability_excluding_downed_observers(&self) -> Reachability {
+    pub(crate) fn reachability_excluding_downed_observers(&self) -> Reachability {
         let downed = self
             .members
             .iter()
@@ -185,11 +185,11 @@ impl Gossip {
         )
     }
 
-    fn all_data_centers(&self) -> HashSet<&String> {
-        self.members.iter().map(|m| &m.data_center).collect()
+    fn all_data_centers(&self) -> HashSet<&str> {
+        self.members.iter().map(|m| m.data_center()).collect()
     }
 
-    fn all_roles(&self) -> HashSet<&String> {
+    fn all_roles(&self) -> HashSet<&str> {
         self.members.iter().flat_map(|m| m.roles.iter()).collect()
     }
 
@@ -212,7 +212,7 @@ impl Gossip {
             .unwrap_or_else(|| MaybeRef::Own(Member::removed(node.clone())))
     }
 
-    fn has_member(&self, node: &UniqueAddress) -> bool {
+    pub(crate) fn has_member(&self, node: &UniqueAddress) -> bool {
         self.members_map().contains_key(node)
     }
 

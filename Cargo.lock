@@ -21,6 +21,7 @@ dependencies = [
  "imstr",
  "itertools 0.12.1",
  "parking_lot",
+ "rand",
  "serde",
  "serde_json",
  "sha2",

@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
+use std::ops::{Deref, DerefMut};
 use std::sync::OnceLock;
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
@@ -60,14 +61,10 @@ impl Member {
         &self.unique_address.address
     }
 
-    fn is_older_than(&self, other: &Member) -> bool {
-        if self.data_center() != other.data_center() {
-            panic!("Comparing members of different data centers with isOlderThan is not allowed. [{}] vs. [{}]", self, other);
-        }
-        if self.up_number == other.up_number {
-            Member::address_ordering(self.address(), other.address()) == Ordering::Less
-        } else {
-            self.up_number < other.up_number
+    pub(crate) fn is_older_than(&self, other: &Member) -> bool {
+        match Self::age_ordering(self, other) {
+            Ordering::Less | Ordering::Equal => true,
+            Ordering::Greater => false,
         }
     }
 
@@ -185,11 +182,11 @@ impl Member {
         )
     }
 
-    fn address_ordering(a: &Address, b: &Address) -> Ordering {
+    pub(crate) fn address_ordering(a: &Address, b: &Address) -> Ordering {
         a.addr.cmp(&b.addr)
     }
 
-    fn leader_status_ordering(a: &Member, b: &Member) -> Ordering {
+    pub(crate) fn leader_status_ordering(a: &Member, b: &Member) -> Ordering {
         match (a.status, b.status) {
             (a_status, b_status) if a_status == b_status => a.cmp(&b),
             (MemberStatus::Down, _) => Ordering::Greater,
@@ -204,8 +201,19 @@ impl Member {
         }
     }
 
-    fn ordering(a: &Member, b: &Member) -> Ordering {
+    pub(crate) fn ordering(a: &Member, b: &Member) -> Ordering {
         a.unique_address.cmp(&b.unique_address)
+    }
+
+    pub(crate) fn age_ordering(a: &Member, b: &Member) -> Ordering {
+        if a.data_center() != b.data_center() {
+            panic!("Comparing members of different data centers with isOlderThan is not allowed. [{}] vs. [{}]", a, b);
+        }
+        if a.up_number == b.up_number {
+            Member::address_ordering(a.address(), b.address())
+        } else {
+            a.up_number.cmp(&b.up_number)
+        }
     }
 }
 
@@ -352,5 +360,157 @@ impl Display for MemberStatus {
             MemberStatus::PreparingForShutdown => write!(f, "PreparingForShutdown"),
             MemberStatus::ReadyForShutdown => write!(f, "ReadyForShutdown"),
         }
+    }
+}
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Encode, Decode, Serialize, Deserialize)]
+pub struct MemberByAgeOrdering(pub Member);
+
+impl Deref for MemberByAgeOrdering {
+    type Target = Member;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for MemberByAgeOrdering {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl From<Member> for MemberByAgeOrdering {
+    fn from(value: Member) -> Self {
+        Self(value)
+    }
+}
+
+impl Into<Member> for MemberByAgeOrdering {
+    fn into(self) -> Member {
+        self.0
+    }
+}
+
+impl PartialOrd for MemberByAgeOrdering {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(Member::age_ordering(&self.0, &other.0))
+    }
+}
+
+impl Ord for MemberByAgeOrdering {
+    fn cmp(&self, other: &Self) -> Ordering {
+        Member::age_ordering(&self.0, &other.0)
+    }
+}
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub struct MemberByAgeOrderingRef<'a>(pub &'a Member);
+
+impl<'a> Deref for MemberByAgeOrderingRef<'a> {
+    type Target = Member;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> From<&'a Member> for MemberByAgeOrderingRef<'a> {
+    fn from(value: &'a Member) -> Self {
+        Self(value)
+    }
+}
+
+impl<'a> Into<&'a Member> for MemberByAgeOrderingRef<'a> {
+    fn into(self) -> &'a Member {
+        self.0
+    }
+}
+
+impl<'a> PartialOrd for MemberByAgeOrderingRef<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(Member::age_ordering(&self.0, &other.0))
+    }
+}
+
+impl<'a> Ord for MemberByAgeOrderingRef<'a> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        Member::age_ordering(&self.0, &other.0)
+    }
+}
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Encode, Decode, Serialize, Deserialize)]
+pub struct MemberByLeaderStatusOrdering(pub Member);
+
+impl Deref for MemberByLeaderStatusOrdering {
+    type Target = Member;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for MemberByLeaderStatusOrdering {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl From<Member> for MemberByLeaderStatusOrdering {
+    fn from(value: Member) -> Self {
+        Self(value)
+    }
+}
+
+impl Into<Member> for MemberByLeaderStatusOrdering {
+    fn into(self) -> Member {
+        self.0
+    }
+}
+
+impl PartialOrd for MemberByLeaderStatusOrdering {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(Member::leader_status_ordering(&self.0, &other.0))
+    }
+}
+
+impl Ord for MemberByLeaderStatusOrdering {
+    fn cmp(&self, other: &Self) -> Ordering {
+        Member::leader_status_ordering(&self.0, &other.0)
+    }
+}
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub struct MemberByLeaderStatusOrderingRef<'a>(pub &'a Member);
+
+impl<'a> Deref for MemberByLeaderStatusOrderingRef<'a> {
+    type Target = &'a Member;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> From<&'a Member> for MemberByLeaderStatusOrderingRef<'a> {
+    fn from(value: &'a Member) -> Self {
+        Self(value)
+    }
+}
+
+impl<'a> Into<&'a Member> for MemberByLeaderStatusOrderingRef<'a> {
+    fn into(self) -> &'a Member {
+        self.0
+    }
+}
+
+impl<'a> PartialOrd for MemberByLeaderStatusOrderingRef<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(Member::leader_status_ordering(&self.0, &other.0))
+    }
+}
+
+impl<'a> Ord for MemberByLeaderStatusOrderingRef<'a> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        Member::leader_status_ordering(&self.0, &other.0)
     }
 }
