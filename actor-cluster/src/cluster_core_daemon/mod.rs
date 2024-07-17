@@ -1,7 +1,7 @@
 use std::any::type_name;
 use std::collections::hash_map::Entry;
-use std::ops::Not;
-use std::time::Duration;
+use std::ops::{Add, AddAssign, Not, Sub};
+use std::time::{Duration, Instant};
 
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
@@ -25,6 +25,7 @@ use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::provider::downcast_provider;
+use actor_core::util::version::Version;
 use actor_remote::transport::disconnect::Disconnect;
 
 use crate::cluster::Cluster;
@@ -34,8 +35,10 @@ use crate::cluster_event::ClusterEvent;
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::etcd_actor::keep_alive::KeepAlive;
 use crate::etcd_actor::watch::Watch;
+use crate::gossip::Gossip;
 use crate::heartbeat::cluster_heartbeat_sender::ClusterHeartbeatSender;
 use crate::member::{Member, MemberStatus};
+use crate::membership_state::{GossipTargetSelector, MembershipState};
 use crate::unique_address::UniqueAddress;
 use crate::vector_clock::{Node, VectorClock};
 
@@ -56,8 +59,22 @@ pub(crate) struct ClusterCoreDaemon {
     cluster: Cluster,
     self_dc: String,
     vclock_node: Node,
-    self_exiting: Sender<()>,
+    gossip_target_selector: GossipTargetSelector,
+    membership_state: MembershipState,
+    is_currently_leader: bool,
+    stats_enabled: bool,
+    gossip_stats: GossipStats,
+    seed_nodes: Vec<Address>,
+    seed_node_process: Option<ActorRef>,
+    seed_node_process_counter: usize,
+    join_seed_nodes_deadline: Option<Instant>,
+    leader_action_counter: usize,
+    self_down_counter: usize,
+    preparing_for_shutdown: bool,
     exiting_tasks_in_progress: bool,
+    self_exiting: Sender<()>,
+    exiting_confirmed: HashSet<UniqueAddress>,
+    later_app_version: Option<Version>,
 }
 
 impl ClusterCoreDaemon {
@@ -96,11 +113,29 @@ impl ClusterCoreDaemon {
             roles,
             cluster,
             self_dc: "".to_string(),
-            vclock_node: (),
+            vclock_node: Node::new(Gossip::vclock_name(cluster.self_unique_address())),
+            gossip_target_selector: (),
+            membership_state: MembershipState {},
+            is_currently_leader: false,
+            stats_enabled: false,
+            gossip_stats: GossipStats {},
+            seed_nodes: vec![],
+            seed_node_process: None,
+            seed_node_process_counter: 0,
+            join_seed_nodes_deadline: None,
+            leader_action_counter: 0,
+            self_down_counter: 0,
             self_exiting: self_exiting_tx,
+            exiting_confirmed: Default::default(),
             exiting_tasks_in_progress: false,
+            preparing_for_shutdown: false,
+            later_app_version: None,
         };
         Ok(daemon)
+    }
+
+    fn latest_gossip(&self) -> &Gossip {
+        &self.membership_state.latest_gossip
     }
 
     fn cluster_core(context: &mut ActorContext, address: Address) -> anyhow::Result<ActorSelection> {
@@ -157,5 +192,87 @@ impl Actor for ClusterCoreDaemon {
 
     async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
+    }
+}
+
+#[derive(Debug, Copy, Clone, Hash)]
+pub(crate) struct GossipStats {
+    pub(crate) received_gossip_count: i64,
+    pub(crate) merge_count: i64,
+    pub(crate) same_count: i64,
+    pub(crate) newer_count: i64,
+    pub(crate) older_count: i64,
+}
+
+impl GossipStats {
+    pub(crate) fn increment_merge_count(&self) -> GossipStats {
+        let mut stats = *self;
+        stats.merge_count += 1;
+        stats.received_gossip_count += 1;
+        stats
+    }
+
+    pub(crate) fn increment_same_count(&self) -> GossipStats {
+        let mut stats = *self;
+        stats.same_count += 1;
+        stats.received_gossip_count += 1;
+        stats
+    }
+
+    pub(crate) fn increment_newer_count(&self) -> GossipStats {
+        let mut stats = *self;
+        stats.newer_count += 1;
+        stats.received_gossip_count += 1;
+        stats
+    }
+
+    pub(crate) fn increment_older_count(&self) -> GossipStats {
+        let mut stats = *self;
+        stats.older_count += 1;
+        stats.received_gossip_count += 1;
+        stats
+    }
+}
+
+impl Add for GossipStats {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            received_gossip_count: self.received_gossip_count + rhs.received_gossip_count,
+            merge_count: self.merge_count + rhs.merge_count,
+            same_count: self.same_count + rhs.same_count,
+            newer_count: self.newer_count + rhs.newer_count,
+            older_count: self.older_count + rhs.older_count,
+        }
+    }
+}
+
+impl Sub for GossipStats {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            received_gossip_count: self.received_gossip_count - rhs.received_gossip_count,
+            merge_count: self.merge_count - rhs.merge_count,
+            same_count: self.same_count - rhs.same_count,
+            newer_count: self.newer_count - rhs.newer_count,
+            older_count: self.older_count - rhs.older_count,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Hash)]
+pub(crate) struct VectorClockStats {
+    pub(crate) version_size: i32,
+    pub(crate) seen_latest: i32,
+}
+
+impl VectorClockStats {
+    pub(crate) fn new(version_size: i32, seen_latest: i32) -> Self {
+        Self {
+            version_size,
+            seen_latest,
+        }
     }
 }

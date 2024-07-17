@@ -1,7 +1,7 @@
 pub use etcd_client;
 pub use parking_lot;
 
-pub(crate) const CLUSTER_CONFIG: &'static str = include_str!("../cluster.toml");
+pub(crate) const CLUSTER_CONFIG: &'static str = include_str!("../reference.toml");
 
 pub mod cluster;
 mod cluster_daemon;
@@ -21,5 +21,5 @@ mod cluster_core_daemon;
 mod reachability;
 mod vector_clock;
 mod gossip;
-mod membership_state;
+pub(crate) mod membership_state;
 mod cluster_settings;

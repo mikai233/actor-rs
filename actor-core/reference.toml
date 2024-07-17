@@ -1,0 +1,41 @@
+[akka]
+log-config-on-start = false
+
+log-dead-letters = 10
+
+log-dead-letters-during-shutdown = false
+
+log-dead-letters-suspend-duration = { secs = 300, nanos = 0 }
+
+extensions = []
+
+[akka.actor]
+provider = "local"
+
+guardian-supervisor-strategy = "akka.actor.DefaultSupervisorStrategy"
+
+creation-timeout = { secs = 20, nanos = 0 }
+
+[akka.actor.default-mailbox]
+mailbox-type = "akka.dispatch.UnboundedMailbox"
+mailbox-capacity = 1000
+mailbox-push-timeout-time = { secs = 10, nanos = 0 }
+stash-capacity = -1
+
+[akka.coordinated-shutdown]
+default-phase-timeout = { secs = 5, nanos = 0 }
+terminate-actor-system = true
+
+[akka.coordinated-shutdown.phases]
+before-service-unbind = { depends_on = [] }
+service-unbind = { depends_on = ["before-service-unbind"] }
+service-requests-done = { depends_on = ["service-unbind"] }
+service-stop = { depends_on = ["service-requests-done"] }
+before-cluster-shutdown = { depends_on = ["service-stop"] }
+cluster-sharding-shutdown-region = { depends_on = ["before-cluster-shutdown"] }
+cluster-leave = { depends_on = ["cluster-sharding-shutdown-region"] }
+cluster-exiting = { depends_on = ["cluster-leave"] }
+cluster-exiting-done = { depends_on = ["cluster-exiting"] }
+cluster-shutdown = { depends_on = ["cluster-exiting-done"] }
+before-actor-system-terminate = { depends_on = ["cluster-shutdown"] }
+actor-system-terminate = { depends_on = ["before-actor-system-terminate"] }

@@ -1,15 +1,15 @@
 use std::cmp::min;
-use std::collections::hash_map::Entry;
 use std::collections::BTreeSet;
+use std::collections::hash_map::Entry;
 use std::sync::OnceLock;
 
-use actor_core::ext::option_ext::OptionExt;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
-
-use actor_core::ext::maybe_ref::MaybeRef;
-use actor_core::{btree_set, hashset};
+use rand::{Rng, thread_rng};
 use rand::seq::SliceRandom;
-use rand::{thread_rng, Rng};
+
+use actor_core::{btree_set, hashset};
+use actor_core::ext::maybe_ref::MaybeRef;
+use actor_core::ext::option_ext::OptionExt;
 
 use crate::cluster_settings::ClusterSettings;
 use crate::gossip::{Gossip, GossipOverview};
@@ -19,10 +19,10 @@ use crate::unique_address::UniqueAddress;
 
 #[derive(Debug, Clone)]
 pub(crate) struct MembershipState {
-    latest_gossip: Gossip,
-    self_unique_address: UniqueAddress,
-    self_dc: String,
-    cross_dc_connections: usize,
+    pub(crate) latest_gossip: Gossip,
+    pub(crate) self_unique_address: UniqueAddress,
+    pub(crate) self_dc: String,
+    pub(crate) cross_dc_connections: usize,
 }
 
 impl MembershipState {

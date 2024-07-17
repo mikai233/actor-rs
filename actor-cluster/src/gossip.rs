@@ -99,7 +99,7 @@ impl Gossip {
         self.overview.reachability.remove_observers(downed)
     }
 
-    fn vclock_name(node: &UniqueAddress) -> String {
+    pub(crate) fn vclock_name(node: &UniqueAddress) -> String {
         format!("{}-{}", node.address, node.uid)
     }
 

@@ -1,0 +1,59 @@
+[akka.cluster]
+# Initial contact points of the cluster.
+# The nodes to join automatically at startup.
+# Comma separated full URIs defined by a string on the form of
+# "akka://system@hostname:port"
+# Leave as empty if the node is supposed to be joined manually.
+seed-nodes = []
+
+# How long to wait for one of the seed nodes to reply to initial join request.
+# When this is the first seed node and there is no positive reply from the other
+# seed nodes within this timeout it will join itself to bootstrap the cluster.
+# When this is not the first seed node the join attempts will be performed with
+# this interval.
+seed-node-timeout = { secs = 5, nanos = 0 }
+
+# If a join request fails it will be retried after this period.
+# Disable join retry by specifying "off".
+retry-unsuccessful-join-after = { secs = 10, nanos = 0 }
+
+# The joining of given seed nodes will by default be retried indefinitely until
+# a successful join. That process can be aborted if unsuccessful by defining this
+# timeout. When aborted it will run CoordinatedShutdown, which by default will
+# terminate the ActorSystem. CoordinatedShutdown can also be configured to exit
+# the JVM. It is useful to define this timeout if the seed-nodes are assembled
+# dynamically and a restart with new seed-nodes should be tried after unsuccessful
+# attempts.
+shutdown-after-unsuccessful-join-seed-nodes = false
+
+# Time margin after which shards or singletons that belonged to a downed/removed
+# partition are created in surviving partition. The purpose of this margin is that
+# in case of a network partition the persistent actors in the non-surviving partitions
+# must be stopped before corresponding persistent actors are started somewhere else.
+# This is useful if you implement downing strategies that handle network partitions,
+# e.g. by keeping the larger side of the partition and shutting down the smaller side.
+# Disable with "off" or specify a duration to enable.
+#
+# When using the `akka.cluster.sbr.SplitBrainResolver` as downing provider it will use
+# the akka.cluster.split-brain-resolver.stable-after as the default down-removal-margin
+# if this down-removal-margin is undefined.
+down-removal-margin = false
+
+# Pluggable support for downing of nodes in the cluster.
+# If this setting is left empty the `NoDowning` provider is used and no automatic downing will be performed.
+#
+# If specified the value must be the fully qualified class name of a subclass of
+# `akka.cluster.DowningProvider` having a public one argument constructor accepting an `ActorSystem`
+downing-provider-class = ""
+
+# Artery only setting
+# When a node has been gracefully removed, let this time pass (to allow for example
+# cluster singleton handover to complete) and then quarantine the removed node.
+quarantine-removed-node-after = { secs = 5, nanos = 0 }
+
+# If this is set to "off", the leader will not move 'Joining' members to 'Up' during a network
+# split. This feature allows the leader to accept 'Joining' members to be 'WeaklyUp'
+# so they become part of the cluster even during a network split. The leader will
+# move `Joining` members to 'WeaklyUp' after this configured duration without convergence.
+# The leader will move 'WeaklyUp' members to 'Up' status once convergence has been reached.
+allow-weakly-up-members = { secs = 7, nanos = 0 }
