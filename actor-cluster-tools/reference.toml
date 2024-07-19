@@ -1,0 +1,91 @@
+[akka.cluster.pub-sub]
+# Actor name of the mediator actor, /system/distributedPubSubMediator
+name = "distributedPubSubMediator"
+
+# Start the mediator on members tagged with this role.
+# All members are used if undefined or empty.
+role = ""
+
+# The routing logic to use for 'Send'
+# Possible values: random, round-robin, broadcast
+routing-logic = "random"
+
+# How often the DistributedPubSubMediator should send out gossip information
+gossip-interval = { secs = 1, nanos = 0 }
+
+# Removed entries are pruned after this duration
+removed-time-to-live = { secs = 120, nanos = 0 }
+
+# Maximum number of elements to transfer in one message when synchronizing the registries.
+# Next chunk will be transferred in next round of gossip.
+max-delta-elements = 3000
+
+# When a message is published to a topic with no subscribers send it to the dead letters.
+send-to-dead-letters-when-no-subscribers = true
+
+[akka.cluster.singleton]
+# The actor name of the child singleton actor.
+singleton-name = "singleton"
+
+# Singleton among the nodes tagged with specified role.
+# If the role is not specified it's a singleton among all nodes in the cluster.
+role = ""
+
+# When a node is becoming oldest it sends hand-over request to previous oldest,
+# that might be leaving the cluster. This is retried with this interval until
+# the previous oldest confirms that the hand over has started or the previous
+# oldest member is removed from the cluster (+ akka.cluster.down-removal-margin).
+hand-over-retry-interval = { secs = 1, nanos = 0 }
+
+# The number of retries are derived from hand-over-retry-interval and
+# akka.cluster.down-removal-margin (or ClusterSingletonManagerSettings.removalMargin),
+# but it will never be less than this property.
+# After the hand over retries and it's still not able to exchange the hand over messages
+# with the previous oldest it will restart itself by throwing ClusterSingletonManagerIsStuck,
+# to start from a clean state. After that it will still not start the singleton instance
+# until the previous oldest node has been removed from the cluster.
+# On the other side, on the previous oldest node, the same number of retries - 3 are used
+# and after that the singleton instance is stopped.
+# For large clusters it might be necessary to increase this to avoid too early timeouts while
+# gossip dissemination of the Leaving to Exiting phase occurs. For normal leaving scenarios
+# it will not be a quicker hand over by reducing this value, but in extreme failure scenarios
+# the recovery might be faster.
+min-number-of-hand-over-retries = 15
+
+# Config path of the lease to be taken before creating the singleton actor
+# if the lease is lost then the actor is restarted and it will need to re-acquire the lease
+# the default is no lease
+use-lease = ""
+
+# The interval between retries for acquiring the lease
+lease-retry-interval = { secs = 5, nanos = 0 }
+
+# Custom lease name. Note that if you have several singletons each one must have a unique
+# lease name, which can be defined with the leaseSettings of ClusterSingletonSettings.
+# If undefined it will be derived from ActorSystem name and singleton actor path,
+# but that may result in too long lease names.
+# Note that for typed cluster it is not possible to change this through configuration
+# any value here is ignored, custom names must be set through programmatic API.
+lease-name = ""
+
+[akka.cluster.singleton-proxy]
+# The actor name of the singleton actor that is started by the ClusterSingletonManager
+singleton-name = "singleton"
+
+# The role of the cluster nodes where the singleton can be deployed.
+# Corresponding to the role used by the `ClusterSingletonManager`. If the role is not
+# specified it's a singleton among all nodes in the cluster, and the `ClusterSingletonManager`
+# must then also be configured in same way.
+role = ""
+
+# Interval at which the proxy will try to resolve the singleton instance.
+singleton-identification-interval = { secs = 1, nanos = 0 }
+
+# If the location of the singleton is unknown the proxy will buffer this
+# number of messages and deliver them when the singleton is identified.
+# When the buffer is full old messages will be dropped when new messages are
+# sent via the proxy.
+# Use 0 to disable buffering, i.e. messages will be dropped immediately if
+# the location of the singleton is unknown.
+# Maximum allowed buffer size is 10000.
+buffer-size = 1000
