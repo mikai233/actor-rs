@@ -277,6 +277,9 @@ impl ActorContext {
         let children = self.children();
         if children.is_empty().not() {
             for child in &children {
+                if let Some(local) = child.local() {
+                    local.cell.token.cancel();
+                }
                 self.stop(child);
             }
         } else {

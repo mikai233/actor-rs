@@ -1,6 +1,8 @@
+use std::ops::Deref;
 use std::sync::Arc;
 
 use dashmap::DashMap;
+use tokio_util::sync::CancellationToken;
 
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
@@ -18,6 +20,7 @@ impl ActorCell {
             parent,
             children: DashMap::with_hasher(ahash::RandomState::new()),
             function_refs: DashMap::with_hasher(ahash::RandomState::new()),
+            token: CancellationToken::new(),
         };
         Self {
             inner: inner.into(),
@@ -25,11 +28,11 @@ impl ActorCell {
     }
 
     pub(crate) fn parent(&self) -> Option<&ActorRef> {
-        self.inner.parent.as_ref()
+        self.parent.as_ref()
     }
 
     pub(crate) fn children(&self) -> &DashMap<String, ActorRef, ahash::RandomState> {
-        &self.inner.children
+        &self.children
     }
 
     pub(crate) fn get_child_by_name(&self, name: &str) -> Option<ActorRef> {
@@ -56,24 +59,24 @@ impl ActorCell {
     }
 
     pub(crate) fn add_function_ref(&self, name: String, function_ref: FunctionRef) {
-        self.inner.function_refs.insert(name, function_ref);
+        self.function_refs.insert(name, function_ref);
     }
 
     pub(crate) fn remove_function_ref(&self, name: &str) -> Option<(String, FunctionRef)> {
-        self.inner.function_refs.remove(name)
+        self.function_refs.remove(name)
     }
 
     pub(crate) fn get_function_ref(&self, name: &str) -> Option<FunctionRef> {
-        self.inner.function_refs.get(name).map(|v| v.value().clone())
+        self.function_refs.get(name).map(|v| v.value().clone())
     }
 
     pub(crate) fn insert_child(&self, name: String, child: impl Into<ActorRef>) {
         let child = child.into();
-        self.inner.children.insert(name, child.clone());
+        self.children.insert(name, child.clone());
     }
 
     pub(crate) fn remove_child(&self, name: &String) -> Option<ActorRef> {
-        match self.inner.children.remove(name) {
+        match self.children.remove(name) {
             None => {
                 None
             }
@@ -84,9 +87,18 @@ impl ActorCell {
     }
 }
 
+impl Deref for ActorCell {
+    type Target = Inner;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct Inner {
     parent: Option<ActorRef>,
     children: DashMap<String, ActorRef, ahash::RandomState>,
     function_refs: DashMap<String, FunctionRef, ahash::RandomState>,
+    pub(crate) token: CancellationToken,
 }

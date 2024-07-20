@@ -282,23 +282,11 @@ impl Actor for EmptyTestActor {
     }
 }
 
-#[derive(Debug, Encode, Decode, MessageCodec)]
-pub struct EmptyTestMessage;
-
-#[async_trait]
-impl Message for EmptyTestMessage {
-    type A = EmptyTestActor;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-        info!("{} handle {:?}", context.myself(), self);
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod actor_test {
     use std::time::Duration;
 
+    use anyhow::anyhow;
     use async_trait::async_trait;
     use tracing::{info, Level};
 
@@ -308,8 +296,8 @@ mod actor_test {
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::Props;
+    use crate::actor_ref::{ActorRef, ActorRefExt};
     use crate::actor_ref::actor_ref_factory::ActorRefFactory;
-    use crate::actor_ref::ActorRef;
     use crate::config::actor_setting::ActorSetting;
     use crate::ext::init_logger;
 
@@ -489,10 +477,55 @@ mod actor_test {
                 adapter.tell(DynMessage::orphan(TestOrphanMessage), ActorRef::no_sender());
                 Ok(())
             }
+
+            async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+                Self::handle_message(self, context, message).await
+            }
         }
         let system = ActorSystem::new("mikai233", ActorSetting::default())?;
         system.spawn_anonymous(Props::new(|| Ok(AdapterActor)))?;
         tokio::time::sleep(Duration::from_secs(1)).await;
+        system.terminate().await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cancellation() -> anyhow::Result<()> {
+        #[derive(Debug)]
+        struct TestActor;
+
+        #[async_trait]
+        impl Actor for TestActor {
+            async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+                Ok(())
+            }
+
+            async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+                info!("{} stopped", context.myself());
+                Ok(())
+            }
+
+            async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+                Self::handle_message(self, context, message).await
+            }
+        }
+
+        #[derive(Debug, EmptyCodec)]
+        struct TestMessage;
+
+        #[async_trait]
+        impl Message for TestMessage {
+            type A = TestActor;
+
+            async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+                tokio::time::sleep(Duration::from_secs(2)).await;
+                Err(anyhow!("should be cancelled"))
+            }
+        }
+
+        let system = ActorSystem::new("mikai233", ActorSetting::default())?;
+        let actor_ref = system.spawn_anonymous(Props::new(|| Ok(TestActor)))?;
+        actor_ref.cast_ns(TestMessage);
         system.terminate().await;
         Ok(())
     }

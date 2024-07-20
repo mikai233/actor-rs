@@ -4,7 +4,9 @@ use std::panic::AssertUnwindSafe;
 
 use anyhow::{anyhow, Error};
 use futures::FutureExt;
+use tokio::select;
 use tokio::task::yield_now;
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
 
 use crate::Actor;
@@ -23,6 +25,7 @@ pub struct ActorRuntime<A> where A: Actor {
 impl<A> ActorRuntime<A> where A: Actor {
     pub(crate) async fn run(self) {
         let Self { mut actor, mut context, mut mailbox } = self;
+        let token = context.myself.local().unwrap().cell.token.clone();
         context.stash_capacity = mailbox.stash_capacity;
         let actor_name = type_name::<A>();
         if let Err(err) = actor.started(&mut context).await {
@@ -39,7 +42,7 @@ impl<A> ActorRuntime<A> where A: Actor {
         context.state = ActorState::Started;
         let mut throughput = 0;
         loop {
-            tokio::select! {
+            select! {
                 biased;
                 Some(message) = mailbox.system.recv() => {
                     Self::handle_system(&mut context, &mut actor, message).await;
@@ -48,7 +51,7 @@ impl<A> ActorRuntime<A> where A: Actor {
                     }
                 }
                 Some(message) = mailbox.message.recv(), if matches!(context.state, ActorState::Started) => {
-                    if let Some(_) = AssertUnwindSafe(Self::handle_message(&mut context, &mut actor, message)).catch_unwind().await.err() {
+                    if let Some(_) = AssertUnwindSafe(Self::handle_message(&mut context, &mut actor, message, &token)).catch_unwind().await.err() {
                         Self::handle_failure(&mut context, anyhow!("{} panic", type_name::<A>()));
                     }
                     throughput += 1;
@@ -104,11 +107,19 @@ impl<A> ActorRuntime<A> where A: Actor {
         }
     }
 
-    async fn handle_message(context: &mut ActorContext, actor: &mut A, envelope: Envelope) {
+    async fn handle_message(context: &mut ActorContext, actor: &mut A, envelope: Envelope, token: &CancellationToken) {
         let Envelope { message, sender } = envelope;
+        let name = message.name();
         context.sender = sender;
-        if let Some(error) = actor.on_recv(context, message).await.err() {
-            Self::handle_failure(context, error);
+        select! {
+            _ = token.cancelled() => {
+                Self::handle_failure(context, anyhow!("{} cancelled", name));
+            }
+            result = actor.on_recv(context, message) => {
+                if let Err(error) = result {
+                    Self::handle_failure(context, error);
+                }
+            }
         }
         context.sender.take();
     }

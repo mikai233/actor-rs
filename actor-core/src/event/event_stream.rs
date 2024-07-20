@@ -88,14 +88,13 @@ mod event_tests {
 
     use actor_derive::{COrphanEmptyCodec, EmptyCodec};
 
-    use crate::{EmptyTestActor, Message};
+    use crate::{CodecMessage, EmptyTestActor, Message};
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
-    use crate::actor::props::{Props, PropsBuilder};
+    use crate::actor::props::PropsBuilder;
     use crate::actor_ref::actor_ref_factory::ActorRefFactory;
     use crate::config::actor_setting::ActorSetting;
     use crate::event::event_stream::EventStream;
-    use crate::ext::message_ext::UserMessageExt;
 
     #[derive(Debug, Clone, COrphanEmptyCodec)]
     struct EventMessage;
@@ -124,15 +123,15 @@ mod event_tests {
         stream.subscribe(actor1.clone(), |m| { EventWrap(m).into_dyn() });
         stream.subscribe(actor2.clone(), |m| { EventWrap(m).into_dyn() });
         stream.subscribe(actor3.clone(), |m| { EventWrap(m).into_dyn() });
-        stream.publish(EventMessage)?;
+        stream.publish(EventMessage);
         stream.unsubscribe::<EventMessage>(&actor1);
-        stream.publish(EventMessage)?;
+        stream.publish(EventMessage);
         stream.unsubscribe_all(&actor3);
-        stream.publish(EventMessage)?;
+        stream.publish(EventMessage);
         tokio::time::sleep(Duration::from_secs(1)).await;
         actor2.stop();
         tokio::time::sleep(Duration::from_secs(1)).await;
-        stream.publish(EventMessage)?;
+        stream.publish(EventMessage);
         tokio::time::sleep(Duration::from_secs(2)).await;
         Ok(())
     }
