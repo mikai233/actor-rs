@@ -28,7 +28,15 @@ impl<A> ActorRuntime<A> where A: Actor {
         let token = context.myself.local().unwrap().cell.token.clone();
         context.stash_capacity = mailbox.stash_capacity;
         let actor_name = type_name::<A>();
-        if let Err(err) = actor.started(&mut context).await {
+        let started_fut = select! {
+            _ = token.cancelled() => {
+                Err(anyhow!("actor {} start cancelled", actor_name))
+            }
+            result = actor.started(&mut context) => {
+                result
+            }
+        };
+        if let Err(err) = started_fut {
             error!("actor {} start error {:?}", actor_name, err);
             context.stop(&context.myself());
             while let Some(message) = mailbox.system.recv().await {
@@ -65,7 +73,15 @@ impl<A> ActorRuntime<A> where A: Actor {
                 }
             }
         }
-        if let Some(err) = actor.stopped(&mut context).await.err() {
+        let stop_fut = select! {
+            _ = token.cancelled() => {
+                Err(anyhow!("actor {} stop cancelled", actor_name))
+            }
+            result = actor.stopped(&mut context) => {
+                result
+            }
+        };
+        if let Err(err) = stop_fut {
             error!("actor {} stop error {:?}", actor_name, err);
         }
         mailbox.close();
