@@ -59,8 +59,9 @@ impl<A> ActorRuntime<A> where A: Actor {
                     }
                 }
                 Some(message) = mailbox.message.recv(), if matches!(context.state, ActorState::Started) => {
-                    if let Some(_) = AssertUnwindSafe(Self::handle_message(&mut context, &mut actor, message, &token)).catch_unwind().await.err() {
-                        Self::handle_failure(&mut context, anyhow!("{} panic", type_name::<A>()));
+                    let name = message.name();
+                    if let Err(_) = AssertUnwindSafe(Self::handle_message(&mut context, &mut actor, message, &token)).catch_unwind().await {
+                        Self::handle_failure(&mut context, anyhow!("{} handle message {} panic", type_name::<A>(), name));
                     }
                     throughput += 1;
                     if throughput >= mailbox.throughput {

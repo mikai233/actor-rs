@@ -15,7 +15,7 @@ impl Envelope {
         }
     }
 
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &'static str {
         self.message.name()
     }
 }
