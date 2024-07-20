@@ -73,15 +73,7 @@ impl<A> ActorRuntime<A> where A: Actor {
                 }
             }
         }
-        let stop_fut = select! {
-            _ = token.cancelled() => {
-                Err(anyhow!("actor {} stop cancelled", actor_name))
-            }
-            result = actor.stopped(&mut context) => {
-                result
-            }
-        };
-        if let Err(err) = stop_fut {
+        if let Err(err) = actor.stopped(&mut context).await {
             error!("actor {} stop error {:?}", actor_name, err);
         }
         mailbox.close();
