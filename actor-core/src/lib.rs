@@ -490,6 +490,10 @@ mod actor_test {
                 adapter.tell(DynMessage::orphan(TestOrphanMessage), ActorRef::no_sender());
                 Ok(())
             }
+
+            async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+                Self::handle_message(self, context, message).await
+            }
         }
         let system = ActorSystem::new("mikai233", ActorSetting::default())?;
         system.spawn_anonymous(Props::new(|| Ok(AdapterActor)))?;

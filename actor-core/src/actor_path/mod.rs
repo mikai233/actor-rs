@@ -3,18 +3,14 @@ use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::format;
 use std::hash::{Hash, Hasher};
-use std::net::SocketAddrV4;
 use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
 use enum_dispatch::enum_dispatch;
-use imstr::ImString;
 use rand::random;
-use url::Url;
 
-use crate::actor::address::{Address, Protocol};
+use crate::actor::address::{ActorPathExtractor, Address};
 use crate::actor_path::child_actor_path::{ChildActorPath, Inner};
 use crate::actor_path::root_actor_path::RootActorPath;
 
@@ -202,33 +198,11 @@ impl Display for ActorPath {
 impl FromStr for ActorPath {
     type Err = anyhow::Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let url = Url::parse(s).context(format!("invalid url {}", s))?;
-        let scheme = Protocol::from_str(url.scheme())?;
-        let username: ImString = url.username().into();
-        let host = url
-            .domain()
-            .ok_or(anyhow!("no domain found in url {}", s))?;
-        let port = url.port().ok_or(anyhow!("no port found in url {}", s))?;
-        let addr: SocketAddrV4 = format!("{}:{}", host, port).parse()?;
-        let mut path_str = url
-            .path()
-            .split("/")
-            .map(|s| s.to_string())
-            .collect::<Vec<_>>();
-        path_str.remove(0);
-        let uid: i32 = url.fragment().unwrap_or("0").parse()?;
-        let address = Address {
-            protocol: scheme,
-            system: username,
-            addr: Some(addr),
-        };
-        let mut path: ActorPath = RootActorPath::new(address, "/").into();
-        for p in path_str {
-            path = path.child(&p);
-        }
-        path = path.with_uid(uid);
-        Ok(path)
+    fn from_str(url: &str) -> Result<Self, Self::Err> {
+        let (address, paths) = ActorPathExtractor::extract(url)?;
+        let actor_path: ActorPath = RootActorPath::new(address, "/").into();
+        let actor_path = actor_path.descendant(paths.iter().map(|e| e.as_str()));
+        Ok(actor_path)
     }
 }
 

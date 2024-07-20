@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::net::SocketAddrV4;
 use std::str::FromStr;
@@ -7,18 +8,7 @@ use imstr::ImString;
 use serde::{Deserialize, Serialize};
 
 #[derive(
-    Debug,
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    Encode,
-    Decode,
-    Serialize,
-    Deserialize,
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Encode, Decode, Serialize, Deserialize,
 )]
 #[repr(u8)]
 pub enum Protocol {
@@ -84,3 +74,48 @@ impl Display for Address {
         Ok(())
     }
 }
+
+pub trait PathUtils {
+    fn split(s: &str, fragment: Option<&str>) -> VecDeque<String> {
+        let mut paths: VecDeque<String> = s.split('/').map(|s| s.to_string()).collect();
+        if let Some(last) = paths.back_mut() {
+            if let Some(fragment) = fragment {
+                last.push_str("#");
+                last.push_str(fragment);
+            }
+        }
+        paths
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct AddressFromURIString;
+
+impl AddressFromURIString {
+    fn parse_from_url(url: &url::Url) -> anyhow::Result<Address> {
+        let scheme = url.scheme();
+        let user_info = url.username();
+        let mut address = Address::new(scheme.parse()?, user_info, None);
+        if let Some(url::Host::Ipv4(addr)) = url.host() {
+            if let Some(port) = url.port() {
+                address.addr = Some(SocketAddrV4::new(addr, port));
+            }
+        }
+        Ok(address)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ActorPathExtractor;
+
+impl ActorPathExtractor {
+    pub fn extract(s: &str) -> anyhow::Result<(Address, VecDeque<String>)> {
+        let url = url::Url::parse(s)?;
+        let address = AddressFromURIString::parse_from_url(&url)?;
+        let mut paths = Self::split(url.path(), url.fragment());
+        paths.pop_front();
+        Ok((address, paths))
+    }
+}
+
+impl PathUtils for ActorPathExtractor {}

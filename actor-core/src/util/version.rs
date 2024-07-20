@@ -1,8 +1,9 @@
-use std::cmp::min;
+use std::cmp::{min, Ordering};
 use std::fmt::{Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::sync::OnceLock;
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use bincode::{Decode, Encode};
 use imstr::ImString;
 use serde::{Deserialize, Serialize};
@@ -12,11 +13,6 @@ const UNDEFINED: i32 = 0;
 #[derive(
     Debug,
     Clone,
-    Ord,
-    PartialOrd,
-    Eq,
-    PartialEq,
-    Hash,
     Encode,
     Decode,
     Serialize,
@@ -25,19 +21,22 @@ const UNDEFINED: i32 = 0;
 pub struct Version {
     version: ImString,
     numbers: [i32; 4],
+    rest: ImString,
 }
 
 impl Version {
-    pub fn new(version: impl Into<ImString>) -> Self {
-        todo!("Implement Version::new")
+    pub fn new(version: impl Into<ImString>) -> anyhow::Result<Self> {
+        let version = version.into();
+        let (numbers, rest) = Self::parse(&version)?;
+        Ok(Version { version, numbers, rest })
     }
 
     pub fn zero() -> &'static Version {
         static ZERO: OnceLock<Version> = OnceLock::new();
-        ZERO.get_or_init(|| Version::new("0.0.0"))
+        ZERO.get_or_init(|| Version::new("0.0.0").unwrap())
     }
 
-    fn parse(version: &str) -> anyhow::Result<[i32; 4]> {
+    fn parse(version: &str) -> anyhow::Result<([i32; 4], ImString)> {
         fn parse_last_part(s: &str) -> (i32, &str) {
             if s.is_empty() {
                 (UNDEFINED, s)
@@ -101,7 +100,7 @@ impl Version {
         let mut numbers = [UNDEFINED; 4];
         let segments = version.split('.').collect::<Vec<_>>();
 
-        if segments.len() == 1 {
+        let rst = if segments.len() == 1 {
             let s = segments[0];
             if s.is_empty() {
                 bail!("Empty version not supported.");
@@ -109,13 +108,127 @@ impl Version {
             numbers[1] = UNDEFINED;
             numbers[2] = UNDEFINED;
             numbers[3] = UNDEFINED;
-        }
-        todo!("Implement Version::parse")
+            let first_char = s.chars().next().unwrap();
+            if first_char.is_digit(10) {
+                match first_char.to_digit(10) {
+                    None => {
+                        s
+                    }
+                    Some(v) => {
+                        numbers[0] = v as i32;
+                        ""
+                    }
+                }
+            } else {
+                s
+            }
+        } else if segments.len() == 2 {
+            let (n1, n2, reset) = parse_last_parts(segments[1]);
+            numbers[0] = segments[0].parse().map_err(|_| anyhow!("Invalid version number {}", segments[0]))?;
+            numbers[1] = n1;
+            numbers[2] = n2;
+            numbers[3] = UNDEFINED;
+            reset
+        } else if segments.len() == 3 {
+            let (n1, n2, reset) = parse_last_parts(segments[2]);
+            numbers[0] = segments[0].parse().map_err(|_| anyhow!("Invalid version number {}", segments[0]))?;
+            numbers[1] = segments[1].parse().map_err(|_| anyhow!("Invalid version number {}", segments[1]))?;
+            numbers[2] = n1;
+            numbers[3] = n2;
+            reset
+        } else {
+            bail!("Only 3 digits separated with '.' are supported. [{version}]")
+        };
+        Ok((numbers, rst.into()))
+    }
+
+    pub fn numbers(&self) -> &[i32; 4] {
+        &self.numbers
+    }
+
+    pub fn rest(&self) -> &str {
+        &self.rest
+    }
+
+    pub fn version(&self) -> &str {
+        &self.version
     }
 }
 
 impl Display for Version {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.version)
+    }
+}
+
+impl PartialOrd for Version {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self.version == other.version {
+            Some(Ordering::Equal)
+        } else {
+            let mut ordering = self.numbers[0].partial_cmp(&other.numbers[0]);
+            if ordering == Some(Ordering::Equal) {
+                ordering = self.numbers[1].partial_cmp(&other.numbers[1]);
+                if ordering == Some(Ordering::Equal) {
+                    ordering = self.numbers[2].partial_cmp(&other.numbers[2]);
+                    if ordering == Some(Ordering::Equal) {
+                        ordering = self.numbers[3].partial_cmp(&other.numbers[3]);
+                        if ordering == Some(Ordering::Equal) {
+                            if self.rest == "" && other.rest != "" {
+                                ordering = Some(Ordering::Greater);
+                            } else if other.rest == "" && self.rest != "" {
+                                ordering = Some(Ordering::Less);
+                            } else {
+                                ordering = self.rest.partial_cmp(&other.rest);
+                            }
+                        }
+                    }
+                }
+            }
+            ordering
+        }
+    }
+}
+
+impl Ord for Version {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.version == other.version {
+            Ordering::Equal
+        } else {
+            let mut ordering = self.numbers[0].cmp(&other.numbers[0]);
+            if ordering == Ordering::Equal {
+                ordering = self.numbers[1].cmp(&other.numbers[1]);
+                if ordering == Ordering::Equal {
+                    ordering = self.numbers[2].cmp(&other.numbers[2]);
+                    if ordering == Ordering::Equal {
+                        ordering = self.numbers[3].cmp(&other.numbers[3]);
+                        if ordering == Ordering::Equal {
+                            if self.rest == "" && other.rest != "" {
+                                ordering = Ordering::Greater;
+                            } else if other.rest == "" && self.rest != "" {
+                                ordering = Ordering::Less;
+                            } else {
+                                ordering = self.rest.cmp(&other.rest);
+                            }
+                        }
+                    }
+                }
+            }
+            ordering
+        }
+    }
+}
+
+impl PartialEq for Version {
+    fn eq(&self, other: &Self) -> bool {
+        self.version.cmp(&other.version) == Ordering::Equal
+    }
+}
+
+impl Eq for Version {}
+
+impl Hash for Version {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.numbers.iter().for_each(|n| n.hash(state));
     }
 }

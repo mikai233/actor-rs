@@ -53,7 +53,7 @@ impl Gossip {
             .overview
             .reachability
             .all_observers()
-            .difference(&self.members_map().keys().collect::<HashSet<_>>())
+            .difference(&self.members_map().into_keys().collect::<HashSet<_>>())
             .collect::<HashSet<_>>();
         assert!(
             in_reachability_but_not_member.is_empty(),
@@ -63,7 +63,7 @@ impl Gossip {
         let seen_but_not_member = self
             .overview
             .seen
-            .difference(self.members.iter().map(|m| &m.unique_address))
+            .difference(&self.members.iter().map(|m| m.unique_address.clone()).collect())
             .collect_vec();
         assert!(
             seen_but_not_member.is_empty(),
