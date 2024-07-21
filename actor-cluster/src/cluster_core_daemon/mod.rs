@@ -1,5 +1,6 @@
 use std::any::type_name;
 use std::collections::hash_map::Entry;
+use std::fmt::{Display, Formatter};
 use std::ops::{Add, AddAssign, Not, Sub};
 use std::time::{Duration, Instant};
 
@@ -31,7 +32,7 @@ use actor_remote::transport::disconnect::Disconnect;
 use crate::cluster::Cluster;
 use crate::cluster_core_daemon::exiting_completed_req::{ExitingCompletedReq, ExitingCompletedResp};
 use crate::cluster_core_daemon::self_leaving::SelfLeaving;
-use crate::cluster_event::ClusterEvent;
+use crate::cluster_event::MemberEvent;
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::etcd_actor::keep_alive::KeepAlive;
 use crate::etcd_actor::watch::Watch;
@@ -262,6 +263,19 @@ impl Sub for GossipStats {
     }
 }
 
+impl Display for GossipStats {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "GossipStats {{ received_gossip_count: {}, merge_count: {}, same_count: {}, newer_count: {}, older_count: {} }}",
+            self.received_gossip_count,
+            self.merge_count,
+            self.same_count,
+            self.newer_count,
+            self.older_count)
+    }
+}
+
 #[derive(Debug, Copy, Clone, Hash)]
 pub(crate) struct VectorClockStats {
     pub(crate) version_size: i32,
@@ -274,5 +288,15 @@ impl VectorClockStats {
             version_size,
             seen_latest,
         }
+    }
+}
+
+impl Display for VectorClockStats {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "VectorClockStats {{ version_size: {}, seen_latest: {} }}",
+            self.version_size,
+            self.seen_latest)
     }
 }

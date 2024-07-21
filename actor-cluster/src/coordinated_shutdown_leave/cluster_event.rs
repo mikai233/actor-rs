@@ -4,12 +4,12 @@ use actor_core::actor::context::ActorContext;
 use actor_core::EmptyCodec;
 use actor_core::Message;
 
-use crate::cluster_event::ClusterEvent;
+use crate::cluster_event::MemberEvent;
 use crate::coordinated_shutdown_leave::CoordinatedShutdownLeave;
 use crate::member::MemberStatus;
 
 #[derive(Debug, EmptyCodec)]
-pub(super) struct ClusterEventWrap(pub(super) ClusterEvent);
+pub(super) struct ClusterEventWrap(pub(super) MemberEvent);
 
 #[async_trait]
 impl Message for ClusterEventWrap {
@@ -17,17 +17,17 @@ impl Message for ClusterEventWrap {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match self.0 {
-            ClusterEvent::MemberLeaving(m) => {
+            MemberEvent::MemberLeaving(m) => {
                 if actor.cluster.self_unique_address() == &m.unique_address {
                     actor.done(context);
                 }
             }
-            ClusterEvent::MemberRemoved(m) => {
+            MemberEvent::MemberRemoved(m) => {
                 if actor.cluster.self_unique_address() == &m.unique_address {
                     actor.done(context);
                 }
             }
-            ClusterEvent::CurrentClusterState { members, .. } => {
+            MemberEvent::CurrentClusterState { members, .. } => {
                 let removed = members.into_values().find(|m| {
                     &m.unique_address == actor.cluster.self_unique_address() && m.status == MemberStatus::Removed
                 }).is_some();

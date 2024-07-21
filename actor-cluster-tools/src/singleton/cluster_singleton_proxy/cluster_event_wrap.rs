@@ -2,7 +2,7 @@ use ahash::HashMap;
 use async_trait::async_trait;
 use tracing::debug;
 
-use actor_cluster::cluster_event::ClusterEvent;
+use actor_cluster::cluster_event::MemberEvent;
 use actor_cluster::member::MemberStatus;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -12,7 +12,7 @@ use actor_core::Message;
 use crate::singleton::cluster_singleton_proxy::ClusterSingletonProxy;
 
 #[derive(Debug, EmptyCodec)]
-pub(super) struct ClusterEventWrap(pub(super) ClusterEvent);
+pub(super) struct ClusterEventWrap(pub(super) MemberEvent);
 
 #[async_trait]
 impl Message for ClusterEventWrap {
@@ -20,16 +20,16 @@ impl Message for ClusterEventWrap {
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         match self.0 {
-            ClusterEvent::MemberUp(m) => {
+            MemberEvent::MemberUp(m) => {
                 debug!("member up {}", m);
                 if actor.matching_role(&m) {
                     actor.host_singleton_members.insert(m.unique_address.clone(), m);
                     actor.identify_singleton(context);
                 }
             }
-            ClusterEvent::MemberPrepareForLeaving(_) => {}
-            ClusterEvent::MemberLeaving(_) => {}
-            ClusterEvent::MemberRemoved(m) => {
+            MemberEvent::MemberPrepareForLeaving(_) => {}
+            MemberEvent::MemberLeaving(_) => {}
+            MemberEvent::MemberRemoved(m) => {
                 debug!("member removed {}", m);
                 if m.unique_address == actor.cluster.self_member().unique_address {
                     context.stop(context.myself());
@@ -39,7 +39,7 @@ impl Message for ClusterEventWrap {
                     actor.identify_singleton(context);
                 }
             }
-            ClusterEvent::CurrentClusterState { members, .. } => {
+            MemberEvent::CurrentClusterState { members, .. } => {
                 let host_members = members
                     .into_iter()
                     .filter(|(_, m)| { m.status == MemberStatus::Up && actor.matching_role(m) })
@@ -47,7 +47,7 @@ impl Message for ClusterEventWrap {
                 actor.host_singleton_members.extend(host_members);
                 actor.identify_singleton(context);
             }
-            ClusterEvent::EtcdUnreachable => {}
+            MemberEvent::EtcdUnreachable => {}
         }
         Ok(())
     }

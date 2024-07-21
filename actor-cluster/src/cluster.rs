@@ -2,8 +2,8 @@ use std::any::type_name;
 use std::fmt::Debug;
 use std::mem::MaybeUninit;
 use std::ops::Deref;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use ahash::{HashMap, HashSet};
 use anyhow::Context;
@@ -13,27 +13,26 @@ use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
 use actor_core::actor::address::Address;
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::AsAny;
+use actor_core::DynMessage;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::provider::{downcast_provider, TActorRefProvider};
-use actor_core::AsAny;
-use actor_core::DynMessage;
 
 use crate::cluster_core_daemon::leave::Leave;
 use crate::cluster_daemon::add_on_member_removed_listener::AddOnMemberRemovedListener;
 use crate::cluster_daemon::add_on_member_up_listener::AddOnMemberUpListener;
+use crate::cluster_daemon::ClusterDaemon;
 use crate::cluster_daemon::get_cluster_core_ref_req::{
     GetClusterCoreRefReq, GetClusterCoreRefResp,
 };
-use crate::cluster_daemon::ClusterDaemon;
-use crate::cluster_event::ClusterEvent;
+use crate::cluster_event::MemberEvent;
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::cluster_settings::ClusterSettings;
 use crate::cluster_state::ClusterState;
-use crate::etcd_actor::EtcdActor;
 use crate::member::{Member, MemberStatus};
 use crate::unique_address::UniqueAddress;
 
@@ -44,12 +43,12 @@ pub struct Cluster {
 
 #[derive(Debug)]
 pub struct Inner {
-    settings: ClusterSettings,
-    system: WeakActorSystem,
-    self_unique_address: UniqueAddress,
+    pub settings: ClusterSettings,
+    pub system: WeakActorSystem,
+    pub self_unique_address: UniqueAddress,
     roles: HashSet<String>,
-    cluster_daemons: ActorRef,
-    cluster_core: RwLock<MaybeUninit<ActorRef>>,
+    pub cluster_daemons: ActorRef,
+    pub cluster_core: RwLock<MaybeUninit<ActorRef>>,
     state: ClusterState,
     is_terminated: AtomicBool,
     cluster_daemons_spawn: Mutex<Option<ActorDeferredSpawn>>,
@@ -135,11 +134,11 @@ impl Cluster {
         transform: T,
     ) -> anyhow::Result<()>
     where
-        T: Fn(ClusterEvent) -> DynMessage + Send + Sync + 'static,
+        T: Fn(MemberEvent) -> DynMessage + Send + Sync + 'static,
     {
         let members = self.members().clone();
         let self_member = self.self_member().clone();
-        let state = transform(ClusterEvent::current_cluster_state(members, self_member));
+        let state = transform(MemberEvent::current_cluster_state(members, self_member));
         subscriber.tell(state, ActorRef::no_sender());
         self.system
             .upgrade()?
@@ -152,7 +151,7 @@ impl Cluster {
         self.system
             .upgrade()?
             .event_stream
-            .unsubscribe::<ClusterEvent>(subscriber);
+            .unsubscribe::<MemberEvent>(subscriber);
         Ok(())
     }
 
