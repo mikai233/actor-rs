@@ -9,5 +9,4 @@ use crate::config::ClusterConfig;
 pub struct ClusterSetting {
     pub config: ClusterConfig,
     pub reg: MessageRegistry,
-    pub client: EtcdClient,
 }

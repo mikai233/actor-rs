@@ -8,13 +8,13 @@ use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
 use actor_core::actor::props::{DeferredSpawn, FuncDeferredSpawn, Props};
 use actor_core::actor_path::ActorPath;
-use actor_core::actor_ref::ActorRef;
 use actor_core::actor_ref::local_ref::LocalActorRef;
-use actor_core::AsAny;
+use actor_core::actor_ref::ActorRef;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::message::message_registry::MessageRegistry;
-use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::provider::local_actor_ref_provider::LocalActorRefProvider;
+use actor_core::provider::{ActorRefProvider, TActorRefProvider};
+use actor_core::AsAny;
 use actor_remote::remote_provider::RemoteActorRefProvider;
 use actor_remote::remote_setting::RemoteSetting;
 
@@ -26,24 +26,28 @@ use crate::heartbeat::cluster_heartbeat_sender::heartbeat_rsp::HeartbeatRsp;
 #[derive(Debug, AsAny)]
 pub struct ClusterActorRefProvider {
     pub remote: RemoteActorRefProvider,
-    pub client: EtcdClient,
     pub roles: HashSet<String>,
 }
 
 impl ClusterActorRefProvider {
-    pub fn new(system: ActorSystem, setting: ClusterSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
-        let ClusterSetting { config: cluster_config, mut reg, client } = setting;
+    pub fn new(
+        system: ActorSystem,
+        setting: ClusterSetting,
+    ) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+        let ClusterSetting {
+            config: cluster_config,
+            mut reg,
+        } = setting;
         let remote_config = cluster_config.remote.clone();
         let roles = cluster_config.roles.clone();
         system.add_config(cluster_config)?;
         Self::register_system_message(&mut reg);
-        let remote_setting = RemoteSetting { config: remote_config, reg };
-        let (remote, mut spawns) = RemoteActorRefProvider::new(system, remote_setting)?;
-        let cluster = ClusterActorRefProvider {
-            remote,
-            client,
-            roles,
+        let remote_setting = RemoteSetting {
+            config: remote_config,
+            reg,
         };
+        let (remote, mut spawns) = RemoteActorRefProvider::new(system, remote_setting)?;
+        let cluster = ClusterActorRefProvider { remote, roles };
         Self::register_extension(&mut spawns);
         Ok((cluster, spawns))
     }
@@ -61,9 +65,12 @@ impl ClusterActorRefProvider {
         reg.register_system::<HeartbeatRsp>();
     }
 
-    pub fn builder(cluster_setting: ClusterSetting) -> impl Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
+    pub fn builder(
+        cluster_setting: ClusterSetting,
+    ) -> impl Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)>
+    {
         move |system: ActorSystem| {
-            Self::new(system, cluster_setting.clone()).map(|t| { (t.0.into(), t.1) })
+            Self::new(system, cluster_setting.clone()).map(|t| (t.0.into(), t.1))
         }
     }
 }
