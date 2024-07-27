@@ -22,7 +22,7 @@ use crate::config::transport::Transport;
 use crate::failure_detector::default_failure_detector_registry::DefaultFailureDetectorRegistry;
 use crate::failure_detector::phi_accrual_failure_detector::PhiAccrualFailureDetector;
 use crate::remote_actor_ref::RemoteActorRef;
-use crate::remote_setting::RemoteSetting;
+use crate::remote_settings::RemoteSettings;
 use crate::remote_watcher::artery_heartbeat::ArteryHeartbeat;
 use crate::remote_watcher::artery_heartbeat_rsp::ArteryHeartbeatRsp;
 use crate::remote_watcher::heartbeat::Heartbeat;
@@ -40,8 +40,8 @@ pub struct RemoteActorRefProvider {
 }
 
 impl RemoteActorRefProvider {
-    pub fn new(system: ActorSystem, setting: RemoteSetting) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
-        let RemoteSetting { config: remote_config, mut reg } = setting;
+    pub fn new(system: ActorSystem, setting: RemoteSettings) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+        let RemoteSettings { config: remote_config, mut reg } = setting;
         Self::register_system_message(&mut reg);
         let transport = remote_config.transport.clone();
         let address = Address::new(Protocol::Akka, system.name.clone(), Some(transport.addr()));
@@ -110,7 +110,7 @@ impl RemoteActorRefProvider {
         reg.register_system::<HeartbeatRsp>();
     }
 
-    pub fn builder(remote_setting: RemoteSetting) -> impl Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
+    pub fn builder(remote_setting: RemoteSettings) -> impl Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
         move |system: ActorSystem| {
             Self::new(system, remote_setting.clone()).map(|t| { (t.0.into(), t.1) })
         }

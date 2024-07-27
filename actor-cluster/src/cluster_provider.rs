@@ -16,7 +16,7 @@ use actor_core::provider::local_actor_ref_provider::LocalActorRefProvider;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::AsAny;
 use actor_remote::remote_provider::RemoteActorRefProvider;
-use actor_remote::remote_setting::RemoteSetting;
+use actor_remote::remote_settings::RemoteSettings;
 
 use crate::cluster::Cluster;
 use crate::cluster_setting::ClusterSetting;
@@ -42,7 +42,7 @@ impl ClusterActorRefProvider {
         let roles = cluster_config.roles.clone();
         system.add_config(cluster_config)?;
         Self::register_system_message(&mut reg);
-        let remote_setting = RemoteSetting {
+        let remote_setting = RemoteSettings {
             config: remote_config,
             reg,
         };

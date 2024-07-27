@@ -288,7 +288,7 @@ mod test {
     use crate::config::RemoteConfig;
     use crate::config::transport::Transport;
     use crate::remote_provider::RemoteActorRefProvider;
-    use crate::remote_setting::RemoteSetting;
+    use crate::remote_settings::RemoteSettings;
 
     struct PingPongActor;
 
@@ -352,7 +352,7 @@ mod test {
     }
 
     fn build_setting(addr: SocketAddrV4) -> anyhow::Result<ActorSetting> {
-        let mut remote_setting = RemoteSetting {
+        let mut remote_setting = RemoteSettings {
             config: RemoteConfig { transport: Transport::tcp(addr, Buffer::default()) },
             reg: Default::default(),
         };
