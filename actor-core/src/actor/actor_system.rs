@@ -29,7 +29,7 @@ use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::config::{ActorConfig, Config};
+use crate::config::{ActorConfigs, Config};
 use crate::config::actor_setting::ActorSetting;
 use crate::config::core_config::CoreConfig;
 use crate::event::address_terminated_topic::AddressTerminatedTopic;
@@ -53,7 +53,7 @@ pub struct Inner {
     pub scheduler: SchedulerSender,
     pub event_stream: EventStream,
     pub extension: SystemExtension,
-    pub config: ActorConfig,
+    pub config: ActorConfigs,
     signal: Sender<anyhow::Result<()>>,
     termination_callbacks: TerminationCallbacks,
     pub(crate) termination_error: Mutex<Option<anyhow::Error>>,
@@ -80,7 +80,7 @@ impl ActorSystem {
             scheduler,
             event_stream: EventStream::default(),
             extension: SystemExtension::default(),
-            config: ActorConfig::default(),
+            config: ActorConfigs::default(),
             signal: signal_tx,
             termination_callbacks: TerminationCallbacks::default(),
             termination_error: Mutex::default(),

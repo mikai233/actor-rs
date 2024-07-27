@@ -12,29 +12,24 @@ use dyn_clone::DynClone;
 use crate::ext::as_any::AsAny;
 
 pub mod actor_setting;
-pub mod core_config;
 pub mod mailbox;
+pub mod settings;
+pub mod actor;
+pub mod debug;
+pub mod phase;
+pub mod coordinated_shutdown;
+pub mod circuit_breaker;
 
 pub trait Config: Debug + Send + Sync + Any + AsAny + DynClone {}
 
 dyn_clone::clone_trait_object!(Config);
 
-pub trait ConfigBuilder: Sized {
-    type C: Config;
-
-    fn add_source<T>(self, source: T) -> anyhow::Result<Self>
-        where
-            T: Source + Send + Sync + 'static;
-
-    fn build(self) -> anyhow::Result<Self::C>;
-}
-
 #[derive(Default)]
-pub struct ActorConfig {
+pub struct ActorConfigs {
     configs: DashMap<&'static str, Box<dyn Config>>,
 }
 
-impl ActorConfig {
+impl ActorConfigs {
     pub fn add<C>(&self, config: C) -> anyhow::Result<()> where C: Config {
         let name = type_name::<C>();
         if !self.configs.contains_key(name) {
@@ -62,7 +57,7 @@ impl ActorConfig {
     }
 }
 
-impl Deref for ActorConfig {
+impl Deref for ActorConfigs {
     type Target = DashMap<&'static str, Box<dyn Config>>;
 
     fn deref(&self) -> &Self::Target {
@@ -70,16 +65,16 @@ impl Deref for ActorConfig {
     }
 }
 
-impl DerefMut for ActorConfig {
+impl DerefMut for ActorConfigs {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.configs
     }
 }
 
-impl Debug for ActorConfig {
+impl Debug for ActorConfigs {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         let configs = self.configs.iter().map(|e| *e.key()).collect::<Vec<_>>();
-        f.debug_struct("ActorConfig")
+        f.debug_struct("ActorConfigs")
             .field("configs", &configs)
             .finish()
     }

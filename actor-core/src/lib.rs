@@ -19,7 +19,7 @@ use crate::delegate::user::UserDelegate;
 use crate::message::message_registry::MessageRegistry;
 use crate::message::MessageDecoder;
 
-pub(crate) const CORE_CONFIG: &'static str = include_str!("../core.toml");
+pub(crate) const REFERENCE: &'static str = include_str!("../reference.toml");
 
 pub mod ext;
 mod cell;
@@ -35,7 +35,6 @@ pub mod actor_ref;
 pub mod provider;
 pub mod async_ref;
 pub mod util;
-mod settings;
 
 #[async_trait]
 pub trait Actor: Send + Any {

@@ -3,7 +3,6 @@ use std::sync::Arc;
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::props::DeferredSpawn;
 use crate::config::ConfigBuilder;
-use crate::config::core_config::CoreConfig;
 use crate::provider::ActorRefProvider;
 use crate::provider::local_actor_ref_provider::LocalActorRefProvider;
 

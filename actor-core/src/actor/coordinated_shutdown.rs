@@ -11,6 +11,7 @@ use ahash::HashMap;
 use anyhow::{anyhow, Error};
 use futures::future::{BoxFuture, join_all};
 use futures::FutureExt;
+use imstr::ImString;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn};
@@ -20,6 +21,7 @@ use actor_derive::AsAny;
 use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::extension::Extension;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
+use crate::config::phase::Phase;
 
 pub const PHASE_BEFORE_SERVICE_UNBIND: &str = "before-service-unbind";
 pub const PHASE_SERVICE_UNBIND: &str = "service-unbind";
@@ -42,8 +44,8 @@ pub struct CoordinatedShutdown {
 #[derive(Debug)]
 pub struct Inner {
     system: WeakActorSystem,
-    registered_phases: Mutex<HashMap<String, PhaseTask>>,
-    ordered_phases: Vec<String>,
+    registered_phases: Mutex<HashMap<ImString, PhaseTask>>,
+    ordered_phases: Vec<ImString>,
     run_started: AtomicBool,
 }
 
@@ -72,7 +74,7 @@ impl CoordinatedShutdown {
         Ok(shutdown)
     }
 
-    fn topological_sort(phases: &HashMap<String, Phase>) -> anyhow::Result<Vec<String>> {
+    fn topological_sort(phases: &HashMap<ImString, Phase>) -> anyhow::Result<Vec<ImString>> {
         let mut result = vec![];
         let mut unmarked = phases.keys()
             .cloned()
@@ -80,11 +82,11 @@ impl CoordinatedShutdown {
             .collect::<BTreeSet<_>>();
         let mut temp_mark = HashSet::new();
         fn depth_first_search(
-            result: &mut Vec<String>,
-            phases: &HashMap<String, Phase>,
-            unmarked: &mut BTreeSet<String>,
-            temp_mark: &mut HashSet<String>,
-            u: String,
+            result: &mut Vec<ImString>,
+            phases: &HashMap<ImString, Phase>,
+            unmarked: &mut BTreeSet<ImString>,
+            temp_mark: &mut HashSet<ImString>,
+            u: ImString,
         ) -> anyhow::Result<()> {
             if temp_mark.contains(&u) {
                 return Err(anyhow!("Cycle detected in graph of phases. It must be a DAG. phase [{}] depends transitively on itself. All dependencies: {:?}", u, phases));
@@ -108,7 +110,10 @@ impl CoordinatedShutdown {
         Ok(result)
     }
 
-    fn register<F>(&self, phase_name: String, name: String, fut: F) where F: Future<Output=()> + Send + 'static {
+    fn register<F>(&self, phase_name: ImString, name: ImString, fut: F)
+    where
+        F: Future<Output=()> + Send + 'static,
+    {
         let mut registered_phases = self.registered_phases.lock();
         let phase_tasks = registered_phases.entry(phase_name).or_insert(PhaseTask::default());
         let task = TaskDefinition {
@@ -121,8 +126,8 @@ impl CoordinatedShutdown {
     pub fn add_task<F>(
         &self,
         system: &ActorSystem,
-        phase: impl Into<String>,
-        task_name: impl Into<String>,
+        phase: impl Into<ImString>,
+        task_name: impl Into<ImString>,
         fut: F,
     ) -> anyhow::Result<()> where F: Future<Output=()> + Send + 'static {
         let phase = phase.into();
@@ -138,7 +143,7 @@ impl CoordinatedShutdown {
         Ok(())
     }
 
-    fn known_phases(system: &ActorSystem) -> HashSet<String> {
+    fn known_phases(system: &ActorSystem) -> HashSet<ImString> {
         let mut know_phases = HashSet::new();
         let phases = system.core_config().phases.clone();
         for (name, phase) in phases {
@@ -254,23 +259,6 @@ impl CoordinatedShutdown {
 
 impl Extension for CoordinatedShutdown {}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
-pub struct Phase {
-    pub depends_on: HashSet<String>,
-    pub timeout: Duration,
-    pub enabled: bool,
-}
-
-impl Default for Phase {
-    fn default() -> Self {
-        Self {
-            depends_on: HashSet::new(),
-            timeout: Duration::from_secs(10),
-            enabled: true,
-        }
-    }
-}
 
 #[derive(Default)]
 struct PhaseTask {
@@ -292,7 +280,7 @@ impl Debug for PhaseTask {
 }
 
 struct TaskDefinition {
-    name: String,
+    name: ImString,
     fut: BoxFuture<'static, ()>,
 }
 
