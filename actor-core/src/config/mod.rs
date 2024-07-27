@@ -19,6 +19,7 @@ pub mod debug;
 pub mod phase;
 pub mod coordinated_shutdown;
 pub mod circuit_breaker;
+mod provider;
 
 pub trait Config: Debug + Send + Sync + Any + AsAny + DynClone {}
 

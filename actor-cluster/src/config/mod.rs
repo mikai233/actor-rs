@@ -4,10 +4,12 @@ use config::builder::DefaultState;
 use serde::{Deserialize, Serialize};
 
 use actor_core::AsAny;
-use actor_core::config::{Config, ConfigBuilder};
+use actor_core::config::Config;
 use actor_remote::config::RemoteConfig;
 
-use crate::CLUSTER_CONFIG;
+use crate::REFERENCE;
+
+pub mod settings;
 
 #[derive(Debug, Clone, Serialize, Deserialize, AsAny)]
 pub struct ClusterConfig {
@@ -37,7 +39,7 @@ impl ConfigBuilder for ClusterConfigBuilder {
     }
 
     fn build(self) -> anyhow::Result<Self::C> {
-        let builder = self.builder.add_source(File::from_str(CLUSTER_CONFIG, FileFormat::Toml));
+        let builder = self.builder.add_source(File::from_str(REFERENCE, FileFormat::Toml));
         let cluster_config = builder.build()?.try_deserialize::<Self::C>()?;
         Ok(cluster_config)
     }

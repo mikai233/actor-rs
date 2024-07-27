@@ -6,7 +6,6 @@ use crate::util::duration::ConfigDuration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Actor {
-    pub provider: ImString,
     #[serde(rename = "guardian-supervisor-strategy")]
     pub guardian_supervisor_strategy: ImString,
     #[serde(rename = "creation-timeout")]

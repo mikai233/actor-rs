@@ -1,41 +1,26 @@
-use std::sync::Arc;
-
 use config::Config;
 
-use crate::actor::actor_system::ActorSystem;
-use crate::actor::props::DeferredSpawn;
-use crate::provider::ActorRefProvider;
-use crate::provider::local_actor_ref_provider::LocalActorRefProvider;
+use crate::message::message_registry::MessageRegistry;
+use crate::provider::builder::ProviderBuilder;
+use crate::provider::TActorRefProvider;
 
-pub type ProviderBuilder = Box<dyn Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)>>;
-
-#[derive(Clone)]
-pub struct ActorSetting {
-    pub provider: Arc<ProviderBuilder>,
+#[derive(Debug, Clone)]
+pub struct ActorSetting<B: ProviderBuilder<P>, P: TActorRefProvider> {
     pub config: Config,
+    pub registry: MessageRegistry,
+    phantom: std::marker::PhantomData<B>,
 }
 
-impl ActorSetting {
-    pub fn new<F>(provider: F, config: Config) -> anyhow::Result<Self>
-        where
-            F: Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> + 'static
-    {
-        let setting = Self {
-            provider: Arc::new(Box::new(provider)),
-            config,
-        };
-        Ok(setting)
-    }
-}
-
-impl Default for ActorSetting {
-    fn default() -> Self {
-        let local_fn = |system: ActorSystem| {
-            LocalActorRefProvider::new(system, None).map(|(r, d)| (r.into(), d))
-        };
+impl<B, P> ActorSetting<B, P>
+where
+    B: ProviderBuilder<P>,
+    P: TActorRefProvider,
+{
+    pub fn new<F>(config: Config, registry: MessageRegistry) -> Self {
         Self {
-            provider: Arc::new(Box::new(local_fn)),
-            config: Config::default(),
+            config,
+            registry,
+            phantom: std::marker::PhantomData,
         }
     }
 }

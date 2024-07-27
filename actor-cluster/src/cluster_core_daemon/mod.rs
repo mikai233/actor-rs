@@ -5,7 +5,7 @@ use std::ops::{Add, AddAssign, Not, Sub};
 use std::time::{Duration, Instant};
 
 use ahash::{HashMap, HashSet};
-use anyhow::Context as _;
+use anyhow::{anyhow, Context as _};
 use async_trait::async_trait;
 use etcd_client::{GetOptions, KeyValue, PutOptions, WatchOptions};
 use imstr::ImString;
@@ -25,9 +25,7 @@ use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
-use actor_core::provider::downcast_provider;
 use actor_core::util::version::Version;
-use actor_remote::transport::disconnect::Disconnect;
 
 use crate::cluster::Cluster;
 use crate::cluster_core_daemon::exiting_completed_req::{ExitingCompletedReq, ExitingCompletedResp};
@@ -103,7 +101,9 @@ impl ClusterCoreDaemon {
         })?;
         let cluster = Cluster::get(context.system()).clone();
         let provider = context.system().provider();
-        let cluster_provider = downcast_provider::<ClusterActorRefProvider>(&provider);
+        let cluster_provider = provider
+            .downcast_ref::<ClusterActorRefProvider>()
+            .ok_or(anyhow!("ClusterActorRefProvider not found"))?;
         let transport = cluster_provider.remote.artery.clone();
         let self_member = cluster.self_member().clone();
         let self_addr = self_member.unique_address.clone();

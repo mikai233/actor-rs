@@ -3,14 +3,9 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use tokio::task::JoinHandle;
-use tracing::trace;
 use typed_builder::TypedBuilder;
 
 use actor_cluster::cluster::Cluster;
-use actor_cluster::cluster_provider::ClusterActorRefProvider;
-use actor_cluster::etcd_actor::keep_alive::KeepAlive;
-use actor_cluster::etcd_client::LockOptions;
 use actor_cluster::member::MemberStatus;
 use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
@@ -19,12 +14,8 @@ use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::ext::etcd_client::EtcdClient;
-use actor_core::provider::downcast_provider;
 
 use crate::config::singleton_config::SingletonConfig;
-use crate::singleton::cluster_singleton_manager::lock_failed::LockFailed;
-use crate::singleton::cluster_singleton_manager::lock_success::LockSuccess;
 use crate::singleton::cluster_singleton_manager::shutdown_singleton::ShutdownSingleton;
 use crate::singleton::cluster_singleton_manager::singleton_keep_alive_failed::SingletonKeepAliveFailed;
 
@@ -62,10 +53,6 @@ pub struct ClusterSingletonManager {
     singleton_props: PropsBuilder<()>,
     termination_message: DynMessage,
     settings: ClusterSingletonManagerSettings,
-    client: EtcdClient,
-    lease_id: i64,
-    lock_key: Option<Vec<u8>>,
-    lock_handle: Option<JoinHandle<()>>,
     singleton: Option<ActorRef>,
     singleton_shutdown_notifier: Option<tokio::sync::oneshot::Sender<()>>,
     singleton_keep_alive_adapter: ActorRef,
@@ -90,18 +77,11 @@ impl ClusterSingletonManager {
             }
         })?;
         let cluster = Cluster::get(context.system()).clone();
-        let provider = context.system().provider();
-        let cluster_provider = downcast_provider::<ClusterActorRefProvider>(&provider);
-        let client = cluster_provider.client.clone();
         let myself = Self {
             cluster,
             singleton_props: props,
             termination_message,
             settings,
-            client,
-            lease_id: 0,
-            lock_key: None,
-            lock_handle: None,
             singleton: None,
             singleton_shutdown_notifier: None,
             singleton_keep_alive_adapter,
@@ -111,59 +91,6 @@ impl ClusterSingletonManager {
 
     fn singleton_name(&self) -> &String {
         &self.settings.singleton_name
-    }
-
-    async fn keep_alive(&mut self) -> anyhow::Result<i64> {
-        let resp = self.client.lease_grant(SINGLETON_LEASE_TTL, None).await?;
-        let lease_id = resp.id();
-        let keep_alive = KeepAlive {
-            id: lease_id,
-            applicant: self.singleton_keep_alive_adapter.clone(),
-            interval: SINGLETON_KEEP_ALIVE_INTERVAL,
-        };
-        self.cluster.etcd_actor().cast_ns(keep_alive);
-        Ok(lease_id)
-    }
-
-    async fn unlock(&mut self) -> anyhow::Result<()> {
-        if let Some(lock_key) = self.lock_key.take() {
-            self.client.unlock(lock_key).await?;
-        }
-        Ok(())
-    }
-
-    fn lock(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        if let Some(role) = &self.settings.role {
-            let self_member = self.cluster.self_member();
-            if !self_member.has_role(role) {
-                let addr = &self_member.unique_address;
-                let name = context.myself().path().name();
-                trace!("{} do not has role {}, no need to start singleton {}", addr, role, name);
-                return Ok(());
-            }
-        }
-        let myself = context.myself().clone();
-        let system_name = &context.system().name;
-        let singleton_name = context.myself().path().name();
-        let lock_path = singleton_path(system_name, singleton_name);
-        let lock_options = LockOptions::new().with_lease(self.lease_id);
-        let mut client = self.client.clone();
-        let handle = context.spawn_fut(format!("lock-{}", lock_path), async move {
-            match client.lock(lock_path.clone(), Some(lock_options)).await {
-                Ok(resp) => {
-                    myself.cast_ns(LockSuccess(resp.key().to_vec()));
-                }
-                Err(err) => {
-                    let lock_failed = LockFailed {
-                        path: lock_path,
-                        error: err,
-                    };
-                    myself.cast_ns(lock_failed);
-                }
-            }
-        })?;
-        self.lock_handle = Some(handle);
-        Ok(())
     }
 
     pub fn props(props: PropsBuilder<()>, termination_message: DynMessage, settings: ClusterSingletonManagerSettings) -> anyhow::Result<Props> {
@@ -183,15 +110,11 @@ fn singleton_path(system_name: &str, name: &str) -> String {
 
 #[async_trait]
 impl Actor for ClusterSingletonManager {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        let lease_id = self.keep_alive().await?;
-        self.lease_id = lease_id;
-        self.lock(context)?;
+    async fn started(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
         Ok(())
     }
 
     async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
-        self.unlock().await?;
         Ok(())
     }
 

@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use ahash::{HashMap, HashMapExt};
+use anyhow::anyhow;
 use async_trait::async_trait;
 use futures::StreamExt;
 use quick_cache::unsync::Cache;
@@ -20,7 +21,7 @@ use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::decode_bytes;
 use actor_core::message::message_buffer::MessageBufferMap;
 use actor_core::message::message_registry::MessageRegistry;
-use actor_core::provider::{ActorRefProvider, downcast_provider};
+use actor_core::provider::ActorRefProvider;
 
 use crate::artery::codec::PacketCodec;
 use crate::artery::connection_status::ConnectionStatus;
@@ -83,11 +84,13 @@ impl Actor for ArteryActor {
 
 
 impl ArteryActor {
-    pub(crate) fn new(system: ActorSystem, transport: Transport, socket_addr: SocketAddr, advanced: Advanced) -> Self {
+    pub(crate) fn new(system: ActorSystem, transport: Transport, socket_addr: SocketAddr, advanced: Advanced) -> anyhow::Result<Self> {
         let provider = system.provider_full();
-        let remote_provider = downcast_provider::<RemoteActorRefProvider>(&provider);
+        let remote_provider = provider
+            .downcast_ref::<RemoteActorRefProvider>()
+            .ok_or(anyhow!("RemoteActorRefProvider not found"))?;
         let registration = (*remote_provider.registry).clone();
-        Self {
+        let actor = Self {
             transport,
             socket_addr,
             advanced,
@@ -96,7 +99,8 @@ impl ArteryActor {
             provider,
             registration,
             message_buffer: Default::default(),
-        }
+        };
+        Ok(actor)
     }
 
     async fn accept_inbound_connection<S>(stream: S, addr: SocketAddr, actor: ActorRef)

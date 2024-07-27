@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use ahash::{HashMap, HashSet};
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
@@ -20,7 +20,7 @@ use actor_core::DynMessage;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
-use actor_core::provider::{downcast_provider, TActorRefProvider};
+use actor_core::provider::TActorRefProvider;
 
 use crate::cluster_core_daemon::leave::Leave;
 use crate::cluster_daemon::add_on_member_removed_listener::AddOnMemberRemovedListener;
@@ -89,8 +89,9 @@ impl Extension for Cluster {
 impl Cluster {
     pub fn new(system: ActorSystem) -> anyhow::Result<Self> {
         let provider = system.provider();
-        let cluster_provider = downcast_provider::<ClusterActorRefProvider>(&provider); 
-        let etcd_actor = system.spawn_system(etcd_actor_props, Some("etcd".to_string()))?;
+        let cluster_provider = provider
+            .downcast_ref::<ClusterActorRefProvider>()
+            .ok_or(anyhow!("ClusterActorRefProvider not found"))?;
         let roles = cluster_provider.roles.clone();
         let address = cluster_provider.get_default_address();
         let self_unique_address = UniqueAddress {

@@ -3,12 +3,12 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use config::{Config, File, FileFormat};
+use config::Config;
 use tokio::sync::broadcast::Receiver;
 
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::{Address, Protocol};
-use actor_core::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
+use actor_core::actor::props::{ActorDeferredSpawn, Props};
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
@@ -18,14 +18,15 @@ use actor_core::actor_ref::local_ref::LocalActorRef;
 use actor_core::AsAny;
 use actor_core::message::message_registry::MessageRegistry;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
-use actor_core::provider::local_actor_ref_provider::LocalActorRefProvider;
+use actor_core::provider::builder::{Provider, ProviderBuilder};
+use actor_core::provider::local_provider::LocalActorRefProvider;
 
 use crate::artery::ArteryActor;
 use crate::config::advanced::Advanced;
 use crate::config::artery::Transport;
+use crate::config::settings::Settings;
 use crate::failure_detector::default_failure_detector_registry::DefaultFailureDetectorRegistry;
 use crate::failure_detector::phi_accrual_failure_detector::PhiAccrualFailureDetector;
-use crate::REFERENCE;
 use crate::remote_actor_ref::RemoteActorRef;
 use crate::remote_watcher::artery_heartbeat::ArteryHeartbeat;
 use crate::remote_watcher::artery_heartbeat_rsp::ArteryHeartbeatRsp;
@@ -35,8 +36,7 @@ use crate::remote_watcher::RemoteWatcher;
 
 #[derive(Debug, AsAny)]
 pub struct RemoteActorRefProvider {
-    pub actor_settings: actor_core::config::settings::Settings,
-    pub remote_settings: crate::config::settings::Settings,
+    pub settings: Settings,
     pub local: LocalActorRefProvider,
     pub address: Address,
     pub artery: ActorRef,
@@ -45,33 +45,26 @@ pub struct RemoteActorRefProvider {
 }
 
 impl RemoteActorRefProvider {
-    pub fn new(system: ActorSystem, mut registry: MessageRegistry) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+    pub fn new(system: ActorSystem, config: &Config, mut registry: MessageRegistry) -> anyhow::Result<Provider<Self>> {
         Self::register_system_message(&mut registry);
-        let config = Config::builder()
-            .add_source(File::from_str(REFERENCE, FileFormat::Toml))
-            .add_source(File::from_str(actor_core::REFERENCE, FileFormat::Toml))
-            .add_source(system.config.clone())
-            .build()?;
-        let actor_settings = actor_core::config::settings::Settings::new(&config)?;
-        let remote_settings = crate::config::settings::Settings::new(&config)?;
-        let canonical = remote_settings.artery.canonical;
-        let transport = remote_settings.artery.transport;
+        let settings = Settings::new(config)?;
+        let canonical = settings.artery.canonical;
+        let transport = settings.artery.transport;
         let address = Address::new(Protocol::Akka, system.name.clone(), Some(canonical));
-        let (local, mut spawns) = LocalActorRefProvider::new(system, Some(address.clone()))?;
-        let (artery, deferred) = RemoteActorRefProvider::spawn_artery(&local, transport, canonical, remote_settings.advanced.clone())?;
-        spawns.push(Box::new(deferred));
-        let (remote_watcher, remote_watcher_deferred) = Self::create_remote_watcher(&local)?;
-        spawns.push(Box::new(remote_watcher_deferred));
+        let mut provider = LocalActorRefProvider::new(system, config, Some(address.clone()))?;
+        let (artery, deferred) = RemoteActorRefProvider::spawn_artery(&provider.provider, transport, canonical, settings.advanced.clone())?;
+        provider.spawns.push(Box::new(deferred));
+        let (remote_watcher, remote_watcher_deferred) = Self::create_remote_watcher(&provider.provider)?;
+        provider.spawns.push(Box::new(remote_watcher_deferred));
         let remote = Self {
-            actor_settings,
-            remote_settings,
-            local,
+            settings,
+            local: provider.provider,
             address,
             artery,
             registry: Arc::new(registry),
             remote_watcher,
         };
-        Ok((remote, spawns))
+        Ok(Provider::new(remote, provider.spawns))
     }
 
     pub(crate) fn spawn_artery(
@@ -84,7 +77,7 @@ impl RemoteActorRefProvider {
             .attach_child_deferred_start(
                 Props::new_with_ctx(
                     move |context| {
-                        Ok(ArteryActor::new(context.system().clone(), transport, socket_addr, advanced))
+                        ArteryActor::new(context.system().clone(), transport, socket_addr, advanced)
                     },
                 ),
                 Some("artery".to_string()),
@@ -123,12 +116,6 @@ impl RemoteActorRefProvider {
         reg.register_system::<ArteryHeartbeatRsp>();
         reg.register_system::<Heartbeat>();
         reg.register_system::<HeartbeatRsp>();
-    }
-
-    pub fn builder(registry: MessageRegistry) -> impl Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
-        move |system: ActorSystem| {
-            Self::new(system, registry.clone()).map(|t| { (t.0.into(), t.1) })
-        }
     }
 }
 
@@ -224,6 +211,17 @@ impl TActorRefProvider for RemoteActorRefProvider {
         } else {
             None
         }
+    }
+}
+
+impl ProviderBuilder<Self> for RemoteActorRefProvider {
+    fn build(system: ActorSystem, config: Config, registry: MessageRegistry) -> anyhow::Result<Provider<Self>> {
+        let config = Config::builder()
+            .add_source(actor_core::REFERENCE)
+            .add_source(crate::REFERENCE)
+            .add_source(config)
+            .build()?;
+        Self::new(system, &config, registry)
     }
 }
 

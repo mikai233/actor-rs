@@ -9,7 +9,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context as _};
 use arc_swap::{ArcSwap, Guard};
-use config::Config;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use parking_lot::Mutex;
@@ -34,8 +33,9 @@ use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::event::event_stream::EventStream;
 use crate::ext::option_ext::OptionExt;
 use crate::message::stop_child::StopChild;
-use crate::provider::ActorRefProvider;
-use crate::provider::empty_actor_ref_provider::EmptyActorRefProvider;
+use crate::provider::{ActorRefProvider, TActorRefProvider};
+use crate::provider::builder::ProviderBuilder;
+use crate::provider::empty_provider::EmptyActorRefProvider;
 
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
@@ -51,7 +51,6 @@ pub struct Inner {
     pub scheduler: SchedulerSender,
     pub event_stream: EventStream,
     pub extension: SystemExtension,
-    pub config: Config,
     signal: Sender<anyhow::Result<()>>,
     termination_callbacks: TerminationCallbacks,
     pub(crate) termination_error: Mutex<Option<anyhow::Error>>,
@@ -66,8 +65,12 @@ impl Deref for ActorSystem {
 }
 
 impl ActorSystem {
-    pub fn new(name: impl Into<String>, setting: ActorSetting) -> anyhow::Result<ActorSystemRunner> {
-        let ActorSetting { provider, config } = setting;
+    pub fn new<B, P>(name: impl Into<String>, setting: ActorSetting<B, P>) -> anyhow::Result<ActorSystemRunner>
+    where
+        B: ProviderBuilder<P>,
+        P: TActorRefProvider,
+    {
+        let ActorSetting { config, registry, .. } = setting;
         let scheduler = scheduler();
         let (signal_tx, mut signal_rx) = channel(1);
         let inner = Inner {
@@ -78,17 +81,16 @@ impl ActorSystem {
             scheduler,
             event_stream: EventStream::default(),
             extension: SystemExtension::default(),
-            config,
             signal: signal_tx,
             termination_callbacks: TerminationCallbacks::default(),
             termination_error: Mutex::default(),
         };
         let system = Self { inner: inner.into() };
         system.register_extension(|_| Ok(AddressTerminatedTopic::new()))?;
-        let (provider, spawns) = provider(system.clone()).context("failed to create actor provider")?;
-        system.provider.store(Arc::new(provider));
+        let provider = B::build(system.clone(), config, registry).context("failed to create actor provider")?;
+        system.provider.store(Arc::new(ActorRefProvider::new(provider.provider)));
         system.register_extension(CoordinatedShutdown::new)?;
-        for s in spawns {
+        for s in provider.spawns {
             s.spawn(system.clone())?;
         }
         let signal = async move {

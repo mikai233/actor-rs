@@ -2,54 +2,46 @@ use std::any::type_name;
 use std::fmt::Debug;
 
 use ahash::HashSet;
+use config::Config;
 use tokio::sync::broadcast::Receiver;
 
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
 use actor_core::actor::props::{DeferredSpawn, FuncDeferredSpawn, Props};
 use actor_core::actor_path::ActorPath;
-use actor_core::actor_ref::local_ref::LocalActorRef;
 use actor_core::actor_ref::ActorRef;
-use actor_core::ext::etcd_client::EtcdClient;
-use actor_core::message::message_registry::MessageRegistry;
-use actor_core::provider::local_actor_ref_provider::LocalActorRefProvider;
-use actor_core::provider::{ActorRefProvider, TActorRefProvider};
+use actor_core::actor_ref::local_ref::LocalActorRef;
 use actor_core::AsAny;
+use actor_core::message::message_registry::MessageRegistry;
+use actor_core::provider::{ActorRefProvider, TActorRefProvider};
+use actor_core::provider::builder::{Provider, ProviderBuilder};
+use actor_core::provider::local_provider::LocalActorRefProvider;
 use actor_remote::remote_provider::RemoteActorRefProvider;
-use actor_remote::config::settings::Settings;
 
 use crate::cluster::Cluster;
-use crate::cluster_setting::ClusterSetting;
+use crate::config::settings::Settings;
 use crate::heartbeat::cluster_heartbeat_receiver::heartbeat::Heartbeat;
 use crate::heartbeat::cluster_heartbeat_sender::heartbeat_rsp::HeartbeatRsp;
 
 #[derive(Debug, AsAny)]
 pub struct ClusterActorRefProvider {
+    pub settings: Settings,
     pub remote: RemoteActorRefProvider,
     pub roles: HashSet<String>,
 }
 
 impl ClusterActorRefProvider {
-    pub fn new(
-        system: ActorSystem,
-        setting: ClusterSetting,
-    ) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
-        let ClusterSetting {
-            config: cluster_config,
-            mut reg,
-        } = setting;
-        let remote_config = cluster_config.remote.clone();
-        let roles = cluster_config.roles.clone();
-        system.add_config(cluster_config)?;
-        Self::register_system_message(&mut reg);
-        let remote_setting = Settings {
-            config: remote_config,
-            reg,
+    pub fn new(system: ActorSystem, config: &Config, mut registry: MessageRegistry) -> anyhow::Result<Provider<Self>> {
+        let settings = Settings::new(config)?;
+        Self::register_system_message(&mut registry);
+        let mut provider = RemoteActorRefProvider::new(system, config, registry)?;
+        let cluster = Self {
+            settings,
+            remote: provider.provider,
+            roles: Default::default(),
         };
-        let (remote, mut spawns) = RemoteActorRefProvider::new(system, remote_setting)?;
-        let cluster = ClusterActorRefProvider { remote, roles };
-        Self::register_extension(&mut spawns);
-        Ok((cluster, spawns))
+        Self::register_extension(&mut provider.spawns);
+        Ok(Provider::new(cluster, provider.spawns))
     }
 
     fn register_extension(spawns: &mut Vec<Box<dyn DeferredSpawn>>) {
@@ -63,15 +55,6 @@ impl ClusterActorRefProvider {
     fn register_system_message(reg: &mut MessageRegistry) {
         reg.register_system::<Heartbeat>();
         reg.register_system::<HeartbeatRsp>();
-    }
-
-    pub fn builder(
-        cluster_setting: ClusterSetting,
-    ) -> impl Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)>
-    {
-        move |system: ActorSystem| {
-            Self::new(system, cluster_setting.clone()).map(|t| (t.0.into(), t.1))
-        }
     }
 }
 
@@ -146,6 +129,18 @@ impl TActorRefProvider for ClusterActorRefProvider {
         } else {
             None
         }
+    }
+}
+
+impl ProviderBuilder<Self> for ClusterActorRefProvider {
+    fn build(system: ActorSystem, config: Config, registry: MessageRegistry) -> anyhow::Result<Provider<Self>> {
+        let config = Config::builder()
+            .add_source(actor_core::REFERENCE)
+            .add_source(actor_remote::REFERENCE)
+            .add_source(crate::REFERENCE)
+            .add_source(config)
+            .build()?;
+        Self::new(system, &config, registry)
     }
 }
 

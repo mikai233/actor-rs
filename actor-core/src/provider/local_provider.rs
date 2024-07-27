@@ -20,13 +20,16 @@ use crate::actor_ref::ignore_ref::IgnoreActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::cell::actor_cell::ActorCell;
+use crate::config::settings::Settings;
 use crate::ext::base64;
+use crate::message::message_registry::MessageRegistry;
 use crate::provider::{ActorRefProvider, cast_self_to_dyn, TActorRefProvider};
+use crate::provider::builder::{Provider, ProviderBuilder};
 use crate::REFERENCE;
 
 #[derive(Debug, AsAny)]
 pub struct LocalActorRefProvider {
-    config: Config,
+    settings: Settings,
     root_path: ActorPath,
     root_guardian: LocalActorRef,
     user_guardian: LocalActorRef,
@@ -41,11 +44,7 @@ pub struct LocalActorRefProvider {
 }
 
 impl LocalActorRefProvider {
-    pub fn new(system: ActorSystem, address: Option<Address>) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
-        let config = Config::builder()
-            .add_source(REFERENCE)
-            .add_source(&system.config)
-            .build()?;
+    pub fn new(system: ActorSystem, config: &Config, address: Option<Address>) -> anyhow::Result<Provider<Self>> {
         let mut spawns: Vec<Box<dyn DeferredSpawn>> = vec![];
         let address = match address {
             None => {
@@ -55,8 +54,8 @@ impl LocalActorRefProvider {
         };
         let (termination_tx, _) = channel(1);
         let root_path = RootActorPath::new(address, "/");
-        let termination_tx_c = termination_tx.clone();
-        let root_props = Props::new(move || { Ok(RootGuardian::new(termination_tx_c)) });
+        let termination_tx_clone = termination_tx.clone();
+        let root_props = Props::new(move || { Ok(RootGuardian::new(termination_tx_clone)) });
         let (sender, mailbox) = root_props.mailbox(&system)?;
         let root_guardian = LocalActorRef::new(
             system.downgrade(),
@@ -96,8 +95,9 @@ impl LocalActorRefProvider {
             temp_node.clone(),
             root_guardian.clone().into(),
         );
-        let provider = LocalActorRefProvider {
-            config,
+        let settings = Settings::new(&config)?;
+        let local = Self {
+            settings,
             root_path: root_path.into(),
             root_guardian,
             user_guardian: user_guardian.clone(),
@@ -110,13 +110,7 @@ impl LocalActorRefProvider {
             temp_container,
             termination_tx,
         };
-        Ok((provider, spawns))
-    }
-
-    pub fn builder(address: Option<Address>) -> impl Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
-        move |system: ActorSystem| {
-            Self::new(system, address.clone()).map(|t| { (t.0.into(), t.1) })
-        }
+        Ok(Provider::new(local, spawns))
     }
 }
 
@@ -220,6 +214,16 @@ impl TActorRefProvider for LocalActorRefProvider {
 
     fn as_provider(&self, name: &str) -> Option<&dyn TActorRefProvider> {
         cast_self_to_dyn(name, self)
+    }
+}
+
+impl ProviderBuilder<Self> for LocalActorRefProvider {
+    fn build(system: ActorSystem, config: Config, _registry: MessageRegistry) -> anyhow::Result<Provider<Self>> {
+        let config = Config::builder()
+            .add_source(REFERENCE)
+            .add_source(config)
+            .build()?;
+        Self::new(system, &config, None)
     }
 }
 

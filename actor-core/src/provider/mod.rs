@@ -13,8 +13,9 @@ use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::ext::as_any::AsAny;
 
-pub mod local_actor_ref_provider;
-pub mod empty_actor_ref_provider;
+pub mod local_provider;
+pub mod empty_provider;
+pub mod builder;
 
 pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
     fn root_guardian(&self) -> &LocalActorRef;
@@ -62,33 +63,27 @@ pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
 }
 
 #[derive(Debug)]
-pub struct ActorRefProvider {
-    inner: Box<dyn TActorRefProvider>,
-}
+pub struct ActorRefProvider(Box<dyn TActorRefProvider>);
 
 impl Deref for ActorRefProvider {
     type Target = Box<dyn TActorRefProvider>;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.0
     }
 }
 
 impl ActorRefProvider {
     pub fn new<P>(provider: P) -> Self where P: TActorRefProvider {
-        Self {
-            inner: Box::new(provider),
-        }
+        Self(Box::new(provider))
     }
-}
 
-pub fn downcast_provider<P>(provider: &ActorRefProvider) -> &P where P: TActorRefProvider {
-    let provider_name = type_name::<P>();
-    provider.as_provider(provider_name)
-        .expect(&format!("{} not found", provider_name))
-        .as_any()
-        .downcast_ref::<P>()
-        .expect(&format!("cannot downcast provider to {}", provider_name))
+    pub fn downcast_ref<P>(&self) -> Option<&P>
+    where
+        P: TActorRefProvider,
+    {
+        self.0.as_provider(type_name::<P>()).as_any().downcast_ref::<P>()
+    }
 }
 
 fn cast_self_to_dyn<'a, P>(name: &str, provider: &'a P) -> Option<&'a dyn TActorRefProvider> where P: TActorRefProvider {
