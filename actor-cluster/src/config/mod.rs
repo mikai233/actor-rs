@@ -46,14 +46,14 @@ impl ConfigBuilder for ClusterConfigBuilder {
 
 #[cfg(test)]
 mod tests {
-    use actor_remote::config::buffer::Buffer;
+    use actor_remote::config::message_buffer::MessageBuffer;
     use actor_remote::config::transport::{TcpTransport, Transport};
 
     use crate::config::{ClusterConfig, RemoteConfig};
 
     #[test]
     fn test() {
-        let r = RemoteConfig { transport: Transport::Tcp(TcpTransport { addr: "127.0.0.1:8989".parse().unwrap(), buffer: Buffer::default() }) };
+        let r = RemoteConfig { transport: Transport::Tcp(TcpTransport { addr: "127.0.0.1:8989".parse().unwrap(), buffer: MessageBuffer::default() }) };
         let c = ClusterConfig {
             remote: r,
             roles: Default::default(),

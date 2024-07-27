@@ -3,28 +3,22 @@ use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub enum Buffer {
-    NoBuffer,
+pub enum MessageBuffer {
+    Drop,
     Bound(usize),
     Unbound,
 }
 
-impl Default for Buffer {
-    fn default() -> Self {
-        Self::Bound(10000)
-    }
-}
-
-impl Display for Buffer {
+impl Display for MessageBuffer {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Buffer::NoBuffer => {
-                write!(f, "NoBuffer")
+            MessageBuffer::Drop => {
+                write!(f, "Drop")
             }
-            Buffer::Bound(s) => {
+            MessageBuffer::Bound(s) => {
                 write!(f, "Bound({s})")
             }
-            Buffer::Unbound => {
+            MessageBuffer::Unbound => {
                 write!(f, "Unbound")
             }
         }

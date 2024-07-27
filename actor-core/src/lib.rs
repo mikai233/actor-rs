@@ -19,7 +19,7 @@ use crate::delegate::user::UserDelegate;
 use crate::message::message_registry::MessageRegistry;
 use crate::message::MessageDecoder;
 
-pub(crate) const REFERENCE: &'static str = include_str!("../reference.toml");
+pub const REFERENCE: &'static str = include_str!("../reference.toml");
 
 pub mod ext;
 mod cell;

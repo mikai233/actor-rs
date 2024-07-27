@@ -11,12 +11,12 @@ use actor_core::actor_ref::ActorRefExt;
 use actor_core::EmptyCodec;
 use actor_core::Message;
 
-use crate::transport::codec::PacketCodec;
-use crate::transport::connect_tcp_failed::ConnectFailed;
-use crate::transport::connected::Connected;
-use crate::transport::connection::Connection;
-use crate::transport::connection_status::ConnectionStatus;
-use crate::transport::TransportActor;
+use crate::artery::ArteryActor;
+use crate::artery::codec::PacketCodec;
+use crate::artery::connect_tcp_failed::ConnectFailed;
+use crate::artery::connected::Connected;
+use crate::artery::connection::Connection;
+use crate::artery::connection_status::ConnectionStatus;
 
 #[derive(Debug, EmptyCodec)]
 pub(super) struct ConnectQuic {
@@ -26,7 +26,7 @@ pub(super) struct ConnectQuic {
 
 #[async_trait]
 impl Message for ConnectQuic {
-    type A = TransportActor;
+    type A = ArteryActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { addr, config } = *self;

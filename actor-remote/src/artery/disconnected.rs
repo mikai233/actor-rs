@@ -7,24 +7,20 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::EmptyCodec;
 use actor_core::Message;
 
-use crate::transport::connection_status::ConnectionStatus;
-use crate::transport::TransportActor;
+use crate::artery::ArteryActor;
 
 #[derive(Debug, EmptyCodec)]
-pub struct Disconnect {
-    pub addr: SocketAddr,
+pub(super) struct Disconnected {
+    pub(super) addr: SocketAddr,
 }
 
 #[async_trait]
-impl Message for Disconnect {
-    type A = TransportActor;
+impl Message for Disconnected {
+    type A = ArteryActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        if let Some(ConnectionStatus::Connecting(handle)) = actor.connections.remove(&self.addr) {
-            handle.abort();
-        }
         actor.message_buffer.remove(&self.addr);
-        info!("{} disconnect from {}", context.myself(), self.addr);
+        info!("{} disconnected from {}", context.myself(), self.addr);
         Ok(())
     }
 }

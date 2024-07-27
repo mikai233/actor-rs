@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use actor_core::{EmptyCodec, Message};
 use actor_core::actor::context::ActorContext;
 
-use crate::transport::TransportActor;
+use crate::artery::ArteryActor;
 
 #[derive(Debug, EmptyCodec)]
 pub(super) struct ConnectFailed {
@@ -14,7 +14,7 @@ pub(super) struct ConnectFailed {
 
 #[async_trait]
 impl Message for ConnectFailed {
-    type A = TransportActor;
+    type A = ArteryActor;
 
     async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.connections.remove(&self.addr);

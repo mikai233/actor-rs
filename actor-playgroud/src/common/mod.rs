@@ -8,7 +8,7 @@ use actor_core::config::actor_setting::ActorSetting;
 use actor_core::config::ConfigBuilder;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::message::message_registry::MessageRegistry;
-use actor_remote::config::buffer::Buffer;
+use actor_remote::config::message_buffer::MessageBuffer;
 use actor_remote::config::RemoteConfig;
 use actor_remote::config::transport::Transport;
 
@@ -32,7 +32,7 @@ pub mod stop_singleton;
 pub fn build_cluster_setting(addr: SocketAddrV4, client: impl Into<EtcdClient>) -> anyhow::Result<ActorSetting> {
     let client = client.into();
     let config = ClusterConfig {
-        remote: RemoteConfig { transport: Transport::tcp(addr, Buffer::default()) },
+        remote: RemoteConfig { transport: Transport::tcp(addr, MessageBuffer::default()) },
         roles: Default::default(),
     };
     let mut reg = MessageRegistry::new();
@@ -47,7 +47,7 @@ pub fn build_cluster_setting(addr: SocketAddrV4, client: impl Into<EtcdClient>) 
 pub fn actor_sharding_setting(addr: SocketAddrV4, client: impl Into<EtcdClient>) -> anyhow::Result<ActorSetting> {
     let client = client.into();
     let mut config = ClusterConfig::builder().build()?;
-    config.remote.transport = Transport::tcp(addr, Buffer::default());
+    config.remote.transport = Transport::tcp(addr, MessageBuffer::default());
     let mut reg = MessageRegistry::new();
     register_sharding(&mut reg);
     reg.register_user::<Init>();

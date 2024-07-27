@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicI64, Ordering};
 
+use config::Config;
 use dashmap::DashMap;
 use tokio::sync::broadcast::{channel, Receiver, Sender};
 
@@ -21,9 +22,11 @@ use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::cell::actor_cell::ActorCell;
 use crate::ext::base64;
 use crate::provider::{ActorRefProvider, cast_self_to_dyn, TActorRefProvider};
+use crate::REFERENCE;
 
 #[derive(Debug, AsAny)]
 pub struct LocalActorRefProvider {
+    config: Config,
     root_path: ActorPath,
     root_guardian: LocalActorRef,
     user_guardian: LocalActorRef,
@@ -39,6 +42,10 @@ pub struct LocalActorRefProvider {
 
 impl LocalActorRefProvider {
     pub fn new(system: ActorSystem, address: Option<Address>) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+        let config = Config::builder()
+            .add_source(REFERENCE)
+            .add_source(&system.config)
+            .build()?;
         let mut spawns: Vec<Box<dyn DeferredSpawn>> = vec![];
         let address = match address {
             None => {
@@ -90,6 +97,7 @@ impl LocalActorRefProvider {
             root_guardian.clone().into(),
         );
         let provider = LocalActorRefProvider {
+            config,
             root_path: root_path.into(),
             root_guardian,
             user_guardian: user_guardian.clone(),

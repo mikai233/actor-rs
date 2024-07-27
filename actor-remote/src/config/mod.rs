@@ -2,12 +2,12 @@ use config::Source;
 use serde::{Deserialize, Serialize};
 
 use actor_core::AsAny;
-use actor_core::config::{Config, ConfigBuilder};
+use actor_core::config::Config;
 use actor_core::message::message_registry::MessageRegistry;
 
 use crate::config::settings::Settings;
 
-pub mod buffer;
+pub mod message_buffer;
 pub mod settings;
 pub mod watch_failure_detector;
 pub mod deployment;

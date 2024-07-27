@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
-use std::net::SocketAddrV4;
+use std::net::{SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 
 use bincode::{Decode, Encode};
@@ -42,14 +42,14 @@ impl FromStr for Protocol {
 pub struct Address {
     pub protocol: Protocol,
     pub system: ImString,
-    pub addr: Option<SocketAddrV4>,
+    pub addr: Option<SocketAddr>,
 }
 
 impl Address {
     pub fn new(
         protocol: Protocol,
         system: impl Into<ImString>,
-        addr: Option<SocketAddrV4>,
+        addr: Option<SocketAddr>,
     ) -> Self {
         let protocol = protocol.into();
         let system = system.into();
@@ -98,7 +98,7 @@ impl AddressFromURIString {
         let mut address = Address::new(scheme.parse()?, user_info, None);
         if let Some(url::Host::Ipv4(addr)) = url.host() {
             if let Some(port) = url.port() {
-                address.addr = Some(SocketAddrV4::new(addr, port));
+                address.addr = Some(SocketAddrV4::new(addr, port).into());
             }
         }
         Ok(address)

@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context as _};
 use arc_swap::{ArcSwap, Guard};
-use dashmap::mapref::one::MappedRef;
+use config::Config;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use parking_lot::Mutex;
@@ -29,9 +29,7 @@ use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::config::{ActorConfigs, Config};
 use crate::config::actor_setting::ActorSetting;
-use crate::config::core_config::CoreConfig;
 use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::event::event_stream::EventStream;
 use crate::ext::option_ext::OptionExt;
@@ -53,7 +51,7 @@ pub struct Inner {
     pub scheduler: SchedulerSender,
     pub event_stream: EventStream,
     pub extension: SystemExtension,
-    pub config: ActorConfigs,
+    pub config: Config,
     signal: Sender<anyhow::Result<()>>,
     termination_callbacks: TerminationCallbacks,
     pub(crate) termination_error: Mutex<Option<anyhow::Error>>,
@@ -69,24 +67,23 @@ impl Deref for ActorSystem {
 
 impl ActorSystem {
     pub fn new(name: impl Into<String>, setting: ActorSetting) -> anyhow::Result<ActorSystemRunner> {
-        let ActorSetting { provider, config: core_config } = setting;
+        let ActorSetting { provider, config } = setting;
         let scheduler = scheduler();
         let (signal_tx, mut signal_rx) = channel(1);
         let inner = Inner {
             name: name.into(),
             uid: random(),
             start_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
-            provider: ArcSwap::new(Arc::new(EmptyActorRefProvider.into())),
+            provider: ArcSwap::from_pointee(EmptyActorRefProvider.into()),
             scheduler,
             event_stream: EventStream::default(),
             extension: SystemExtension::default(),
-            config: ActorConfigs::default(),
+            config,
             signal: signal_tx,
             termination_callbacks: TerminationCallbacks::default(),
             termination_error: Mutex::default(),
         };
         let system = Self { inner: inner.into() };
-        system.config.add(core_config)?;
         system.register_extension(|_| Ok(AddressTerminatedTopic::new()))?;
         let (provider, spawns) = provider(system.clone()).context("failed to create actor provider")?;
         system.provider.store(Arc::new(provider));
@@ -172,19 +169,6 @@ impl ActorSystem {
 
     pub fn get_ext<E>(&self) -> Option<E> where E: Extension + Clone {
         self.extension.get()
-    }
-
-    pub fn get_config<C>(&self) -> MappedRef<&'static str, Box<dyn Config>, C> where C: Config {
-        let msg = format!("{} not found", type_name::<CoreConfig>());
-        self.config.get().expect(&msg)
-    }
-
-    pub fn add_config<C>(&self, config: C) -> anyhow::Result<()> where C: Config {
-        self.config.add(config)
-    }
-
-    pub fn core_config(&self) -> CoreConfig {
-        self.get_config::<CoreConfig>().clone()
     }
 
     pub fn dead_letters(&self) -> ActorRef {

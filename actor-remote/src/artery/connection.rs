@@ -9,11 +9,11 @@ use actor_core::actor::address::Address;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::encode_bytes;
 
-use crate::transport::codec::{Packet, PacketCodec};
-use crate::transport::disconnect::Disconnect;
-use crate::transport::disconnected::Disconnected;
-use crate::transport::remote_envelope::RemoteEnvelope;
-use crate::transport::remote_packet::RemotePacket;
+use crate::artery::codec::{Packet, PacketCodec};
+use crate::artery::disconnect::Disconnect;
+use crate::artery::disconnected::Disconnected;
+use crate::artery::remote_envelope::RemoteEnvelope;
+use crate::artery::remote_packet::RemotePacket;
 
 pub type ConnectionTx = tokio::sync::mpsc::Sender<RemoteEnvelope>;
 pub type ConnectionRx = tokio::sync::mpsc::Receiver<RemoteEnvelope>;

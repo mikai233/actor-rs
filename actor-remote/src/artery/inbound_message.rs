@@ -5,8 +5,8 @@ use actor_core::actor_ref::PROVIDER;
 use actor_core::EmptyCodec;
 use actor_core::Message;
 
-use crate::transport::remote_packet::RemotePacket;
-use crate::transport::TransportActor;
+use crate::artery::ArteryActor;
+use crate::artery::remote_packet::RemotePacket;
 
 #[derive(Debug, EmptyCodec)]
 pub(super) struct InboundMessage {
@@ -15,7 +15,7 @@ pub(super) struct InboundMessage {
 
 #[async_trait]
 impl Message for InboundMessage {
-    type A = TransportActor;
+    type A = ArteryActor;
 
     async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         let RemotePacket {

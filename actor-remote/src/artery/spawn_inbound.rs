@@ -8,7 +8,7 @@ use actor_core::actor::context::ActorContext;
 use actor_core::EmptyCodec;
 use actor_core::Message;
 
-use crate::transport::TransportActor;
+use crate::artery::ArteryActor;
 
 #[derive(EmptyCodec)]
 pub(super) struct SpawnInbound {
@@ -18,7 +18,7 @@ pub(super) struct SpawnInbound {
 
 #[async_trait]
 impl Message for SpawnInbound {
-    type A = TransportActor;
+    type A = ArteryActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
         context.spawn_fut(format!("connection_in_{}", self.peer_addr), self.fut)?;

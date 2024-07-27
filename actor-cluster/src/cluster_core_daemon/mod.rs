@@ -104,7 +104,7 @@ impl ClusterCoreDaemon {
         let cluster = Cluster::get(context.system()).clone();
         let provider = context.system().provider();
         let cluster_provider = downcast_provider::<ClusterActorRefProvider>(&provider);
-        let transport = cluster_provider.remote.transport.clone();
+        let transport = cluster_provider.remote.artery.clone();
         let self_member = cluster.self_member().clone();
         let self_addr = self_member.unique_address.clone();
         let roles = self_member.roles.clone();

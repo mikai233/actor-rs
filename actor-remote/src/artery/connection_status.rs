@@ -1,6 +1,6 @@
 use tokio::task::JoinHandle;
 
-use crate::transport::connection::ConnectionTx;
+use crate::artery::connection::ConnectionTx;
 
 #[derive(Debug)]
 pub(super) enum ConnectionStatus {

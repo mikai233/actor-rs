@@ -1,4 +1,4 @@
-pub(crate) const REFERENCE: &'static str = include_str!("../reference.toml");
+pub const REFERENCE: &'static str = include_str!("../reference.toml");
 
 pub mod remote_provider;
 pub mod transport;

@@ -3,12 +3,12 @@ use actor_core::DynMessage;
 use actor_core::message::message_buffer::BufferEnvelope;
 
 #[derive(Debug)]
-pub(super) struct TransportBufferEnvelope {
+pub(super) struct ArteryBufferEnvelope {
     pub(super) message: DynMessage,
     pub(super) sender: Option<ActorRef>,
 }
 
-impl BufferEnvelope for TransportBufferEnvelope {
+impl BufferEnvelope for ArteryBufferEnvelope {
     type M = DynMessage;
 
     fn message(&self) -> &Self::M {

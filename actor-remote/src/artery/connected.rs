@@ -8,9 +8,9 @@ use actor_core::EmptyCodec;
 use actor_core::Message;
 use actor_core::message::message_buffer::BufferEnvelope;
 
-use crate::transport::connection::ConnectionTx;
-use crate::transport::connection_status::ConnectionStatus;
-use crate::transport::TransportActor;
+use crate::artery::ArteryActor;
+use crate::artery::connection::ConnectionTx;
+use crate::artery::connection_status::ConnectionStatus;
 
 #[derive(Debug, EmptyCodec)]
 pub(super) struct Connected {
@@ -20,7 +20,7 @@ pub(super) struct Connected {
 
 #[async_trait]
 impl Message for Connected {
-    type A = TransportActor;
+    type A = ArteryActor;
 
     async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.connections.insert(self.addr, ConnectionStatus::Connected(self.tx));
