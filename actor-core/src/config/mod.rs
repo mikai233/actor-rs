@@ -4,7 +4,6 @@ use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use anyhow::anyhow;
-use config::Source;
 use dashmap::DashMap;
 use dashmap::mapref::one::MappedRef;
 use dyn_clone::DynClone;
@@ -19,8 +18,6 @@ pub mod debug;
 pub mod phase;
 pub mod coordinated_shutdown;
 pub mod circuit_breaker;
-mod provider;
-
 pub trait Config: Debug + Send + Sync + Any + AsAny + DynClone {}
 
 dyn_clone::clone_trait_object!(Config);

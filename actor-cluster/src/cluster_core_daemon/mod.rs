@@ -7,9 +7,11 @@ use std::time::{Duration, Instant};
 use ahash::{HashMap, HashSet};
 use anyhow::{anyhow, Context as _};
 use async_trait::async_trait;
+use bincode::{Decode, Encode};
 use etcd_client::{GetOptions, KeyValue, PutOptions, WatchOptions};
 use imstr::ImString;
 use parking_lot::RwLockWriteGuard;
+use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::{channel, Sender};
 use tracing::{debug, error};
 
@@ -26,6 +28,7 @@ use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::util::version::Version;
+use actor_remote::artery::disconnect::Disconnect;
 
 use crate::cluster::Cluster;
 use crate::cluster_core_daemon::exiting_completed_req::{ExitingCompletedReq, ExitingCompletedResp};
@@ -196,7 +199,7 @@ impl Actor for ClusterCoreDaemon {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash)]
+#[derive(Debug, Copy, Clone, Hash, Serialize, Deserialize, Encode, Decode)]
 pub(crate) struct GossipStats {
     pub(crate) received_gossip_count: i64,
     pub(crate) merge_count: i64,
@@ -276,7 +279,7 @@ impl Display for GossipStats {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash)]
+#[derive(Debug, Copy, Clone, Hash, Serialize, Deserialize, Encode, Decode)]
 pub(crate) struct VectorClockStats {
     pub(crate) version_size: i32,
     pub(crate) seen_latest: i32,

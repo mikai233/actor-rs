@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use config::Config;
+use config::{Config, File, FileFormat};
 use tokio::sync::broadcast::Receiver;
 
 use actor_core::actor::actor_system::ActorSystem;
@@ -217,8 +217,8 @@ impl TActorRefProvider for RemoteActorRefProvider {
 impl ProviderBuilder<Self> for RemoteActorRefProvider {
     fn build(system: ActorSystem, config: Config, registry: MessageRegistry) -> anyhow::Result<Provider<Self>> {
         let config = Config::builder()
-            .add_source(actor_core::REFERENCE)
-            .add_source(crate::REFERENCE)
+            .add_source(File::from_str(actor_core::REFERENCE, FileFormat::Toml))
+            .add_source(File::from_str(crate::REFERENCE, FileFormat::Toml))
             .add_source(config)
             .build()?;
         Self::new(system, &config, registry)

@@ -6,7 +6,6 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use futures::StreamExt;
 use quick_cache::unsync::Cache;
-use quinn::Endpoint;
 use tokio::io::AsyncRead;
 use tokio::net::TcpListener;
 use tokio_util::codec::FramedRead;
@@ -35,21 +34,21 @@ use crate::config::artery::Transport;
 use crate::config::message_buffer::MessageBuffer;
 use crate::remote_provider::RemoteActorRefProvider;
 
-mod connect_quic;
-mod codec;
-mod connect_tcp;
-mod connect_tcp_failed;
-mod connected;
-mod connection;
-mod connection_status;
-mod disconnect;
-mod disconnected;
-mod inbound_message;
-mod outbound_message;
-mod remote_envelope;
-mod remote_packet;
-mod spawn_inbound;
-mod transport_buffer_envelop;
+pub mod connect_quic;
+pub mod codec;
+pub mod connect_tcp;
+pub mod connect_tcp_failed;
+pub mod connected;
+pub mod connection;
+pub mod connection_status;
+pub mod disconnect;
+pub mod disconnected;
+pub mod inbound_message;
+pub mod outbound_message;
+pub mod remote_envelope;
+pub mod remote_packet;
+pub mod spawn_inbound;
+pub mod transport_buffer_envelop;
 
 pub const ACTOR_REF_CACHE: usize = 10000;
 
@@ -165,7 +164,7 @@ impl ArteryActor {
                 if message_buffer.total_size() > size {
                     for envelope in message_buffer.drop_first_n(&addr, 1) {
                         let msg_name = envelope.message.name();
-                        warn!("stash buffer is going to large than {max_buffer}, drop the oldest message {msg_name}");
+                        warn!("stash buffer is going to large than {size}, drop the oldest message {msg_name}");
                     }
                 }
             }

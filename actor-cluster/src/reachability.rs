@@ -2,11 +2,13 @@ use std::cmp::max;
 use std::fmt::{Display, Formatter};
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use bincode::{Decode, Encode};
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 
 use crate::unique_address::UniqueAddress;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub(crate) struct Reachability {
     pub(crate) records: Vec<Record>,
     pub(crate) versions: HashMap<UniqueAddress, i64>,
@@ -327,7 +329,7 @@ impl Display for Reachability {
     }
 }
 
-#[derive(Debug, Hash, Clone, Eq, PartialEq)]
+#[derive(Debug, Hash, Clone, Eq, PartialEq, Serialize, Deserialize, Encode, Decode)]
 pub(crate) struct Record {
     pub(crate) observer: UniqueAddress,
     pub(crate) subject: UniqueAddress,
@@ -351,7 +353,7 @@ impl Record {
     }
 }
 
-#[derive(Debug, Hash, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Hash, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Encode, Decode)]
 enum ReachabilityStatus {
     Reachable,
     Unreachable,

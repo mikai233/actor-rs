@@ -82,7 +82,8 @@ impl ActorRefProvider {
     where
         P: TActorRefProvider,
     {
-        self.0.as_provider(type_name::<P>()).as_any().downcast_ref::<P>()
+        self.0.as_provider(type_name::<P>())
+            .and_then(|provider| provider.as_any().downcast_ref::<P>())
     }
 }
 

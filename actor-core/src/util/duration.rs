@@ -10,7 +10,7 @@ pub struct ConfigDuration {
 }
 
 impl ConfigDuration {
-    pub fn to_duration(&self) -> std::time::Duration {
+    pub fn to_std_duration(&self) -> std::time::Duration {
         let days = self.days.unwrap_or(0);
         let hours = self.hours.unwrap_or(0);
         let minutes = self.minutes.unwrap_or(0);

@@ -1,12 +1,11 @@
 pub const REFERENCE: &'static str = include_str!("../reference.toml");
 
 pub mod remote_provider;
-pub mod transport;
 pub mod remote_actor_ref;
 pub mod config;
 mod remote_watcher;
 mod failure_detector;
-pub(crate) mod artery;
+pub mod artery;
 
 #[cfg(test)]
 mod test {

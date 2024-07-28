@@ -17,9 +17,9 @@ use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::AsAny;
 use actor_core::DynMessage;
-use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
+use actor_core::provider::local_provider::LocalActorRefProvider;
 use actor_core::provider::TActorRefProvider;
 
 use crate::cluster_core_daemon::leave::Leave;
@@ -71,7 +71,11 @@ impl Extension for Cluster {
             .into_result()
             .context("cannot init Cluster more than once")?;
         let system = self.system()?;
-        let creation_timeout = system.core_config().creation_timeout;
+        let provider = system.provider();
+        let local = provider
+            .downcast_ref::<LocalActorRefProvider>()
+            .ok_or(anyhow!("LocalActorRefProvider not found"))?;
+        let creation_timeout = local.settings().actor.creation_timeout.to_std_duration();
         Box::new(actor_spawn).spawn(system)?;
         let cluster_core = tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -237,14 +241,6 @@ impl Cluster {
 
     pub fn is_terminated(&self) -> bool {
         self.is_terminated.load(Ordering::Relaxed)
-    }
-
-    pub fn etcd_client(&self) -> EtcdClient {
-        self.etcd_client.clone()
-    }
-
-    pub fn etcd_actor(&self) -> &ActorRef {
-        &self.etcd_actor
     }
 
     pub fn system(&self) -> anyhow::Result<ActorSystem> {

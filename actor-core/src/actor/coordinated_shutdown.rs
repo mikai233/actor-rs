@@ -13,7 +13,6 @@ use futures::future::{BoxFuture, join_all};
 use futures::FutureExt;
 use imstr::ImString;
 use parking_lot::Mutex;
-use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn};
 
 use actor_derive::AsAny;
@@ -22,6 +21,7 @@ use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::extension::Extension;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::config::phase::Phase;
+use crate::provider::local_provider::LocalActorRefProvider;
 
 pub const PHASE_BEFORE_SERVICE_UNBIND: &str = "before-service-unbind";
 pub const PHASE_SERVICE_UNBIND: &str = "service-unbind";
@@ -59,7 +59,11 @@ impl Deref for CoordinatedShutdown {
 
 impl CoordinatedShutdown {
     pub(crate) fn new(system: ActorSystem) -> anyhow::Result<Self> {
-        let ordered_phases = Self::topological_sort(&system.core_config().phases)?;
+        let provider = system.provider();
+        let local = provider
+            .downcast_ref::<LocalActorRefProvider>()
+            .ok_or(anyhow!("LocalActorRefProvider not found"))?;
+        let ordered_phases = Self::topological_sort(&local.settings().coordinated_shutdown.phases)?;
         let inner = Inner {
             system: system.downgrade(),
             registered_phases: Default::default(),
@@ -144,8 +148,12 @@ impl CoordinatedShutdown {
     }
 
     fn known_phases(system: &ActorSystem) -> HashSet<ImString> {
+        let provider = system.provider();
+        let local = provider
+            .downcast_ref::<LocalActorRefProvider>()
+            .expect("LocalActorRefProvider not found");
         let mut know_phases = HashSet::new();
-        let phases = system.core_config().phases.clone();
+        let phases = local.settings().coordinated_shutdown.phases.clone();
         for (name, phase) in phases {
             know_phases.insert(name);
             for depends in &phase.depends_on {
@@ -178,9 +186,14 @@ impl CoordinatedShutdown {
                     .drain()
                     .collect::<HashMap<_, _>>()
             };
-            let core_config = system.core_config();
+            let provider = system.provider();
+            let local = provider
+                .downcast_ref::<LocalActorRefProvider>()
+                .expect("LocalActorRefProvider not found");
+            let settings = local.settings();
+            let phases = &settings.coordinated_shutdown.phases;
             for phase_name in &self.ordered_phases {
-                if let Some(phase) = core_config.phases.get(phase_name) {
+                if let Some(phase) = phases.get(phase_name) {
                     if phase.enabled {
                         if let Some(phase_task) = registered_phases.remove(phase_name) {
                             let mut tasks = vec![];
@@ -212,8 +225,16 @@ impl CoordinatedShutdown {
                         });
                         task_futures.push(fut);
                     }
-                    if tokio::time::timeout(timeout, join_all(task_futures)).await.err().is_some() {
-                        warn!("execute phase [{}] timeout after [{:?}]",  phase, timeout);
+                    match timeout {
+                        None => {
+                            join_all(task_futures).await;
+                        }
+                        Some(timeout) => {
+                            let timeout = timeout.to_std_duration();
+                            if tokio::time::timeout(timeout, join_all(task_futures)).await.err().is_some() {
+                                warn!("execute phase [{}] timeout after [{:?}]",  phase, timeout);
+                            }
+                        }
                     }
                 }
                 debug!("execute coordinated shutdown complete");
@@ -253,7 +274,16 @@ impl CoordinatedShutdown {
     }
 
     pub fn timeout(system: &ActorSystem, phase: &str) -> Option<Duration> {
-        system.core_config().phases.get(phase).map(|p| { p.timeout })
+        let provider = system.provider();
+        let local = provider
+            .downcast_ref::<LocalActorRefProvider>()
+            .expect("LocalActorRefProvider not found");
+        local
+            .settings()
+            .coordinated_shutdown
+            .phases
+            .get(phase)
+            .and_then(|p| { p.timeout.map(|t| t.to_std_duration()) })
     }
 }
 
@@ -293,8 +323,8 @@ impl Debug for TaskDefinition {
 }
 
 struct TaskRun {
-    name: String,
-    phase: String,
+    name: ImString,
+    phase: ImString,
     task: BoxFuture<'static, ()>,
 }
 

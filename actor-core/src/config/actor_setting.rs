@@ -8,7 +8,7 @@ use crate::provider::TActorRefProvider;
 pub struct ActorSetting<B: ProviderBuilder<P>, P: TActorRefProvider> {
     pub config: Config,
     pub registry: MessageRegistry,
-    phantom: std::marker::PhantomData<B>,
+    phantom: std::marker::PhantomData<(B, P)>,
 }
 
 impl<B, P> ActorSetting<B, P>

@@ -4,6 +4,7 @@ use std::ops::Add;
 use std::time::Duration;
 
 use ahash::{HashMap, HashSet};
+use imstr::ImString;
 use itertools::Itertools;
 use sha2::{Digest, Sha256};
 
@@ -49,21 +50,19 @@ impl Gossip {
             MemberStatus::Removed
         );
 
-        let in_reachability_but_not_member = self
-            .overview
-            .reachability
-            .all_observers()
-            .difference(&self.members_map().into_keys().collect::<HashSet<_>>())
+        let all_observers = self.overview.reachability.all_observers();
+        let members_address: HashSet<_> = self.members.iter().map(|m| &m.unique_address).collect();
+        let in_reachability_but_not_member = all_observers
+            .difference(&members_address)
             .collect::<HashSet<_>>();
         assert!(
             in_reachability_but_not_member.is_empty(),
             "Nodes not part of cluster in reachability table"
         );
 
-        let seen_but_not_member = self
-            .overview
-            .seen
-            .difference(&self.members.iter().map(|m| m.unique_address.clone()).collect())
+        let seen: HashSet<_> = self.overview.seen.iter().collect();
+        let seen_but_not_member = seen
+            .difference(&members_address)
             .collect_vec();
         assert!(
             seen_but_not_member.is_empty(),
@@ -189,7 +188,7 @@ impl Gossip {
         self.members.iter().map(|m| m.data_center()).collect()
     }
 
-    fn all_roles(&self) -> HashSet<&str> {
+    fn all_roles(&self) -> HashSet<&ImString> {
         self.members.iter().flat_map(|m| m.roles.iter()).collect()
     }
 
@@ -237,7 +236,7 @@ impl Gossip {
     fn remove(&self, node: &UniqueAddress, removal_timestamp: i64) -> Gossip {
         let mut gossip = self.clone();
         gossip.overview.seen.remove(node);
-        let reachability = gossip.overview.reachability.remove(vec![node.clone()]);
+        let reachability = gossip.overview.reachability.remove(vec![node]);
         gossip.overview.reachability = reachability;
         let new_version = self.version.prune(&Node::new(Gossip::vclock_name(&node)));
         gossip.version = new_version;

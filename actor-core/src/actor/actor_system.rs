@@ -25,17 +25,17 @@ use crate::actor::system_guardian::SystemGuardian;
 use crate::actor::user_guardian::UserGuardian;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
-use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::local_ref::LocalActorRef;
+use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::config::actor_setting::ActorSetting;
 use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::event::event_stream::EventStream;
 use crate::ext::option_ext::OptionExt;
 use crate::message::stop_child::StopChild;
-use crate::provider::{ActorRefProvider, TActorRefProvider};
 use crate::provider::builder::ProviderBuilder;
 use crate::provider::empty_provider::EmptyActorRefProvider;
+use crate::provider::{ActorRefProvider, TActorRefProvider};
 
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
@@ -65,12 +65,17 @@ impl Deref for ActorSystem {
 }
 
 impl ActorSystem {
-    pub fn new<B, P>(name: impl Into<String>, setting: ActorSetting<B, P>) -> anyhow::Result<ActorSystemRunner>
+    pub fn new<B, P>(
+        name: impl Into<String>,
+        setting: ActorSetting<B, P>,
+    ) -> anyhow::Result<ActorSystemRunner>
     where
         B: ProviderBuilder<P>,
         P: TActorRefProvider,
     {
-        let ActorSetting { config, registry, .. } = setting;
+        let ActorSetting {
+            config, registry, ..
+        } = setting;
         let scheduler = scheduler();
         let (signal_tx, mut signal_rx) = channel(1);
         let inner = Inner {
@@ -85,10 +90,15 @@ impl ActorSystem {
             termination_callbacks: TerminationCallbacks::default(),
             termination_error: Mutex::default(),
         };
-        let system = Self { inner: inner.into() };
+        let system = Self {
+            inner: inner.into(),
+        };
         system.register_extension(|_| Ok(AddressTerminatedTopic::new()))?;
-        let provider = B::build(system.clone(), config, registry).context("failed to create actor provider")?;
-        system.provider.store(Arc::new(ActorRefProvider::new(provider.provider)));
+        let provider = B::build(system.clone(), config, registry)
+            .context("failed to create actor provider")?;
+        system
+            .provider
+            .store(Arc::new(ActorRefProvider::new(provider.provider)));
         system.register_extension(CoordinatedShutdown::new)?;
         for s in provider.spawns {
             s.spawn(system.clone())?;
@@ -98,11 +108,9 @@ impl ActorSystem {
                 None => Err(anyhow!("signal tx closed")),
                 Some(result) => result,
             }
-        }.boxed();
-        let runner = ActorSystemRunner {
-            system,
-            signal,
-        };
+        }
+        .boxed();
+        let runner = ActorSystemRunner { system, signal };
         Ok(runner)
     }
 
@@ -114,18 +122,21 @@ impl ActorSystem {
         self.guardian().path.child(child)
     }
 
-    fn descendant<'a>(&self, names: impl IntoIterator<Item=&'a str>) -> ActorPath {
+    fn descendant<'a>(&self, names: impl IntoIterator<Item = &'a str>) -> ActorPath {
         self.guardian().path.descendant(names)
     }
 
     pub async fn terminate(&self) {
-        self.run_coordinated_shutdown(ActorSystemTerminateReason).await;
+        self.run_coordinated_shutdown(ActorSystemTerminateReason)
+            .await;
     }
 
-    pub(crate) fn when_terminated(&self) -> impl Future<Output=()> + 'static {
-        let result = self.termination_error.lock()
+    pub(crate) fn when_terminated(&self) -> impl Future<Output = ()> + 'static {
+        let result = self
+            .termination_error
+            .lock()
             .take()
-            .map(|e| { Err(e) })
+            .map(|e| Err(e))
             .unwrap_or(Ok(()));
         let callbacks = self.termination_callbacks.run();
         let signal = self.signal.clone();
@@ -139,7 +150,10 @@ impl ActorSystem {
         self.provider().root_guardian().stop();
     }
 
-    pub fn register_on_termination<F>(&self, fut: F) where F: Future<Output=()> + Send + 'static {
+    pub fn register_on_termination<F>(&self, fut: F)
+    where
+        F: Future<Output = ()> + Send + 'static,
+    {
         self.termination_callbacks.add(fut);
     }
 
@@ -156,10 +170,15 @@ impl ActorSystem {
         props: Props,
         name: Option<String>,
     ) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
-        self.system_guardian().attach_child_deferred_start(props, name, None)
+        self.system_guardian()
+            .attach_child_deferred_start(props, name, None)
     }
 
-    pub fn register_extension<E, F>(&self, ext_fn: F) -> anyhow::Result<()> where E: Extension, F: Fn(ActorSystem) -> anyhow::Result<E> {
+    pub fn register_extension<E, F>(&self, ext_fn: F) -> anyhow::Result<()>
+    where
+        E: Extension,
+        F: Fn(ActorSystem) -> anyhow::Result<E>,
+    {
         let extension = ext_fn(self.clone())?;
         self.extension.register(extension)?;
         Ok(())
@@ -169,7 +188,10 @@ impl ActorSystem {
         self.extension.contains_key(type_name::<E>())
     }
 
-    pub fn get_ext<E>(&self) -> Option<E> where E: Extension + Clone {
+    pub fn get_ext<E>(&self) -> Option<E>
+    where
+        E: Extension + Clone,
+    {
         self.extension.get()
     }
 
@@ -182,7 +204,10 @@ impl ActorSystem {
         WeakActorSystem { inner }
     }
 
-    pub fn run_coordinated_shutdown<R>(&self, reason: R) -> impl Future<Output=()> where R: Reason + 'static {
+    pub fn run_coordinated_shutdown<R>(&self, reason: R) -> impl Future<Output = ()>
+    where
+        R: Reason + 'static,
+    {
         CoordinatedShutdown::get(self.system()).run(reason)
     }
 }
@@ -238,7 +263,9 @@ pub struct WeakActorSystem {
 
 impl WeakActorSystem {
     pub fn upgrade(&self) -> anyhow::Result<ActorSystem> {
-        let inner = self.inner.upgrade()
+        let inner = self
+            .inner
+            .upgrade()
             .into_result()
             .context("ActorSystem destroyed, any system week reference is invalid")?;
         Ok(ActorSystem { inner })
@@ -283,11 +310,14 @@ struct TerminationCallbacks {
 }
 
 impl TerminationCallbacks {
-    fn add<F>(&self, fut: F) where F: Future<Output=()> + Send + 'static {
+    fn add<F>(&self, fut: F)
+    where
+        F: Future<Output = ()> + Send + 'static,
+    {
         self.callbacks.lock().push(fut.boxed());
     }
 
-    fn run(&self) -> impl Future<Output=()> + 'static {
+    fn run(&self) -> impl Future<Output = ()> + 'static {
         let callbacks = self.callbacks.lock().drain(..).collect::<Vec<_>>();
         async move {
             for cb in callbacks {

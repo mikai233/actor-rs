@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use config::Config;
+use config::{Config, File, FileFormat};
 use dashmap::DashMap;
 use tokio::sync::broadcast::{channel, Receiver, Sender};
 
@@ -112,6 +112,10 @@ impl LocalActorRefProvider {
         };
         Ok(Provider::new(local, spawns))
     }
+
+    pub fn settings(&self) -> &Settings {
+        &self.settings
+    }
 }
 
 impl TActorRefProvider for LocalActorRefProvider {
@@ -220,7 +224,7 @@ impl TActorRefProvider for LocalActorRefProvider {
 impl ProviderBuilder<Self> for LocalActorRefProvider {
     fn build(system: ActorSystem, config: Config, _registry: MessageRegistry) -> anyhow::Result<Provider<Self>> {
         let config = Config::builder()
-            .add_source(REFERENCE)
+            .add_source(File::from_str(REFERENCE, FileFormat::Toml))
             .add_source(config)
             .build()?;
         Self::new(system, &config, None)

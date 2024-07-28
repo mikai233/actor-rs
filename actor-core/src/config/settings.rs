@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use crate::config::actor::Actor;
 use crate::config::circuit_breaker::CircuitBreaker;
 use crate::config::coordinated_shutdown::CoordinatedShutdown;
-use crate::config::mailbox::Mailbox;
 use crate::util::duration::ConfigDuration;
 use crate::util::opt_config::OptConfig;
 
@@ -22,7 +21,6 @@ pub struct Settings {
     pub log_dead_letters_suspend_duration: ConfigDuration,
     pub extensions: Vec<String>,
     pub actor: Actor,
-    pub mailbox: HashMap<ImString, Mailbox>,
     #[serde(rename = "coordinated-shutdown")]
     pub coordinated_shutdown: CoordinatedShutdown,
     #[serde(rename = "circuit-breaker")]

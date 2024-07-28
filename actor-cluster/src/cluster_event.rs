@@ -11,7 +11,6 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use actor_core::actor::address::Address;
-use actor_core::COrphanCodec;
 
 use crate::cluster_core_daemon::{GossipStats, VectorClockStats};
 use crate::member::{Member, MemberStatus};
@@ -72,8 +71,8 @@ impl Display for CurrentClusterState {
             self.unreachable.iter().join(", "),
             self.seen_by.iter().join(", "),
             self.leader.as_ref().map_or("None".to_string(), |addr| addr.to_string()),
-            self.role_leader_map.iter().join(", "),
-            self.unreachable_data_center.iter().join(", ")
+            self.role_leader_map.iter().map(|(role, address)| format!("{} => {}", role, address.as_ref().map_or("None".to_string(), |address| address.to_string()))).join(", "),
+            self.unreachable_data_center.iter().join(", "),
             self.member_tombstones.iter().join(", "),
         )
     }
@@ -117,7 +116,7 @@ impl CurrentClusterState {
     }
 
     pub fn all_data_centers(&self) -> HashSet<&str> {
-        self.members.iter().map(|member| &member.data_center()).collect()
+        self.members.iter().map(|member| member.data_center()).collect()
     }
 
     pub fn with_unreachable_data_center(&self, unreachable_data_centers: HashSet<ImString>) -> Self {
@@ -483,7 +482,7 @@ impl Display for ReachabilityChanged {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Hash, Serialize, Deserialize, Encode, Decode)]
 pub(crate) struct CurrentInternalStats {
     pub(crate) gossip_stats: GossipStats,
     pub(crate) vclock_stats: VectorClockStats,

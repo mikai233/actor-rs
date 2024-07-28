@@ -9,9 +9,11 @@ use crate::Actor;
 use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::context::ActorContext;
 use crate::actor::mailbox::{Mailbox, MailboxSender};
+use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
+use crate::provider::local_provider::LocalActorRefProvider;
 
 type ActorSpawner = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem) -> anyhow::Result<()> + Send>;
 
@@ -69,10 +71,13 @@ impl Props {
     }
 
     pub(crate) fn mailbox(&self, system: &ActorSystem) -> anyhow::Result<(MailboxSender, Mailbox)> {
-        let core_config = system.core_config();
-        let mailbox_name = self.mailbox.as_ref().map(|m| m.as_str()).unwrap_or("default");
-        let mailbox = core_config.mailbox.get(mailbox_name).ok_or(anyhow!("mailbox {} config not found", mailbox_name))?;
-        let (m_tx, m_rx) = channel(mailbox.mailbox_capacity);
+        let provider = system.provider();
+        let local = provider
+            .downcast_ref::<LocalActorRefProvider>()
+            .ok_or(anyhow!("LocalActorRefProvider not found"))?;
+        let mailbox = &local.settings().actor.mailbox.get("default").ok_or(anyhow!("akka.actor.mailbox default config not found"))?;
+        //TODO: mailbox config
+        let (m_tx, m_rx) = channel(mailbox.mailbox_capacity.unwrap_or(1000000));
         let (s_tx, s_rx) = channel(SYSTEM_MAILBOX_SIZE);
         let sender = MailboxSender {
             message: m_tx,
