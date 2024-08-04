@@ -27,6 +27,106 @@ pub(crate) mod add_on_member_removed_listener;
 mod leave_req;
 pub(crate) mod get_cluster_core_ref_req;
 
+trait ClusterMessage {}
+
+pub(crate) mod cluster_user_action {
+    use async_trait::async_trait;
+
+    use actor_core::{EmptyCodec, Message};
+    use actor_core::actor::address::Address;
+    use actor_core::actor::context::ActorContext;
+    use actor_core::util::version::Version;
+
+    use crate::cluster_core_daemon::ClusterCoreDaemon;
+    use crate::cluster_daemon::ClusterMessage;
+
+    #[derive(Debug, Clone, EmptyCodec)]
+    pub(crate) struct JoinTo {
+        pub(crate) address: Address,
+    }
+
+    #[async_trait]
+    impl Message for JoinTo {
+        type A = ClusterCoreDaemon;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+            todo!()
+        }
+    }
+
+    #[derive(Debug, Clone, EmptyCodec)]
+    pub(crate) struct Leave {
+        pub(crate) address: Address,
+    }
+
+    #[async_trait]
+    impl Message for Leave {
+        type A = ClusterCoreDaemon;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+            todo!()
+        }
+    }
+
+    impl ClusterMessage for Leave {}
+
+    #[derive(Debug, Clone, EmptyCodec)]
+    pub(crate) struct Down {
+        pub(crate) address: Address,
+    }
+
+    impl ClusterMessage for Down {}
+
+    #[async_trait]
+    impl Message for Down {
+        type A = ClusterCoreDaemon;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+            todo!()
+        }
+    }
+
+    #[derive(Debug, Clone, EmptyCodec)]
+    pub(crate) struct PrepareForShutdown;
+
+    impl ClusterMessage for PrepareForShutdown {}
+
+    #[async_trait]
+    impl Message for PrepareForShutdown {
+        type A = ClusterCoreDaemon;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+            todo!()
+        }
+    }
+
+    #[derive(Debug, Clone, EmptyCodec)]
+    pub(crate) struct SetAppVersionLater;
+
+    #[async_trait]
+    impl Message for SetAppVersionLater {
+        type A = ClusterCoreDaemon;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+            todo!()
+        }
+    }
+
+    #[derive(Debug, Clone, EmptyCodec)]
+    pub(crate) struct SetAppVersion {
+        pub(crate) app_version: Version,
+    }
+
+    #[async_trait]
+    impl Message for SetAppVersion {
+        type A = ClusterCoreDaemon;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+            todo!()
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ClusterDaemon {
     core_supervisor: Option<ActorRef>,
@@ -97,5 +197,81 @@ impl ClusterDaemon {
         self.core_supervisor = Some(core_supervisor);
         context.spawn(ClusterHeartbeatReceiver::props(), ClusterHeartbeatReceiver::name())?;
         Ok(())
+    }
+}
+
+pub(crate) mod internal_cluster_action {
+    use ahash::HashSet;
+    use async_trait::async_trait;
+    use imstr::ImString;
+
+    use actor_core::{EmptyCodec, Message};
+    use actor_core::actor::address::Address;
+    use actor_core::actor::context::ActorContext;
+    use actor_core::util::version::Version;
+
+    use crate::cluster_daemon::{ClusterDaemon, ClusterMessage};
+    use crate::gossip::Gossip;
+    use crate::unique_address::UniqueAddress;
+
+    #[derive(Debug, EmptyCodec)]
+    pub(crate) struct Join {
+        pub(crate) node: UniqueAddress,
+        pub(crate) roles: HashSet<ImString>,
+        pub(crate) app_version: Version,
+    }
+
+    impl ClusterMessage for Join {}
+
+    #[async_trait]
+    impl Message for Join {
+        type A = ClusterDaemon;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+            todo!()
+        }
+    }
+
+    #[derive(Debug, EmptyCodec)]
+    pub(crate) struct Welcome {
+        pub(crate) from: UniqueAddress,
+        pub(crate) gossip: Gossip,
+    }
+
+    impl ClusterMessage for Welcome {}
+
+    #[async_trait]
+    impl Message for Welcome {
+        type A = ClusterDaemon;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+            todo!()
+        }
+    }
+
+    #[derive(Debug, EmptyCodec)]
+    pub(crate) struct JoinSeedNodes {
+        pub(crate) seed_nodes: Vec<Address>,
+    }
+
+    #[async_trait]
+    impl Message for JoinSeedNodes {
+        type A = ClusterDaemon;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+            todo!()
+        }
+    }
+
+    #[derive(Debug, EmptyCodec)]
+    pub(crate) struct JoinSeedNode;
+
+    #[async_trait]
+    impl Message for JoinSeedNode {
+        type A = ClusterDaemon;
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+            todo!()
+        }
     }
 }

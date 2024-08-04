@@ -141,7 +141,7 @@ impl ClusterSingletonProxy {
 #[async_trait]
 impl Actor for ClusterSingletonProxy {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        self.cluster.subscribe_cluster_event(
+        self.cluster.subscribe(
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
         )?;

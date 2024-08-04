@@ -41,7 +41,7 @@ impl OnMemberStatusChangedListener {
 #[async_trait]
 impl Actor for OnMemberStatusChangedListener {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        self.cluster.subscribe_cluster_event(context.myself().clone(), |event| { ClusterEventWrap(event).into_dyn() })?;
+        self.cluster.subscribe(context.myself().clone(), |event| { ClusterEventWrap(event).into_dyn() })?;
         debug_assert!(matches!(self.status,MemberStatus::Up) || matches!(self.status,MemberStatus::Removed));
         Ok(())
     }

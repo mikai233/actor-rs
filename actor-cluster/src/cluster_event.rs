@@ -17,6 +17,12 @@ use crate::member::{Member, MemberStatus};
 use crate::reachability::Reachability;
 use crate::unique_address::UniqueAddress;
 
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum SubscriptionInitialStateMode {
+    InitialStateAsSnapshot,
+    InitialStateAsEvents,
+}
+
 pub(crate) trait ClusterDomainEvent {
     fn name(&self) -> &'static str;
 

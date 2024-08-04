@@ -203,7 +203,7 @@ impl Shard {
 #[async_trait]
 impl Actor for Shard {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        Cluster::get(context.system()).subscribe_cluster_event(
+        Cluster::get(context.system()).subscribe(
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
         )?;

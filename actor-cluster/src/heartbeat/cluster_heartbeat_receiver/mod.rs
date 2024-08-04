@@ -25,7 +25,7 @@ pub(crate) struct ClusterHeartbeatReceiver {
 impl Actor for ClusterHeartbeatReceiver {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         trace!("started {}", context.myself());
-        Cluster::get(context.system()).subscribe_cluster_event(
+        Cluster::get(context.system()).subscribe(
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
         )?;

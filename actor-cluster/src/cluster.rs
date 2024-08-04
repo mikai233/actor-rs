@@ -16,7 +16,6 @@ use actor_core::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::AsAny;
-use actor_core::DynMessage;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::provider::local_provider::LocalActorRefProvider;
@@ -29,7 +28,7 @@ use crate::cluster_daemon::ClusterDaemon;
 use crate::cluster_daemon::get_cluster_core_ref_req::{
     GetClusterCoreRefReq, GetClusterCoreRefResp,
 };
-use crate::cluster_event::MemberEvent;
+use crate::cluster_event::{ClusterDomainEvent, MemberEvent, SubscriptionInitialStateMode};
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::cluster_settings::ClusterSettings;
 use crate::cluster_state::ClusterState;
@@ -133,23 +132,18 @@ impl Cluster {
             .expect(&format!("{} not found", type_name::<Self>()))
     }
 
-    pub fn subscribe_cluster_event<T>(
+    pub fn subscribe<T>(
         &self,
         subscriber: ActorRef,
-        transform: T,
-    ) -> anyhow::Result<()>
+    ) where
+        T: ClusterDomainEvent,
+    {}
+
+    pub fn subscribe_with_mode<T>(&self, subscriber: ActorRef, initial_state_mode: SubscriptionInitialStateMode)
     where
-        T: Fn(MemberEvent) -> DynMessage + Send + Sync + 'static,
+        T: ClusterDomainEvent,
     {
-        let members = self.members().clone();
-        let self_member = self.self_member().clone();
-        let state = transform(MemberEvent::current_cluster_state(members, self_member));
-        subscriber.tell(state, ActorRef::no_sender());
-        self.system
-            .upgrade()?
-            .event_stream
-            .subscribe(subscriber, transform);
-        Ok(())
+        
     }
 
     pub fn unsubscribe_cluster_event(&self, subscriber: &ActorRef) -> anyhow::Result<()> {
