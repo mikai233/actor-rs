@@ -4,12 +4,11 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use anyhow::{anyhow, Context, Ok};
 use bincode::{Decode, Encode};
 use bytes::BytesMut;
-use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::time::LocalTime;
+use tracing_subscriber::EnvFilter;
 
 pub mod option_ext;
 pub mod as_any;
-pub mod etcd_client;
 pub mod maybe_ref;
 pub mod duration_ext;
 pub mod collection;

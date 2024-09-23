@@ -6,7 +6,6 @@ use async_trait::async_trait;
 use tokio::sync::mpsc::{channel, Sender};
 use tracing::{debug, warn};
 
-use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::coordinated_shutdown::{ClusterDowningReason, CoordinatedShutdown, PHASE_CLUSTER_LEAVE, PHASE_CLUSTER_SHUTDOWN};
 use actor_core::actor::props::Props;
@@ -14,6 +13,7 @@ use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRef;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
+use actor_core::{Actor, DynMessage};
 
 use crate::cluster::Cluster;
 use crate::cluster_core_supervisor::ClusterCoreSupervisor;
@@ -32,10 +32,10 @@ trait ClusterMessage {}
 pub(crate) mod cluster_user_action {
     use async_trait::async_trait;
 
-    use actor_core::{EmptyCodec, Message};
     use actor_core::actor::address::Address;
     use actor_core::actor::context::ActorContext;
     use actor_core::util::version::Version;
+    use actor_core::{EmptyCodec, Message};
 
     use crate::cluster_core_daemon::ClusterCoreDaemon;
     use crate::cluster_daemon::ClusterMessage;
@@ -205,12 +205,14 @@ pub(crate) mod internal_cluster_action {
     use async_trait::async_trait;
     use imstr::ImString;
 
-    use actor_core::{EmptyCodec, Message};
     use actor_core::actor::address::Address;
     use actor_core::actor::context::ActorContext;
+    use actor_core::actor_ref::ActorRef;
     use actor_core::util::version::Version;
+    use actor_core::{EmptyCodec, Message};
 
     use crate::cluster_daemon::{ClusterDaemon, ClusterMessage};
+    use crate::cluster_event::SubscriptionInitialStateMode;
     use crate::gossip::Gossip;
     use crate::unique_address::UniqueAddress;
 
@@ -273,5 +275,18 @@ pub(crate) mod internal_cluster_action {
         async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
             todo!()
         }
+    }
+
+    #[derive(Debug, EmptyCodec)]
+    pub struct Subscribe {
+        pub subscriber: ActorRef,
+        pub initial_state_mode: SubscriptionInitialStateMode,
+        pub to: &'static str,
+    }
+
+    #[derive(Debug, EmptyCodec)]
+    pub struct Unsubscribe {
+        pub subscriber: ActorRef,
+        pub to: Option<&'static str>,
     }
 }

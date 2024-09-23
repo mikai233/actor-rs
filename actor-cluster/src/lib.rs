@@ -1,4 +1,3 @@
-pub use etcd_client;
 pub use parking_lot;
 
 pub(crate) const REFERENCE: &'static str = include_str!("../reference.toml");
@@ -15,7 +14,6 @@ pub mod cluster_state;
 pub mod config;
 mod coordinated_shutdown_leave;
 pub mod downing_provider;
-pub mod etcd_actor;
 mod gossip;
 mod heartbeat;
 pub mod member;

@@ -1,9 +1,8 @@
 use std::any::type_name;
 use std::fmt::Debug;
-use std::mem::MaybeUninit;
 use std::ops::Deref;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use ahash::{HashMap, HashSet};
 use anyhow::{anyhow, Context};
@@ -13,21 +12,22 @@ use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
 use actor_core::actor::address::Address;
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::AsAny;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::provider::local_provider::LocalActorRefProvider;
 use actor_core::provider::TActorRefProvider;
+use actor_core::AsAny;
 
 use crate::cluster_core_daemon::leave::Leave;
 use crate::cluster_daemon::add_on_member_removed_listener::AddOnMemberRemovedListener;
 use crate::cluster_daemon::add_on_member_up_listener::AddOnMemberUpListener;
-use crate::cluster_daemon::ClusterDaemon;
 use crate::cluster_daemon::get_cluster_core_ref_req::{
     GetClusterCoreRefReq, GetClusterCoreRefResp,
 };
+use crate::cluster_daemon::internal_cluster_action::{Subscribe, Unsubscribe};
+use crate::cluster_daemon::ClusterDaemon;
 use crate::cluster_event::{ClusterDomainEvent, MemberEvent, SubscriptionInitialStateMode};
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::cluster_settings::ClusterSettings;
@@ -47,7 +47,7 @@ pub struct Inner {
     pub self_unique_address: UniqueAddress,
     roles: HashSet<String>,
     pub cluster_daemons: ActorRef,
-    pub cluster_core: RwLock<MaybeUninit<ActorRef>>,
+    cluster_core: RwLock<Option<ActorRef>>,
     state: ClusterState,
     is_terminated: AtomicBool,
     cluster_daemons_spawn: Mutex<Option<ActorDeferredSpawn>>,
@@ -84,7 +84,7 @@ impl Extension for Cluster {
             })
         })?
         .0;
-        self.cluster_core.write().write(cluster_core);
+        *self.cluster_core.write() = Some(cluster_core);
         Ok(())
     }
 }
@@ -116,7 +116,7 @@ impl Cluster {
             self_unique_address,
             roles,
             cluster_daemons,
-            cluster_core: RwLock::new(MaybeUninit::uninit()),
+            cluster_core: RwLock::new(None),
             state,
             is_terminated: AtomicBool::new(false),
             cluster_daemons_spawn: Mutex::new(Some(cluster_daemons_deferred)),
@@ -135,23 +135,42 @@ impl Cluster {
     pub fn subscribe<T>(
         &self,
         subscriber: ActorRef,
+        initial_state_mode: SubscriptionInitialStateMode,
     ) where
         T: ClusterDomainEvent,
-    {}
+    {
+        let subscribe = Subscribe {
+            subscriber,
+            initial_state_mode,
+            to: type_name::<T>(),
+        };
+        self.cluster_core().cast_ns(subscribe);
+    }
 
-    pub fn subscribe_with_mode<T>(&self, subscriber: ActorRef, initial_state_mode: SubscriptionInitialStateMode)
+    pub fn subscribe_with_initial_state_as_snapshot<T>(&self, subscriber: ActorRef)
     where
         T: ClusterDomainEvent,
     {
-        
+        self.subscribe::<T>(subscriber, SubscriptionInitialStateMode::InitialStateAsSnapshot);
     }
 
-    pub fn unsubscribe_cluster_event(&self, subscriber: &ActorRef) -> anyhow::Result<()> {
-        self.system
-            .upgrade()?
-            .event_stream
-            .unsubscribe::<MemberEvent>(subscriber);
-        Ok(())
+    pub fn unsubscribe<T>(&self, subscriber: ActorRef)
+    where
+        T: ClusterDomainEvent,
+    {
+        let unsubscribe = Unsubscribe {
+            subscriber,
+            to: Some(type_name::<T>()),
+        };
+        self.cluster_core().cast_ns(unsubscribe);
+    }
+
+    pub fn unsubscribe_all(&self, subscriber: ActorRef) {
+        let unsubscribe = Unsubscribe {
+            subscriber,
+            to: None,
+        };
+        self.cluster_core().cast_ns(unsubscribe);
     }
 
     pub fn leave(&self, address: Address) {
@@ -242,7 +261,7 @@ impl Cluster {
     }
 
     pub fn cluster_core(&self) -> ActorRef {
-        let cluster_core = self.cluster_core.read();
-        unsafe { cluster_core.assume_init_ref().clone() }
+        self.cluster_core.read().as_ref().unwrap();
+        self.cluster_core.read().clone().expect("cluster_core not initialized")
     }
 }
