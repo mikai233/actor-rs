@@ -1,15 +1,15 @@
 use std::cmp::min;
-use std::collections::BTreeSet;
 use std::collections::hash_map::Entry;
+use std::collections::BTreeSet;
 use std::sync::OnceLock;
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
-use rand::{Rng, thread_rng};
 use rand::seq::SliceRandom;
+use rand::{random, thread_rng};
 
-use actor_core::{btree_set, hashset};
 use actor_core::ext::maybe_ref::MaybeRef;
 use actor_core::ext::option_ext::OptionExt;
+use actor_core::{btree_set, hashset};
 
 use crate::cluster_settings::ClusterSettings;
 use crate::gossip::{Gossip, GossipOverview};
@@ -26,26 +26,26 @@ pub(crate) struct MembershipState {
 }
 
 impl MembershipState {
-    fn self_member(&self) -> MaybeRef<Member> {
+    pub(crate) fn self_member(&self) -> MaybeRef<Member> {
         self.latest_gossip.member(&self.self_unique_address)
     }
 
-    fn members(&self) -> &BTreeSet<Member> {
+    pub(crate) fn members(&self) -> &BTreeSet<Member> {
         &self.latest_gossip.members
     }
 
-    fn overview(&self) -> &GossipOverview {
+    pub(crate) fn overview(&self) -> &GossipOverview {
         &self.latest_gossip.overview
     }
 
-    fn seen(&self) -> MembershipState {
+    pub(crate) fn seen(&self) -> MembershipState {
         let mut state = self.clone();
         let gossip = state.latest_gossip.seen(&self.self_unique_address);
         state.latest_gossip = gossip;
         state
     }
 
-    fn convergence(&self, exiting_confirmed: &HashSet<UniqueAddress>) -> bool {
+    pub(crate) fn convergence(&self, exiting_confirmed: &HashSet<UniqueAddress>) -> bool {
         let first_member_in_dc = !self.members().iter().any(|m| {
             m.data_center() == self.self_dc && Self::convergence_member_status().contains(&m.status)
         });
@@ -78,7 +78,7 @@ impl MembershipState {
         all_unreachables_can_be_ignored && !member_hindering_convergence_exists()
     }
 
-    fn dc_reachability(&self) -> Reachability {
+    pub(crate) fn dc_reachability(&self) -> Reachability {
         let nodes = self
             .members()
             .iter()
@@ -93,12 +93,12 @@ impl MembershipState {
         self.overview().reachability.remove_observers(nodes)
     }
 
-    fn dc_reachability_without_observations_within(&self) -> Reachability {
+    pub(crate) fn dc_reachability_without_observations_within(&self) -> Reachability {
         self.dc_reachability()
             .filter_records(|r| self.latest_gossip.member(&r.subject).data_center() != self.self_dc)
     }
 
-    fn dc_reachability_excluding_downed_observers(&self) -> Reachability {
+    pub(crate) fn dc_reachability_excluding_downed_observers(&self) -> Reachability {
         let members_to_exclude = self
             .members()
             .iter()
@@ -123,7 +123,7 @@ impl MembershipState {
             .remove(nodes)
     }
 
-    fn dc_reachability_no_outside_nodes(&self) -> Reachability {
+    pub(crate) fn dc_reachability_no_outside_nodes(&self) -> Reachability {
         let nodes = self.members().iter().filter_map(|m| {
             if m.data_center() != self.self_dc {
                 Some(&m.unique_address)
@@ -134,7 +134,7 @@ impl MembershipState {
         self.overview().reachability.remove(nodes)
     }
 
-    fn age_sorted_top_oldest_members_per_dc(
+    pub(crate) fn age_sorted_top_oldest_members_per_dc(
         &self,
     ) -> HashMap<&str, BTreeSet<MemberByAgeOrderingRef>> {
         self.latest_gossip.members.iter().fold(
@@ -163,7 +163,7 @@ impl MembershipState {
         )
     }
 
-    fn is_reachable_excluding_downed_observers(&self, to_address: &UniqueAddress) -> bool {
+    pub(crate) fn is_reachable_excluding_downed_observers(&self, to_address: &UniqueAddress) -> bool {
         if !self.latest_gossip.has_member(to_address) {
             false
         } else {
@@ -179,7 +179,7 @@ impl MembershipState {
         }
     }
 
-    fn dc_members(&self) -> BTreeSet<&Member> {
+    pub(crate) fn dc_members(&self) -> BTreeSet<&Member> {
         if self.latest_gossip.is_multi_dc() {
             self.members()
                 .iter()
@@ -190,19 +190,19 @@ impl MembershipState {
         }
     }
 
-    fn is_leader(&self, node: &UniqueAddress) -> bool {
+    pub(crate) fn is_leader(&self, node: &UniqueAddress) -> bool {
         self.leader().map_or(false, |leader| leader == node)
     }
 
-    fn leader(&self) -> Option<&UniqueAddress> {
+    pub(crate) fn leader(&self) -> Option<&UniqueAddress> {
         self.leader_of(self.members().iter().collect())
     }
 
-    fn role_leader(&self, role: &str) -> Option<&UniqueAddress> {
+    pub(crate) fn role_leader(&self, role: &str) -> Option<&UniqueAddress> {
         self.leader_of(self.members().iter().filter(|m| m.has_role(role)).collect())
     }
 
-    fn leader_of<'a>(&self, members: BTreeSet<&'a Member>) -> Option<&'a UniqueAddress> {
+    pub(crate) fn leader_of<'a>(&self, members: BTreeSet<&'a Member>) -> Option<&'a UniqueAddress> {
         let reachability = self.dc_reachability();
         let reachable_members_in_dc: BTreeSet<_> = if reachability.is_all_unreachable() {
             members
@@ -237,12 +237,12 @@ impl MembershipState {
         }
     }
 
-    fn is_in_same_dc(&self, node: &UniqueAddress) -> bool {
+    pub(crate) fn is_in_same_dc(&self, node: &UniqueAddress) -> bool {
         *node == self.self_unique_address
             || self.latest_gossip.member(node).data_center() == self.self_dc
     }
 
-    fn valid_node_for_gossip(&self, node: &UniqueAddress) -> bool {
+    pub(crate) fn valid_node_for_gossip(&self, node: &UniqueAddress) -> bool {
         *node == self.self_unique_address
             && self
                 .overview()
@@ -250,7 +250,7 @@ impl MembershipState {
                 .is_reachable(&self.self_unique_address, node)
     }
 
-    fn youngest_member(&self) -> &Member {
+    pub(crate) fn youngest_member(&self) -> &Member {
         let members = self.dc_members();
         assert!(!members.is_empty(), "No youngest when no members");
         members
@@ -265,7 +265,7 @@ impl MembershipState {
             .unwrap()
     }
 
-    fn gossip_targets_for_exiting_members(
+    pub(crate) fn gossip_targets_for_exiting_members(
         &self,
         exiting_members: HashSet<&Member>,
     ) -> HashSet<&Member> {
@@ -312,7 +312,7 @@ impl MembershipState {
         }
     }
 
-    fn leader_member_status() -> &'static HashSet<MemberStatus> {
+    pub(crate) fn leader_member_status() -> &'static HashSet<MemberStatus> {
         static LEADER_MEMBER_STATUS: OnceLock<HashSet<MemberStatus>> = OnceLock::new();
         LEADER_MEMBER_STATUS.get_or_init(|| {
             hashset! {
@@ -324,7 +324,7 @@ impl MembershipState {
         })
     }
 
-    fn convergence_member_status() -> &'static HashSet<MemberStatus> {
+    pub(crate) fn convergence_member_status() -> &'static HashSet<MemberStatus> {
         static CONVERGENCE_MEMBER_STATUS: OnceLock<HashSet<MemberStatus>> = OnceLock::new();
         CONVERGENCE_MEMBER_STATUS.get_or_init(|| {
             hashset! {
@@ -336,7 +336,7 @@ impl MembershipState {
         })
     }
 
-    fn convergence_skip_unreachable_with_member_status() -> &'static HashSet<MemberStatus> {
+    pub(crate) fn convergence_skip_unreachable_with_member_status() -> &'static HashSet<MemberStatus> {
         static CONVERGENCE_SKIP_UNREACHABLE_WITH_MEMBER_STATUS: OnceLock<HashSet<MemberStatus>> =
             OnceLock::new();
         CONVERGENCE_SKIP_UNREACHABLE_WITH_MEMBER_STATUS.get_or_init(|| {
@@ -358,7 +358,7 @@ impl MembershipState {
         })
     }
 
-    fn allowed_to_prepare_to_shutdown() -> &'static HashSet<MemberStatus> {
+    pub(crate) fn allowed_to_prepare_to_shutdown() -> &'static HashSet<MemberStatus> {
         static ALLOWED_TO_PREPARE_TO_SHUTDOWN: OnceLock<HashSet<MemberStatus>> = OnceLock::new();
         ALLOWED_TO_PREPARE_TO_SHUTDOWN.get_or_init(|| {
             hashset! {
@@ -367,7 +367,7 @@ impl MembershipState {
         })
     }
 
-    fn prepare_for_shutdown_states() -> &'static HashSet<MemberStatus> {
+    pub(crate) fn prepare_for_shutdown_states() -> &'static HashSet<MemberStatus> {
         static PREPARE_FOR_SHUTDOWN_STATES: OnceLock<HashSet<MemberStatus>> = OnceLock::new();
         PREPARE_FOR_SHUTDOWN_STATES.get_or_init(|| {
             hashset! {
@@ -380,20 +380,20 @@ impl MembershipState {
 
 #[derive(Debug)]
 pub(crate) struct GossipTargetSelector {
-    reduce_gossip_different_view_probability: f64,
-    cross_dc_gossip_probability: f64,
+    pub(crate) reduce_gossip_different_view_probability: f64,
+    pub(crate) cross_dc_gossip_probability: f64,
 }
 
 impl GossipTargetSelector {
-    fn gossip_target(&self, state: &MembershipState) -> Option<UniqueAddress> {
+    pub(crate) fn gossip_target(&self, state: &MembershipState) -> Option<UniqueAddress> {
         unimplemented!()
     }
 
-    fn gossip_targets(&self, state: &MembershipState) -> Vec<UniqueAddress> {
+    pub(crate) fn gossip_targets(&self, state: &MembershipState) -> Vec<UniqueAddress> {
         unimplemented!()
     }
 
-    fn random_nodes_for_full_gossip(
+    pub(crate) fn random_nodes_for_full_gossip(
         &self,
         state: &MembershipState,
         n: usize,
@@ -482,16 +482,16 @@ impl GossipTargetSelector {
         }
     }
 
-    fn local_dc_gossip_targets(&self, state: &MembershipState) -> Vec<UniqueAddress> {
+    pub(crate) fn local_dc_gossip_targets(&self, state: &MembershipState) -> Vec<UniqueAddress> {
         let latest_gossip = &state.latest_gossip;
         unimplemented!()
     }
 
-    fn multi_dc_gossip_targets(&self, state: &MembershipState) -> Vec<UniqueAddress> {
+    pub(crate) fn multi_dc_gossip_targets(&self, state: &MembershipState) -> Vec<UniqueAddress> {
         unimplemented!()
     }
 
-    fn adjusted_gossip_different_view_probability(&self, cluster_size: usize) -> f64 {
+    pub(crate) fn adjusted_gossip_different_view_probability(&self, cluster_size: usize) -> f64 {
         let low = self.reduce_gossip_different_view_probability;
         let high = low * 3.0;
         if cluster_size as f64 <= low {
@@ -507,7 +507,7 @@ impl GossipTargetSelector {
         }
     }
 
-    fn select_dc_local_nodes(&self, state: &MembershipState) -> bool {
+    pub(crate) fn select_dc_local_nodes(&self, state: &MembershipState) -> bool {
         let local_members = state.dc_members().len();
         let probability = if local_members > 4 {
             self.cross_dc_gossip_probability
@@ -515,20 +515,19 @@ impl GossipTargetSelector {
             self.cross_dc_gossip_probability
                 .max((5.0 - local_members as f64) * 0.25)
         };
-        thread_rng().gen::<f64>() > probability
+        random::<f64>() > probability
     }
 
-    fn prefer_nodes_with_different_view(&self, state: &MembershipState) -> bool {
-        thread_rng().gen::<f64>()
-            < self.adjusted_gossip_different_view_probability(state.latest_gossip.members.len())
+    pub(crate) fn prefer_nodes_with_different_view(&self, state: &MembershipState) -> bool {
+        random::<f64>() < self.adjusted_gossip_different_view_probability(state.latest_gossip.members.len())
     }
 
-    fn dcs_in_random_order<'a>(&self, mut dcs: Vec<&'a str>) -> Vec<&'a str> {
+    pub(crate) fn dcs_in_random_order<'a>(&self, mut dcs: Vec<&'a str>) -> Vec<&'a str> {
         dcs.shuffle(&mut thread_rng());
         dcs
     }
 
-    fn select_random_node<'a, I>(
+    pub(crate) fn select_random_node<'a, I>(
         &self,
         nodes: impl Iterator<Item = &'a UniqueAddress>,
     ) -> Option<&'a UniqueAddress> {

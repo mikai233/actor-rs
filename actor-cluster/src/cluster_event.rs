@@ -1,21 +1,24 @@
-use std::any::Any;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 
+use crate::cluster::Cluster;
+use crate::cluster_core_daemon::{GossipStats, VectorClockStats};
+use crate::member::{Member, MemberStatus};
+use crate::membership_state::MembershipState;
+use crate::reachability::Reachability;
+use crate::unique_address::UniqueAddress;
+use actor_core::actor::address::Address;
+use actor_core::actor::context::ActorContext;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::event::event_stream::EventStream;
+use actor_core::{Actor, DynMessage};
 use ahash::{HashMap, HashSet};
-use anyhow::ensure;
+use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use imstr::ImString;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-
-use actor_core::actor::address::Address;
-
-use crate::cluster_core_daemon::{GossipStats, VectorClockStats};
-use crate::member::{Member, MemberStatus};
-use crate::reachability::Reachability;
-use crate::unique_address::UniqueAddress;
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum SubscriptionInitialStateMode {
@@ -23,39 +26,48 @@ pub enum SubscriptionInitialStateMode {
     InitialStateAsEvents,
 }
 
-pub(crate) trait ClusterDomainEvent {
+pub(crate) trait Sealed {}
+
+impl<T> Sealed for T where T: ClusterDomainEvent {}
+
+pub trait ClusterDomainEvent: Sealed {
     fn name(&self) -> &'static str;
-
-    fn as_any(&self) -> &dyn Any;
-
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-
-    fn into_any(self: Box<Self>) -> Box<dyn Any>;
 }
 
-#[macro_export]
 macro_rules! impl_cluster_domain_event {
-    ($name:ident) => {
-        impl ClusterDomainEvent for $name {
-            fn name(&self) -> &'static str {
-                std::any::type_name::<Self>()
+    ($($t:ty),*) => {
+        $(
+            impl ClusterDomainEvent for $t {
+                fn name(&self) -> &'static str {
+                    std::any::type_name::<Self>()
+                }
             }
-
-            fn as_any(&self) -> &dyn Any {
-                self
-            }
-
-            fn as_any_mut(&mut self) -> &mut dyn Any {
-                self
-            }
-
-            fn into_any(self: Box<Self>) -> Box<dyn Any> {
-                self
-            }
-        }
+        )*
     };
-
 }
+
+impl_cluster_domain_event!(
+    MemberJoined,
+    MemberWeaklyUp,
+    MemberUp,
+    MemberLeft,
+    MemberPreparingForShutdown,
+    MemberReadyForShutdown,
+    MemberExited,
+    MemberDowned,
+    MemberRemoved,
+    LeaderChanged,
+    RoleLeaderChanged,
+    ClusterShuttingDown,
+    UnreachableMember,
+    ReachableMember,
+    UnreachableDataCenter,
+    ReachableDataCenter,
+    SeenChanged,
+    ReachabilityChanged,
+    CurrentInternalStats,
+    MemberTombstonesChanged
+);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct CurrentClusterState {
@@ -122,10 +134,16 @@ impl CurrentClusterState {
     }
 
     pub fn all_data_centers(&self) -> HashSet<&str> {
-        self.members.iter().map(|member| member.data_center()).collect()
+        self.members
+            .iter()
+            .map(|member| member.data_center())
+            .collect()
     }
 
-    pub fn with_unreachable_data_center(&self, unreachable_data_centers: HashSet<ImString>) -> Self {
+    pub fn with_unreachable_data_center(
+        &self,
+        unreachable_data_centers: HashSet<ImString>,
+    ) -> Self {
         let mut state = self.clone();
         state.unreachable_data_center = unreachable_data_centers;
         state
@@ -138,36 +156,47 @@ impl CurrentClusterState {
     }
 }
 
-pub trait MemberEvent: ClusterDomainEvent {
-    fn member(&self) -> &Member;
-
-    fn into_inner(self: Box<Self>) -> Member;
+#[derive(Debug)]
+pub struct SelfUp {
+    pub current_cluster_state: CurrentClusterState,
 }
 
-#[derive(Debug, Clone)]
+pub trait MemberEvent: ClusterDomainEvent {}
+
+macro_rules! impl_member_event {
+    ($($t:ty),*) => {
+        $(
+            impl MemberEvent for $t {}
+        )*
+    };
+}
+
+impl_member_event!(
+    MemberJoined,
+    MemberWeaklyUp,
+    MemberUp,
+    MemberLeft,
+    MemberPreparingForShutdown,
+    MemberReadyForShutdown,
+    MemberExited,
+    MemberDowned,
+    MemberRemoved
+);
+
+#[derive(Debug)]
 pub struct MemberJoined {
     pub member: Member,
 }
 
 impl MemberJoined {
-    pub fn new(member: Member) -> anyhow::Result<Self> {
-        ensure!(
-            member.status == MemberStatus::Joining,
-            "Member status must be Joining"
+    pub fn new(member: Member) -> Self {
+        assert_eq!(
+            member.status,
+            MemberStatus::Joining,
+            "Expected Joining status, got: {}",
+            member.status
         );
-        Ok(Self { member })
-    }
-}
-
-impl_cluster_domain_event!(MemberJoined);
-
-impl MemberEvent for MemberJoined {
-    fn member(&self) -> &Member {
-        &self.member
-    }
-
-    fn into_inner(self: Box<Self>) -> Member {
-        self.member
+        Self { member }
     }
 }
 
@@ -177,30 +206,20 @@ impl Display for MemberJoined {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MemberWeaklyUp {
     pub member: Member,
 }
 
 impl MemberWeaklyUp {
-    pub fn new(member: Member) -> anyhow::Result<Self> {
-        ensure!(
-            member.status == MemberStatus::WeaklyUp,
-            "Member status must be WeaklyUp"
+    pub fn new(member: Member) -> Self {
+        assert_eq!(
+            member.status,
+            MemberStatus::WeaklyUp,
+            "Expected WeaklyUp status, got: {}",
+            member.status
         );
-        Ok(Self { member })
-    }
-}
-
-impl_cluster_domain_event!(MemberWeaklyUp);
-
-impl MemberEvent for MemberWeaklyUp {
-    fn member(&self) -> &Member {
-        &self.member
-    }
-
-    fn into_inner(self: Box<Self>) -> Member {
-        self.member
+        Self { member }
     }
 }
 
@@ -210,27 +229,20 @@ impl Display for MemberWeaklyUp {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MemberUp {
     pub member: Member,
 }
 
 impl MemberUp {
-    pub fn new(member: Member) -> anyhow::Result<Self> {
-        ensure!(member.status == MemberStatus::Up, "Member status must be Up");
-        Ok(Self { member })
-    }
-}
-
-impl_cluster_domain_event!(MemberUp);
-
-impl MemberEvent for MemberUp {
-    fn member(&self) -> &Member {
-        &self.member
-    }
-
-    fn into_inner(self: Box<Self>) -> Member {
-        self.member
+    pub fn new(member: Member) -> Self {
+        assert_eq!(
+            member.status,
+            MemberStatus::Up,
+            "Expected Up status, got: {}",
+            member.status
+        );
+        Self { member }
     }
 }
 
@@ -240,27 +252,20 @@ impl Display for MemberUp {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MemberLeft {
     pub member: Member,
 }
 
 impl MemberLeft {
-    pub fn new(member: Member) -> anyhow::Result<Self> {
-        ensure!(member.status == MemberStatus::Leaving, "Member status must be Leaving");
-        Ok(Self { member })
-    }
-}
-
-impl_cluster_domain_event!(MemberLeft);
-
-impl MemberEvent for MemberLeft {
-    fn member(&self) -> &Member {
-        &self.member
-    }
-
-    fn into_inner(self: Box<Self>) -> Member {
-        self.member
+    pub fn new(member: Member) -> Self {
+        assert_eq!(
+            member.status,
+            MemberStatus::Leaving,
+            "Expected Leaving status, got: {}",
+            member.status
+        );
+        Self { member }
     }
 }
 
@@ -270,30 +275,20 @@ impl Display for MemberLeft {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MemberPreparingForShutdown {
     pub member: Member,
 }
 
 impl MemberPreparingForShutdown {
-    pub fn new(member: Member) -> anyhow::Result<Self> {
-        ensure!(
-            member.status == MemberStatus::PreparingForShutdown,
-            "Member status must be PreparingForShutdown"
+    pub fn new(member: Member) -> Self {
+        assert_eq!(
+            member.status,
+            MemberStatus::PreparingForShutdown,
+            "Expected PreparingForShutdown status, got: {}",
+            member.status
         );
-        Ok(Self { member })
-    }
-}
-
-impl_cluster_domain_event!(MemberPreparingForShutdown);
-
-impl MemberEvent for MemberPreparingForShutdown {
-    fn member(&self) -> &Member {
-        &self.member
-    }
-
-    fn into_inner(self: Box<Self>) -> Member {
-        self.member
+        Self { member }
     }
 }
 
@@ -303,30 +298,20 @@ impl Display for MemberPreparingForShutdown {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MemberReadyForShutdown {
     pub member: Member,
 }
 
 impl MemberReadyForShutdown {
-    pub fn new(member: Member) -> anyhow::Result<Self> {
-        ensure!(
-            member.status == MemberStatus::ReadyForShutdown,
-            "Member status must be ReadyForShutdown"
+    pub fn new(member: Member) -> Self {
+        assert_eq!(
+            member.status,
+            MemberStatus::ReadyForShutdown,
+            "Expected ReadyForShutdown status, got: {}",
+            member.status
         );
-        Ok(Self { member })
-    }
-}
-
-impl_cluster_domain_event!(MemberReadyForShutdown);
-
-impl MemberEvent for MemberReadyForShutdown {
-    fn member(&self) -> &Member {
-        &self.member
-    }
-
-    fn into_inner(self: Box<Self>) -> Member {
-        self.member
+        Self { member }
     }
 }
 
@@ -336,27 +321,20 @@ impl Display for MemberReadyForShutdown {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MemberExited {
     pub member: Member,
 }
 
 impl MemberExited {
-    pub fn new(member: Member) -> anyhow::Result<Self> {
-        ensure!(member.status == MemberStatus::Exiting, "Member status must be Exiting");
-        Ok(Self { member })
-    }
-}
-
-impl_cluster_domain_event!(MemberExited);
-
-impl MemberEvent for MemberExited {
-    fn member(&self) -> &Member {
-        &self.member
-    }
-
-    fn into_inner(self: Box<Self>) -> Member {
-        self.member
+    pub fn new(member: Member) -> Self {
+        assert_eq!(
+            member.status,
+            MemberStatus::Exiting,
+            "Expected Exiting status, got: {}",
+            member.status
+        );
+        Self { member }
     }
 }
 
@@ -366,27 +344,20 @@ impl Display for MemberExited {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MemberDowned {
     pub member: Member,
 }
 
 impl MemberDowned {
-    pub fn new(member: Member) -> anyhow::Result<Self> {
-        ensure!(member.status == MemberStatus::Down, "Member status must be Down");
-        Ok(Self { member })
-    }
-}
-
-impl_cluster_domain_event!(MemberDowned);
-
-impl MemberEvent for MemberDowned {
-    fn member(&self) -> &Member {
-        &self.member
-    }
-
-    fn into_inner(self: Box<Self>) -> Member {
-        self.member
+    pub fn new(member: Member) -> Self {
+        assert_eq!(
+            member.status,
+            MemberStatus::Down,
+            "Expected Down status, got: {}",
+            member.status
+        );
+        Self { member }
     }
 }
 
@@ -396,73 +367,127 @@ impl Display for MemberDowned {
     }
 }
 
-pub trait ReachabilityEvent: ClusterDomainEvent {
-    fn member(&self) -> &Member;
-
-    fn into_inner(self: Box<Self>) -> Member;
+#[derive(Debug)]
+pub struct MemberRemoved {
+    pub member: Member,
+    pub previous_status: MemberStatus,
 }
 
-#[derive(Debug, Clone)]
+impl MemberRemoved {
+    pub fn new(member: Member, previous_status: MemberStatus) -> Self {
+        assert_eq!(
+            member.status,
+            MemberStatus::Removed,
+            "Expected Removed status, got: {}",
+            member.status
+        );
+        Self {
+            member,
+            previous_status,
+        }
+    }
+}
+
+impl Display for MemberRemoved {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "MemberRemoved({})", self.member)
+    }
+}
+
+#[derive(Debug)]
+pub struct LeaderChanged {
+    pub leader: Option<Address>,
+}
+
+impl Display for LeaderChanged {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "LeaderChanged({})",
+            self.leader
+                .as_ref()
+                .map_or("None".to_string(), |addr| addr.to_string())
+        )
+    }
+}
+
+#[derive(Debug)]
+pub struct RoleLeaderChanged {
+    pub role: String,
+    pub leader: Option<Address>,
+}
+
+impl Display for RoleLeaderChanged {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "RoleLeaderChanged({} => {})",
+            self.role,
+            self.leader
+                .as_ref()
+                .map_or("None".to_string(), |addr| addr.to_string())
+        )
+    }
+}
+
+#[derive(Debug)]
+pub struct ClusterShuttingDown;
+
+impl Display for ClusterShuttingDown {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ClusterShuttingDown")
+    }
+}
+
+pub(crate) trait ReachabilityEvent: ClusterDomainEvent {}
+
+macro_rules! impl_reachability_event {
+    ($($t:ty),*) => {
+        $(
+            impl ReachabilityEvent for $t {}
+        )*
+    };
+}
+
+impl_reachability_event!(UnreachableMember, ReachableMember);
+
+#[derive(Debug)]
 pub struct UnreachableMember {
     pub member: Member,
 }
 
-impl_cluster_domain_event!(UnreachableMember);
-
-impl ReachabilityEvent for UnreachableMember {
-    fn member(&self) -> &Member {
-        &self.member
-    }
-
-    fn into_inner(self: Box<Self>) -> Member {
-        self.member
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ReachableMember {
     pub member: Member,
 }
 
-impl_cluster_domain_event!(ReachableMember);
-
-impl ReachabilityEvent for ReachableMember {
-    fn member(&self) -> &Member {
-        &self.member
-    }
-
-    fn into_inner(self: Box<Self>) -> Member {
-        self.member
-    }
-}
-
 pub trait DataCenterReachabilityEvent: ClusterDomainEvent {}
 
-#[derive(Debug, Clone)]
+macro_rules! impl_data_center_reachability_event {
+    ($($t:ty),*) => {
+        $(
+            impl DataCenterReachabilityEvent for $t {}
+        )*
+    };
+}
+
+impl_data_center_reachability_event!(UnreachableDataCenter, ReachableDataCenter);
+
+#[derive(Debug)]
 pub struct UnreachableDataCenter {
     pub data_center: ImString,
 }
 
-impl_cluster_domain_event!(UnreachableDataCenter);
-
-impl DataCenterReachabilityEvent for UnreachableDataCenter {}
-
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ReachableDataCenter {
     pub data_center: ImString,
 }
-
-impl_cluster_domain_event!(ReachableDataCenter);
-
-impl DataCenterReachabilityEvent for ReachableDataCenter {}
 
 #[derive(Debug)]
 pub(crate) struct SeenChanged {
     pub(crate) convergence: bool,
     pub(crate) seen_by: HashSet<Address>,
 }
-
-impl_cluster_domain_event!(SeenChanged);
 
 impl Display for SeenChanged {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -480,11 +505,13 @@ pub(crate) struct ReachabilityChanged {
     pub(crate) reachability: Reachability,
 }
 
-impl_cluster_domain_event!(ReachabilityChanged);
-
 impl Display for ReachabilityChanged {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ReachabilityChanged {{ reachability: {} }}", self.reachability)
+        write!(
+            f,
+            "ReachabilityChanged {{ reachability: {} }}",
+            self.reachability
+        )
     }
 }
 
@@ -493,8 +520,6 @@ pub(crate) struct CurrentInternalStats {
     pub(crate) gossip_stats: GossipStats,
     pub(crate) vclock_stats: VectorClockStats,
 }
-
-impl_cluster_domain_event!(CurrentInternalStats);
 
 impl Display for CurrentInternalStats {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -511,8 +536,6 @@ pub(crate) struct MemberTombstonesChanged {
     pub(crate) tombstones: HashSet<UniqueAddress>,
 }
 
-impl_cluster_domain_event!(MemberTombstonesChanged);
-
 impl Display for MemberTombstonesChanged {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -520,5 +543,61 @@ impl Display for MemberTombstonesChanged {
             "MemberTombstonesChanged {{ tombstones: [{}] }}",
             self.tombstones.iter().join(", ")
         )
+    }
+}
+
+pub(crate) fn diff_unreachable(
+    old_state: &MembershipState,
+    new_state: &MembershipState,
+) -> Vec<UnreachableMember> {
+    let new_gossip = &new_state.latest_gossip;
+    let old_reachability = old_state.dc_reachability_no_outside_nodes();
+    let old_unreachable_nodes = old_reachability.all_unreachable_or_terminated();
+    let new_reachability = new_state.dc_reachability_no_outside_nodes();
+    new_reachability
+        .all_unreachable_or_terminated()
+        .into_iter()
+        .filter_map(|node| {
+            if !old_unreachable_nodes.contains(&node) && node != &new_state.self_unique_address {
+                Some(UnreachableMember {
+                    member: new_gossip.member(node).clone(),
+                })
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+#[derive(Debug)]
+pub(crate) struct ClusterDomainEventPublisher {
+    cluster: Cluster,
+    self_unique_address: UniqueAddress,
+    empty_membership_state: MembershipState,
+    membership_state: MembershipState,
+}
+
+#[async_trait]
+impl Actor for ClusterDomainEventPublisher {
+    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
+        Self::handle_message(self, context, message).await
+    }
+}
+
+impl ClusterDomainEventPublisher {
+    fn event_stream<'a>(&self, context: &'a ActorContext) -> &'a EventStream {
+        &context.system().event_stream
+    }
+    
+    fn publish<E: Clone>(&self, context: &ActorContext, event: E) {
+        self.event_stream(context).publish(event);
     }
 }

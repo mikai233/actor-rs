@@ -1,12 +1,12 @@
 use std::any::type_name;
 
-use dashmap::{DashMap, DashSet};
 use dashmap::mapref::entry::Entry;
+use dashmap::{DashMap, DashSet};
 use tracing::{trace, warn};
 
-use crate::{CodecMessage, DynMessage};
 use crate::actor_ref::ActorRef;
 use crate::event::actor_subscriber::ActorSubscriber;
+use crate::{CodecMessage, DynMessage};
 
 #[derive(Debug, Default)]
 pub struct EventStream {
@@ -61,11 +61,14 @@ impl EventStream {
         trace!("{} unsubscribe from {}", subscriber, event_str);
     }
 
-    pub fn publish<E>(&self, event: E) where E: CodecMessage + Clone {
+    pub fn publish<E>(&self, event: E)
+    where
+        E: Clone,
+    {
         let event_name = type_name::<E>();
         if let Some(subscribers) = self.subscriptions.get(event_name) {
             subscribers.iter().for_each(move |s| {
-                let msg = (s.transform)(<E as Clone>::clone(&event).into_dyn());
+                let msg = (s.transform)(<E as Clone>::clone(&event));
                 match msg {
                     None => {
                         warn!("event {} cannot send to {}, transform or message incorrect", event_name, s.subscriber);
@@ -88,14 +91,13 @@ mod event_tests {
 
     use actor_derive::{COrphanEmptyCodec, EmptyCodec};
 
-    use crate::{EmptyTestActor, Message};
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::{Props, PropsBuilder};
     use crate::actor_ref::actor_ref_factory::ActorRefFactory;
     use crate::config::actor_setting::ActorSetting;
     use crate::event::event_stream::EventStream;
-    use crate::ext::message_ext::UserMessageExt;
+    use crate::{EmptyTestActor, Message};
 
     #[derive(Debug, Clone, COrphanEmptyCodec)]
     struct EventMessage;

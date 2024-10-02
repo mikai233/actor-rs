@@ -9,7 +9,7 @@ use crate::coordinated_shutdown_leave::CoordinatedShutdownLeave;
 use crate::member::MemberStatus;
 
 #[derive(Debug, EmptyCodec)]
-pub(super) struct ClusterEventWrap(pub(super) MemberEvent);
+pub(super) struct ClusterEventWrap(pub(super) dyn MemberEvent);
 
 #[async_trait]
 impl Message for ClusterEventWrap {

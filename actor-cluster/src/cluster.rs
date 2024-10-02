@@ -18,7 +18,7 @@ use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::provider::local_provider::LocalActorRefProvider;
 use actor_core::provider::TActorRefProvider;
-use actor_core::AsAny;
+use actor_core::{AsAny, DynMessage};
 
 use crate::cluster_core_daemon::leave::Leave;
 use crate::cluster_daemon::add_on_member_removed_listener::AddOnMemberRemovedListener;
@@ -28,7 +28,7 @@ use crate::cluster_daemon::get_cluster_core_ref_req::{
 };
 use crate::cluster_daemon::internal_cluster_action::{Subscribe, Unsubscribe};
 use crate::cluster_daemon::ClusterDaemon;
-use crate::cluster_event::{ClusterDomainEvent, MemberEvent, SubscriptionInitialStateMode};
+use crate::cluster_event::{ClusterDomainEvent, SubscriptionInitialStateMode};
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::cluster_settings::ClusterSettings;
 use crate::cluster_state::ClusterState;
@@ -132,17 +132,20 @@ impl Cluster {
             .expect(&format!("{} not found", type_name::<Self>()))
     }
 
-    pub fn subscribe<T>(
+    pub fn subscribe<E, T>(
         &self,
         subscriber: ActorRef,
         initial_state_mode: SubscriptionInitialStateMode,
+        transform: T,
     ) where
-        T: ClusterDomainEvent,
+        E: ClusterDomainEvent,
+        T: Fn(Box<dyn ClusterDomainEvent>) -> DynMessage + Send + 'static,
     {
         let subscribe = Subscribe {
             subscriber,
             initial_state_mode,
-            to: type_name::<T>(),
+            to: type_name::<E>(),
+            transform,
         };
         self.cluster_core().cast_ns(subscribe);
     }
@@ -151,7 +154,10 @@ impl Cluster {
     where
         T: ClusterDomainEvent,
     {
-        self.subscribe::<T>(subscriber, SubscriptionInitialStateMode::InitialStateAsSnapshot);
+        self.subscribe::<T>(
+            subscriber,
+            SubscriptionInitialStateMode::InitialStateAsSnapshot,
+        );
     }
 
     pub fn unsubscribe<T>(&self, subscriber: ActorRef)
@@ -262,6 +268,9 @@ impl Cluster {
 
     pub fn cluster_core(&self) -> ActorRef {
         self.cluster_core.read().as_ref().unwrap();
-        self.cluster_core.read().clone().expect("cluster_core not initialized")
+        self.cluster_core
+            .read()
+            .clone()
+            .expect("cluster_core not initialized")
     }
 }

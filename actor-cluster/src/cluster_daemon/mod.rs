@@ -209,10 +209,10 @@ pub(crate) mod internal_cluster_action {
     use actor_core::actor::context::ActorContext;
     use actor_core::actor_ref::ActorRef;
     use actor_core::util::version::Version;
-    use actor_core::{EmptyCodec, Message};
+    use actor_core::{DynMessage, EmptyCodec, Message};
 
     use crate::cluster_daemon::{ClusterDaemon, ClusterMessage};
-    use crate::cluster_event::SubscriptionInitialStateMode;
+    use crate::cluster_event::{ClusterDomainEvent, SubscriptionInitialStateMode};
     use crate::gossip::Gossip;
     use crate::unique_address::UniqueAddress;
 
@@ -282,6 +282,15 @@ pub(crate) mod internal_cluster_action {
         pub subscriber: ActorRef,
         pub initial_state_mode: SubscriptionInitialStateMode,
         pub to: &'static str,
+        pub transform: Box<dyn Fn(Box<dyn ClusterDomainEvent>) -> DynMessage>,
+    }
+
+    impl Message for Subscribe {
+        type A = ();
+
+        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+            todo!()
+        }
     }
 
     #[derive(Debug, EmptyCodec)]
