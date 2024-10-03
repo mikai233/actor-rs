@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use actor_core::{Actor, CodecMessage, DynMessage, Message};
 use actor_core::actor::context::ActorContext;
-use actor_core::message::message_registry::MessageRegistry;
+use actor_core::message::codec::MessageRegistry;
 use actor_core::message::MessageDecoder;
 use actor_core::routing::routing_logic::RoutingLogic;
 

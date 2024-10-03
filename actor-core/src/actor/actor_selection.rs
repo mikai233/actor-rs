@@ -22,7 +22,7 @@ use crate::actor_ref::empty_local_ref::EmptyLocalActorRef;
 use crate::cell::Cell;
 use crate::ext::{decode_bytes, encode_bytes};
 use crate::message::identify::{ActorIdentity, Identify};
-use crate::message::message_registry::{IDPacket, MessageRegistry};
+use crate::message::codec::{IDPacket, MessageRegistry};
 use crate::message::MessageDecoder;
 use crate::pattern::patterns::Patterns;
 

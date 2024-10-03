@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use actor_core::message::message_registry::MessageRegistry;
+use actor_core::message::codec::MessageRegistry;
 
 use crate::config::ClusterConfig;
 

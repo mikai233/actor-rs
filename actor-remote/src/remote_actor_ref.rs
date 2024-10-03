@@ -12,7 +12,7 @@ use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
 use actor_core::AsAny;
-use actor_core::message::message_registry::MessageRegistry;
+use actor_core::message::codec::MessageRegistry;
 use actor_core::message::poison_pill::PoisonPill;
 use actor_core::message::resume::Resume;
 use actor_core::message::suspend::Suspend;

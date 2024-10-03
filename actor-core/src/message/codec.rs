@@ -5,18 +5,17 @@ use ahash::{HashMap, HashMapExt};
 use anyhow::anyhow;
 use bincode::{Decode, Encode};
 
-use crate::{CodecMessage, DynMessage};
 use crate::actor::actor_selection::ActorSelectionMessage;
 use crate::message::address_terminated::AddressTerminated;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::identify::{ActorIdentity, Identify};
-use crate::message::MessageDecoder;
 use crate::message::poison_pill::PoisonPill;
 use crate::message::resume::Resume;
 use crate::message::suspend::Suspend;
 use crate::message::terminate::Terminate;
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
+use crate::message::Message;
 
 #[derive(Debug, Eq, PartialEq, Hash, Encode, Decode)]
 pub struct IDPacket {
@@ -113,5 +112,78 @@ impl MessageRegistry {
 impl Default for MessageRegistry {
     fn default() -> Self {
         MessageRegistry::new()
+    }
+}
+
+pub type EncoderType = Box<dyn Fn(&dyn MessageCodec) -> anyhow::Result<Vec<u8>>>;
+
+pub type DecoderType = Box<dyn Fn(Vec<u8>) -> anyhow::Result<Box<dyn MessageCodec>>>;
+
+pub trait MessageCodec: Message {
+    fn into_message(self: Box<Self>) -> Box<dyn Message>;
+
+    fn encode(&self) -> anyhow::Result<Vec<u8>>;
+
+    fn decode(bytes: Vec<u8>) -> anyhow::Result<Box<dyn MessageCodec>>
+    where
+        Self: Sized;
+}
+
+pub struct MessageCodecRegistry {
+    pub encoder: HashMap<&'static str, EncoderType>,
+    pub decoder: HashMap<&'static str, DecoderType>,
+}
+
+impl MessageCodecRegistry {
+    pub fn new() -> Self {
+        Self {
+            encoder: HashMap::new(),
+            decoder: HashMap::new(),
+        }
+    }
+
+    fn register_encoder<M>(&mut self)
+    where
+        M: MessageCodec,
+    {
+        self.encoder
+            .insert(M::signature_sized(), Box::new(|m| m.encode()));
+    }
+
+    fn register_decoder<M>(&mut self)
+    where
+        M: MessageCodec,
+    {
+        self.decoder
+            .insert(M::signature_sized(), Box::new(|bytes| M::decode(bytes)));
+    }
+
+    pub fn register<M>(&mut self)
+    where
+        M: MessageCodec,
+    {
+        self.register_encoder::<M>();
+        self.register_decoder::<M>();
+    }
+
+    pub fn encode<M>(&self, message: &M) -> anyhow::Result<Vec<u8>>
+    where
+        M: AsRef<dyn MessageCodec>,
+    {
+        let message = message.as_ref();
+        let signature = message.signature();
+        let encoder = self
+            .encoder
+            .get(signature)
+            .ok_or_else(|| anyhow::anyhow!("Encoder {signature} not found"))?;
+        encoder(message)
+    }
+
+    pub fn decode(&self, signature: &str, bytes: Vec<u8>) -> anyhow::Result<Box<dyn MessageCodec>> {
+        let decoder = self
+            .decoder
+            .get(signature)
+            .ok_or_else(|| anyhow::anyhow!("Decoder {signature} not found"))?;
+        decoder(bytes)
     }
 }

@@ -1,4 +1,4 @@
-use actor_core::message::message_registry::MessageRegistry;
+use actor_core::message::codec::MessageRegistry;
 
 use crate::shard::Shard;
 use crate::shard_coordinator::get_shard_home::GetShardHome;

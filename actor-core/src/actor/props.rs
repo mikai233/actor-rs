@@ -5,15 +5,16 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use tokio::sync::mpsc::channel;
 
-use crate::Actor;
 use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::context::ActorContext;
 use crate::actor::mailbox::{Mailbox, MailboxSender};
+use crate::actor::Actor;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
 use crate::provider::local_provider::LocalActorRefProvider;
+use crate::Actor;
 
 type ActorSpawner = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem) -> anyhow::Result<()> + Send>;
 
@@ -38,8 +39,12 @@ impl Props {
             F: FnOnce() -> anyhow::Result<A> + Send + 'static,
             A: Actor {
         let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
-            let context = ActorContext::new(myself, system);
             let actor = func()?;
+            let mut context = ActorContext::new(myself, system);
+            let receive = actor.receive();
+            context.r#become(move |actor, ctx, message, sender| {
+                receive.receive(actor, ctx, message, sender)
+            }, false);
             let runtime = ActorRuntime { actor, context, mailbox };
             Self::run_actor(runtime)?;
             Ok::<_, anyhow::Error>(())

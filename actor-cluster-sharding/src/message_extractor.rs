@@ -6,7 +6,7 @@ use bincode::{Decode, Encode};
 use dyn_clone::DynClone;
 
 use actor_core::{Actor, CodecMessage, DynMessage};
-use actor_core::message::message_registry::IDPacket;
+use actor_core::message::codec::IDPacket;
 
 use crate::shard_region::{EntityId, ShardId};
 

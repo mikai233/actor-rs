@@ -1,6 +1,6 @@
 use bincode::{Decode, Encode};
 
-use actor_core::message::message_registry::IDPacket;
+use actor_core::message::codec::IDPacket;
 
 #[derive(Debug, Encode, Decode)]
 pub(crate) struct RemotePacket {

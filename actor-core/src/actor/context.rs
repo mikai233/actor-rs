@@ -1,29 +1,23 @@
-use std::any::type_name;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::future::Future;
 use std::ops::Not;
 use std::sync::Arc;
 
-use ahash::{HashMap, HashSet};
-use anyhow::anyhow;
-use arc_swap::Guard;
-use tokio::task::{AbortHandle, JoinHandle};
-use tracing::{debug, error, warn};
-
-use crate::{Actor, CodecMessage, DynMessage, Message};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::props::Props;
+use crate::actor::receive::ReceiveFn;
 use crate::actor::state::ActorState;
 use crate::actor::watching::Watching;
-use crate::actor_path::{ActorPath, TActorPath};
+use crate::actor::Actor;
 use crate::actor_path::child_actor_path::ChildActorPath;
-use crate::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt};
+use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::function_ref::{FunctionRef, Inner};
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::cell::Cell;
+use crate::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt};
 use crate::cell::envelope::Envelope;
+use crate::cell::Cell;
 use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::ext::option_ext::OptionExt;
 use crate::ext::random_name;
@@ -35,7 +29,13 @@ use crate::message::terminate::Terminate;
 use crate::message::terminated::Terminated;
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
+use crate::message::DynMessage;
 use crate::provider::ActorRefProvider;
+use ahash::{HashMap, HashSet};
+use anyhow::anyhow;
+use arc_swap::Guard;
+use tokio::task::{AbortHandle, JoinHandle};
+use tracing::{debug, error, warn};
 
 pub trait Context: ActorRefFactory {
     fn myself(&self) -> &ActorRef;
@@ -55,11 +55,6 @@ pub trait Context: ActorRefFactory {
     fn unwatch(&mut self, subject: &ActorRef);
 
     fn is_watching(&self, subject: &ActorRef) -> bool;
-
-    fn adapter<T>(&mut self, func: impl Fn(T) -> DynMessage + Send + Sync + 'static) -> ActorRef
-        where
-            T: CodecMessage,
-    ;
 }
 
 impl<T: ?Sized> ContextExt for T where T: Context {}
@@ -71,7 +66,7 @@ pub trait ContextExt: Context {
 }
 
 #[derive(Debug)]
-pub struct ActorContext {
+pub struct ActorContext<A: Actor> {
     pub(crate) state: ActorState,
     pub(crate) myself: ActorRef,
     pub(crate) sender: Option<ActorRef>,
@@ -82,9 +77,10 @@ pub struct ActorContext {
     pub(crate) watching: Watching,
     pub(crate) watched_by: HashSet<ActorRef>,
     pub(crate) stash_capacity: Option<usize>,
+    pub(crate) behavior_stack: VecDeque<ReceiveFn<A>>
 }
 
-impl ActorRefFactory for ActorContext {
+impl<A: Actor> ActorRefFactory for ActorContext<A> {
     fn system(&self) -> &ActorSystem {
         &self.system
     }
@@ -130,7 +126,7 @@ impl ActorRefFactory for ActorContext {
     }
 }
 
-impl Context for ActorContext {
+impl<A: Actor> Context for ActorContext<A> {
     fn myself(&self) -> &ActorRef {
         &self.myself
     }
@@ -194,30 +190,9 @@ impl Context for ActorContext {
     fn is_watching(&self, subject: &ActorRef) -> bool {
         self.watching.contains_key(subject)
     }
-
-    //TODO adapter 应该优化为按消息类型维护一个map
-    fn adapter<T>(&mut self, func: impl Fn(T) -> DynMessage + Send + Sync + 'static) -> ActorRef
-        where
-            T: CodecMessage,
-    {
-        let myself = self.myself.clone();
-        self.add_function_ref(move |message, sender| {
-            let name = message.name();
-            let message = message.into_inner();
-            let adapter_name = type_name::<T>();
-            match message.into_any().downcast::<T>() {
-                Ok(message) => {
-                    myself.tell(func(*message), sender);
-                }
-                Err(_) => {
-                    error!("message {} cannot downcast to {}", name, adapter_name);
-                }
-            }
-        }, None).into()
-    }
 }
 
-impl ActorContext {
+impl<A: Actor> ActorContext<A> {
     pub(crate) fn new(myself: ActorRef, system: ActorSystem) -> Self {
         Self {
             state: ActorState::Init,
@@ -230,6 +205,7 @@ impl ActorContext {
             watching: Default::default(),
             watched_by: Default::default(),
             stash_capacity: None,
+            behavior_stack: Default::default(),
         }
     }
 
@@ -257,7 +233,7 @@ impl ActorContext {
             self.myself.tell(message, sender);
             return true;
         }
-        return false;
+        false
     }
 
     pub fn unstash_all(&mut self) -> bool {
@@ -269,7 +245,7 @@ impl ActorContext {
             let sender = envelope.sender;
             self.myself.tell(message, sender);
         }
-        return true;
+        true
     }
 
     pub(crate) fn terminate(&mut self) {
@@ -439,10 +415,10 @@ impl ActorContext {
         self.myself.local().unwrap().underlying().remove_function_ref(name).is_some()
     }
 
-    pub fn execute<F, A>(&self, f: F)
+    pub fn execute<F>(&self, f: F)
         where
-            F: FnOnce(&mut ActorContext, &mut A) -> anyhow::Result<()> + Send + 'static,
-            A: Actor {
+            F: FnOnce(&mut ActorContext<A>, &mut A) -> anyhow::Result<()> + Send + 'static,
+    {
         let execute = Execute {
             closure: Box::new(f),
         };
@@ -472,7 +448,7 @@ impl ActorContext {
                 }
             }
         }
-        fn has_non_local_address(ctx: &ActorContext) -> bool {
+        fn has_non_local_address(ctx: &ActorContext<A>) -> bool {
             ctx.watching.keys().any(|w| { is_non_local(ctx.system(), Some(w)) })
                 || ctx.watched_by.iter().any(|w| { is_non_local(ctx.system(), Some(w)) })
         }
@@ -489,5 +465,19 @@ impl ActorContext {
         } else {
             block(self)
         }
+    }
+
+    pub fn r#become<F>(&mut self, behavior: F, discard_old: bool)
+    where
+        F: Fn(&mut A, &mut ActorContext<A>, DynMessage, Option<ActorRef>) -> anyhow::Result<()> + 'static,
+    {
+        if discard_old {
+            self.behavior_stack.pop_front();
+        }
+        self.behavior_stack.push_front(Box::new(behavior));
+    }
+
+    pub fn unbecome(&mut self) {
+        self.behavior_stack.pop_front();
     }
 }

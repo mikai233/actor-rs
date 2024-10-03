@@ -12,7 +12,7 @@ use actor_core::actor_path::ActorPath;
 use actor_core::actor_ref::ActorRef;
 use actor_core::actor_ref::local_ref::LocalActorRef;
 use actor_core::AsAny;
-use actor_core::message::message_registry::MessageRegistry;
+use actor_core::message::codec::MessageRegistry;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::provider::builder::{Provider, ProviderBuilder};
 use actor_core::provider::local_provider::LocalActorRefProvider;
