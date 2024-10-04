@@ -1,31 +1,32 @@
-use crate::actor::context::ActorContext;
-use crate::actor::Actor;
-use crate::actor_ref::ActorRef;
+use crate::actor::behavior::Behavior;
+use crate::actor::{Actor, ActorContext, ActorRef};
+use crate::message::handler::MessageHandler;
 use crate::message::{downcast_into, DynMessage, Message};
 use ahash::{HashMap, HashMapExt};
+use std::any::TypeId;
 
-pub type ReceiveFn<A> = Box<dyn Fn(&mut A, &mut ActorContext<A>, DynMessage, Option<ActorRef>) -> anyhow::Result<()>>;
+pub type ReceiveFn<A> = Box<dyn Fn(&mut A, &mut ActorContext<A>, DynMessage, Option<ActorRef>) -> anyhow::Result<Behavior<A>>>;
 
 pub struct Receive<A: Actor> {
-    pub receiver: HashMap<&'static str, ReceiveFn<A>>,
+    pub receiver: HashMap<TypeId, ReceiveFn<A>>,
 }
 
 impl<A: Actor> Receive<A> {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             receiver: HashMap::new(),
         }
     }
 
-    pub(crate) fn receive(
+    pub fn receive(
         &self,
         actor: &mut A,
         ctx: &mut ActorContext<A>,
-        message: Box<dyn Message>,
+        message: DynMessage,
         sender: Option<ActorRef>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Behavior<A>> {
         let signature = message.signature();
-        if let Some(receiver) = self.receiver.get(signature) {
+        if let Some(receiver) = self.receiver.get(&signature.type_id) {
             receiver(actor, ctx, message, sender)
         } else {
             Err(anyhow::anyhow!(
@@ -35,16 +36,16 @@ impl<A: Actor> Receive<A> {
         }
     }
 
-    pub(crate) fn is<M>(
+    pub fn is<M>(
         mut self,
-        handler: impl Fn(&mut A, &mut ActorContext<A>, M, Option<ActorRef>) -> anyhow::Result<()> + 'static,
+        handler: impl Fn(&mut A, &mut ActorContext<A>, M, Option<ActorRef>) -> anyhow::Result<Behavior<A>> + 'static,
     ) -> Self
     where
         M: Message,
     {
         let signature = M::signature_sized();
         self.receiver.insert(
-            signature,
+            signature.type_id,
             Box::new(move |actor, ctx, message, sender| {
                 let message = downcast_into::<M>(message)
                     .map_err(|_| anyhow::anyhow!("Downcast {signature} failed"))?;
@@ -52,5 +53,13 @@ impl<A: Actor> Receive<A> {
             }),
         );
         self
+    }
+
+    pub fn handle<M>(
+        mut self,
+    ) -> Self where
+        M: Message + MessageHandler<A>,
+    {
+        self.is(|actor, ctx, message, sender| M::handle(actor, ctx, message, sender))
     }
 }

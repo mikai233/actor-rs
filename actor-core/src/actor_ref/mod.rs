@@ -6,20 +6,20 @@ use std::iter::Peekable;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use bincode::{Decode, Encode, impl_borrow_decode};
 use bincode::de::Decoder;
 use bincode::enc::Encoder;
 use bincode::error::{DecodeError, EncodeError};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use bincode::{impl_borrow_decode, Decode, Encode};
 use serde::de::{Error, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::task_local;
 
-use crate::{DynMessage, Message, OrphanMessage, SystemMessage};
 use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::ext::as_any::AsAny;
+use crate::message::{DynMessage, Message};
 use crate::provider::ActorRefProvider;
 
 pub(crate) mod virtual_path_container;
@@ -57,40 +57,20 @@ impl<T: ?Sized> ActorRefExt for T where T: TActorRef {}
 
 pub trait ActorRefExt: TActorRef {
     fn cast<M>(&self, message: M, sender: Option<ActorRef>) where M: Message {
-        self.tell(DynMessage::user(message), sender);
+        self.tell(Box::new(message), sender);
     }
 
     fn cast_ns<M>(&self, message: M) where M: Message {
-        self.tell(DynMessage::user(message), ActorRef::no_sender());
-    }
-
-    fn cast_orphan<M>(&self, message: M, sender: Option<ActorRef>) where M: OrphanMessage {
-        self.tell(DynMessage::orphan(message), sender);
-    }
-
-    fn cast_orphan_ns<M>(&self, message: M) where M: OrphanMessage {
-        self.tell(DynMessage::orphan(message), ActorRef::no_sender());
-    }
-}
-
-impl<T: ?Sized> ActorRefSystemExt for T where T: TActorRef {}
-
-pub trait ActorRefSystemExt: TActorRef {
-    fn cast_system<M>(&self, message: M, sender: Option<ActorRef>) where M: SystemMessage {
-        self.tell(DynMessage::system(message), sender);
+        self.tell(Box::new(message), ActorRef::no_sender());
     }
 }
 
 #[derive(Clone)]
-pub struct ActorRef {
-    inner: Arc<dyn TActorRef>,
-}
+pub struct ActorRef(Arc<dyn TActorRef>);
 
 impl ActorRef {
     pub fn new<R>(actor_ref: R) -> Self where R: TActorRef {
-        Self {
-            inner: Arc::new(actor_ref)
-        }
+        Self(Arc::new(actor_ref))
     }
 }
 
@@ -108,7 +88,7 @@ impl Deref for ActorRef {
     type Target = Arc<dyn TActorRef>;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        &self.0
     }
 }
 

@@ -1,3 +1,4 @@
+use std::any::type_name;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::future::Future;
@@ -40,8 +41,6 @@ use tracing::{debug, error, warn};
 pub trait Context: ActorRefFactory {
     fn myself(&self) -> &ActorRef;
 
-    fn sender(&self) -> Option<&ActorRef>;
-
     fn children(&self) -> Vec<ActorRef>;
 
     fn child(&self, name: &str) -> Option<ActorRef>;
@@ -69,7 +68,6 @@ pub trait ContextExt: Context {
 pub struct ActorContext<A: Actor> {
     pub(crate) state: ActorState,
     pub(crate) myself: ActorRef,
-    pub(crate) sender: Option<ActorRef>,
     pub(crate) stash: VecDeque<Envelope>,
     pub(crate) task_id: usize,
     pub(crate) abort_handles: HashMap<String, AbortHandle>,
@@ -77,7 +75,6 @@ pub struct ActorContext<A: Actor> {
     pub(crate) watching: Watching,
     pub(crate) watched_by: HashSet<ActorRef>,
     pub(crate) stash_capacity: Option<usize>,
-    pub(crate) behavior_stack: VecDeque<ReceiveFn<A>>
 }
 
 impl<A: Actor> ActorRefFactory for ActorContext<A> {
@@ -129,10 +126,6 @@ impl<A: Actor> ActorRefFactory for ActorContext<A> {
 impl<A: Actor> Context for ActorContext<A> {
     fn myself(&self) -> &ActorRef {
         &self.myself
-    }
-
-    fn sender(&self) -> Option<&ActorRef> {
-        self.sender.as_ref()
     }
 
     fn children(&self) -> Vec<ActorRef> {
@@ -197,7 +190,6 @@ impl<A: Actor> ActorContext<A> {
         Self {
             state: ActorState::Init,
             myself,
-            sender: None,
             stash: Default::default(),
             task_id: 1,
             abort_handles: Default::default(),
@@ -425,8 +417,8 @@ impl<A: Actor> ActorContext<A> {
         self.myself.cast_ns(execute);
     }
 
-    pub(crate) fn handle_invoke_failure(&mut self, child: ActorRef, name: &str, error: anyhow::Error) {
-        error!("{} handle message error {:?}", name, error);
+    pub(crate) fn handle_invoke_failure(&mut self, message: &'static str, error: anyhow::Error) {
+        error!("{} handle message {} error {:?}", type_name::<A>(), message, error);
         self.state = ActorState::Suspend;
         for child in self.children() {
             child.suspend();

@@ -1,5 +1,6 @@
 use crate::actor_ref::ActorRef;
-use crate::DynMessage;
+use crate::message::{DynMessage, Message};
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub(crate) struct Envelope {
@@ -8,14 +9,23 @@ pub(crate) struct Envelope {
 }
 
 impl Envelope {
-    pub fn new(message: DynMessage, sender: Option<ActorRef>) -> Self {
+    pub fn new<M>(message: M, sender: Option<ActorRef>) -> Self
+    where
+        M: Message + 'static,
+    {
         Self {
-            message,
+            message: Box::new(message),
             sender,
         }
     }
 
-    pub fn name(&self) -> &str {
-        self.message.name()
+    pub fn name(&self) -> &'static str {
+        self.message.signature().name
+    }
+}
+
+impl Display for Envelope {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Envelope {{ message: {}, sender: {:?} }}", self.name(), self.sender)
     }
 }

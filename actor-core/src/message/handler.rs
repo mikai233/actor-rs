@@ -1,15 +1,12 @@
-use crate::actor::context::ActorContext;
-use crate::actor_ref::ActorRef;
-use crate::message::DynMessage;
-use crate::Actor;
+use crate::actor::behavior::Behavior;
+use crate::actor::{Actor, ActorContext, ActorRef};
+use crate::message::Message;
 
-pub trait MessageHandler {
-    type A: Actor;
+pub trait MessageHandler<A: Actor>: Message + Sized {
     fn handle(
-        &self,
-        actor: &mut Self::A,
-        ctx: &mut ActorContext,
-        message: DynMessage,
+        actor: &mut A,
+        ctx: &mut ActorContext<A>,
+        message: Self,
         sender: Option<ActorRef>,
-    ) -> anyhow::Result<()>;
+    ) -> anyhow::Result<Behavior<A>>;
 }
