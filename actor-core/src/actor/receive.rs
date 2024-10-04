@@ -5,7 +5,14 @@ use crate::message::{downcast_into, DynMessage, Message};
 use ahash::{HashMap, HashMapExt};
 use std::any::TypeId;
 
-pub type ReceiveFn<A> = Box<dyn Fn(&mut A, &mut ActorContext<A>, DynMessage, Option<ActorRef>) -> anyhow::Result<Behavior<A>>>;
+pub type ReceiveFn<A> = Box<
+    dyn Fn(
+        &mut A,
+        &mut ActorContext<A>,
+        DynMessage,
+        Option<ActorRef>,
+    ) -> anyhow::Result<Behavior<A>>,
+>;
 
 pub struct Receive<A: Actor> {
     pub receiver: HashMap<TypeId, ReceiveFn<A>>,
@@ -38,7 +45,8 @@ impl<A: Actor> Receive<A> {
 
     pub fn is<M>(
         mut self,
-        handler: impl Fn(&mut A, &mut ActorContext<A>, M, Option<ActorRef>) -> anyhow::Result<Behavior<A>> + 'static,
+        handler: impl Fn(&mut A, &mut ActorContext<A>, M, Option<ActorRef>) -> anyhow::Result<Behavior<A>>
+            + 'static,
     ) -> Self
     where
         M: Message,
@@ -55,9 +63,8 @@ impl<A: Actor> Receive<A> {
         self
     }
 
-    pub fn handle<M>(
-        mut self,
-    ) -> Self where
+    pub fn handle<M>(mut self) -> Self
+    where
         M: Message + MessageHandler<A>,
     {
         self.is(|actor, ctx, message, sender| M::handle(actor, ctx, message, sender))

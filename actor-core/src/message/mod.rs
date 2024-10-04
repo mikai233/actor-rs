@@ -1,23 +1,23 @@
 use std::any::Any;
 use std::fmt::{Debug, Display, Formatter};
 
-pub mod death_watch_notification;
-pub mod terminated;
-pub mod terminate;
-pub mod watch;
-pub mod unwatch;
-pub mod poison_pill;
-pub mod execute;
-pub mod suspend;
-pub mod resume;
-pub mod failed;
-pub mod identify;
-pub mod codec;
-pub mod stop_child;
-pub mod message_buffer;
 pub mod address_terminated;
-pub(crate) mod task_finish;
+pub mod codec;
+pub mod death_watch_notification;
+pub mod execute;
+pub mod failed;
 pub mod handler;
+pub mod identify;
+pub mod message_buffer;
+pub mod poison_pill;
+pub mod resume;
+pub mod stop_child;
+pub mod suspend;
+pub(crate) mod task_finish;
+pub mod terminate;
+pub mod terminated;
+pub mod unwatch;
+pub mod watch;
 
 pub type DynMessage = Box<dyn Message>;
 
@@ -71,5 +71,3 @@ where
 {
     message.into_any().downcast()
 }
-
-

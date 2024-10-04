@@ -3,78 +3,16 @@ use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
-use syn::{DeriveInput, parse_str};
+use syn::{parse_str, DeriveInput};
 
-use crate::metadata::{CodecType, MessageImpl};
-
+mod as_any;
 mod message;
 mod metadata;
-mod as_any;
 
-#[proc_macro_derive(EmptyCodec)]
+#[proc_macro_derive(Message, attributes(cloneable))]
 pub fn empty_codec_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::Message, CodecType::NonCodec, false).into()
-}
-
-#[proc_macro_derive(CEmptyCodec)]
-pub fn cloneable_empty_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::Message, CodecType::NonCodec, true).into()
-}
-
-#[proc_macro_derive(MessageCodec)]
-pub fn message_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::Message, CodecType::Codec, false).into()
-}
-
-#[proc_macro_derive(CMessageCodec)]
-pub fn cloneable_message_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::Message, CodecType::Codec, true).into()
-}
-
-#[proc_macro_derive(SystemEmptyCodec)]
-pub fn system_empty_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::SystemMessage, CodecType::NonCodec, false).into()
-}
-
-#[proc_macro_derive(SystemCodec)]
-pub fn system_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::SystemMessage, CodecType::Codec, false).into()
-}
-
-#[proc_macro_derive(CSystemCodec)]
-pub fn clonealbe_system_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::SystemMessage, CodecType::Codec, true).into()
-}
-
-#[proc_macro_derive(OrphanCodec)]
-pub fn orphan_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::OrphanMessage, CodecType::Codec, false).into()
-}
-
-#[proc_macro_derive(OrphanEmptyCodec)]
-pub fn orphan_empty_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::OrphanMessage, CodecType::NonCodec, false).into()
-}
-
-#[proc_macro_derive(COrphanCodec)]
-pub fn cloneable_orphan_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::OrphanMessage, CodecType::Codec, true).into()
-}
-
-#[proc_macro_derive(COrphanEmptyCodec)]
-pub fn cloneable_orphan_empty_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    message::expand(ast, MessageImpl::OrphanMessage, CodecType::NonCodec, true).into()
+    todo!()
 }
 
 #[proc_macro_derive(AsAny)]
