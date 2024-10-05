@@ -6,18 +6,19 @@ use std::sync::Arc;
 
 use tracing::error;
 
-use actor_core::{CodecMessage, DynMessage};
+use crate::codec::{MessageCodecRegistry, MessageRegistry};
 use actor_core::actor::actor_system::WeakActorSystem;
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
-use actor_core::AsAny;
-use actor_core::message::codec::MessageRegistry;
 use actor_core::message::poison_pill::PoisonPill;
 use actor_core::message::resume::Resume;
 use actor_core::message::suspend::Suspend;
 use actor_core::message::unwatch::Unwatch;
 use actor_core::message::watch::Watch;
+use actor_core::message::DynMessage;
+use actor_core::AsAny;
+use actor_core::{CodecMessage, DynMessage};
 
 use crate::artery::outbound_message::OutboundMessage;
 use crate::artery::remote_envelope::RemoteEnvelope;
@@ -33,7 +34,6 @@ pub struct Inner {
     pub(crate) system: WeakActorSystem,
     pub(crate) path: ActorPath,
     pub(crate) transport: ActorRef,
-    pub(crate) registration: Arc<MessageRegistry>,
     pub(crate) remote_watcher: ActorRef,
 }
 
@@ -42,7 +42,6 @@ impl RemoteActorRef {
         system: WeakActorSystem,
         path: ActorPath,
         transport: ActorRef,
-        registration: Arc<MessageRegistry>,
         remote_watcher: ActorRef,
     ) -> Self {
         Self {
@@ -50,7 +49,6 @@ impl RemoteActorRef {
                 system,
                 path,
                 transport,
-                registration,
                 remote_watcher,
             }),
         }
@@ -61,8 +59,7 @@ impl RemoteActorRef {
     }
 
     fn send_remote(&self, message: DynMessage, sender: Option<ActorRef>) {
-        let name = message.name();
-        match self.registration.encode_boxed(message) {
+        match self.registry.encode_boxed(message) {
             Ok(packet) => {
                 let envelope = RemoteEnvelope {
                     packet,
@@ -156,7 +153,6 @@ impl TActorRef for RemoteActorRef {
                     self.system.clone(),
                     self.path().descendant(names),
                     self.transport.clone(),
-                    self.registration.clone(),
                     self.remote_watcher.clone(),
                 );
                 Some(remote_ref.into())

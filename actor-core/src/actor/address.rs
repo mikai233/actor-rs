@@ -3,13 +3,10 @@ use std::fmt::{Display, Formatter};
 use std::net::{SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 
-use bincode::{Decode, Encode};
 use imstr::ImString;
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Encode, Decode, Serialize, Deserialize,
-)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum Protocol {
     Akka,
@@ -36,9 +33,7 @@ impl FromStr for Protocol {
     }
 }
 
-#[derive(
-    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Encode, Decode, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct Address {
     pub protocol: Protocol,
     pub system: ImString,

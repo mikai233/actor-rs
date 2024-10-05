@@ -2,7 +2,6 @@ use std::any::Any;
 use std::fmt::{Debug, Display, Formatter};
 
 pub mod address_terminated;
-pub mod codec;
 pub mod death_watch_notification;
 pub mod execute;
 pub mod failed;

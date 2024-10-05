@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use actor_core::AsAny;
 use actor_core::config::Config;
-use actor_core::message::codec::MessageRegistry;
+use crate::codec::MessageRegistry;
 
 use crate::config::settings::Settings;
 

@@ -32,7 +32,7 @@ use crate::message::watch::Watch;
 use crate::message::{DynMessage, Message};
 use crate::provider::ActorRefProvider;
 use ahash::{HashMap, HashSet};
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use arc_swap::Guard;
 use tokio::task::{AbortHandle, JoinHandle};
 use tracing::{debug, error, warn};
@@ -46,9 +46,9 @@ pub trait Context: ActorRefFactory {
 
     fn parent(&self) -> Option<&ActorRef>;
 
-    fn watch<F>(&mut self, watchee: ActorRef, termination: F) -> anyhow::Result<()>
-    where
-        F: FnOnce(Terminated) -> DynMessage + Send + 'static;
+    fn watch(&mut self, subject: &ActorRef) -> anyhow::Result<()>;
+
+    fn watch_with(&mut self, subject: &ActorRef, msg: DynMessage) -> anyhow::Result<()>;
 
     fn unwatch(&mut self, subject: &ActorRef);
 
@@ -145,31 +145,48 @@ impl<A: Actor> Context for ActorContext<A> {
         self.myself().local().unwrap().cell.parent()
     }
 
-    fn watch<F>(&mut self, watchee: ActorRef, termination: F) -> anyhow::Result<()>
-    where
-        F: FnOnce(Terminated) -> DynMessage + Send + 'static,
-    {
-        if &watchee != self.myself() {
-            match self.watching.get(&watchee) {
+    fn watch(&mut self, subject: &ActorRef) -> anyhow::Result<()> {
+        if subject != self.myself() {
+            match self.watching.get(&subject) {
                 None => {
-                    self.maintain_address_terminated_subscription(Some(&watchee), |ctx| {
+                    self.maintain_address_terminated_subscription(Some(&subject), |ctx| {
                         let watch = Watch {
-                            watchee: watchee.clone(),
+                            watchee: subject.clone(),
                             watcher: ctx.myself.clone(),
                         };
-                        watchee.cast_system(watch, ActorRef::no_sender());
-                        ctx.watching.insert(watchee.clone(), Box::new(termination));
+                        subject.cast_ns(watch);
+                        ctx.watching.insert(subject.clone(), None);
                     });
                 }
                 Some(_) => {
-                    return Err(anyhow!(
-                        "duplicate watch {}, you should unwatch it first.",
-                        watchee
-                    ));
+                    bail!("duplicate watch {}, you should unwatch it first.", subject);
                 }
             }
         } else {
-            return Err(anyhow!("cannot watch self"));
+            bail!("cannot watch self");
+        }
+        Ok(())
+    }
+
+    fn watch_with(&mut self, subject: &ActorRef, msg: DynMessage) -> anyhow::Result<()> {
+        if subject != self.myself() {
+            match self.watching.get(&subject) {
+                None => {
+                    self.maintain_address_terminated_subscription(Some(&subject), |ctx| {
+                        let watch = Watch {
+                            watchee: subject.clone(),
+                            watcher: ctx.myself.clone(),
+                        };
+                        subject.cast_ns(watch);
+                        ctx.watching.insert(subject.clone(), Some(msg));
+                    });
+                }
+                Some(_) => {
+                    bail!("duplicate watch {}, you should unwatch it first.", subject);
+                }
+            }
+        } else {
+            bail!("cannot watch self");
         }
         Ok(())
     }
@@ -276,7 +293,7 @@ impl<A: Actor> ActorContext<A> {
     ) {
         debug!("{} watched actor {} terminated", self.myself, actor);
         if self.watching.contains_key(&actor) {
-            let termination = self.maintain_address_terminated_subscription(Some(&actor), |ctx| {
+            let optional_message = self.maintain_address_terminated_subscription(Some(&actor), |ctx| {
                 ctx.watching.remove(&actor).unwrap()
             });
             if !matches!(self.state, ActorState::Terminating) {
@@ -285,7 +302,7 @@ impl<A: Actor> ActorContext<A> {
                     existence_confirmed,
                     address_terminated,
                 };
-                self.myself.tell(termination(terminated), None);
+                self.myself.tell(optional_message(terminated), None);
             }
         }
         if self

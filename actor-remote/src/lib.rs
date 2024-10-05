@@ -6,6 +6,7 @@ pub mod config;
 mod remote_watcher;
 mod failure_detector;
 pub mod artery;
+pub mod codec;
 
 #[cfg(test)]
 mod test {

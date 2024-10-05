@@ -20,7 +20,7 @@ use actor_core::config::ConfigBuilder;
 use actor_core::config::core_config::CoreConfig;
 use actor_core::EmptyCodec;
 use actor_core::ext::init_logger_with_filter;
-use actor_core::message::codec::MessageRegistry;
+use actor_remote::codec::MessageRegistry;
 use actor_core::message::terminated::Terminated;
 use actor_remote::config::message_buffer::MessageBuffer;
 use actor_remote::config::RemoteConfig;
@@ -38,7 +38,7 @@ impl Actor for RemoteActor {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         info!("{} started", context.myself());
         if let Some(remote_ref) = &self.remote_ref {
-            context.watch(remote_ref.clone(), RemoteTerminated::new)?;
+            context.watch_with(remote_ref.clone(), RemoteTerminated::new)?;
             info!("{} watch remote ref {}", context.myself(), remote_ref);
         }
         Ok(())

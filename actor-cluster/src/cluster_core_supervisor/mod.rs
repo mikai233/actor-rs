@@ -36,7 +36,7 @@ impl ClusterCoreSupervisor {
             Props::new_with_ctx(|ctx| ClusterCoreDaemon::new(ctx)),
             "daemon",
         )?;
-        context.watch(core_daemon.clone(), CoreDaemonTerminated::new)?;
+        context.watch_with(core_daemon.clone(), CoreDaemonTerminated::new)?;
         self.core_daemon = Some(core_daemon.clone());
         Ok(core_daemon)
     }

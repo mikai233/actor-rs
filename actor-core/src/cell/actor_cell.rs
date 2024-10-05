@@ -4,17 +4,17 @@ use dashmap::DashMap;
 
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
-use crate::actor_ref::ActorRef;
 use crate::actor_ref::function_ref::FunctionRef;
+use crate::actor_ref::ActorRef;
 
 #[derive(Debug, Clone)]
 pub(crate) struct ActorCell {
-    pub(crate) inner: Arc<Inner>,
+    pub(crate) inner: Arc<ActorCellInner>,
 }
 
 impl ActorCell {
     pub(crate) fn new(parent: Option<ActorRef>) -> Self {
-        let inner = Inner {
+        let inner = ActorCellInner {
             parent,
             children: DashMap::with_hasher(ahash::RandomState::new()),
             function_refs: DashMap::with_hasher(ahash::RandomState::new()),
@@ -85,7 +85,7 @@ impl ActorCell {
 }
 
 #[derive(Debug)]
-pub(crate) struct Inner {
+pub(crate) struct ActorCellInner {
     parent: Option<ActorRef>,
     children: DashMap<String, ActorRef, ahash::RandomState>,
     function_refs: DashMap<String, FunctionRef, ahash::RandomState>,

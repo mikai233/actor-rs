@@ -1,23 +1,11 @@
-use async_trait::async_trait;
-use bincode::{Decode, Encode};
-
-use actor_derive::SystemCodec;
-
-use crate::{Actor, SystemMessage};
-use crate::actor::context::ActorContext;
 use crate::actor_ref::ActorRef;
+use actor_derive::Message;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Encode, Decode, SystemCodec)]
+#[derive(Debug, Clone, Serialize, Deserialize, Message)]
+#[cloneable]
 pub struct DeathWatchNotification {
     pub actor: ActorRef,
     pub existence_confirmed: bool,
     pub address_terminated: bool,
-}
-
-#[async_trait]
-impl SystemMessage for DeathWatchNotification {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
-        context.watched_actor_terminated(self.actor, self.existence_confirmed, self.address_terminated);
-        Ok(())
-    }
 }

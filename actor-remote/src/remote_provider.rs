@@ -6,20 +6,20 @@ use std::time::Duration;
 use config::{Config, File, FileFormat};
 use tokio::sync::broadcast::Receiver;
 
+use crate::codec::MessageRegistry;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::{Address, Protocol};
 use actor_core::actor::props::{ActorDeferredSpawn, Props};
-use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::root_actor_path::RootActorPath;
+use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::{ActorRef, TActorRef};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::local_ref::LocalActorRef;
-use actor_core::AsAny;
-use actor_core::message::codec::MessageRegistry;
-use actor_core::provider::{ActorRefProvider, TActorRefProvider};
+use actor_core::actor_ref::{ActorRef, TActorRef};
 use actor_core::provider::builder::{Provider, ProviderBuilder};
 use actor_core::provider::local_provider::LocalActorRefProvider;
+use actor_core::provider::{ActorRefProvider, TActorRefProvider};
+use actor_core::AsAny;
 
 use crate::artery::ArteryActor;
 use crate::config::advanced::Advanced;
@@ -132,7 +132,6 @@ impl TActorRefProvider for RemoteActorRefProvider {
                 self.guardian().system().clone(),
                 RootActorPath::new(address.clone(), "/").into(),
                 self.artery.clone(),
-                self.registry.clone(),
                 self.remote_watcher.clone(),
             );
             remote.into()
@@ -184,7 +183,6 @@ impl TActorRefProvider for RemoteActorRefProvider {
                 self.artery.system().clone(),
                 path.clone(),
                 self.artery.clone(),
-                self.registry.clone(),
                 self.remote_watcher.clone(),
             );
             remote.into()

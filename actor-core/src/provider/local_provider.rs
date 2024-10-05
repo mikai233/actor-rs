@@ -22,7 +22,7 @@ use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::cell::actor_cell::ActorCell;
 use crate::config::settings::Settings;
 use crate::ext::base64;
-use crate::message::codec::MessageRegistry;
+use actor_remote::codec::MessageRegistry;
 use crate::provider::{ActorRefProvider, cast_self_to_dyn, TActorRefProvider};
 use crate::provider::builder::{Provider, ProviderBuilder};
 use crate::REFERENCE;

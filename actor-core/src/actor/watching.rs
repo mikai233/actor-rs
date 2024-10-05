@@ -4,14 +4,13 @@ use std::ops::{Deref, DerefMut};
 use ahash::HashMap;
 
 use crate::actor_ref::ActorRef;
-use crate::DynMessage;
-use crate::message::terminated::Terminated;
+use crate::message::DynMessage;
 
 #[derive(Default)]
-pub(crate) struct Watching(HashMap<ActorRef, Box<dyn FnOnce(Terminated) -> DynMessage + Send>>);
+pub(crate) struct Watching(HashMap<ActorRef, Option<DynMessage>>);
 
 impl Deref for Watching {
-    type Target = HashMap<ActorRef, Box<dyn FnOnce(Terminated) -> DynMessage + Send>>;
+    type Target = HashMap<ActorRef, Option<DynMessage>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0

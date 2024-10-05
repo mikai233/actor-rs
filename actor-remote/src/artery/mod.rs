@@ -19,7 +19,7 @@ use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::decode_bytes;
 use actor_core::message::message_buffer::MessageBufferMap;
-use actor_core::message::codec::MessageRegistry;
+use crate::codec::MessageRegistry;
 use actor_core::provider::ActorRefProvider;
 
 use crate::artery::codec::PacketCodec;

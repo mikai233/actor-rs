@@ -1,6 +1,6 @@
 use config::Config;
 
-use crate::message::codec::MessageRegistry;
+use actor_remote::codec::MessageRegistry;
 use crate::provider::builder::ProviderBuilder;
 use crate::provider::TActorRefProvider;
 

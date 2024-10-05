@@ -2,7 +2,6 @@ use config::Config;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::props::DeferredSpawn;
-use crate::message::codec::MessageRegistry;
 use crate::provider::TActorRefProvider;
 
 pub trait ProviderBuilder<P>: Sized {

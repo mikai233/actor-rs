@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use crate::{Actor, CodecMessage, DynMessage, MessageType, SystemMessage};
 use crate::actor::context::ActorContext;
 use crate::delegate::downcast_box_message;
-use crate::message::codec::MessageRegistry;
+use actor_remote::codec::MessageRegistry;
 use crate::message::MessageDecoder;
 
 pub struct SystemDelegate {

@@ -6,23 +6,36 @@ use quote::quote;
 use syn::{parse_str, DeriveInput};
 
 mod as_any;
+mod codec;
 mod message;
-mod metadata;
+
+const CRATE_ACTOR_CORE: &str = "actor-core";
+
+const CRATE_ACTOR_REMOTE: &str = "actor-remote";
 
 #[proc_macro_derive(Message, attributes(cloneable))]
-pub fn empty_codec_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    todo!()
+pub fn message_derive(input: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(input as DeriveInput);
+    let stream = message::expand(&input).unwrap_or_else(|err| err.to_compile_error());
+    stream.into()
+}
+
+#[proc_macro_derive(MessageCodec)]
+pub fn message_codec_derive(input: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(input as DeriveInput);
+    let stream = codec::expand(&input).unwrap_or_else(|err| err.to_compile_error());
+    stream.into()
 }
 
 #[proc_macro_derive(AsAny)]
 pub fn as_any(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
-    as_any::expand(ast).into()
+    let input = syn::parse_macro_input!(input as DeriveInput);
+    let stream = as_any::expand(&input).unwrap_or_else(|err| err.to_compile_error());
+    stream.into()
 }
 
-pub(crate) fn with_crate(path: syn::Path) -> proc_macro2::TokenStream {
-    let found_crate = crate_name("actor-core").expect("actor-core is present in `Cargo.toml`");
+pub(crate) fn with_crate(orig_name: &str, path: syn::Path) -> proc_macro2::TokenStream {
+    let found_crate = crate_name(orig_name).expect("actor-core is present in `Cargo.toml`");
     match found_crate {
         FoundCrate::Itself => quote!(crate::#path),
         FoundCrate::Name(name) => {
@@ -32,6 +45,8 @@ pub(crate) fn with_crate(path: syn::Path) -> proc_macro2::TokenStream {
     }
 }
 
-pub(crate) fn with_crate_str(s: &str) -> proc_macro2::TokenStream {
-    with_crate(parse_str(s).unwrap())
+pub(crate) fn with_crate_str(orig_name: &str, s: &str) -> syn::Result<proc_macro2::TokenStream> {
+    let path = parse_str(s)?;
+    let path_with_crate = with_crate(orig_name, path);
+    Ok(path_with_crate)
 }

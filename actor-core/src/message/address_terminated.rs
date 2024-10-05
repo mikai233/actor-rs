@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 
-use actor_derive::CSystemCodec;
+use actor_derive::{CSystemCodec, Message};
 
 use crate::actor::address::Address;
 use crate::actor::context::{ActorContext, Context};
@@ -10,7 +10,8 @@ use crate::actor_ref::ActorRef;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::handler::MessageHandler;
 
-#[derive(Debug, Clone, Encode, Decode, CSystemCodec)]
+#[derive(Debug, Clone, Message)]
+#[cloneable]
 pub struct AddressTerminated {
     pub address: Address,
 }

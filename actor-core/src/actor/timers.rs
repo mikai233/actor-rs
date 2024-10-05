@@ -52,7 +52,7 @@ impl TimersActor {
                 o.get_mut().insert(index);
             }
             Entry::Vacant(v) => {
-                context.watch(receiver.clone(), ReceiverTerminated::new)?;
+                context.watch_with(receiver.clone(), ReceiverTerminated::new)?;
                 let mut indexes = HashSet::new();
                 indexes.insert(index);
                 v.insert(indexes);

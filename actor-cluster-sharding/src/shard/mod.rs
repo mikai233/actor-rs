@@ -175,7 +175,7 @@ impl Shard {
         match self.entities.entity(entity_id) {
             None => {
                 let entity = context.spawn(self.entity_props.props(entity_id.clone()), entity_id.as_str())?;
-                context.watch(entity.clone(), EntityTerminated::new)?;
+                context.watch_with(entity.clone(), EntityTerminated::new)?;
                 debug!("{}: Started entity [{}] with entity id [{}] in shard [{}]", self.type_name, entity, entity_id, self.shard_id);
                 self.entities.add_entity(entity_id.clone(), entity.clone());
                 Ok(entity)

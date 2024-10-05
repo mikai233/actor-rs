@@ -6,7 +6,7 @@ use tracing::debug;
 use actor_core::{CodecMessage, DynMessage, Message};
 use actor_core::actor::context::ActorContext;
 use actor_core::ext::{decode_bytes, encode_bytes};
-use actor_core::message::codec::MessageRegistry;
+use actor_remote::codec::MessageRegistry;
 use actor_core::message::MessageDecoder;
 
 use crate::message_extractor::{CodecShardEnvelope, ShardEnvelope};
