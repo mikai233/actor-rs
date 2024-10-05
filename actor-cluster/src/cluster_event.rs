@@ -10,12 +10,11 @@ use crate::reachability::Reachability;
 use crate::unique_address::UniqueAddress;
 use actor_core::actor::address::Address;
 use actor_core::actor::context::ActorContext;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::event::event_stream::EventStream;
-use actor_core::{Actor, DynMessage};
 use ahash::{HashMap, HashSet};
-use async_trait::async_trait;
-use bincode::{Decode, Encode};
 use imstr::ImString;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -69,7 +68,7 @@ impl_cluster_domain_event!(
     MemberTombstonesChanged
 );
 
-#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CurrentClusterState {
     pub members: BTreeSet<Member>,
     pub unreachable: HashSet<Member>,
@@ -515,7 +514,7 @@ impl Display for ReachabilityChanged {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Copy, Clone, Hash, Serialize, Deserialize)]
 pub(crate) struct CurrentInternalStats {
     pub(crate) gossip_stats: GossipStats,
     pub(crate) vclock_stats: VectorClockStats,
@@ -577,27 +576,18 @@ pub(crate) struct ClusterDomainEventPublisher {
     membership_state: MembershipState,
 }
 
-#[async_trait]
 impl Actor for ClusterDomainEventPublisher {
-    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn on_recv(
-        &mut self,
-        context: &mut ActorContext,
-        message: DynMessage,
-    ) -> anyhow::Result<()> {
-        Self::handle_message(self, context, message).await
+    fn receive(&self) -> Receive<Self> {
+        todo!()
     }
 }
 
 impl ClusterDomainEventPublisher {
-    fn event_stream<'a>(&self, context: &'a ActorContext) -> &'a EventStream {
+    fn event_stream<'a>(&self, context: &'a ActorContext<Self>) -> &'a EventStream {
         &context.system().event_stream
     }
-    
-    fn publish<E: Clone>(&self, context: &ActorContext, event: E) {
+
+    fn publish<E: Clone>(&self, context: &ActorContext<Self>, event: E) {
         self.event_stream(context).publish(event);
     }
 }

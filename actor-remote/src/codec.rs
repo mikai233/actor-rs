@@ -1,14 +1,14 @@
 use actor_core::message::{DynMessage, Message, Signature};
 
-pub type DecoderFn = Box<dyn Fn(&[u8]) -> anyhow::Result<DynMessage>>;
+pub type DecoderFn = Box<dyn Fn(&[u8], &dyn MessageCodecRegistry) -> anyhow::Result<DynMessage>>;
 
-pub type EncoderFn = Box<dyn Fn(&dyn Message) -> anyhow::Result<Vec<u8>>>;
+pub type EncoderFn = Box<dyn Fn(&dyn Message, &dyn MessageCodecRegistry) -> anyhow::Result<Vec<u8>>>;
 
 pub trait MessageCodec: Sized {
     type M: Message;
-    fn encode(message: &Self::M) -> anyhow::Result<Vec<u8>>;
+    fn encode(message: &Self::M, registry: &dyn MessageCodecRegistry) -> anyhow::Result<Vec<u8>>;
 
-    fn decode(bytes: &[u8]) -> anyhow::Result<Self::M>;
+    fn decode(bytes: &[u8], registry: &dyn MessageCodecRegistry) -> anyhow::Result<Self::M>;
 }
 
 pub trait MessageCodecRegistry {

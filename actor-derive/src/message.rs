@@ -26,7 +26,7 @@ pub(crate) fn expand(input: &DeriveInput) -> syn::Result<TokenStream> {
     let stream = quote! {
         impl #impl_generics #message_trait for #name #ty_generics #where_clause {
 
-            fn signature_sized() -> crate::signature::Signature
+            fn signature_sized() -> #signature_type
             where
                 Self: Sized,
             {
