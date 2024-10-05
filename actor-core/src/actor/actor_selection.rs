@@ -4,21 +4,21 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::time::Duration;
 
-use anyhow::anyhow;
-use enum_dispatch::enum_dispatch;
-use regex::Regex;
-use tracing::error;
-
 use crate::actor::context::{ActorContext, Context};
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::empty_local_ref::EmptyLocalActorRef;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::cell::Cell;
-use crate::ext::{decode_bytes, encode_bytes};
 use crate::message::identify::{ActorIdentity, Identify};
-use crate::message::DynMessage;
+use crate::message::{downcast_ref, DynMessage, Message, Signature};
 use crate::pattern::patterns::Patterns;
+use anyhow::anyhow;
+use enum_dispatch::enum_dispatch;
+use itertools::Itertools;
+use regex::Regex;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use tracing::{error, warn};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ActorSelection {
@@ -59,10 +59,6 @@ impl ActorSelection {
                 error!("{}", error);
             }
         };
-    }
-
-    pub fn forward(&self, message: DynMessage, context: &ActorContext) {
-        self.tell(message, context.sender().cloned());
     }
 
     pub async fn resolve_one(&self, timeout: Duration) -> anyhow::Result<ActorRef> {
@@ -119,7 +115,7 @@ impl ActorSelection {
                                     }
                                     None => {
                                         if !sel.wildcard_fan_out {
-                                            empty_ref.tell(DynMessage::orphan(sel), sender);
+                                            empty_ref.tell(sel, sender);
                                         }
                                         break;
                                     }
@@ -133,32 +129,33 @@ impl ActorSelection {
                                     .collect::<Vec<_>>();
                                 if iter.peek().is_none() {
                                     if matching_children.is_empty() && !sel.wildcard_fan_out {
-                                        empty_ref
-                                            .tell(DynMessage::orphan(sel.clone()), sender.clone())
+                                        empty_ref.tell(sel, sender.clone())
                                     } else {
                                         for child in matching_children {
-                                            child.value().tell(
-                                                sel.message.dyn_clone().unwrap(),
-                                                sender.clone(),
-                                            );
+                                            let message = sel.message.clone_box().expect("message is not cloneable");
+                                            child.value().tell(message, sender.clone());
                                         }
                                     }
                                 } else {
                                     if matching_children.is_empty() && !sel.wildcard_fan_out {
-                                        empty_ref
-                                            .tell(DynMessage::orphan(sel.clone()), sender.clone())
+                                        empty_ref.tell(sel, sender.clone());
                                     } else {
                                         let wildcard_fan_out =
                                             sel.wildcard_fan_out || matching_children.len() > 1;
                                         let m = sel.copy_with_elements(
-                                            iter.map(|e| e.clone()).collect(),
+                                            iter.cloned().collect(),
                                             wildcard_fan_out,
                                         );
                                         for child in matching_children {
+                                            let m = ActorSelectionMessage {
+                                                message: m.message.clone_box().unwrap(),
+                                                elements: m.elements.clone(),
+                                                wildcard_fan_out: m.wildcard_fan_out,
+                                            };
                                             Self::deliver_selection(
                                                 child.value().clone(),
                                                 sender.clone(),
-                                                m.clone(),
+                                                m,
                                             );
                                         }
                                     }
@@ -186,10 +183,10 @@ impl ActorSelection {
                     },
                     None => {
                         let sel = sel.copy_with_elements(
-                            iter.map(|e| e.clone()).collect(),
+                            iter.cloned().collect(),
                             sel.wildcard_fan_out,
                         );
-                        actor.tell(DynMessage::orphan(sel), sender);
+                        actor.tell(sel, sender);
                         break;
                     }
                 }
@@ -208,7 +205,7 @@ impl Display for ActorSelection {
 pub(crate) trait TSelectionPathElement: Display {}
 
 #[enum_dispatch]
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Encode, Decode)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub(crate) enum SelectionPathElement {
     SelectChildName,
     SelectChildPattern,
@@ -225,7 +222,7 @@ impl Display for SelectionPathElement {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Encode, Decode)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub(crate) struct SelectChildName {
     name: String,
 }
@@ -257,22 +254,24 @@ impl SelectChildPattern {
     }
 }
 
-impl Encode for SelectChildPattern {
-    fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
-        Encode::encode(self.pattern.as_str(), encoder)
+impl Serialize for SelectChildPattern {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.pattern.as_str())
     }
 }
 
-impl Decode for SelectChildPattern {
-    fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
-        let pattern_str: String = Decode::decode(decoder)?;
-        let pattern =
-            Regex::new(&pattern_str).map_err(|e| DecodeError::OtherString(e.to_string()))?;
-        Ok(Self { pattern })
+impl<'de> Deserialize<'de> for SelectChildPattern {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let pattern_str = String::deserialize(deserializer)?;
+        Ok(Self::new(pattern_str)?)
     }
 }
-
-impl_borrow_decode!(SelectChildPattern);
 
 impl Deref for SelectChildPattern {
     type Target = Regex;
@@ -304,7 +303,7 @@ impl Hash for SelectChildPattern {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Encode, Decode)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub(crate) struct SelectParent;
 
 impl Display for SelectParent {
@@ -343,11 +342,11 @@ impl ActorSelectionMessage {
             };
             Ok(myself)
         } else {
-            Err(anyhow!("message {} must be cloneable", message.name()))
+            Err(anyhow!("message {} must be cloneable", message.signature()))
         }
     }
     pub(crate) fn identify_request(&self) -> Option<&Identify> {
-        self.message.downcast_system_ref()
+        downcast_ref(&self.message)
     }
 
     pub(crate) fn copy_with_elements(
@@ -356,106 +355,61 @@ impl ActorSelectionMessage {
         wildcard_fan_out: bool,
     ) -> Self {
         let Self { message, .. } = self;
+        let message = message.clone_box().expect("message is not cloneable");
         Self {
-            message: message.dyn_clone().unwrap(),
+            message, 
             elements,
             wildcard_fan_out,
         }
     }
 }
 
-impl Clone for ActorSelectionMessage {
-    fn clone(&self) -> Self {
-        let Self {
-            message,
-            elements,
-            wildcard_fan_out,
-        } = self;
-        Self {
-            message: message.dyn_clone().unwrap(),
-            elements: elements.clone(),
-            wildcard_fan_out: *wildcard_fan_out,
-        }
+impl Message for ActorSelectionMessage {
+    fn signature_sized() -> Signature
+    where
+        Self: Sized,
+    {
+        Signature::new::<Self>()
     }
-}
 
-#[derive(Debug, Encode, Decode)]
-struct CodecSelectionMessage {
-    packet: IDPacket,
-    elements: Vec<SelectionPathElement>,
-    wildcard_fan_out: bool,
-}
-
-impl CodecMessage for ActorSelectionMessage {
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
+    fn signature(&self) -> Signature {
+        Signature::new::<Self>()
     }
 
     fn as_any(&self) -> &dyn Any {
         self
     }
 
-    fn into_codec(self: Box<Self>) -> Box<dyn CodecMessage> {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
-    fn decoder() -> Option<Box<dyn MessageDecoder>>
-    where
-        Self: Sized,
-    {
-        #[derive(Clone)]
-        struct D;
-        impl MessageDecoder for D {
-            fn decode(&self, bytes: &[u8], reg: &MessageRegistry) -> anyhow::Result<DynMessage> {
-                let CodecSelectionMessage {
-                    packet,
-                    elements,
-                    wildcard_fan_out,
-                } = decode_bytes::<CodecSelectionMessage>(bytes)?;
-                let message = reg.decode(packet)?;
-                let message = ActorSelectionMessage {
-                    message,
-                    elements,
-                    wildcard_fan_out,
-                };
-                Ok(DynMessage::orphan(message))
-            }
+    fn is_cloneable(&self) -> bool {
+        self.message.is_cloneable()
+    }
+
+    fn clone_box(&self) -> Option<Box<dyn Message>> {
+        if self.is_cloneable() {
+            let m = Self {
+                message: self.message.clone_box().unwrap(),
+                elements: self.elements.clone(),
+                wildcard_fan_out: self.wildcard_fan_out,
+            };
+            Some(Box::new(m))
+        } else {
+            None
         }
-
-        Some(Box::new(D))
-    }
-
-    fn encode(self: Box<Self>, reg: &MessageRegistry) -> anyhow::Result<Vec<u8>> {
-        let ActorSelectionMessage {
-            message,
-            elements,
-            wildcard_fan_out,
-        } = *self;
-        let packet = reg.encode_boxed(message)?;
-        let message = CodecSelectionMessage {
-            packet,
-            elements,
-            wildcard_fan_out,
-        };
-        encode_bytes(&message)
-    }
-
-    fn clone_box(&self) -> anyhow::Result<Box<dyn CodecMessage>> {
-        let message = ActorSelectionMessage {
-            message: self.message.dyn_clone()?,
-            elements: self.elements.clone(),
-            wildcard_fan_out: self.wildcard_fan_out,
-        };
-        Ok(Box::new(message))
-    }
-
-    fn cloneable(&self) -> bool {
-        self.message.message.cloneable()
-    }
-
-    fn into_dyn(self) -> DynMessage {
-        DynMessage::orphan(self)
     }
 }
 
-impl OrphanMessage for ActorSelectionMessage {}
+impl Display for ActorSelectionMessage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ActorSelectionMessage {{ message: {}, elements: {}, wildcard_fan_out: {} }}",
+            self.message,
+            self.elements.iter().join(", "),
+            self.wildcard_fan_out,
+        )
+    }
+}

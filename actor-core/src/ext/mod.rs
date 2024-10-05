@@ -1,8 +1,6 @@
-use std::any::type_name;
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use anyhow::{anyhow, Context, Ok};
-use bincode::{Decode, Encode};
+use anyhow::anyhow;
 use bytes::BytesMut;
 use tracing_subscriber::fmt::time::LocalTime;
 use tracing_subscriber::EnvFilter;
@@ -26,14 +24,6 @@ pub fn read_u32(src: &BytesMut, offset: usize) -> u32 {
     let mut u32_bytes = [0u8; 4];
     u32_bytes.copy_from_slice(&src[offset..(offset + 4)]);
     u32::from_be_bytes(u32_bytes)
-}
-
-pub fn encode_bytes<T>(value: &T) -> anyhow::Result<Vec<u8>> where T: Encode {
-    bincode::encode_to_vec(value, bincode::config::standard()).context(type_name::<T>())
-}
-
-pub fn decode_bytes<T>(bytes: &[u8]) -> anyhow::Result<T> where T: Decode {
-    bincode::decode_from_slice(bytes, bincode::config::standard()).context(type_name::<T>()).map(|(t, _)| t)
 }
 
 pub fn init_logger(level: tracing::Level) {

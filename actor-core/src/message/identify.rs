@@ -1,14 +1,14 @@
+use actor_derive::Message;
 use async_trait::async_trait;
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
-use actor_derive::{CSystemCodec, OrphanCodec};
-
-use crate::{Actor, SystemMessage};
 use crate::actor::context::{ActorContext, Context};
-use crate::actor_ref::{ActorRef, ActorRefExt};
+use crate::actor_ref::ActorRef;
 use crate::ext::option_ext::OptionExt;
 
-#[derive(Debug, Clone, Encode, Decode, CSystemCodec)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Message, derive_more::Display)]
+#[cloneable]
+#[display("Identify")]
 pub struct Identify;
 
 #[async_trait]
@@ -25,7 +25,9 @@ impl SystemMessage for Identify {
     }
 }
 
-#[derive(Debug, Encode, Decode, OrphanCodec)]
+#[derive(Debug, Clone, Serialize, Deserialize, Message, derive_more::Display)]
+#[cloneable]
+#[display("ActorIdentity {{ actor_ref: {} }}")]
 pub struct ActorIdentity {
     pub actor_ref: Option<ActorRef>,
 }

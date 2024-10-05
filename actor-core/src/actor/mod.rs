@@ -1,9 +1,15 @@
+use crate::actor::actor_selection::ActorSelectionMessage;
 use crate::actor::behavior::Behavior;
 use crate::actor::context::ActorContext;
 use crate::actor::directive::Directive;
 use crate::actor::receive::Receive;
 use crate::actor_ref::ActorRef;
-use crate::message::DynMessage;
+use crate::message::address_terminated::AddressTerminated;
+use crate::message::identify::Identify;
+use crate::message::kill::Kill;
+use crate::message::poison_pill::PoisonPill;
+use crate::message::terminated::Terminated;
+use crate::message::{DynMessage, Message};
 
 pub mod actor_selection;
 pub mod actor_system;
@@ -62,5 +68,22 @@ pub trait Actor: Send + Sized {
     #[allow(unused_variables)]
     fn unhandled(&mut self, ctx: &mut ActorContext<Self>, message: DynMessage) {
         todo!("unhandled message: {:?}", message);
+    }
+}
+
+pub(crate) fn is_auto_receive_message(message: &DynMessage) -> bool {
+    static MSG: &'static [&'static str] = &[
+        Terminated::signature_sized().name,
+        AddressTerminated::signature_sized().name,
+        PoisonPill::signature_sized().name,
+        Kill::signature_sized().name,
+        ActorSelectionMessage::signature_sized().name,
+        Identify::signature_sized().name,
+    ];
+
+    if MSG.contains(&message.signature().name) {
+        true
+    } else {
+        false
     }
 }

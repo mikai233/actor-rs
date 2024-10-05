@@ -17,6 +17,7 @@ pub mod terminate;
 pub mod terminated;
 pub mod unwatch;
 pub mod watch;
+pub mod kill;
 
 pub type DynMessage = Box<dyn Message>;
 

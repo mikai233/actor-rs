@@ -95,6 +95,7 @@ dependencies = [
  "enum_dispatch",
  "futures",
  "imstr",
+ "itertools",
  "parking_lot",
  "pin-project",
  "rand",
