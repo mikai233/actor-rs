@@ -9,7 +9,7 @@ use imstr::ImString;
 use tracing::debug;
 
 use actor_cluster::cluster::Cluster;
-use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
+use actor_core::actor::actor_system::{ActorSystem, WeakSystem};
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
@@ -39,7 +39,7 @@ pub struct ClusterSharding {
 
 #[derive(Debug)]
 pub struct Inner {
-    system: WeakActorSystem,
+    system: WeakSystem,
     cluster: Cluster,
     regions: DashMap<ImString, ActorRef>,
     proxies: DashMap<ImString, ActorRef>,

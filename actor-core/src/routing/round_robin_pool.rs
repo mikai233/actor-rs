@@ -3,20 +3,26 @@ use crate::actor::context::ActorContext;
 use crate::actor::props::{Props, PropsBuilder};
 use crate::routing::routee::Routee;
 use crate::routing::router_actor::{Router, RouterActor};
-use crate::routing::router_config::{RouterConfig, RouterProps, TRouterConfig};
 use crate::routing::router_config::pool::{Pool, PoolRouterConfig};
+use crate::routing::router_config::{RouterConfig, RouterProps, TRouterConfig};
 use crate::routing::routing_logic::round_robin_routing_logic::RoundRobinRoutingLogic;
 use crate::routing::routing_logic::RoutingLogic;
 use crate::routing::spawn_actor_routee;
 
-pub struct RoundRobinPool<A> where A: Clone + Send + 'static {
+pub struct RoundRobinPool<A>
+where
+    A: Clone + Send + 'static,
+{
     routing_logic: RoundRobinRoutingLogic,
     pub nr_of_instances: usize,
     pub routee_props: PropsBuilder<A>,
     pub arg: A,
 }
 
-impl<A> RoundRobinPool<A> where A: Clone + Send + 'static {
+impl<A> RoundRobinPool<A>
+where
+    A: Clone + Send + 'static,
+{
     pub fn new(n: usize, routee_props: PropsBuilder<A>, arg: A) -> Self {
         Self {
             routing_logic: RoundRobinRoutingLogic::default(),
@@ -27,13 +33,19 @@ impl<A> RoundRobinPool<A> where A: Clone + Send + 'static {
     }
 }
 
-impl<A> TRouterConfig for RoundRobinPool<A> where A: Clone + Send + 'static {
+impl<A> TRouterConfig for RoundRobinPool<A>
+where
+    A: Clone + Send + 'static,
+{
     fn routing_logic(&self) -> &dyn RoutingLogic {
         &self.routing_logic
     }
 }
 
-impl<A> Pool for RoundRobinPool<A> where A: Clone + Send + 'static {
+impl<A> Pool for RoundRobinPool<A>
+where
+    A: Clone + Send + 'static,
+{
     fn nr_of_instances(&self, _sys: &ActorSystem) -> usize {
         self.nr_of_instances
     }
@@ -44,7 +56,10 @@ impl<A> Pool for RoundRobinPool<A> where A: Clone + Send + 'static {
     }
 }
 
-impl<A> RouterProps for RoundRobinPool<A> where A: Clone + Send + 'static {
+impl<A> RouterProps for RoundRobinPool<A>
+where
+    A: Clone + Send + 'static,
+{
     fn props(self) -> Props {
         let router_config = RouterConfig::PoolRouterConfig(PoolRouterConfig::new(self));
         Props::new(move || {
@@ -63,7 +78,6 @@ mod test {
 
     use actor_derive::EmptyCodec;
 
-    use crate::{Actor, DynMessage, Message};
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::{Props, PropsBuilder};
@@ -73,6 +87,7 @@ mod test {
     use crate::routing::round_robin_pool::RoundRobinPool;
     use crate::routing::router_actor::routee_envelope::RouteeEnvelope;
     use crate::routing::router_config::RouterProps;
+    use crate::{Actor, DynMessage, Message};
 
     #[derive(Debug)]
     struct TestActor;
@@ -84,33 +99,24 @@ mod test {
             Ok(())
         }
 
-        async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        async fn on_recv(
+            &mut self,
+            context: &mut ActorContext,
+            message: DynMessage,
+        ) -> anyhow::Result<()> {
             Self::handle_message(self, context, message).await
         }
     }
 
-    #[derive(Debug, EmptyCodec)]
+    #[derive(Debug, Message, derive_more::Display)]
+    #[display("TestMessage")]
     struct TestMessage;
-
-    #[async_trait]
-    impl Message for TestMessage {
-        type A = TestActor;
-
-        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-            let myself = context.myself();
-            info!("{} handle round robin message {:?}", myself, self);
-            Ok(())
-        }
-    }
 
     #[tokio::test]
     async fn test_round_robin() -> anyhow::Result<()> {
         let system = ActorSystem::new("mikai233", ActorSetting::default())?;
-        let router_props = RoundRobinPool::new(
-            5,
-            PropsBuilder::new(|()| { Ok(TestActor) }),
-            (),
-        ).props();
+        let router_props =
+            RoundRobinPool::new(5, PropsBuilder::new(|()| Ok(TestActor)), ()).props();
         let round_robin_router = system.spawn_anonymous(router_props)?;
         tokio::time::sleep(Duration::from_secs(1)).await;
         for _ in 0..200 {

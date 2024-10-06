@@ -5,105 +5,79 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use dashmap::DashMap;
+use parking_lot::Mutex;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
 use actor_derive::AsAny;
 
-use crate::{DynMessage, MessageType};
 use crate::actor::actor_selection::{ActorSelection, ActorSelectionMessage};
-use crate::actor::actor_system::WeakActorSystem;
+use crate::actor::actor_system::{ActorSystem, WeakSystem};
 use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::actor::props::{ActorDeferredSpawn, Props};
-use crate::actor_path::ActorPath;
 use crate::actor_path::child_actor_path::ChildActorPath;
-use crate::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
+use crate::actor_path::ActorPath;
+use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::cell::actor_cell::ActorCell;
-use crate::cell::Cell;
 use crate::cell::envelope::Envelope;
+use crate::cell::Cell;
 use crate::ext::{check_name, random_actor_name};
 use crate::message::poison_pill::PoisonPill;
 use crate::message::resume::Resume;
 use crate::message::suspend::Suspend;
+use crate::message::DynMessage;
+use crate::provider::{ActorRefProvider, TActorRefProvider};
 
-#[derive(Clone, AsAny)]
-pub struct LocalActorRef {
-    pub(crate) inner: Arc<Inner>,
-}
+#[derive(Clone, derive_more::Deref, AsAny)]
+pub struct LocalActorRef(Arc<LocalActorRefInner>);
 
-pub struct Inner {
-    pub(crate) system: WeakActorSystem,
+pub struct LocalActorRefInner {
     pub(crate) path: ActorPath,
     pub(crate) sender: MailboxSender,
-    pub(crate) cell: ActorCell,
-}
-
-impl Deref for LocalActorRef {
-    type Target = Arc<Inner>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
+    pub(crate) parent: Option<ActorRef>,
+    pub(crate) children: DashMap<String, ActorRef>,
+    pub(crate) tx: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
+    pub(crate) rx: Mutex<Option<tokio::sync::oneshot::Receiver<()>>>,
 }
 
 impl Debug for LocalActorRef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("LocalActorRef")
-            .field("system", &"..")
             .field("path", &self.path)
             .field("sender", &self.sender)
-            .field("cell", &self.cell)
+            .field("parent", &self.parent)
+            .field("children", &self.children)
             .finish()
     }
 }
 
 impl TActorRef for LocalActorRef {
-    fn system(&self) -> &WeakActorSystem {
-        &self.system
-    }
-
     fn path(&self) -> &ActorPath {
         &self.path
     }
 
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
-        match &message.ty {
-            MessageType::User => {
-                let envelop = Envelope { message, sender };
-                if let Some(error) = self.sender.message.try_send(envelop).err() {
-                    self.log_send_error(error);
-                }
-            }
-            MessageType::System => {
-                let envelop = Envelope { message, sender };
-                if let Some(error) = self.sender.system.try_send(envelop).err() {
-                    self.log_send_error(error);
-                }
-            }
-            MessageType::Orphan => {
-                if message.is::<ActorSelectionMessage>() {
-                    let sel = message.downcast_orphan::<ActorSelectionMessage>().unwrap();
-                    if sel.elements.is_empty() {
-                        self.tell(sel.message, sender);
-                    } else {
-                        ActorSelection::deliver_selection(self.clone().into(), sender, sel);
-                    }
-                } else {
-                    let envelop = Envelope { message, sender };
-                    if let Some(error) = self.sender.message.try_send(envelop).err() {
-                        self.log_send_error(error);
-                    }
-                }
-            }
-        }
+        unimplemented!("LocalActorRef.tell")
+    }
+
+    fn start(&self) {
+        self.tx.lock().take().unwrap().send(()).unwrap();
     }
 
     fn stop(&self) {
         self.cast_system(PoisonPill, None)
     }
 
+    fn resume(&self) {
+        self.cast_ns(Resume);
+    }
+
+    fn suspend(&self) {
+        self.cast_ns(Suspend);
+    }
+
     fn parent(&self) -> Option<&ActorRef> {
-        self.cell.parent()
+        self.parent.as_ref()
     }
 
     fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
@@ -133,33 +107,6 @@ impl TActorRef for LocalActorRef {
         }
         rec(self.clone().into(), names)
     }
-
-    fn resume(&self) {
-        self.cast_system(Resume, ActorRef::no_sender());
-    }
-
-    fn suspend(&self) {
-        self.cast_system(Suspend, ActorRef::no_sender());
-    }
-}
-
-impl Cell for LocalActorRef {
-    fn underlying(&self) -> ActorCell {
-        self.cell.clone()
-    }
-
-    fn children(&self) -> &DashMap<String, ActorRef, ahash::RandomState> {
-        self.cell.children()
-    }
-
-    fn get_single_child(&self, name: &str) -> Option<ActorRef> {
-        match self.cell.get_single_child(name) {
-            None => {
-                self.cell.get_function_ref(name).map(|r| r.into())
-            }
-            Some(child) => { Some(child) }
-        }
-    }
 }
 
 impl Into<ActorRef> for LocalActorRef {
@@ -169,15 +116,17 @@ impl Into<ActorRef> for LocalActorRef {
 }
 
 impl LocalActorRef {
-    pub(crate) fn new(system: WeakActorSystem, path: ActorPath, sender: MailboxSender, cell: ActorCell) -> Self {
-        Self {
-            inner: Arc::new(Inner {
-                system,
-                path,
-                sender,
-                cell,
-            }),
-        }
+    pub(crate) fn new(path: ActorPath, sender: MailboxSender, parent: Option<ActorRef>) -> Self {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let inner = LocalActorRefInner {
+            path,
+            sender,
+            parent,
+            children: DashMap::new(),
+            tx: Mutex::new(Some(tx)),
+            rx: Mutex::new(Some(rx)),
+        };
+        LocalActorRef(inner.into())
     }
 
     fn log_send_error(&self, error: TrySendError<Envelope>) {
@@ -223,35 +172,32 @@ impl LocalActorRef {
     pub fn attach_child(
         &self,
         props: Props,
+        system: ActorSystem,
+        provider: impl AsRef<dyn TActorRefProvider>,
         name: Option<String>,
         uid: Option<i32>,
     ) -> anyhow::Result<ActorRef> {
-        let (child_ref, mailbox) = self.make_child(&props, name, uid)?;
-        props.spawn(child_ref.clone(), mailbox, self.system().clone())?;
+        let provider = provider.as_ref();
+        let mailbox: crate::config::mailbox::Mailbox = match props.mailbox.as_ref() {
+            None => {
+                provider.settings().cfg.get("akka.actor.mailbox.default-mailbox")?
+            }
+            Some(mailbox_name) => {
+                provider.settings().cfg.get(&format!("akka.actor.mailbox.{}", mailbox_name))?
+            }
+        };
+        let (sender, mailbox) = props.mailbox(mailbox)?;
+        let child_ref = self.make_child(name, uid, sender)?;
+        props.spawn(child_ref.clone(), mailbox, system)?;
         Ok(child_ref)
-    }
-
-    pub fn attach_child_deferred_start(
-        &self,
-        props: Props,
-        name: Option<String>,
-        uid: Option<i32>,
-    ) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
-        let (child_ref, mailbox) = self.make_child(&props, name, uid)?;
-        let deferred_spawn = ActorDeferredSpawn::new(
-            child_ref.clone(),
-            mailbox,
-            props.spawner,
-        );
-        Ok((child_ref, deferred_spawn))
     }
 
     pub(crate) fn make_child(
         &self,
-        props: &Props,
         name: Option<String>,
         uid: Option<i32>,
-    ) -> anyhow::Result<(ActorRef, Mailbox)> {
+        sender: MailboxSender,
+    ) -> anyhow::Result<ActorRef> {
         if let Some(name) = &name {
             if name.is_empty() {
                 return Err(anyhow!("name cannot be empty"));
@@ -259,21 +205,13 @@ impl LocalActorRef {
             check_name(name)?;
         }
         let name = name.unwrap_or_else(random_actor_name);
-        let (sender, mailbox) = props.mailbox(&self.system.upgrade()?)?;
         let uid = uid.unwrap_or_else(ActorPath::new_uid);
         let path = ChildActorPath::new(self.path.clone(), name.clone(), uid).into();
-        let children = self.children();
-        if children.contains_key(&name) {
+        if self.children.contains_key(&name) {
             return Err(anyhow!("duplicate actor name {}", name));
         }
-        let inner = Inner {
-            system: self.system().clone(),
-            path,
-            sender,
-            cell: ActorCell::new(Some(self.clone().into())),
-        };
-        let child_ref = LocalActorRef { inner: inner.into() };
-        self.cell.insert_child(name, child_ref.clone());
-        Ok((child_ref.into(), mailbox))
+        let child_ref: ActorRef = LocalActorRef::new(path, sender, Some(self.clone().into())).into();
+        self.children.insert(name, child_ref.clone());
+        Ok(child_ref)
     }
 }

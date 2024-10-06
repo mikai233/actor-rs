@@ -7,7 +7,7 @@ use std::sync::Arc;
 use tracing::error;
 
 use crate::codec::{MessageCodecRegistry, MessageRegistry};
-use actor_core::actor::actor_system::WeakActorSystem;
+use actor_core::actor::actor_system::WeakSystem;
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
@@ -31,7 +31,7 @@ pub struct RemoteActorRef {
 }
 
 pub struct Inner {
-    pub(crate) system: WeakActorSystem,
+    pub(crate) system: WeakSystem,
     pub(crate) path: ActorPath,
     pub(crate) transport: ActorRef,
     pub(crate) remote_watcher: ActorRef,
@@ -39,7 +39,7 @@ pub struct Inner {
 
 impl RemoteActorRef {
     pub(crate) fn new(
-        system: WeakActorSystem,
+        system: WeakSystem,
         path: ActorPath,
         transport: ActorRef,
         remote_watcher: ActorRef,
@@ -103,7 +103,7 @@ impl Debug for RemoteActorRef {
 }
 
 impl TActorRef for RemoteActorRef {
-    fn system(&self) -> &WeakActorSystem {
+    fn system(&self) -> &WeakSystem {
         &self.system
     }
 

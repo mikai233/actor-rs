@@ -6,18 +6,16 @@ use crate::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::props::Props;
 use crate::actor_path::TActorPath;
-use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
+use crate::actor_ref::ActorRef;
 use crate::provider::ActorRefProvider;
 
 pub trait ActorRefFactory {
     fn system(&self) -> &ActorSystem;
 
-    fn provider_full(&self) -> Arc<ActorRefProvider>;
+    fn provider(&self) -> &ActorRefProvider;
 
-    fn provider(&self) -> Guard<Arc<ActorRefProvider>>;
-
-    fn guardian(&self) -> LocalActorRef;
+    fn guardian(&self) -> &LocalActorRef;
 
     fn lookup_root(&self) -> ActorRef;
 

@@ -1,11 +1,9 @@
 use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
-
-use anyhow::anyhow;
 use tokio::sync::mpsc::channel;
 
-use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
+use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::ActorContext;
 use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::actor::Actor;
@@ -13,7 +11,6 @@ use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
-use crate::provider::local_provider::LocalActorRefProvider;
 
 type ActorSpawner = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem) -> anyhow::Result<()> + Send>;
 
@@ -41,14 +38,9 @@ impl Props {
         let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
             let actor = func()?;
             let mut context = ActorContext::new(myself, system);
-            let receive = actor.receive();
-            context.r#become(
-                move |actor, ctx, message, sender| receive.receive(actor, ctx, message, sender),
-                false,
-            );
             let runtime = ActorRuntime {
                 actor,
-                context,
+                ctx: context,
                 mailbox,
             };
             Self::run_actor(runtime)?;
@@ -72,7 +64,7 @@ impl Props {
             let actor = func(&mut context)?;
             let runtime = ActorRuntime {
                 actor,
-                context,
+                ctx: context,
                 mailbox,
             };
             Self::run_actor(runtime)?;
@@ -85,18 +77,10 @@ impl Props {
         }
     }
 
-    pub(crate) fn mailbox(&self, system: &ActorSystem) -> anyhow::Result<(MailboxSender, Mailbox)> {
-        let provider = system.provider();
-        let local = provider
-            .downcast_ref::<LocalActorRefProvider>()
-            .ok_or(anyhow!("LocalActorRefProvider not found"))?;
-        let mailbox = &local
-            .settings()
-            .actor
-            .mailbox
-            .get("default")
-            .ok_or(anyhow!("akka.actor.mailbox default config not found"))?;
-        //TODO: mailbox config
+    pub(crate) fn mailbox(
+        &self,
+        mailbox: crate::config::mailbox::Mailbox,
+    ) -> anyhow::Result<(MailboxSender, Mailbox)> {
         let (m_tx, m_rx) = channel(mailbox.mailbox_capacity.unwrap_or(1000000));
         let (s_tx, s_rx) = channel(SYSTEM_MAILBOX_SIZE);
         let sender = MailboxSender {
@@ -121,9 +105,9 @@ impl Props {
         self,
         myself: ActorRef,
         mailbox: Mailbox,
-        system: WeakActorSystem,
+        system: ActorSystem,
     ) -> anyhow::Result<()> {
-        (self.spawner)(myself, mailbox, system.upgrade()?)
+        (self.spawner)(myself, mailbox, system)
     }
 
     #[cfg(feature = "tokio-tracing")]

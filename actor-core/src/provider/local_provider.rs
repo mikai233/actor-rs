@@ -6,25 +6,19 @@ use tokio::sync::broadcast::{channel, Receiver, Sender};
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_system::ActorSystem;
+use crate::actor::actor_system::{ActorSystem, Settings};
 use crate::actor::address::{Address, Protocol};
-use crate::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
+use crate::actor::props::{DeferredSpawn, Props};
 use crate::actor::root_guardian::RootGuardian;
-use crate::actor::system_guardian::SystemGuardian;
-use crate::actor::user_guardian::UserGuardian;
-use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_path::root_actor_path::RootActorPath;
-use crate::actor_ref::{ActorRef, TActorRef};
-use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
-use crate::actor_ref::ignore_ref::IgnoreActorRef;
+use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::virtual_path_container::VirtualPathContainer;
-use crate::cell::actor_cell::ActorCell;
+use crate::actor_ref::{ActorRef, TActorRef};
 use crate::config::settings::Settings;
 use crate::ext::base64;
-use actor_remote::codec::MessageRegistry;
-use crate::provider::{ActorRefProvider, cast_self_to_dyn, TActorRefProvider};
 use crate::provider::builder::{Provider, ProviderBuilder};
+use crate::provider::{cast_self_to_dyn, ActorRefProvider, TActorRefProvider};
 use crate::REFERENCE;
 
 #[derive(Debug, AsAny)]
@@ -44,7 +38,7 @@ pub struct LocalActorRefProvider {
 }
 
 impl LocalActorRefProvider {
-    pub fn new(system: ActorSystem, config: &Config, address: Option<Address>) -> anyhow::Result<Provider<Self>> {
+    pub fn new(settings: Settings, address: Option<Address>) -> anyhow::Result<Provider<Self>> {
         let mut spawns: Vec<Box<dyn DeferredSpawn>> = vec![];
         let address = match address {
             None => {
@@ -56,9 +50,8 @@ impl LocalActorRefProvider {
         let root_path = RootActorPath::new(address, "/");
         let termination_tx_clone = termination_tx.clone();
         let root_props = Props::new(move || { Ok(RootGuardian::new(termination_tx_clone)) });
-        let (sender, mailbox) = root_props.mailbox(&system)?;
+        let (sender, mailbox) = root_props.mailbox(&)?;
         let root_guardian = LocalActorRef::new(
-            system.downgrade(),
             root_path.clone().into(),
             sender,
             ActorCell::new(None),
@@ -91,7 +84,6 @@ impl LocalActorRefProvider {
         let dead_letters = DeadLetterActorRef::new(system.downgrade(), root_path.child("dead_letters"));
         let temp_node = root_path.child("temp");
         let temp_container = VirtualPathContainer::new(
-            system.downgrade(),
             temp_node.clone(),
             root_guardian.clone().into(),
         );
@@ -119,6 +111,10 @@ impl LocalActorRefProvider {
 }
 
 impl TActorRefProvider for LocalActorRefProvider {
+    fn settings(&self) -> &crate::actor::actor_system::Settings {
+        todo!()
+    }
+
     fn root_guardian(&self) -> &LocalActorRef {
         &self.root_guardian
     }
@@ -173,7 +169,7 @@ impl TActorRefProvider for LocalActorRefProvider {
     }
 
     fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
-        supervisor.local().unwrap().attach_child(props, None, None)
+        supervisor.local().unwrap().attach_child(props, self, None, None)
     }
 
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {

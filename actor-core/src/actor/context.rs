@@ -1,4 +1,3 @@
-use std::any::type_name;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::future::Future;
@@ -9,7 +8,6 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::props::Props;
 use crate::actor::state::ActorState;
 use crate::actor::watching::Watching;
-use crate::actor::Actor;
 use crate::actor_path::child_actor_path::ChildActorPath;
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -22,7 +20,6 @@ use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::ext::option_ext::OptionExt;
 use crate::ext::random_name;
 use crate::message::death_watch_notification::DeathWatchNotification;
-use crate::message::execute::Execute;
 use crate::message::failed::Failed;
 use crate::message::task_finish::TaskFinish;
 use crate::message::terminate::Terminate;
@@ -56,7 +53,7 @@ pub trait Context: ActorRefFactory {
 }
 
 #[derive(Debug)]
-pub struct ActorContext<A: Actor> {
+pub struct ActorContext {
     pub(crate) state: ActorState,
     pub(crate) myself: ActorRef,
     pub(crate) stash: VecDeque<Envelope>,
@@ -68,20 +65,16 @@ pub struct ActorContext<A: Actor> {
     pub(crate) stash_capacity: Option<usize>,
 }
 
-impl<A: Actor> ActorRefFactory for ActorContext<A> {
+impl ActorRefFactory for ActorContext {
     fn system(&self) -> &ActorSystem {
         &self.system
     }
 
-    fn provider_full(&self) -> Arc<ActorRefProvider> {
-        self.system.provider_full()
-    }
-
-    fn provider(&self) -> Guard<Arc<ActorRefProvider>> {
+    fn provider(&self) -> &ActorRefProvider {
         self.system.provider()
     }
 
-    fn guardian(&self) -> LocalActorRef {
+    fn guardian(&self) -> &LocalActorRef {
         self.system.guardian()
     }
 
@@ -99,7 +92,7 @@ impl<A: Actor> ActorRefFactory for ActorContext<A> {
         self.myself
             .local()
             .unwrap()
-            .attach_child(props, Some(name.into()), None)
+            .attach_child(props, self.provider(), Some(name.into()), None)
     }
 
     fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
@@ -109,7 +102,7 @@ impl<A: Actor> ActorRefFactory for ActorContext<A> {
                 self.myself
             ));
         }
-        self.myself.local().unwrap().attach_child(props, None, None)
+        self.myself.local().unwrap().attach_child(props, self.provider(), None, None)
     }
 
     fn stop(&self, actor: &ActorRef) {
@@ -117,7 +110,7 @@ impl<A: Actor> ActorRefFactory for ActorContext<A> {
     }
 }
 
-impl<A: Actor> Context for ActorContext<A> {
+impl Context for ActorContext {
     fn myself(&self) -> &ActorRef {
         &self.myself
     }
@@ -208,7 +201,7 @@ impl<A: Actor> Context for ActorContext<A> {
     }
 }
 
-impl<A: Actor> ActorContext<A> {
+impl ActorContext {
     pub(crate) fn new(myself: ActorRef, system: ActorSystem) -> Self {
         Self {
             state: ActorState::Init,
@@ -293,9 +286,10 @@ impl<A: Actor> ActorContext<A> {
     ) {
         debug!("{} watched actor {} terminated", self.myself, actor);
         if self.watching.contains_key(&actor) {
-            let optional_message = self.maintain_address_terminated_subscription(Some(&actor), |ctx| {
-                ctx.watching.remove(&actor).unwrap()
-            });
+            let optional_message = self
+                .maintain_address_terminated_subscription(Some(&actor), |ctx| {
+                    ctx.watching.remove(&actor).unwrap()
+                });
             if !matches!(self.state, ActorState::Terminating) {
                 let terminated = Terminated {
                     actor: actor.clone(),
@@ -455,23 +449,13 @@ impl<A: Actor> ActorContext<A> {
             .is_some()
     }
 
-    pub fn execute<F>(&self, f: F)
-    where
-        F: FnOnce(&mut ActorContext<A>, &mut A) -> anyhow::Result<()> + Send + 'static,
-    {
-        let execute = Execute {
-            closure: Box::new(f),
-        };
-        self.myself.cast_ns(execute);
-    }
-
-    pub(crate) fn handle_invoke_failure(&mut self, message: &'static str, error: anyhow::Error) {
-        error!(
-            "{} handle message {} error {:?}",
-            type_name::<A>(),
-            message,
-            error
-        );
+    pub(crate) fn handle_invoke_failure(
+        &mut self,
+        actor: &str,
+        message: &str,
+        error: anyhow::Error,
+    ) {
+        error!("{} handle message {} error {:?}", actor, message, error);
         self.state = ActorState::Suspend;
         for child in self.children() {
             child.suspend();

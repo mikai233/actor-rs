@@ -8,7 +8,7 @@ use ahash::{HashMap, HashSet};
 use anyhow::{anyhow, Context};
 use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
+use actor_core::actor::actor_system::{ActorSystem, WeakSystem};
 use actor_core::actor::address::Address;
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
@@ -43,7 +43,7 @@ pub struct Cluster {
 #[derive(Debug)]
 pub struct Inner {
     pub settings: ClusterSettings,
-    pub system: WeakActorSystem,
+    pub system: WeakSystem,
     pub self_unique_address: UniqueAddress,
     roles: HashSet<String>,
     pub cluster_daemons: ActorRef,

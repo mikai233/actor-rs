@@ -1,16 +1,23 @@
-use std::sync::Arc;
-
-use dashmap::DashMap;
-
+use crate::actor::actor_system::ActorSystem;
+use crate::actor::context::Context;
+use crate::actor::props::Props;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
+use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::function_ref::FunctionRef;
+use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::ActorRef;
+use crate::cell::Cell;
+use crate::message::DynMessage;
+use crate::provider::ActorRefProvider;
+use ahash::RandomState;
+use anyhow::Error;
+use arc_swap::Guard;
+use dashmap::DashMap;
+use std::sync::Arc;
 
-#[derive(Debug, Clone)]
-pub(crate) struct ActorCell {
-    pub(crate) inner: Arc<ActorCellInner>,
-}
+#[derive(Debug, Clone, derive_more::Deref)]
+pub(crate) struct ActorCell(Arc<ActorCellInner>);
 
 impl ActorCell {
     pub(crate) fn new(parent: Option<ActorRef>) -> Self {
@@ -19,13 +26,11 @@ impl ActorCell {
             children: DashMap::with_hasher(ahash::RandomState::new()),
             function_refs: DashMap::with_hasher(ahash::RandomState::new()),
         };
-        Self {
-            inner: inner.into(),
-        }
+        Self(inner.into())
     }
 
     pub(crate) fn parent(&self) -> Option<&ActorRef> {
-        self.inner.parent.as_ref()
+        self.0.parent.as_ref()
     }
 
     pub(crate) fn children(&self) -> &DashMap<String, ActorRef, ahash::RandomState> {
@@ -86,7 +91,127 @@ impl ActorCell {
 
 #[derive(Debug)]
 pub(crate) struct ActorCellInner {
+    system: ActorSystem,
+    myself: ActorRef,
     parent: Option<ActorRef>,
-    children: DashMap<String, ActorRef, ahash::RandomState>,
-    function_refs: DashMap<String, FunctionRef, ahash::RandomState>,
+    children: DashMap<String, ActorRef, RandomState>,
+    function_refs: DashMap<String, FunctionRef, RandomState>,
+}
+
+impl Cell for ActorCell {
+    fn myself(&self) -> &ActorRef {
+        &self.myself
+    }
+
+    fn system(&self) -> &ActorSystem {
+        &self.system
+    }
+
+    fn start(&self) {
+        todo!()
+    }
+
+    fn suspend(&self) {
+        todo!()
+    }
+
+    fn resume(&self, error: Error) {
+        todo!()
+    }
+
+    fn stop(&self) {
+        todo!()
+    }
+
+    fn parent(&self) -> Option<&ActorRef> {
+        self.parent.as_ref()
+    }
+
+    fn children(&self) -> &DashMap<String, ActorRef, RandomState> {
+        &self.children
+    }
+
+    fn get_child_by_name(&self, name: &str) -> Option<&ActorRef> {
+        todo!()
+    }
+
+    fn get_single_child(&self, name: &str) -> Option<ActorRef> {
+        todo!()
+    }
+
+    fn send_message(&self, message: DynMessage, sender: Option<ActorRef>) {
+        todo!()
+    }
+
+    fn send_system_message(&self, message: DynMessage, sender: Option<ActorRef>) {
+        todo!()
+    }
+}
+
+impl ActorRefFactory for ActorCell {
+    fn system(&self) -> &ActorSystem {
+        todo!()
+    }
+
+    fn provider_full(&self) -> Arc<ActorRefProvider> {
+        todo!()
+    }
+
+    fn provider(&self) -> Guard<Arc<ActorRefProvider>> {
+        todo!()
+    }
+
+    fn guardian(&self) -> LocalActorRef {
+        todo!()
+    }
+
+    fn lookup_root(&self) -> ActorRef {
+        todo!()
+    }
+
+    fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
+        todo!()
+    }
+
+    fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
+        todo!()
+    }
+
+    fn stop(&self, actor: &ActorRef) {
+        todo!()
+    }
+}
+
+impl Context for ActorCell {
+    fn myself(&self) -> &ActorRef {
+        todo!()
+    }
+
+    fn children(&self) -> Vec<ActorRef> {
+        todo!()
+    }
+
+    fn child(&self, name: &str) -> Option<ActorRef> {
+        todo!()
+    }
+
+    fn parent(&self) -> Option<&ActorRef> {
+        todo!()
+    }
+
+    fn watch(&mut self, subject: &ActorRef) -> anyhow::Result<()> {
+        todo!()
+    }
+
+    fn watch_with(&mut self, subject: &ActorRef, msg: DynMessage) -> anyhow::Result<()> {
+        todo!()
+    }
+
+    fn unwatch(&mut self, subject: &ActorRef) {
+        todo!()
+    }
+
+    fn is_watching(&self, subject: &ActorRef) -> bool {
+        todo!()
+    }
 }

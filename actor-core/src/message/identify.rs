@@ -27,7 +27,7 @@ impl SystemMessage for Identify {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message, derive_more::Display)]
 #[cloneable]
-#[display("ActorIdentity {{ actor_ref: {} }}")]
+#[display("ActorIdentity {{ actor_ref: {actor_ref} }}")]
 pub struct ActorIdentity {
     pub actor_ref: Option<ActorRef>,
 }

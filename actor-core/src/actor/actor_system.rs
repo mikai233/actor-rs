@@ -8,7 +8,6 @@ use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context as _};
-use arc_swap::{ArcSwap, Guard};
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use parking_lot::Mutex;
@@ -28,26 +27,21 @@ use crate::actor_path::TActorPath;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
-use crate::config::actor_setting::ActorSetting;
 use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::event::event_stream::EventStream;
 use crate::ext::option_ext::OptionExt;
 use crate::message::stop_child::StopChild;
-use crate::provider::builder::ProviderBuilder;
-use crate::provider::empty_provider::EmptyActorRefProvider;
 use crate::provider::{ActorRefProvider, TActorRefProvider};
 
-#[derive(Debug, Clone)]
-pub struct ActorSystem {
-    inner: Arc<Inner>,
-}
+#[derive(Debug, Clone, derive_more::Deref)]
+pub struct ActorSystem(Arc<ActorSystemInner>);
 
 #[derive(Debug)]
-pub struct Inner {
+pub struct ActorSystemInner {
     pub name: String,
     pub uid: i64,
     pub start_time: u128,
-    provider: ArcSwap<ActorRefProvider>,
+    pub provider: ActorRefProvider,
     pub scheduler: SchedulerSender,
     pub event_stream: EventStream,
     pub extension: SystemExtension,
@@ -56,33 +50,18 @@ pub struct Inner {
     pub(crate) termination_error: Mutex<Option<anyhow::Error>>,
 }
 
-impl Deref for ActorSystem {
-    type Target = Arc<Inner>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
 impl ActorSystem {
-    pub fn new<B, P>(
-        name: impl Into<String>,
-        setting: ActorSetting<B, P>,
-    ) -> anyhow::Result<ActorSystemRunner>
+    pub fn new<P>(provider: P) -> anyhow::Result<ActorSystemRunner>
     where
-        B: ProviderBuilder<P>,
-        P: TActorRefProvider,
+        P: TActorRefProvider + 'static,
     {
-        let ActorSetting {
-            config, registry, ..
-        } = setting;
         let scheduler = scheduler();
         let (signal_tx, mut signal_rx) = channel(1);
-        let inner = Inner {
-            name: name.into(),
+        let inner = ActorSystemInner {
+            name: provider.settings().name.clone(),
             uid: random(),
             start_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
-            provider: ArcSwap::from_pointee(EmptyActorRefProvider.into()),
+            provider: ActorRefProvider::new(provider),
             scheduler,
             event_stream: EventStream::default(),
             extension: SystemExtension::default(),
@@ -90,19 +69,9 @@ impl ActorSystem {
             termination_callbacks: TerminationCallbacks::default(),
             termination_error: Mutex::default(),
         };
-        let system = Self {
-            inner: inner.into(),
-        };
+        let system = Self(inner.into());
         system.register_extension(|_| Ok(AddressTerminatedTopic::new()))?;
-        let provider = B::build(system.clone(), config, registry)
-            .context("failed to create actor provider")?;
-        system
-            .provider
-            .store(Arc::new(ActorRefProvider::new(provider.provider)));
         system.register_extension(CoordinatedShutdown::new)?;
-        for s in provider.spawns {
-            s.spawn(system.clone())?;
-        }
         let signal = async move {
             match signal_rx.recv().await {
                 None => Err(anyhow!("signal tx closed")),
@@ -162,7 +131,7 @@ impl ActorSystem {
     }
 
     pub fn spawn_system(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
-        self.system_guardian().attach_child(props, name, None)
+        self.system_guardian().attach_child(props, self.clone(), self.provider(), name, None)
     }
 
     pub fn spawn_system_deferred(
@@ -199,11 +168,6 @@ impl ActorSystem {
         self.provider().dead_letters().clone()
     }
 
-    pub fn downgrade(&self) -> WeakActorSystem {
-        let inner = Arc::downgrade(&self.inner);
-        WeakActorSystem { inner }
-    }
-
     pub fn run_coordinated_shutdown<R>(&self, reason: R) -> impl Future<Output = ()>
     where
         R: Reason + 'static,
@@ -217,16 +181,12 @@ impl ActorRefFactory for ActorSystem {
         &self
     }
 
-    fn provider_full(&self) -> Arc<ActorRefProvider> {
-        self.provider.load_full()
+    fn provider(&self) -> &ActorRefProvider {
+        &self.provider
     }
 
-    fn provider(&self) -> Guard<Arc<ActorRefProvider>> {
-        self.provider.load()
-    }
-
-    fn guardian(&self) -> LocalActorRef {
-        self.provider().guardian().clone()
+    fn guardian(&self) -> &LocalActorRef {
+        self.provider().guardian()
     }
 
     fn lookup_root(&self) -> ActorRef {
@@ -234,11 +194,11 @@ impl ActorRefFactory for ActorSystem {
     }
 
     fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
-        self.guardian().attach_child(props, Some(name.into()), None)
+        self.guardian().attach_child(props, self.clone(), self.provider(), Some(name.into()), None)
     }
 
     fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
-        self.guardian().attach_child(props, None, None)
+        self.guardian().attach_child(props, self.clone(), self.provider(), None, None)
     }
 
     fn stop(&self, actor: &ActorRef) {
@@ -256,19 +216,17 @@ impl ActorRefFactory for ActorSystem {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct WeakActorSystem {
-    inner: Weak<Inner>,
-}
+#[derive(Debug, Clone, derive_more::Deref)]
+pub struct WeakSystem(Weak<ActorSystemInner>);
 
-impl WeakActorSystem {
+impl WeakSystem {
     pub fn upgrade(&self) -> anyhow::Result<ActorSystem> {
         let inner = self
-            .inner
+            .0
             .upgrade()
             .into_result()
             .context("ActorSystem destroyed, any system week reference is invalid")?;
-        Ok(ActorSystem { inner })
+        Ok(ActorSystem(inner))
     }
 }
 
@@ -333,6 +291,12 @@ impl Debug for TerminationCallbacks {
             .field("callbacks", &"..")
             .finish()
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct Settings {
+    pub name: String,
+    pub cfg: config::Config,
 }
 
 // #[cfg(test)]

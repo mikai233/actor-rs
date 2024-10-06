@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_system::WeakActorSystem;
+use crate::actor::actor_system::WeakSystem;
 use crate::actor::address::{Address, Protocol};
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_path::root_actor_path::RootActorPath;
@@ -18,7 +18,7 @@ pub struct IgnoreActorRef {
 }
 
 pub struct Inner {
-    pub(crate) system: WeakActorSystem,
+    pub(crate) system: WeakSystem,
     pub(crate) path: ActorPath,
 }
 
@@ -40,7 +40,7 @@ impl Deref for IgnoreActorRef {
 }
 
 impl TActorRef for IgnoreActorRef {
-    fn system(&self) -> &WeakActorSystem {
+    fn system(&self) -> &WeakSystem {
         &self.system
     }
 
@@ -68,7 +68,7 @@ impl Into<ActorRef> for IgnoreActorRef {
 }
 
 impl IgnoreActorRef {
-    pub(crate) fn new(system: WeakActorSystem) -> Self {
+    pub(crate) fn new(system: WeakSystem) -> Self {
         let path = Self::path();
         Self {
             inner: Arc::new(Inner { system, path }),

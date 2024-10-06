@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 
 use crate::actor_ref::ActorRef;
-use crate::DynMessage;
+use crate::message::DynMessage;
 
 pub(crate) struct ActorSubscriber {
     pub(crate) subscriber: ActorRef,

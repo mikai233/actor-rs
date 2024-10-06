@@ -17,7 +17,7 @@ use tracing::{debug, error, info, warn};
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
+use crate::actor::actor_system::{ActorSystem, WeakSystem};
 use crate::actor::extension::Extension;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::config::phase::Phase;
@@ -43,7 +43,7 @@ pub struct CoordinatedShutdown {
 
 #[derive(Debug)]
 pub struct Inner {
-    system: WeakActorSystem,
+    system: WeakSystem,
     registered_phases: Mutex<HashMap<ImString, PhaseTask>>,
     ordered_phases: Vec<ImString>,
     run_started: AtomicBool,

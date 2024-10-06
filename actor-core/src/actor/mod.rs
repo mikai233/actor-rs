@@ -33,19 +33,19 @@ mod watching;
 
 pub trait Actor: Send + Sized {
     #[allow(unused_variables)]
-    fn started(&mut self, ctx: &mut ActorContext<Self>) -> anyhow::Result<()> {
+    fn started(&mut self, ctx: &mut ActorContext) -> anyhow::Result<()> {
         Ok(())
     }
 
     #[allow(unused_variables)]
-    fn stopped(&mut self, ctx: &mut ActorContext<Self>) -> anyhow::Result<()> {
+    fn stopped(&mut self, ctx: &mut ActorContext) -> anyhow::Result<()> {
         Ok(())
     }
 
     #[allow(unused_variables)]
     fn on_child_failure(
         &mut self,
-        context: &mut ActorContext<Self>,
+        context: &mut ActorContext,
         child: &ActorRef,
         error: &anyhow::Error,
     ) -> Directive {
@@ -58,7 +58,7 @@ pub trait Actor: Send + Sized {
         &self,
         receive: &Receive<Self>,
         actor: &mut Self,
-        ctx: &mut ActorContext<Self>,
+        ctx: &mut ActorContext,
         message: DynMessage,
         sender: Option<ActorRef>,
     ) -> anyhow::Result<Behavior<Self>> {
@@ -66,7 +66,7 @@ pub trait Actor: Send + Sized {
     }
 
     #[allow(unused_variables)]
-    fn unhandled(&mut self, ctx: &mut ActorContext<Self>, message: DynMessage) {
+    fn unhandled(&mut self, ctx: &mut ActorContext, message: DynMessage) {
         todo!("unhandled message: {:?}", message);
     }
 }
@@ -86,4 +86,8 @@ pub(crate) fn is_auto_receive_message(message: &DynMessage) -> bool {
     } else {
         false
     }
+}
+
+pub(crate) fn is_system_message(message: &DynMessage) -> bool {
+    todo!("is_system_message")
 }

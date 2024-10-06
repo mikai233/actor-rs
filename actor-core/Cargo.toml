@@ -30,7 +30,7 @@ pin-project = { workspace = true }
 config = { workspace = true }
 parking_lot = { workspace = true }
 imstr = { workspace = true, features = ["serde"] }
-derive_more = { workspace = true, features = ["display"] }
+derive_more = { workspace = true, features = ["display", "deref"] }
 itertools = { workspace = true }
 
 [dev-dependencies]

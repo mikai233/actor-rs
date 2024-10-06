@@ -1,45 +1,31 @@
-use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 use std::iter::Peekable;
 use std::ops::{Deref, Not};
 use std::sync::Arc;
 
-use dashmap::DashMap;
 use dashmap::mapref::one::Ref;
+use dashmap::DashMap;
 
 use actor_derive::AsAny;
 
-use crate::{DynMessage, MessageType};
-use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
-use crate::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
+use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::terminate::Terminate;
+use crate::message::{DynMessage, Message};
 
-#[derive(Clone, AsAny)]
-pub struct VirtualPathContainer {
-    pub(crate) inner: Arc<Inner>,
-}
+#[derive(Clone, derive_more::Deref, AsAny)]
+pub struct VirtualPathContainer(Arc<VirtualPathContainerInner>);
 
-pub struct Inner {
-    pub(crate) system: WeakActorSystem,
+pub struct VirtualPathContainerInner {
     pub(crate) path: ActorPath,
     pub(crate) parent: ActorRef,
-    pub(crate) children: Arc<DashMap<String, ActorRef, ahash::RandomState>>,
-}
-
-impl Deref for VirtualPathContainer {
-    type Target = Arc<Inner>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
+    pub(crate) children: DashMap<String, ActorRef, ahash::RandomState>,
 }
 
 impl Debug for VirtualPathContainer {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("VirtualPathContainer")
-            .field("system", &"..")
             .field("path", &self.path)
             .field("parent", &self.parent)
             .field("children", &self.children)
@@ -48,24 +34,18 @@ impl Debug for VirtualPathContainer {
 }
 
 impl TActorRef for VirtualPathContainer {
-    fn system(&self) -> &WeakActorSystem {
-        &self.system
-    }
-
     fn path(&self) -> &ActorPath {
         &self.path
     }
 
     fn tell(&self, message: DynMessage, _sender: Option<ActorRef>) {
-        if matches!(message.ty, MessageType::System) {
-            if message.name == type_name::<Terminate>() {
-                let notification = DeathWatchNotification {
-                    actor: self.clone().into(),
-                    existence_confirmed: true,
-                    address_terminated: false,
-                };
-                self.parent.cast_system(notification, ActorRef::no_sender());
-            }
+        if message.signature() == Terminate::signature_sized() {
+            let notification = DeathWatchNotification {
+                actor: self.clone().into(),
+                existence_confirmed: true,
+                address_terminated: false,
+            };
+            self.parent.cast_ns(notification);
         }
     }
 
@@ -105,15 +85,13 @@ impl Into<ActorRef> for VirtualPathContainer {
 }
 
 impl VirtualPathContainer {
-    pub(crate) fn new(system: WeakActorSystem, path: ActorPath, parent: ActorRef) -> Self {
-        Self {
-            inner: Arc::new(Inner {
-                system,
-                path,
-                parent,
-                children: Arc::new(Default::default()),
-            }),
-        }
+    pub(crate) fn new(path: ActorPath, parent: ActorRef) -> Self {
+        let inner = VirtualPathContainerInner {
+            path,
+            parent,
+            children: DashMap::with_hasher(ahash::RandomState::default()),
+        };
+        Self(inner.into())
     }
 
     pub(crate) fn add_child(&self, name: String, child: ActorRef) {

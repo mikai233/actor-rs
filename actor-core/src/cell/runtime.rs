@@ -24,41 +24,44 @@ use crate::message::watch::Watch;
 
 pub struct ActorRuntime<A> where A: Actor {
     pub(crate) actor: A,
-    pub(crate) context: ActorContext<A>,
+    pub(crate) ctx: ActorContext,
     pub(crate) mailbox: Mailbox,
 }
 
 impl<A> ActorRuntime<A> where A: Actor {
     pub(crate) async fn run(self) {
-        let Self { mut actor, mut context, mut mailbox } = self;
-        context.stash_capacity = mailbox.stash_capacity;
+        let Self { mut actor, mut ctx, mut mailbox } = self;
+        ctx.stash_capacity = mailbox.stash_capacity;
         let mut behavior_stack = VecDeque::new();
         behavior_stack.push_back(actor.receive());
+
+        ctx.myself.local().unwrap().rx.lock().take().unwrap().await.unwrap();
+
         let system_receive = Self::system_receive();
-        if let Err(error) = actor.started(&mut context) {
+        if let Err(error) = actor.started(&mut ctx) {
             error!("actor {} start error {:?}", type_name::<A>(), error);
-            context.stop(&context.myself());
+            ctx.stop(&ctx.myself());
             while let Some(message) = mailbox.system.recv() {
-                Self::handle_system_message(&mut context, &mut actor, message, &system_receive);
-                if matches!(context.state, ActorState::CanTerminate) {
+                Self::handle_system_message(&mut ctx, &mut actor, message, &system_receive);
+                if matches!(ctx.state, ActorState::CanTerminate) {
                     break;
                 }
             }
             return;
         }
-        context.state = ActorState::Started;
+        ctx.state = ActorState::Started;
         let mut throughput = 0;
         loop {
             tokio::select! {
                 biased;
                 Some(envelope) = mailbox.system.recv() => {
-                    Self::handle_system_message(&mut context, &mut actor, envelope, &system_receive);
-                    if matches!(context.state, ActorState::CanTerminate) {
+                    Self::handle_system_message(&mut ctx, &mut actor, envelope, &system_receive);
+                    if matches!(ctx.state, ActorState::CanTerminate) {
                         break;
                     }
                 }
-                Some(envelope) = mailbox.message.recv(), if matches!(context.state, ActorState::Started) => {
-                    Self::handle_message(&mut context, &mut actor, &mut behavior_stack, envelope);
+                Some(envelope) = mailbox.message.recv(), if matches!(ctx.state, ActorState::Started) => {
+                    Self::handle_message(&mut ctx, &mut actor, &mut behavior_stack, envelope);
                     throughput += 1;
                     if throughput >= mailbox.throughput {
                         throughput = 0;
@@ -70,12 +73,12 @@ impl<A> ActorRuntime<A> where A: Actor {
                 }
             }
         }
-        if let Some(error) = actor.stopped(&mut context).err() {
+        if let Some(error) = actor.stopped(&mut ctx).err() {
             error!("actor {} stop error {:?}", type_name::<A>(), error);
         }
         mailbox.close();
-        context.state = ActorState::Terminated;
-        for (name, handle) in context.abort_handles {
+        ctx.state = ActorState::Terminated;
+        for (name, handle) in ctx.abort_handles {
             handle.abort();
             debug!("{} abort task: {}", type_name::<A>(), name);
         }

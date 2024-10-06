@@ -1,23 +1,23 @@
-use std::any::Any;
-use std::any::type_name;
-use std::fmt::Debug;
-use std::ops::Deref;
-
-use tokio::sync::broadcast::Receiver;
-
+use crate::actor::actor_system::Settings;
 use crate::actor::address::Address;
 use crate::actor::props::Props;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
-use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
+use crate::actor_ref::ActorRef;
 use crate::ext::as_any::AsAny;
+use std::any::type_name;
+use std::any::Any;
+use std::fmt::Debug;
+use std::sync::Arc;
+use tokio::sync::broadcast::Receiver;
 
-pub mod local_provider;
-pub mod empty_provider;
 pub mod builder;
+pub mod local_provider;
 
 pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
+    fn settings(&self) -> &Settings;
+
     fn root_guardian(&self) -> &LocalActorRef;
 
     fn root_guardian_at(&self, address: &Address) -> ActorRef;
@@ -62,32 +62,37 @@ pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
     fn as_provider(&self, name: &str) -> Option<&dyn TActorRefProvider>;
 }
 
-#[derive(Debug)]
-pub struct ActorRefProvider(Box<dyn TActorRefProvider>);
-
-impl Deref for ActorRefProvider {
-    type Target = Box<dyn TActorRefProvider>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+#[derive(Debug, Clone, derive_more::Deref)]
+pub struct ActorRefProvider(Arc<dyn TActorRefProvider>);
 
 impl ActorRefProvider {
-    pub fn new<P>(provider: P) -> Self where P: TActorRefProvider {
-        Self(Box::new(provider))
+    pub fn new<P>(provider: P) -> Self
+    where
+        P: TActorRefProvider,
+    {
+        Self(Arc::new(provider))
     }
 
     pub fn downcast_ref<P>(&self) -> Option<&P>
     where
         P: TActorRefProvider,
     {
-        self.0.as_provider(type_name::<P>())
+        self.0
+            .as_provider(type_name::<P>())
             .and_then(|provider| provider.as_any().downcast_ref::<P>())
     }
 }
 
-fn cast_self_to_dyn<'a, P>(name: &str, provider: &'a P) -> Option<&'a dyn TActorRefProvider> where P: TActorRefProvider {
+impl AsRef<dyn TActorRefProvider> for ActorRefProvider {
+    fn as_ref(&self) -> &dyn TActorRefProvider {
+        self.0.as_ref()
+    }
+}
+
+fn cast_self_to_dyn<'a, P>(name: &str, provider: &'a P) -> Option<&'a dyn TActorRefProvider>
+where
+    P: TActorRefProvider,
+{
     if name == type_name::<P>() {
         Some(provider)
     } else {

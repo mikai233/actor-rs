@@ -14,7 +14,6 @@ use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::task_local;
 
-use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::local_ref::LocalActorRef;
@@ -36,21 +35,21 @@ task_local! {
 }
 
 pub trait TActorRef: Debug + Send + Sync + Any + AsAny {
-    fn system(&self) -> &WeakActorSystem;
-
     fn path(&self) -> &ActorPath;
 
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>);
 
+    fn start(&self);
+
     fn stop(&self);
+
+    fn resume(&self);
+
+    fn suspend(&self);
 
     fn parent(&self) -> Option<&ActorRef>;
 
     fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef>;
-
-    fn resume(&self) {}
-
-    fn suspend(&self) {}
 }
 
 impl<T: ?Sized> ActorRefExt for T where T: TActorRef {}
@@ -71,7 +70,7 @@ pub trait ActorRefExt: TActorRef {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, derive_more::Deref)]
 pub struct ActorRef(Arc<dyn TActorRef>);
 
 impl ActorRef {
@@ -90,14 +89,6 @@ impl ActorRef {
 
     pub(crate) fn local(&self) -> Option<&LocalActorRef> {
         self.as_any().downcast_ref()
-    }
-}
-
-impl Deref for ActorRef {
-    type Target = Arc<dyn TActorRef>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
@@ -146,62 +137,6 @@ impl Debug for ActorRef {
             .finish_non_exhaustive()
     }
 }
-
-impl Encode for ActorRef {
-    fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
-        let path = self.path().to_serialization_format();
-        Encode::encode(&path, encoder)
-    }
-}
-
-impl Decode for ActorRef {
-    fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
-        let path: String = Decode::decode(decoder)?;
-        let actor_ref = PROVIDER
-            .try_with(|provider| provider.resolve_actor_ref(&path))
-            .map_err(|_| {
-                DecodeError::Other("task local value PROVIDER not set in current decode scope")
-            })?;
-        Ok(actor_ref)
-    }
-}
-
-impl_borrow_decode!(ActorRef);
-
-struct ActorVisitor;
-
-impl<'de> Visitor<'de> for ActorVisitor {
-    type Value = ActorRef;
-
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-        write!(formatter, "serialization format actor path")
-    }
-
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-    where
-        E: Error,
-    {
-        let actor_ref = PROVIDER
-            .try_with(|provider| provider.resolve_actor_ref(v))
-            .map_err(|_| {
-                Error::custom("task local value PROVIDER not set in current decode scope")
-            })?;
-        Ok(actor_ref)
-    }
-
-    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
-    where
-        E: Error,
-    {
-        let actor_ref = PROVIDER
-            .try_with(|provider| provider.resolve_actor_ref(&v))
-            .map_err(|_| {
-                Error::custom("task local value PROVIDER not set in current decode scope")
-            })?;
-        Ok(actor_ref)
-    }
-}
-
 impl Serialize for ActorRef {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -217,7 +152,40 @@ impl<'de> Deserialize<'de> for ActorRef {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_str(ActorVisitor)
+        struct ActorRefVisitor;
+
+        impl<'de> Visitor<'de> for ActorRefVisitor {
+            type Value = ActorRef;
+
+            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+                write!(formatter, "serialization format actor path")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                let actor_ref = PROVIDER
+                    .try_with(|provider| provider.resolve_actor_ref(v))
+                    .map_err(|_| {
+                        Error::custom("task local value PROVIDER not set in current decode scope")
+                    })?;
+                Ok(actor_ref)
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                let actor_ref = PROVIDER
+                    .try_with(|provider| provider.resolve_actor_ref(&v))
+                    .map_err(|_| {
+                        Error::custom("task local value PROVIDER not set in current decode scope")
+                    })?;
+                Ok(actor_ref)
+            }
+        }
+        deserializer.deserialize_str(ActorRefVisitor)
     }
 }
 

@@ -4,20 +4,12 @@ use std::hash::{Hash, Hasher};
 use std::sync::OnceLock;
 
 use anyhow::{anyhow, bail};
-use bincode::{Decode, Encode};
 use imstr::ImString;
 use serde::{Deserialize, Serialize};
 
 const UNDEFINED: i32 = 0;
 
-#[derive(
-    Debug,
-    Clone,
-    Encode,
-    Decode,
-    Serialize,
-    Deserialize
-)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Version {
     version: ImString,
     numbers: [i32; 4],
@@ -28,7 +20,11 @@ impl Version {
     pub fn new(version: impl Into<ImString>) -> anyhow::Result<Self> {
         let version = version.into();
         let (numbers, rest) = Self::parse(&version)?;
-        Ok(Version { version, numbers, rest })
+        Ok(Version {
+            version,
+            numbers,
+            rest,
+        })
     }
 
     pub fn zero() -> &'static Version {
@@ -44,23 +40,13 @@ impl Version {
                 let i = s.find('-');
                 let j = s.find('+');
                 let k = match (i, j) {
-                    (None, j) => {
-                        j
-                    }
-                    (i, None) => {
-                        i
-                    }
-                    (Some(i), Some(j)) => {
-                        Some(min(i, j))
-                    }
+                    (None, j) => j,
+                    (i, None) => i,
+                    (Some(i), Some(j)) => Some(min(i, j)),
                 };
                 match k {
-                    None => {
-                        (s.parse().unwrap(), "")
-                    }
-                    Some(k) => {
-                        (s[..k].parse().unwrap(), &s[(k + 1)..])
-                    }
+                    None => (s.parse().unwrap(), ""),
+                    Some(k) => (s[..k].parse().unwrap(), &s[(k + 1)..]),
                 }
             }
         }
@@ -70,19 +56,11 @@ impl Version {
                 (UNDEFINED, s)
             } else {
                 match s.find('-') {
-                    None => {
-                        (UNDEFINED, s)
-                    }
-                    Some(i) => {
-                        match s[..i].parse::<i32>() {
-                            Ok(num) => {
-                                (num, &s[(i + 1)..])
-                            }
-                            Err(_) => {
-                                (UNDEFINED, s)
-                            }
-                        }
-                    }
+                    None => (UNDEFINED, s),
+                    Some(i) => match s[..i].parse::<i32>() {
+                        Ok(num) => (num, &s[(i + 1)..]),
+                        Err(_) => (UNDEFINED, s),
+                    },
                 }
             }
         }
@@ -111,9 +89,7 @@ impl Version {
             let first_char = s.chars().next().unwrap();
             if first_char.is_digit(10) {
                 match first_char.to_digit(10) {
-                    None => {
-                        s
-                    }
+                    None => s,
                     Some(v) => {
                         numbers[0] = v as i32;
                         ""
@@ -124,15 +100,21 @@ impl Version {
             }
         } else if segments.len() == 2 {
             let (n1, n2, reset) = parse_last_parts(segments[1]);
-            numbers[0] = segments[0].parse().map_err(|_| anyhow!("Invalid version number {}", segments[0]))?;
+            numbers[0] = segments[0]
+                .parse()
+                .map_err(|_| anyhow!("Invalid version number {}", segments[0]))?;
             numbers[1] = n1;
             numbers[2] = n2;
             numbers[3] = UNDEFINED;
             reset
         } else if segments.len() == 3 {
             let (n1, n2, reset) = parse_last_parts(segments[2]);
-            numbers[0] = segments[0].parse().map_err(|_| anyhow!("Invalid version number {}", segments[0]))?;
-            numbers[1] = segments[1].parse().map_err(|_| anyhow!("Invalid version number {}", segments[1]))?;
+            numbers[0] = segments[0]
+                .parse()
+                .map_err(|_| anyhow!("Invalid version number {}", segments[0]))?;
+            numbers[1] = segments[1]
+                .parse()
+                .map_err(|_| anyhow!("Invalid version number {}", segments[1]))?;
             numbers[2] = n1;
             numbers[3] = n2;
             reset
