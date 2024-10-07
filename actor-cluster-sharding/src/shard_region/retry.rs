@@ -2,7 +2,7 @@ use std::ops::Not;
 
 use async_trait::async_trait;
 
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 use actor_core::CEmptyCodec;
 use actor_core::Message;
 
@@ -15,7 +15,7 @@ pub(super) struct Retry;
 impl Message for Retry {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         if actor.shard_buffers.is_empty().not() {
             actor.retry_count += 1;
         }

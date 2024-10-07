@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::EmptyCodec;
 use actor_core::Message;
 use actor_core::message::identify::ActorIdentity;
@@ -15,7 +15,7 @@ pub(super) struct ActorIdentityWrap(pub(super) ActorIdentity);
 impl Message for ActorIdentityWrap {
     type A = ClusterSingletonProxy;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         if let Some(singleton) = self.0.actor_ref {
             if !context.is_watching(&singleton) {
                 context.watch_with(singleton.clone(), SingletonTerminated::new)?;

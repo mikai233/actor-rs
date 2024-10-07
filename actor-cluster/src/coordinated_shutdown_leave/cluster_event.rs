@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 use actor_core::EmptyCodec;
 use actor_core::Message;
 
@@ -15,7 +15,7 @@ pub(super) struct ClusterEventWrap(pub(super) dyn MemberEvent);
 impl Message for ClusterEventWrap {
     type A = CoordinatedShutdownLeave;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         match self.0 {
             MemberEvent::MemberLeaving(m) => {
                 if actor.cluster.self_unique_address() == &m.unique_address {

@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use tokio::sync::mpsc::{channel, Sender};
 use tracing::{debug, warn};
 
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor::coordinated_shutdown::{ClusterDowningReason, CoordinatedShutdown, PHASE_CLUSTER_LEAVE, PHASE_CLUSTER_SHUTDOWN};
 use actor_core::actor::props::Props;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -33,7 +33,7 @@ pub(crate) mod cluster_user_action {
     use async_trait::async_trait;
 
     use actor_core::actor::address::Address;
-    use actor_core::actor::context::ActorContext;
+    use actor_core::actor::context::ActorContext1;
     use actor_core::util::version::Version;
     use actor_core::{EmptyCodec, Message};
 
@@ -49,7 +49,7 @@ pub(crate) mod cluster_user_action {
     impl Message for JoinTo {
         type A = ClusterCoreDaemon;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
             todo!()
         }
     }
@@ -63,7 +63,7 @@ pub(crate) mod cluster_user_action {
     impl Message for Leave {
         type A = ClusterCoreDaemon;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
             todo!()
         }
     }
@@ -81,7 +81,7 @@ pub(crate) mod cluster_user_action {
     impl Message for Down {
         type A = ClusterCoreDaemon;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
             todo!()
         }
     }
@@ -95,7 +95,7 @@ pub(crate) mod cluster_user_action {
     impl Message for PrepareForShutdown {
         type A = ClusterCoreDaemon;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
             todo!()
         }
     }
@@ -107,7 +107,7 @@ pub(crate) mod cluster_user_action {
     impl Message for SetAppVersionLater {
         type A = ClusterCoreDaemon;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
             todo!()
         }
     }
@@ -121,7 +121,7 @@ pub(crate) mod cluster_user_action {
     impl Message for SetAppVersion {
         type A = ClusterCoreDaemon;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
             todo!()
         }
     }
@@ -135,7 +135,7 @@ pub struct ClusterDaemon {
 
 #[async_trait]
 impl Actor for ClusterDaemon {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         let cluster = Cluster::get(context.system()).clone();
         let myself = context.myself().clone();
         let cluster_shutdown = self.cluster_shutdown.clone();
@@ -157,7 +157,7 @@ impl Actor for ClusterDaemon {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         let _ = self.cluster_shutdown.send(()).await;
         let system = context.system().clone();
         let fut = {
@@ -168,13 +168,13 @@ impl Actor for ClusterDaemon {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
 
 impl ClusterDaemon {
-    pub(crate) fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
+    pub(crate) fn new(context: &mut ActorContext1) -> anyhow::Result<Self> {
         let coord_shutdown = CoordinatedShutdown::get(context.system());
         let (cluster_shutdown_tx, mut cluster_shutdown_rx) = channel(1);
         coord_shutdown.add_task(context.system(), PHASE_CLUSTER_SHUTDOWN, "wait-shutdown", async move {
@@ -187,7 +187,7 @@ impl ClusterDaemon {
         Ok(daemon)
     }
 
-    fn create_children(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    fn create_children(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         let core_supervisor = context.spawn(
             Props::new_with_ctx(|ctx| {
                 Ok(ClusterCoreSupervisor::new(ctx))
@@ -206,7 +206,7 @@ pub(crate) mod internal_cluster_action {
     use imstr::ImString;
 
     use actor_core::actor::address::Address;
-    use actor_core::actor::context::ActorContext;
+    use actor_core::actor::context::ActorContext1;
     use actor_core::actor_ref::ActorRef;
     use actor_core::util::version::Version;
     use actor_core::{DynMessage, EmptyCodec, Message};
@@ -229,7 +229,7 @@ pub(crate) mod internal_cluster_action {
     impl Message for Join {
         type A = ClusterDaemon;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
             todo!()
         }
     }
@@ -246,7 +246,7 @@ pub(crate) mod internal_cluster_action {
     impl Message for Welcome {
         type A = ClusterDaemon;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
             todo!()
         }
     }
@@ -260,7 +260,7 @@ pub(crate) mod internal_cluster_action {
     impl Message for JoinSeedNodes {
         type A = ClusterDaemon;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
             todo!()
         }
     }
@@ -272,7 +272,7 @@ pub(crate) mod internal_cluster_action {
     impl Message for JoinSeedNode {
         type A = ClusterDaemon;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
             todo!()
         }
     }
@@ -288,7 +288,7 @@ pub(crate) mod internal_cluster_action {
     impl Message for Subscribe {
         type A = ();
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
             todo!()
         }
     }

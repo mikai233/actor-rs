@@ -1,23 +1,24 @@
-use async_trait::async_trait;
-
-use actor_derive::EmptyCodec;
-
-use crate::actor::context::ActorContext;
-use crate::actor_ref::ActorRef;
-use crate::message::DynMessage;
-
 use super::Actor;
+use crate::actor::behavior::Behavior;
+use crate::actor_ref::ActorRef;
+use crate::cell::actor_cell::ActorCell;
+use crate::message::handler::MessageHandler;
+use crate::message::DynMessage;
+use actor_derive::Message;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub struct DeadLetterListener;
 
 impl Actor for DeadLetterListener {
+    type Context = ActorCell;
+
     fn receive(&self) -> super::receive::Receive<Self> {
         todo!()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Message)]
 pub struct Dropped {
     message: DynMessage,
     reason: String,
@@ -34,33 +35,40 @@ impl Dropped {
     }
 }
 
-#[async_trait]
-impl Message for Dropped {
-    type A = DeadLetterListener;
-
-    async fn handle(
-        self: Box<Self>,
-        context: &mut ActorContext,
-        actor: &mut Self::A,
-    ) -> anyhow::Result<()> {
-        //TODO
-        Ok(())
+impl Display for Dropped {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Dropped {{ message: {}, reason: {}, sender: {:?} }}",
+            self.message,
+            self.reason,
+            self.sender,
+        )
     }
 }
 
-#[derive(Debug, EmptyCodec)]
+impl MessageHandler<DeadLetterListener> for Dropped {
+    fn handle(
+        actor: &mut DeadLetterListener,
+        ctx: &mut <DeadLetterListener as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+    ) -> anyhow::Result<Behavior<DeadLetterListener>> {
+        todo!()
+    }
+}
+
+#[derive(Debug, Message, derive_more::Display)]
+#[display("DeadMessage({_0})")]
 pub struct DeadMessage(pub DynMessage);
 
-#[async_trait]
-impl Message for DeadMessage {
-    type A = DeadLetterListener;
-
-    async fn handle(
-        self: Box<Self>,
-        context: &mut ActorContext,
-        actor: &mut Self::A,
-    ) -> anyhow::Result<()> {
-        //TODO
-        Ok(())
+impl MessageHandler<DeadLetterListener> for DeadMessage {
+    fn handle(
+        actor: &mut DeadLetterListener,
+        ctx: &mut <DeadLetterListener as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+    ) -> anyhow::Result<Behavior<DeadLetterListener>> {
+        todo!()
     }
 }

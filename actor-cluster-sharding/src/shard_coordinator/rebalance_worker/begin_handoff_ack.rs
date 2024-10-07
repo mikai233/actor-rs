@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::debug;
 
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
 use actor_core::MessageCodec;
@@ -22,7 +22,7 @@ pub(crate) struct BeginHandoffAck {
 impl Message for BeginHandoffAck {
     type A = RebalanceWorker;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         let shard = self.shard;
         let sender = context.sender().into_result().context(type_name::<BeginHandoffAck>())?.clone();
         if actor.shard == shard {

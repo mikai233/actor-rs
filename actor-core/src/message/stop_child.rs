@@ -1,35 +1,38 @@
-use std::marker::PhantomData;
-
-use async_trait::async_trait;
-
-use actor_derive::EmptyCodec;
-
-use crate::{Actor, Message};
-use crate::actor::context::ActorContext;
+use crate::actor::behavior::Behavior;
+use crate::actor::system_guardian::SystemGuardian;
+use crate::actor::user_guardian::UserGuardian;
+use crate::actor::Actor;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::ActorRef;
+use crate::message::handler::MessageHandler;
+use crate::Message;
 
-#[derive(EmptyCodec)]
-pub(crate) struct StopChild<A: Actor> {
-    _phantom: PhantomData<A>,
+#[derive(Debug, Message, derive_more::Display)]
+#[display("StopChild {{ child: {child} }}")]
+pub(crate) struct StopChild {
     child: ActorRef,
 }
 
-impl<A> StopChild<A> where A: Actor {
-    pub fn new(child: ActorRef) -> Self {
-        Self {
-            _phantom: PhantomData::default(),
-            child,
-        }
+impl MessageHandler<UserGuardian> for StopChild {
+    fn handle(
+        _: &mut UserGuardian,
+        ctx: &mut <UserGuardian as Actor>::Context,
+        message: Self,
+        _: Option<ActorRef>,
+    ) -> anyhow::Result<Behavior<UserGuardian>> {
+        ctx.stop(&message.child);
+        Ok(Behavior::same())
     }
 }
 
-#[async_trait]
-impl<T> Message for StopChild<T> where T: Actor {
-    type A = T;
-
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-        context.stop(&self.child);
-        Ok(())
+impl MessageHandler<SystemGuardian> for StopChild {
+    fn handle(
+        _: &mut SystemGuardian,
+        ctx: &mut <SystemGuardian as Actor>::Context,
+        message: Self,
+        _: Option<ActorRef>,
+    ) -> anyhow::Result<Behavior<SystemGuardian>> {
+        ctx.stop(&message.child);
+        Ok(Behavior::same())
     }
 }

@@ -343,7 +343,7 @@ mod test {
 
     use crate::{Actor, DynMessage, Message};
     use crate::actor::actor_system::ActorSystem;
-    use crate::actor::context::{ActorContext, Context};
+    use crate::actor::context::{ActorContext1, ActorContext};
     use crate::actor::props::Props;
     use crate::actor_ref::actor_ref_factory::ActorRefFactory;
     use crate::actor_ref::ActorRefExt;
@@ -356,7 +356,7 @@ mod test {
     }
 
     impl LogicActor {
-        fn new_breaker(context: &mut ActorContext) -> anyhow::Result<CircuitBreaker> {
+        fn new_breaker(context: &mut ActorContext1) -> anyhow::Result<CircuitBreaker> {
             let myself = context.myself().clone();
             let breaker = CircuitBreaker::new(
                 context.system().scheduler.clone(),
@@ -376,7 +376,7 @@ mod test {
 
     #[async_trait]
     impl Actor for LogicActor {
-        async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+        async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
             self.breaker.on_open(|| {
                 info!("breaker now open");
             });
@@ -398,7 +398,7 @@ mod test {
             Ok(())
         }
 
-        async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
             Self::handle_message(self, context, message).await
         }
     }
@@ -410,7 +410,7 @@ mod test {
     impl Message for ChangeToHalfOpen {
         type A = LogicActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
             actor.breaker.change_to_half_open();
             Ok(())
         }
@@ -423,7 +423,7 @@ mod test {
     impl Message for SuccessCall {
         type A = LogicActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
             for _ in 0..self.0 {
                 let _ = actor.breaker.invoke(async {
                     actor.counter += 1;
@@ -442,7 +442,7 @@ mod test {
     impl Message for FailCall {
         type A = LogicActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
             for _ in 0..self.0 {
                 let _ = actor.breaker.invoke::<_, ()>(async {
                     Err(anyhow!("test error"))

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 use actor_core::actor_ref::ActorRef;
 use actor_core::EmptyCodec;
 use actor_core::Message;
@@ -17,7 +17,7 @@ pub(crate) struct WatchRemote {
 impl Message for WatchRemote {
     type A = RemoteWatcher;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { watchee, watcher } = *self;
         actor.add_watch(context, watchee, watcher)
     }

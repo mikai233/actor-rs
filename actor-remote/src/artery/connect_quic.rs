@@ -5,7 +5,7 @@ use quinn::{ClientConfig, Endpoint, SendStream};
 use tokio_util::codec::FramedWrite;
 use tracing::{debug, error, info};
 
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::EmptyCodec;
@@ -28,7 +28,7 @@ pub(super) struct ConnectQuic {
 impl Message for ConnectQuic {
     type A = ArteryActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { addr, config } = *self;
         if actor.is_connecting_or_connected(&addr) {
             debug!("ignore connect to {} because it is already connected", addr);

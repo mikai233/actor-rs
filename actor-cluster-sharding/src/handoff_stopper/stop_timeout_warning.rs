@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use tracing::warn;
 
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 use actor_core::actor::coordinated_shutdown::CoordinatedShutdown;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::EmptyCodec;
@@ -16,7 +16,7 @@ pub(super) struct StopTimeoutWarning;
 impl Message for StopTimeoutWarning {
     type A = HandoffStopper;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         let is_terminating = CoordinatedShutdown::get(context.system()).is_terminating();
         let type_name = &actor.type_name;
         let remaining_size = actor.remaining_entities.len();

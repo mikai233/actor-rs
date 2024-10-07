@@ -1,6 +1,7 @@
 use crate::actor::actor_system::ActorSystem;
 use crate::actor_ref::ActorRef;
 use crate::message::DynMessage;
+use ahash::RandomState;
 use dashmap::DashMap;
 
 pub mod envelope;
@@ -22,7 +23,7 @@ pub(crate) trait Cell {
 
     fn parent(&self) -> Option<&ActorRef>;
 
-    fn children(&self) -> &DashMap<String, ActorRef, ahash::RandomState>;
+    fn children_refs(&self) -> &DashMap<String, ActorRef, RandomState>;
 
     fn get_child_by_name(&self, name: &str) -> Option<&ActorRef>;
 

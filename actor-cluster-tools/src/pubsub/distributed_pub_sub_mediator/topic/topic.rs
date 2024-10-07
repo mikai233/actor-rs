@@ -4,7 +4,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use actor_core::{Actor, CodecMessage, DynMessage, Message};
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 use actor_remote::codec::MessageRegistry;
 use actor_core::message::MessageDecoder;
 use actor_core::routing::routing_logic::RoutingLogic;
@@ -18,7 +18,7 @@ pub(crate) struct Topic {
 
 #[async_trait]
 impl Actor for Topic {
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
@@ -61,7 +61,7 @@ impl CodecMessage for Subscribe<Topic> {
 impl Message for Subscribe<Topic> {
     type A = Topic;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext1, _actor: &mut Self::A) -> anyhow::Result<()> {
         Ok(())
     }
 }

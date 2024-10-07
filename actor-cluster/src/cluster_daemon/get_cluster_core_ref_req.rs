@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use actor_core::{CodecMessage, Message};
 use actor_core::{EmptyCodec, OrphanEmptyCodec};
-use actor_core::actor::context::{ActorContext, ContextExt};
+use actor_core::actor::context::{ActorContext1, ContextExt};
 use actor_core::actor_ref::ActorRef;
 use actor_core::ext::option_ext::OptionExt;
 
@@ -15,7 +15,7 @@ pub(crate) struct GetClusterCoreRefReq;
 impl Message for GetClusterCoreRefReq {
     type A = ClusterDaemon;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         if actor.core_supervisor.is_none() {
             actor.create_children(context)?;
         }

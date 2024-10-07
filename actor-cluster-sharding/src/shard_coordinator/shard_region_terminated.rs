@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use actor_core::{CodecMessage, DynMessage, Message};
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 use actor_core::EmptyCodec;
 use actor_core::message::terminated::Terminated;
 
@@ -20,7 +20,7 @@ impl ShardRegionTerminated {
 impl Message for ShardRegionTerminated {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.region_terminated(context, self.0.actor).await;
         Ok(())
     }

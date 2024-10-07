@@ -1,44 +1,30 @@
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::Context;
+use crate::actor::context::{ActorContext, ActorContext1};
 use crate::actor::props::Props;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::function_ref::FunctionRef;
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::actor_ref::ActorRef;
+use crate::actor_ref::{ActorRef, TActorRef};
+use crate::cell::envelope::Envelope;
 use crate::cell::Cell;
 use crate::message::DynMessage;
 use crate::provider::ActorRefProvider;
-use ahash::RandomState;
+use ahash::{HashMap, RandomState};
 use anyhow::Error;
-use arc_swap::Guard;
 use dashmap::DashMap;
-use std::sync::Arc;
 
-#[derive(Debug, Clone, derive_more::Deref)]
-pub(crate) struct ActorCell(Arc<ActorCellInner>);
+#[derive(Debug, Clone)]
+pub(crate) struct ActorCell {
+    system: ActorSystem,
+    myself: ActorRef,
+    function_refs: HashMap<String, FunctionRef>,
+}
 
 impl ActorCell {
-    pub(crate) fn new(parent: Option<ActorRef>) -> Self {
-        let inner = ActorCellInner {
-            parent,
-            children: DashMap::with_hasher(ahash::RandomState::new()),
-            function_refs: DashMap::with_hasher(ahash::RandomState::new()),
-        };
-        Self(inner.into())
-    }
-
-    pub(crate) fn parent(&self) -> Option<&ActorRef> {
-        self.0.parent.as_ref()
-    }
-
-    pub(crate) fn children(&self) -> &DashMap<String, ActorRef, ahash::RandomState> {
-        &self.inner.children
-    }
-
     pub(crate) fn get_child_by_name(&self, name: &str) -> Option<ActorRef> {
-        self.children().get(name).map(|c| c.value().clone())
+        self.children_refs().get(name).map(|c| c.value().clone())
     }
 
     pub(crate) fn get_single_child(&self, name: &str) -> Option<ActorRef> {
@@ -60,25 +46,24 @@ impl ActorCell {
         }
     }
 
-    pub(crate) fn add_function_ref(&self, name: String, function_ref: FunctionRef) {
-        self.inner.function_refs.insert(name, function_ref);
+    pub(crate) fn add_function_ref(&mut self, name: String, function_ref: FunctionRef) {
+        self.function_refs.insert(name, function_ref);
     }
 
-    pub(crate) fn remove_function_ref(&self, name: &str) -> Option<(String, FunctionRef)> {
-        self.inner.function_refs.remove(name)
+    pub(crate) fn remove_function_ref(&mut self, name: &str) -> Option<FunctionRef> {
+        self.function_refs.remove(name)
     }
 
-    pub(crate) fn get_function_ref(&self, name: &str) -> Option<FunctionRef> {
-        self.inner.function_refs.get(name).map(|v| v.value().clone())
+    pub(crate) fn get_function_ref(&self, name: &str) -> Option<&FunctionRef> {
+        self.function_refs.get(name)
     }
 
     pub(crate) fn insert_child(&self, name: String, child: impl Into<ActorRef>) {
-        let child = child.into();
-        self.inner.children.insert(name, child.clone());
+        self.children_refs().insert(name, child.into());
     }
 
     pub(crate) fn remove_child(&self, name: &String) -> Option<ActorRef> {
-        match self.inner.children.remove(name) {
+        match self.children_refs().remove(name) {
             None => {
                 None
             }
@@ -87,15 +72,17 @@ impl ActorCell {
             }
         }
     }
-}
 
-#[derive(Debug)]
-pub(crate) struct ActorCellInner {
-    system: ActorSystem,
-    myself: ActorRef,
-    parent: Option<ActorRef>,
-    children: DashMap<String, ActorRef, RandomState>,
-    function_refs: DashMap<String, FunctionRef, RandomState>,
+    fn handle_system_message(
+        ctx: &mut ActorContext1,
+        envelope: Envelope,
+    ) {
+        let Envelope { message, sender } = envelope;
+        let name = message.signature().name;
+        if let Some(error) = system_receive.receive(actor, ctx, message, sender).err() {
+            ctx.handle_invoke_failure(name, error);
+        }
+    }
 }
 
 impl Cell for ActorCell {
@@ -124,11 +111,11 @@ impl Cell for ActorCell {
     }
 
     fn parent(&self) -> Option<&ActorRef> {
-        self.parent.as_ref()
+        self.myself.parent()
     }
 
-    fn children(&self) -> &DashMap<String, ActorRef, RandomState> {
-        &self.children
+    fn children_refs(&self) -> &DashMap<String, ActorRef, RandomState> {
+        &self.myself.local().unwrap().children
     }
 
     fn get_child_by_name(&self, name: &str) -> Option<&ActorRef> {
@@ -150,19 +137,15 @@ impl Cell for ActorCell {
 
 impl ActorRefFactory for ActorCell {
     fn system(&self) -> &ActorSystem {
-        todo!()
+        &self.system
     }
 
-    fn provider_full(&self) -> Arc<ActorRefProvider> {
-        todo!()
+    fn provider(&self) -> &ActorRefProvider {
+        &self.system.provider
     }
 
-    fn provider(&self) -> Guard<Arc<ActorRefProvider>> {
-        todo!()
-    }
-
-    fn guardian(&self) -> LocalActorRef {
-        todo!()
+    fn guardian(&self) -> &LocalActorRef {
+        self.system.guardian()
     }
 
     fn lookup_root(&self) -> ActorRef {
@@ -182,9 +165,17 @@ impl ActorRefFactory for ActorCell {
     }
 }
 
-impl Context for ActorCell {
+impl ActorContext for ActorCell {
+    fn new(system: ActorSystem, myself: ActorRef) -> Self {
+        Self {
+            system,
+            myself,
+            function_refs: Default::default(),
+        }
+    }
+
     fn myself(&self) -> &ActorRef {
-        todo!()
+        &self.myself
     }
 
     fn children(&self) -> Vec<ActorRef> {
@@ -196,7 +187,7 @@ impl Context for ActorCell {
     }
 
     fn parent(&self) -> Option<&ActorRef> {
-        todo!()
+        self.myself.parent()
     }
 
     fn watch(&mut self, subject: &ActorRef) -> anyhow::Result<()> {

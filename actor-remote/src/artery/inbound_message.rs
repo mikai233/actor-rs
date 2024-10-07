@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 use actor_core::actor_ref::PROVIDER;
 use actor_core::EmptyCodec;
 use actor_core::Message;
@@ -17,7 +17,7 @@ pub(super) struct InboundMessage {
 impl Message for InboundMessage {
     type A = ArteryActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         let RemotePacket {
             packet,
             sender,

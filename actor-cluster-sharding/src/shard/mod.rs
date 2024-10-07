@@ -10,7 +10,7 @@ use tracing::debug;
 
 use actor_cluster::cluster::Cluster;
 use actor_core::{Actor, CodecMessage, DynMessage};
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor::dead_letter_listener::Dropped;
 use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor::scheduler::ScheduleKey;
@@ -102,7 +102,7 @@ impl Shard {
         Ok(())
     }
 
-    fn deliver_message(&mut self, context: &mut ActorContext, message: ShardEnvelope<Shard>, sender: Option<ActorRef>) -> anyhow::Result<()> {
+    fn deliver_message(&mut self, context: &mut ActorContext1, message: ShardEnvelope<Shard>, sender: Option<ActorRef>) -> anyhow::Result<()> {
         let message = message.into_shard_region_envelope();
         let entity_id = self.extractor.entity_id(&message);
         let type_name = &self.type_name;
@@ -133,7 +133,7 @@ impl Shard {
         Ok(())
     }
 
-    fn append_to_message_buffer(&mut self, context: &mut ActorContext, id: ImEntityId, message: ShardEnvelope<Shard>, sender: Option<ActorRef>) {
+    fn append_to_message_buffer(&mut self, context: &mut ActorContext1, id: ImEntityId, message: ShardEnvelope<Shard>, sender: Option<ActorRef>) {
         if self.message_buffers.total_size() >= self.settings.buffer_size {
             debug!("{}: Buffer is full, dropping message of type [{}] for entity [{}]", self.type_name, message.message.name(), id);
             let dropped = Dropped::new(message.into_dyn(), format!("Buffer for [{}] is full", id), Some(context.myself().clone()));
@@ -157,7 +157,7 @@ impl Shard {
         }
     }
 
-    fn send_message_buffer(&mut self, context: &mut ActorContext, entity_id: &ImEntityId) -> anyhow::Result<()> {
+    fn send_message_buffer(&mut self, context: &mut ActorContext1, entity_id: &ImEntityId) -> anyhow::Result<()> {
         if let Some(messages) = self.message_buffers.remove(entity_id) {
             if messages.is_empty().not() {
                 self.get_or_create_entity(context, entity_id)?;
@@ -171,7 +171,7 @@ impl Shard {
         Ok(())
     }
 
-    fn get_or_create_entity(&mut self, context: &mut ActorContext, entity_id: &ImEntityId) -> anyhow::Result<ActorRef> {
+    fn get_or_create_entity(&mut self, context: &mut ActorContext1, entity_id: &ImEntityId) -> anyhow::Result<ActorRef> {
         match self.entities.entity(entity_id) {
             None => {
                 let entity = context.spawn(self.entity_props.props(entity_id.clone()), entity_id.as_str())?;
@@ -185,7 +185,7 @@ impl Shard {
     }
 
 
-    fn shard_initialized(&self, context: &mut ActorContext) -> anyhow::Result<()> {
+    fn shard_initialized(&self, context: &mut ActorContext1) -> anyhow::Result<()> {
         debug!("{}: Shard {} initialized", self.type_name, context.myself());
         context.parent()
             .into_result()
@@ -202,7 +202,7 @@ impl Shard {
 
 #[async_trait]
 impl Actor for Shard {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         Cluster::get(context.system()).subscribe(
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
@@ -211,7 +211,7 @@ impl Actor for Shard {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         Cluster::get(context.system()).unsubscribe_cluster_event(context.myself())?;
         if let Some(key) = self.passivate_interval_task.take() {
             key.cancel();
@@ -220,7 +220,7 @@ impl Actor for Shard {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

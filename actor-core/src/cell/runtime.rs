@@ -9,7 +9,7 @@ use tokio::task::yield_now;
 use tracing::{debug, error};
 
 use crate::actor::behavior::Behavior;
-use crate::actor::context::{ActorContext, Context};
+use crate::actor::context::{ActorContext, ActorContext1};
 use crate::actor::directive::Directive;
 use crate::actor::mailbox::Mailbox;
 use crate::actor::receive::{Receive, ReceiveFn};
@@ -18,13 +18,12 @@ use crate::actor::Actor;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::cell::envelope::Envelope;
-use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::failed::Failed;
 use crate::message::watch::Watch;
 
 pub struct ActorRuntime<A> where A: Actor {
     pub(crate) actor: A,
-    pub(crate) ctx: ActorContext,
+    pub(crate) ctx: A::Context,
     pub(crate) mailbox: Mailbox,
 }
 
@@ -37,7 +36,6 @@ impl<A> ActorRuntime<A> where A: Actor {
 
         ctx.myself.local().unwrap().rx.lock().take().unwrap().await.unwrap();
 
-        let system_receive = Self::system_receive();
         if let Err(error) = actor.started(&mut ctx) {
             error!("actor {} start error {:?}", type_name::<A>(), error);
             ctx.stop(&ctx.myself());
@@ -85,7 +83,7 @@ impl<A> ActorRuntime<A> where A: Actor {
     }
 
     fn handle_message(
-        ctx: &mut ActorContext<A>,
+        ctx: &mut ActorContext1<A>,
         actor: &mut A,
         behavior_stack: &mut VecDeque<Receive<A>>,
         envelope: Envelope,
@@ -130,31 +128,7 @@ impl<A> ActorRuntime<A> where A: Actor {
         }
     }
 
-    fn handle_system_message(
-        ctx: &mut ActorContext<A>,
-        actor: &mut A,
-        envelope: Envelope,
-        system_receive: &Receive<A>,
-    ) {
-        let Envelope { message, sender } = envelope;
-        let name = message.signature().name;
-        if let Some(error) = system_receive.receive(actor, ctx, message, sender).err() {
-            ctx.handle_invoke_failure(name, error);
-        }
-    }
-
-    fn system_receive() -> Receive<A> {
-        Receive::new()
-            .is::<Failed>(Self::handle_failure)
-            .is::<DeathWatchNotification>(|actor, ctx, msg, _| {
-                let DeathWatchNotification { actor: a, existence_confirmed: ec, address_terminated: at } = msg;
-                ctx.watched_actor_terminated(a, ec, at);
-                Ok(Behavior::same())
-            })
-            .is::<Watch>(Self::add_watcher)
-    }
-
-    fn handle_failure(actor: &mut A, ctx: &mut ActorContext<A>, msg: Failed, _: Option<ActorRef>) -> anyhow::Result<Behavior<A>> {
+    fn handle_failure(actor: &mut A, ctx: &mut ActorContext1<A>, msg: Failed, _: Option<ActorRef>) -> anyhow::Result<Behavior<A>> {
         let Failed { child, error } = msg;
         let directive = actor.on_child_failure(ctx, &child, &error);
         match directive {
@@ -174,7 +148,7 @@ impl<A> ActorRuntime<A> where A: Actor {
         Ok(Behavior::same())
     }
 
-    fn add_watcher(_: &mut A, ctx: &mut ActorContext<A>, msg: Watch, _: Option<ActorRef>) -> anyhow::Result<Behavior<A>> {
+    fn add_watcher(_: &mut A, ctx: &mut ActorContext1<A>, msg: Watch, _: Option<ActorRef>) -> anyhow::Result<Behavior<A>> {
         let Watch { watchee, watcher } = msg;
         let watchee_self = watchee == ctx.myself;
         let watcher_self = watcher == ctx.myself;

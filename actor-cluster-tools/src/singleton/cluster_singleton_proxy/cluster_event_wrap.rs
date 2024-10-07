@@ -4,7 +4,7 @@ use tracing::debug;
 
 use actor_cluster::cluster_event::MemberEvent;
 use actor_cluster::member::MemberStatus;
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::EmptyCodec;
 use actor_core::Message;
@@ -18,7 +18,7 @@ pub(super) struct ClusterEventWrap(pub(super) MemberEvent);
 impl Message for ClusterEventWrap {
     type A = ClusterSingletonProxy;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         match self.0 {
             MemberEvent::MemberUp(m) => {
                 debug!("member up {}", m);

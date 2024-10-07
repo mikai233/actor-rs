@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use tracing::debug;
 
 use actor_core::{CodecMessage, DynMessage, Message};
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 use actor_core::ext::{decode_bytes, encode_bytes};
 use actor_remote::codec::MessageRegistry;
 use actor_core::message::MessageDecoder;
@@ -17,7 +17,7 @@ use crate::shard_region::ShardRegion;
 impl Message for ShardEnvelope<ShardRegion> {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         if actor.graceful_shutdown_in_progress {
             debug!("{}: Ignore {}[{}] when ShardRegion is graceful shutdown in progress", actor.type_name, type_name::<Self>(),self.message.name());
         } else {

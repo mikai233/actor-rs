@@ -3,7 +3,7 @@ use tracing::debug;
 
 use actor_core::{DynMessage, Message};
 use actor_core::actor::actor_selection::ActorSelectionPath;
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -19,7 +19,7 @@ pub(super) struct TryToIdentifySingleton;
 impl Message for TryToIdentifySingleton {
     type A = ClusterSingletonProxy;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         if actor.identify_timer.is_some() {
             let paths = actor.singleton_paths();
             let paths_str = paths.iter().map(|p| p.as_str()).collect::<Vec<_>>();

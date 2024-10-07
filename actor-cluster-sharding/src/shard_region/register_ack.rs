@@ -3,7 +3,7 @@ use std::ops::Not;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor_ref::ActorRef;
 use actor_core::Message;
 use actor_core::MessageCodec;
@@ -20,7 +20,7 @@ pub(crate) struct RegisterAck {
 impl Message for RegisterAck {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         if context.is_watching(&self.coordinator).not() {
             context.watch_with(self.coordinator.clone(), CoordinatorTerminated::new)?;
         }

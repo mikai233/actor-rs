@@ -92,7 +92,7 @@ mod event_tests {
     use actor_derive::{COrphanEmptyCodec, EmptyCodec};
 
     use crate::actor::actor_system::ActorSystem;
-    use crate::actor::context::{ActorContext, Context};
+    use crate::actor::context::{ActorContext1, ActorContext};
     use crate::actor::props::{Props, PropsBuilder};
     use crate::actor_ref::actor_ref_factory::ActorRefFactory;
     use crate::config::actor_setting::ActorSetting;
@@ -109,7 +109,7 @@ mod event_tests {
     impl Message for EventWrap {
         type A = EmptyTestActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut Self::A) -> anyhow::Result<()> {
             info!("{} handle event message {:?}", context.myself(), self);
             Ok(())
         }

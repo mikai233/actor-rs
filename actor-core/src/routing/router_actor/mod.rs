@@ -2,7 +2,7 @@ use anyhow::Error;
 use async_trait::async_trait;
 
 use crate::{Actor, DynMessage};
-use crate::actor::context::ActorContext;
+use crate::actor::context::ActorContext1;
 use crate::actor::directive::Directive;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::ActorRef;
@@ -42,7 +42,7 @@ impl RouterActor {
 
 #[async_trait]
 impl Actor for RouterActor {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         match &self.router_config {
             RouterConfig::PoolRouterConfig(pool) => {
                 let n = pool.nr_of_instances(context.system());
@@ -56,7 +56,7 @@ impl Actor for RouterActor {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
@@ -77,19 +77,19 @@ impl Router for RouterActor {
 
 #[async_trait]
 impl Actor for Box<dyn Router> {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         (&mut **self).started(context).await
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         (&mut **self).stopped(context).await
     }
 
-    fn on_child_failure(&mut self, context: &mut ActorContext, child: &ActorRef, error: &Error) -> Directive {
+    fn on_child_failure(&mut self, context: &mut ActorContext1, child: &ActorRef, error: &Error) -> Directive {
         (&mut **self).on_child_failure(context, child, error)
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
         (&mut **self).on_recv(context, message).await
     }
 }

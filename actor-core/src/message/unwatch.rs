@@ -1,14 +1,13 @@
+use crate::actor::context::{ActorContext1, ActorContext};
+use crate::actor_ref::ActorRef;
+use actor_derive::Message;
 use async_trait::async_trait;
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 
-use actor_derive::SystemCodec;
-
-use crate::{Actor, SystemMessage};
-use crate::actor::context::{ActorContext, Context};
-use crate::actor_ref::ActorRef;
-
-#[derive(Debug, Encode, Decode, SystemCodec)]
+#[derive(Debug, Clone, Message, derive_more::Display, Serialize, Deserialize)]
+#[cloneable]
+#[display("Unwatch {{ watchee: {watchee}, watcher: {watcher} }}")]
 pub struct Unwatch {
     pub watchee: ActorRef,
     pub watcher: ActorRef,
@@ -16,7 +15,7 @@ pub struct Unwatch {
 
 #[async_trait]
 impl SystemMessage for Unwatch {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut dyn Actor) -> anyhow::Result<()> {
         let Unwatch { watchee, watcher } = *self;
         let watchee_self = watchee == context.myself;
         let watcher_self = watcher == context.myself;

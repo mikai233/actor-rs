@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use tracing::debug;
 
 use actor_core::{CodecMessage, DynMessage, Message};
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 use actor_core::EmptyCodec;
 use actor_core::message::terminated::Terminated;
 
@@ -21,7 +21,7 @@ impl ShardTerminated {
 impl Message for ShardTerminated {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         let shard = self.0;
         if actor.shards_by_ref.contains_key(&shard) {
             if let Some(shard_id) = actor.shards_by_ref.remove(&shard) {

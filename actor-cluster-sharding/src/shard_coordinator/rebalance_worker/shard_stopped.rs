@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::debug;
 
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 use actor_core::Message;
 use actor_core::MessageCodec;
 
@@ -18,7 +18,7 @@ pub(crate) struct ShardStopped {
 impl Message for ShardStopped {
     type A = RebalanceWorker;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         let shard = self.shard;
         if shard == actor.shard.as_str() {
             if actor.stopping_shard {

@@ -2,7 +2,7 @@ use actor_derive::Message;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::actor::context::{ActorContext, Context};
+use crate::actor::context::{ActorContext1, ActorContext};
 use crate::actor_ref::ActorRef;
 use crate::ext::option_ext::OptionExt;
 
@@ -13,7 +13,7 @@ pub struct Identify;
 
 #[async_trait]
 impl SystemMessage for Identify {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut dyn Actor) -> anyhow::Result<()> {
         let myself = context.myself().clone();
         let actor_identify = ActorIdentity {
             actor_ref: Some(myself),

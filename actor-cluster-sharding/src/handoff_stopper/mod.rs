@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use imstr::ImString;
 
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor::props::Props;
 use actor_core::actor::timers::{ScheduleKey, Timers};
 use actor_core::actor_ref::ActorRef;
@@ -49,7 +49,7 @@ impl HandoffStopper {
     }
 
     fn new(
-        context: &mut ActorContext,
+        context: &mut ActorContext1,
         type_name: ImString,
         shard: ImShardId,
         replay_to: ActorRef,
@@ -90,7 +90,7 @@ impl HandoffStopper {
 
 #[async_trait]
 impl Actor for HandoffStopper {
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

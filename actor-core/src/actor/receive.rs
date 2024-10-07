@@ -1,14 +1,14 @@
 use crate::actor::behavior::Behavior;
-use crate::actor::{Actor, ActorContext, ActorRef};
+use crate::actor::{Actor, ActorRef};
 use crate::message::handler::MessageHandler;
 use crate::message::{downcast_into, DynMessage, Message};
 use ahash::{HashMap, HashMapExt};
 use std::any::TypeId;
 
-pub type ReceiveFn<A> = Box<
+pub type ReceiveFn<A: Actor> = Box<
     dyn Fn(
         &mut A,
-        &mut ActorContext<A>,
+        &mut A::Context,
         DynMessage,
         Option<ActorRef>,
     ) -> anyhow::Result<Behavior<A>>,
@@ -28,7 +28,7 @@ impl<A: Actor> Receive<A> {
     pub fn receive(
         &self,
         actor: &mut A,
-        ctx: &mut ActorContext<A>,
+        ctx: &mut A::Context,
         message: DynMessage,
         sender: Option<ActorRef>,
     ) -> anyhow::Result<Behavior<A>> {
@@ -45,7 +45,7 @@ impl<A: Actor> Receive<A> {
 
     pub fn is<M>(
         mut self,
-        handler: impl Fn(&mut A, &mut ActorContext<A>, M, Option<ActorRef>) -> anyhow::Result<Behavior<A>>
+        handler: impl Fn(&mut A, &mut A::Context, M, Option<ActorRef>) -> anyhow::Result<Behavior<A>>
             + 'static,
     ) -> Self
     where

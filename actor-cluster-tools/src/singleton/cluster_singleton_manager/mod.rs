@@ -8,7 +8,7 @@ use typed_builder::TypedBuilder;
 use actor_cluster::cluster::Cluster;
 use actor_cluster::member::MemberStatus;
 use actor_core::{Actor, CodecMessage, DynMessage};
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_EXITING};
 use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor_path::TActorPath;
@@ -60,7 +60,7 @@ pub struct ClusterSingletonManager {
 
 impl ClusterSingletonManager {
     pub fn new(
-        context: &mut ActorContext,
+        context: &mut ActorContext1,
         props: PropsBuilder<()>,
         termination_message: DynMessage,
         settings: ClusterSingletonManagerSettings,
@@ -110,15 +110,15 @@ fn singleton_path(system_name: &str, name: &str) -> String {
 
 #[async_trait]
 impl Actor for ClusterSingletonManager {
-    async fn started(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, _context: &mut ActorContext1) -> anyhow::Result<()> {
         Ok(())
     }
 
-    async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, _context: &mut ActorContext1) -> anyhow::Result<()> {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

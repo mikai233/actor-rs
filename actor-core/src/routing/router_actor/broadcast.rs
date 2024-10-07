@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use actor_derive::EmptyCodec;
 
 use crate::{DynMessage, Message};
-use crate::actor::context::{ActorContext, Context};
+use crate::actor::context::{ActorContext1, ActorContext};
 use crate::routing::routee::TRoutee;
 use crate::routing::router_actor::Router;
 
@@ -32,7 +32,7 @@ impl Broadcast {
 impl Message for Broadcast {
     type A = Box<dyn Router>;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         for routee in actor.routees() {
             routee.send(self.message.dyn_clone()?, context.sender().cloned());
         }

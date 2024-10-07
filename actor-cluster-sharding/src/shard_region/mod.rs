@@ -16,7 +16,7 @@ use actor_cluster::member::{Member, MemberStatus};
 use actor_cluster::unique_address::UniqueAddress;
 use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::actor::actor_selection::{ActorSelection, ActorSelectionPath};
-use actor_core::actor::context::{ActorContext, Context, ContextExt};
+use actor_core::actor::context::{ActorContext1, ActorContext, ContextExt};
 use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION};
 use actor_core::actor::dead_letter_listener::DeadMessage;
 use actor_core::actor::props::{Props, PropsBuilder};
@@ -103,7 +103,7 @@ pub struct ShardRegion {
 
 impl ShardRegion {
     fn new(
-        context: &mut ActorContext,
+        context: &mut ActorContext1,
         type_name: ImString,
         entity_props: Option<PropsBuilder<ImEntityId>>,
         settings: Arc<ClusterShardingSettings>,
@@ -196,14 +196,14 @@ impl ShardRegion {
         })
     }
 
-    fn start_registration(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    fn start_registration(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         self.next_registration_delay = self.init_registration_delay;
         self.register(context)?;
         self.scheduler_next_registration(context);
         Ok(())
     }
 
-    fn register(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    fn register(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         let actor_selections = self.coordinator_selection(context)?;
         for selection in &actor_selections {
             selection.tell(self.registration_message(context), ActorRef::no_sender());
@@ -253,7 +253,7 @@ impl ShardRegion {
         Ok(())
     }
 
-    fn scheduler_next_registration(&mut self, context: &mut ActorContext) {
+    fn scheduler_next_registration(&mut self, context: &mut ActorContext1) {
         if self.next_registration_delay < self.settings.retry_interval {
             let key = self.timers.start_single_timer(
                 self.next_registration_delay,
@@ -271,7 +271,7 @@ impl ShardRegion {
         }
     }
 
-    fn coordinator_selection(&self, context: &mut ActorContext) -> anyhow::Result<Vec<ActorSelection>> {
+    fn coordinator_selection(&self, context: &mut ActorContext1) -> anyhow::Result<Vec<ActorSelection>> {
         let mut selections = vec![];
         for member in self.members.values() {
             if matches!(member.status, MemberStatus::Up) {
@@ -284,7 +284,7 @@ impl ShardRegion {
         Ok(selections)
     }
 
-    fn registration_message(&self, context: &mut ActorContext) -> DynMessage {
+    fn registration_message(&self, context: &mut ActorContext1) -> DynMessage {
         let myself = context.myself().clone();
         if self.entity_props.is_some() {
             DynMessage::user(Register { shard_region: myself })
@@ -293,7 +293,7 @@ impl ShardRegion {
         }
     }
 
-    fn deliver_message(&mut self, context: &mut ActorContext, envelope: ShardEnvelope<ShardRegion>) -> anyhow::Result<()> {
+    fn deliver_message(&mut self, context: &mut ActorContext1, envelope: ShardEnvelope<ShardRegion>) -> anyhow::Result<()> {
         let shard_id = self.extractor.shard_id(&envelope);
         let type_name = &self.type_name;
         match self.region_by_shard.get_key_value(shard_id.as_str()) {
@@ -337,7 +337,7 @@ impl ShardRegion {
 
     fn buffer_message(
         &mut self,
-        context: &mut ActorContext,
+        context: &mut ActorContext1,
         shard_id: ImShardId,
         msg: ShardEnvelope<ShardRegion>,
         sender: Option<ActorRef>,
@@ -389,7 +389,7 @@ impl ShardRegion {
         self.retry_count = 0;
     }
 
-    fn get_shard(&mut self, context: &mut ActorContext, id: ImShardId) -> anyhow::Result<Option<ActorRef>> {
+    fn get_shard(&mut self, context: &mut ActorContext1, id: ImShardId) -> anyhow::Result<Option<ActorRef>> {
         if self.starting_shards.contains(&id) {
             Ok(None)
         } else {
@@ -424,7 +424,7 @@ impl ShardRegion {
         }
     }
 
-    fn try_request_shard_buffer_homes(&self, context: &mut ActorContext) {
+    fn try_request_shard_buffer_homes(&self, context: &mut ActorContext1) {
         self.coordinator.foreach(|coord| {
             let mut total_buffered = 0;
             let mut shards = vec![];
@@ -453,7 +453,7 @@ impl ShardRegion {
         });
     }
 
-    fn send_graceful_shutdown_to_coordinator_if_in_progress(&self, context: &mut ActorContext) -> anyhow::Result<()> {
+    fn send_graceful_shutdown_to_coordinator_if_in_progress(&self, context: &mut ActorContext1) -> anyhow::Result<()> {
         if self.graceful_shutdown_in_progress {
             let actor_selections = self.coordinator_selection(context)?;
             let selection_str = actor_selections.iter().map(|selection| selection.to_string()).join(", ");
@@ -465,14 +465,14 @@ impl ShardRegion {
         Ok(())
     }
 
-    fn try_complete_graceful_shutdown_if_in_progress(&self, context: &mut ActorContext) {
+    fn try_complete_graceful_shutdown_if_in_progress(&self, context: &mut ActorContext1) {
         if self.graceful_shutdown_in_progress && self.shards.is_empty() && self.shard_buffers.is_empty() {
             debug!("{}: Completed graceful shutdown of region.", self.type_name);
             context.stop(context.myself());
         }
     }
 
-    fn receive_shard_home(&mut self, context: &mut ActorContext, shard: ImShardId, shard_region_ref: ActorRef) -> anyhow::Result<()> {
+    fn receive_shard_home(&mut self, context: &mut ActorContext1, shard: ImShardId, shard_region_ref: ActorRef) -> anyhow::Result<()> {
         let type_name = &self.type_name;
         debug!("{type_name}: Shard [{shard}] located at [{shard_region_ref}]");
         if let Some(r) = self.region_by_shard.get(&shard) {
@@ -509,7 +509,7 @@ impl ShardRegion {
 
 #[async_trait]
 impl Actor for ShardRegion {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         self.cluster.subscribe(
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
@@ -524,7 +524,7 @@ impl Actor for ShardRegion {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         debug!("{}: Region {} stopped", self.type_name, context.myself());
         self.cluster.unsubscribe_cluster_event(context.myself())?;
         self.coordinator.foreach(|coordinator| {
@@ -534,7 +534,7 @@ impl Actor for ShardRegion {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

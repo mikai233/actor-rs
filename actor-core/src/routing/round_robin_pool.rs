@@ -1,5 +1,5 @@
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::ActorContext;
+use crate::actor::context::ActorContext1;
 use crate::actor::props::{Props, PropsBuilder};
 use crate::routing::routee::Routee;
 use crate::routing::router_actor::{Router, RouterActor};
@@ -50,7 +50,7 @@ where
         self.nr_of_instances
     }
 
-    fn new_routee(&self, context: &mut ActorContext) -> anyhow::Result<Routee> {
+    fn new_routee(&self, context: &mut ActorContext1) -> anyhow::Result<Routee> {
         let routee = spawn_actor_routee(context, &self.routee_props, self.arg.clone())?;
         Ok(routee.into())
     }
@@ -79,7 +79,7 @@ mod test {
     use actor_derive::EmptyCodec;
 
     use crate::actor::actor_system::ActorSystem;
-    use crate::actor::context::{ActorContext, Context};
+    use crate::actor::context::{ActorContext1, ActorContext};
     use crate::actor::props::{Props, PropsBuilder};
     use crate::actor_ref::actor_ref_factory::ActorRefFactory;
     use crate::actor_ref::ActorRefExt;
@@ -94,14 +94,14 @@ mod test {
 
     #[async_trait]
     impl Actor for TestActor {
-        async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+        async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
             info!("{} started", context.myself());
             Ok(())
         }
 
         async fn on_recv(
             &mut self,
-            context: &mut ActorContext,
+            context: &mut ActorContext1,
             message: DynMessage,
         ) -> anyhow::Result<()> {
             Self::handle_message(self, context, message).await

@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use itertools::Itertools;
 use tracing::{info, warn};
 
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::EmptyCodec;
 use actor_core::ext::option_ext::OptionExt;
@@ -28,7 +28,7 @@ pub(super) struct StopShards {
 impl Message for StopShards {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         let shard_ids = self.shards;
         if actor.state.regions.is_empty().not() && actor.preparing_for_shutdown.not() {
             let request_id = uuid::Uuid::new_v4();

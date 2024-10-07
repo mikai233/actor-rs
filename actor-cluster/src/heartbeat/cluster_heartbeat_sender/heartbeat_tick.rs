@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use actor_core::{DynMessage, Message};
 use actor_core::actor::actor_selection::ActorSelectionPath;
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::CEmptyCodec;
 
@@ -18,7 +18,7 @@ pub(super) struct HeartbeatTick;
 impl Message for HeartbeatTick {
     type A = ClusterHeartbeatSender;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         if let Some(self_member) = &actor.self_member {
             if self_member.status == MemberStatus::Up {
                 for receiver in &actor.active_receivers {

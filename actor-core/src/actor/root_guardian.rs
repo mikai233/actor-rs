@@ -1,7 +1,7 @@
 use tokio::sync::broadcast::Sender;
 use tracing::debug;
 
-use crate::actor::context::{ActorContext, Context};
+use crate::actor::context::{ActorContext1, ActorContext};
 
 use super::Actor;
 
@@ -16,12 +16,12 @@ impl RootGuardian {
 }
 
 impl Actor for RootGuardian {
-    async fn started(&mut self, context: &mut ActorContext<Self>) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext1<Self>) -> anyhow::Result<()> {
         debug!("{} started", context.myself());
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext<Self>) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext1<Self>) -> anyhow::Result<()> {
         debug!("{} stopped", context.myself());
         let _ = self.termination_tx.send(());
         Ok(())

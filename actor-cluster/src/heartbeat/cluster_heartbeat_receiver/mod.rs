@@ -3,7 +3,7 @@ use tracing::trace;
 
 use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::actor::address::Address;
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor::props::Props;
 use actor_core::actor_path::{ActorPath, TActorPath};
 use actor_core::actor_path::root_actor_path::RootActorPath;
@@ -23,7 +23,7 @@ pub(crate) struct ClusterHeartbeatReceiver {
 
 #[async_trait]
 impl Actor for ClusterHeartbeatReceiver {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         trace!("started {}", context.myself());
         Cluster::get(context.system()).subscribe(
             context.myself().clone(),
@@ -32,7 +32,7 @@ impl Actor for ClusterHeartbeatReceiver {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

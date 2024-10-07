@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 use actor_core::actor_ref::ActorRef;
 use actor_core::Message;
 use actor_core::MessageCodec;
@@ -18,7 +18,7 @@ pub(crate) struct ShardHome {
 impl Message for ShardHome {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.receive_shard_home(context, self.shard.into(), self.shard_region)?;
         Ok(())
     }

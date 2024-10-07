@@ -7,7 +7,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use tracing::{debug, info, warn};
 
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::EmptyCodec;
@@ -29,7 +29,7 @@ pub(crate) struct Handoff {
 impl Message for Handoff {
     type A = Shard;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         let shard_id = self.shard;
         if shard_id.as_str() == actor.shard_id.as_str() {
             match &actor.handoff_stopper {

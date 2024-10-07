@@ -30,11 +30,12 @@ use crate::message::{DynMessage, Message};
 use crate::provider::ActorRefProvider;
 use ahash::{HashMap, HashSet};
 use anyhow::{anyhow, bail};
-use arc_swap::Guard;
 use tokio::task::{AbortHandle, JoinHandle};
 use tracing::{debug, error, warn};
 
-pub trait Context: ActorRefFactory {
+pub trait ActorContext: ActorRefFactory + Sized {
+    fn new(system: ActorSystem, myself: ActorRef) -> Self;
+    
     fn myself(&self) -> &ActorRef;
 
     fn children(&self) -> Vec<ActorRef>;
@@ -53,7 +54,7 @@ pub trait Context: ActorRefFactory {
 }
 
 #[derive(Debug)]
-pub struct ActorContext {
+pub struct ActorContext1 {
     pub(crate) state: ActorState,
     pub(crate) myself: ActorRef,
     pub(crate) stash: VecDeque<Envelope>,
@@ -65,7 +66,7 @@ pub struct ActorContext {
     pub(crate) stash_capacity: Option<usize>,
 }
 
-impl ActorRefFactory for ActorContext {
+impl ActorRefFactory for ActorContext1 {
     fn system(&self) -> &ActorSystem {
         &self.system
     }
@@ -110,7 +111,7 @@ impl ActorRefFactory for ActorContext {
     }
 }
 
-impl Context for ActorContext {
+impl ActorContext for ActorContext1 {
     fn myself(&self) -> &ActorRef {
         &self.myself
     }
@@ -201,7 +202,7 @@ impl Context for ActorContext {
     }
 }
 
-impl ActorContext {
+impl ActorContext1 {
     pub(crate) fn new(myself: ActorRef, system: ActorSystem) -> Self {
         Self {
             state: ActorState::Init,
@@ -479,7 +480,7 @@ impl ActorContext {
                 Some(actor) => actor.path().address() != &system.address(),
             }
         }
-        fn has_non_local_address(ctx: &ActorContext<A>) -> bool {
+        fn has_non_local_address(ctx: &ActorContext1<A>) -> bool {
             ctx.watching
                 .keys()
                 .any(|w| is_non_local(ctx.system(), Some(w)))
@@ -505,7 +506,7 @@ impl ActorContext {
 
     pub fn r#become<F>(&mut self, behavior: F, discard_old: bool)
     where
-        F: Fn(&mut A, &mut ActorContext<A>, DynMessage, Option<ActorRef>) -> anyhow::Result<()>
+        F: Fn(&mut A, &mut ActorContext1<A>, DynMessage, Option<ActorRef>) -> anyhow::Result<()>
             + 'static,
     {
         if discard_old {

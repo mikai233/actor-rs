@@ -3,7 +3,7 @@ use std::ops::Not;
 use async_trait::async_trait;
 use tracing::info;
 
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 use actor_core::actor::coordinated_shutdown::{ClusterLeavingReason, CoordinatedShutdown};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::EmptyCodec;
@@ -18,7 +18,7 @@ pub(crate) struct SelfLeaving;
 impl Message for SelfLeaving {
     type A = ClusterCoreDaemon;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         if !actor.exiting_tasks_in_progress {
             actor.exiting_tasks_in_progress = true;
             let coord_shutdown = CoordinatedShutdown::get(context.system());

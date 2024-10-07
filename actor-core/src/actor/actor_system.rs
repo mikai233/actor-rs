@@ -83,8 +83,8 @@ impl ActorSystem {
         Ok(runner)
     }
 
-    pub fn address(&self) -> Address {
-        self.provider().get_default_address().clone()
+    pub fn address(&self) -> &Address {
+        self.provider().get_default_address()
     }
 
     fn child(&self, child: &String) -> ActorPath {
@@ -126,8 +126,8 @@ impl ActorSystem {
         self.termination_callbacks.add(fut);
     }
 
-    pub fn system_guardian(&self) -> LocalActorRef {
-        self.provider().system_guardian().clone()
+    pub fn system_guardian(&self) -> &LocalActorRef {
+        self.provider().system_guardian()
     }
 
     pub fn spawn_system(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
@@ -153,19 +153,19 @@ impl ActorSystem {
         Ok(())
     }
 
-    pub fn exist_ext<E>(&self) -> bool {
+    pub fn contains_extension<E>(&self) -> bool {
         self.extension.contains_key(type_name::<E>())
     }
 
-    pub fn get_ext<E>(&self) -> Option<E>
+    pub fn get_extension<E>(&self) -> Option<E>
     where
         E: Extension + Clone,
     {
         self.extension.get()
     }
 
-    pub fn dead_letters(&self) -> ActorRef {
-        self.provider().dead_letters().clone()
+    pub fn dead_letters(&self) -> &ActorRef {
+        self.provider().dead_letters()
     }
 
     pub fn run_coordinated_shutdown<R>(&self, reason: R) -> impl Future<Output = ()>

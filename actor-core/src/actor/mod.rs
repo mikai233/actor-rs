@@ -1,14 +1,21 @@
 use crate::actor::actor_selection::ActorSelectionMessage;
 use crate::actor::behavior::Behavior;
-use crate::actor::context::ActorContext;
+use crate::actor::context::{ActorContext, ActorContext1};
 use crate::actor::directive::Directive;
 use crate::actor::receive::Receive;
 use crate::actor_ref::ActorRef;
 use crate::message::address_terminated::AddressTerminated;
+use crate::message::death_watch_notification::DeathWatchNotification;
+use crate::message::failed::Failed;
 use crate::message::identify::Identify;
 use crate::message::kill::Kill;
 use crate::message::poison_pill::PoisonPill;
+use crate::message::resume::Resume;
+use crate::message::suspend::Suspend;
+use crate::message::terminate::Terminate;
 use crate::message::terminated::Terminated;
+use crate::message::unwatch::Unwatch;
+use crate::message::watch::Watch;
 use crate::message::{DynMessage, Message};
 
 pub mod actor_selection;
@@ -32,20 +39,22 @@ pub(crate) mod user_guardian;
 mod watching;
 
 pub trait Actor: Send + Sized {
+    type Context: ActorContext;
+    
     #[allow(unused_variables)]
-    fn started(&mut self, ctx: &mut ActorContext) -> anyhow::Result<()> {
+    fn started(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
         Ok(())
     }
 
     #[allow(unused_variables)]
-    fn stopped(&mut self, ctx: &mut ActorContext) -> anyhow::Result<()> {
+    fn stopped(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
         Ok(())
     }
 
     #[allow(unused_variables)]
     fn on_child_failure(
         &mut self,
-        context: &mut ActorContext,
+        context: &mut ActorContext1,
         child: &ActorRef,
         error: &anyhow::Error,
     ) -> Directive {
@@ -58,7 +67,7 @@ pub trait Actor: Send + Sized {
         &self,
         receive: &Receive<Self>,
         actor: &mut Self,
-        ctx: &mut ActorContext,
+        ctx: &mut ActorContext1,
         message: DynMessage,
         sender: Option<ActorRef>,
     ) -> anyhow::Result<Behavior<Self>> {
@@ -66,7 +75,7 @@ pub trait Actor: Send + Sized {
     }
 
     #[allow(unused_variables)]
-    fn unhandled(&mut self, ctx: &mut ActorContext, message: DynMessage) {
+    fn unhandled(&mut self, ctx: &mut ActorContext1, message: DynMessage) {
         todo!("unhandled message: {:?}", message);
     }
 }
@@ -89,5 +98,20 @@ pub(crate) fn is_auto_receive_message(message: &DynMessage) -> bool {
 }
 
 pub(crate) fn is_system_message(message: &DynMessage) -> bool {
-    todo!("is_system_message")
+    static MSG: &'static [&'static str] = &[
+        Watch::signature_sized().name,
+        //Recreate
+        Terminate::signature_sized().name,
+        //Create
+        Failed::signature_sized().name,
+        Unwatch::signature_sized().name,
+        DeathWatchNotification::signature_sized().name,
+        Resume::signature_sized().name,
+        Suspend::signature_sized().name
+    ];
+    if MSG.contains(&message.signature().name) {
+        true
+    } else {
+        false
+    }
 }

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use tracing::info;
 
 use actor_core::{EmptyCodec, OrphanEmptyCodec};
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
@@ -17,7 +17,7 @@ pub(super) struct ExitingCompletedReq;
 impl Message for ExitingCompletedReq {
     type A = ClusterCoreDaemon;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         let sender = context.sender().into_result()?;
         info!("Exiting completed");
         actor.exiting_tasks_in_progress = false;

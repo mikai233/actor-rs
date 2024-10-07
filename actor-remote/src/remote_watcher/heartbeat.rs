@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 
 use actor_core::{Message, MessageCodec};
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 
 use crate::remote_watcher::RemoteWatcher;
 
@@ -13,7 +13,7 @@ pub(crate) struct Heartbeat;
 impl Message for Heartbeat {
     type A = RemoteWatcher;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.receive_heartbeat(context)
     }
 }

@@ -128,7 +128,7 @@ impl Cluster {
 
     pub fn get(system: &ActorSystem) -> Self {
         system
-            .get_ext::<Self>()
+            .get_extension::<Self>()
             .expect(&format!("{} not found", type_name::<Self>()))
     }
 

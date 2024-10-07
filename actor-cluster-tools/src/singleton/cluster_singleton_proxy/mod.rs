@@ -9,7 +9,7 @@ use actor_cluster::cluster::Cluster;
 use actor_cluster::member::Member;
 use actor_cluster::unique_address::UniqueAddress;
 use actor_core::{Actor, CodecMessage, DynMessage};
-use actor_core::actor::context::{ActorContext, Context, ContextExt};
+use actor_core::actor::context::{ActorContext1, ActorContext, ContextExt};
 use actor_core::actor::props::Props;
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_path::TActorPath;
@@ -44,7 +44,7 @@ pub struct ClusterSingletonProxy {
 }
 
 impl ClusterSingletonProxy {
-    fn new(context: &mut ActorContext, singleton_mgr_path: String, settings: ClusterSingletonProxySettings) -> Self {
+    fn new(context: &mut ActorContext1, singleton_mgr_path: String, settings: ClusterSingletonProxySettings) -> Self {
         let identify_adapter = context.adapter(|m| DynMessage::user(ActorIdentityWrap(m)));
         let cluster = Cluster::get(context.system()).clone();
         Self {
@@ -92,7 +92,7 @@ impl ClusterSingletonProxy {
         proxy_messages.contains(message_name)
     }
 
-    fn buffer_message(&mut self, context: &mut ActorContext, message: DynMessage) {
+    fn buffer_message(&mut self, context: &mut ActorContext1, message: DynMessage) {
         let buffer_size = self.settings.buffer_size;
         let proxy_name = context.myself().path().name();
         if buffer_size <= 0 {
@@ -121,7 +121,7 @@ impl ClusterSingletonProxy {
     }
 
     // TODO 这里是否可以优化为将当前singleton存入etcd，然后所有proxy监听此地址以此来感知singleton的变化？
-    fn identify_singleton(&mut self, context: &mut ActorContext) {
+    fn identify_singleton(&mut self, context: &mut ActorContext1) {
         let myself = context.myself().clone();
         let scheduler = &context.system().scheduler;
         self.cancel_timer();
@@ -140,7 +140,7 @@ impl ClusterSingletonProxy {
 
 #[async_trait]
 impl Actor for ClusterSingletonProxy {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         self.cluster.subscribe(
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
@@ -150,7 +150,7 @@ impl Actor for ClusterSingletonProxy {
     }
 
 
-    async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         self.cancel_timer();
         self.cluster.unsubscribe_cluster_event(context.myself())?;
         if let Some(singleton) = &self.singleton {
@@ -159,7 +159,7 @@ impl Actor for ClusterSingletonProxy {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
         if self.is_proxy_message(message.name()) {
             Self::handle_message(self, context, message).await?;
         } else {

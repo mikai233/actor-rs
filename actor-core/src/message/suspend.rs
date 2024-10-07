@@ -1,19 +1,20 @@
 use async_trait::async_trait;
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use tracing::trace;
 
-use actor_derive::SystemCodec;
+use actor_derive::Message;
 
-use crate::{Actor, SystemMessage};
-use crate::actor::context::ActorContext;
+use crate::actor::context::ActorContext1;
 use crate::actor::state::ActorState;
 
-#[derive(Debug, Encode, Decode, SystemCodec)]
+#[derive(Debug, Copy, Clone, Message, Serialize, Deserialize, derive_more::Display)]
+#[cloneable]
+#[display("Suspend")]
 pub struct Suspend;
 
 #[async_trait]
 impl SystemMessage for Suspend {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut dyn Actor) -> anyhow::Result<()> {
         context.state = ActorState::Suspend;
         trace!("{} suspend", context.myself);
         Ok(())

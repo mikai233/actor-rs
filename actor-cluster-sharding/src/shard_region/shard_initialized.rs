@@ -4,7 +4,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use tracing::debug;
 
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::EmptyCodec;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
@@ -21,7 +21,7 @@ pub(crate) struct ShardInitialized {
 impl Message for ShardInitialized {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         let shard = context.sender().into_result().context(type_name::<ShardInitialized>())?;
         debug!("{}: Shard was initialized [{}]", actor.type_name, self.shard_id);
         actor.starting_shards.remove(&self.shard_id);

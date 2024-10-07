@@ -1,24 +1,21 @@
-use std::fmt::{Debug, Formatter};
-use std::iter::Peekable;
-use std::ops::Deref;
-use std::sync::Arc;
-
+use ahash::RandomState;
 use anyhow::anyhow;
 use dashmap::DashMap;
 use parking_lot::Mutex;
+use std::fmt::{Debug, Formatter};
+use std::iter::Peekable;
+use std::sync::Arc;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::warn;
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_selection::{ActorSelection, ActorSelectionMessage};
-use crate::actor::actor_system::{ActorSystem, WeakSystem};
-use crate::actor::mailbox::{Mailbox, MailboxSender};
-use crate::actor::props::{ActorDeferredSpawn, Props};
+use crate::actor::actor_system::ActorSystem;
+use crate::actor::mailbox::MailboxSender;
+use crate::actor::props::Props;
 use crate::actor_path::child_actor_path::ChildActorPath;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
-use crate::cell::actor_cell::ActorCell;
 use crate::cell::envelope::Envelope;
 use crate::cell::Cell;
 use crate::ext::{check_name, random_actor_name};
@@ -26,7 +23,7 @@ use crate::message::poison_pill::PoisonPill;
 use crate::message::resume::Resume;
 use crate::message::suspend::Suspend;
 use crate::message::DynMessage;
-use crate::provider::{ActorRefProvider, TActorRefProvider};
+use crate::provider::TActorRefProvider;
 
 #[derive(Clone, derive_more::Deref, AsAny)]
 pub struct LocalActorRef(Arc<LocalActorRefInner>);
@@ -35,7 +32,7 @@ pub struct LocalActorRefInner {
     pub(crate) path: ActorPath,
     pub(crate) sender: MailboxSender,
     pub(crate) parent: Option<ActorRef>,
-    pub(crate) children: DashMap<String, ActorRef>,
+    pub(crate) children: DashMap<String, ActorRef, RandomState>,
     pub(crate) tx: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
     pub(crate) rx: Mutex<Option<tokio::sync::oneshot::Receiver<()>>>,
 }
@@ -122,7 +119,7 @@ impl LocalActorRef {
             path,
             sender,
             parent,
-            children: DashMap::new(),
+            children: DashMap::with_hasher(RandomState::default()),
             tx: Mutex::new(Some(tx)),
             rx: Mutex::new(Some(rx)),
         };

@@ -164,7 +164,7 @@ impl CoordinatedShutdown {
     }
 
     pub fn get(system: &ActorSystem) -> Self {
-        system.get_ext::<Self>().expect(&format!("{} not found", type_name::<Self>()))
+        system.get_extension::<Self>().expect(&format!("{} not found", type_name::<Self>()))
     }
 
     pub fn run<R: Reason + 'static>(&self, reason: R) -> impl Future<Output=()> {

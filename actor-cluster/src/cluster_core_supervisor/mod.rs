@@ -2,7 +2,7 @@ use anyhow::Error;
 use async_trait::async_trait;
 
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor::directive::Directive;
 use actor_core::actor::props::Props;
 use actor_core::actor_ref::{ActorRef, ActorRefSystemExt};
@@ -23,7 +23,7 @@ pub(crate) struct ClusterCoreSupervisor {
 }
 
 impl ClusterCoreSupervisor {
-    pub(crate) fn new(context: &mut ActorContext) -> Self {
+    pub(crate) fn new(context: &mut ActorContext1) -> Self {
         let cluster = Cluster::get(context.system()).clone();
         Self {
             core_daemon: None,
@@ -31,7 +31,7 @@ impl ClusterCoreSupervisor {
         }
     }
 
-    fn create_children(&mut self, context: &mut ActorContext) -> anyhow::Result<ActorRef> {
+    fn create_children(&mut self, context: &mut ActorContext1) -> anyhow::Result<ActorRef> {
         let core_daemon = context.spawn(
             Props::new_with_ctx(|ctx| ClusterCoreDaemon::new(ctx)),
             "daemon",
@@ -44,18 +44,18 @@ impl ClusterCoreSupervisor {
 
 #[async_trait]
 impl Actor for ClusterCoreSupervisor {
-    async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn stopped(&mut self, _context: &mut ActorContext1) -> anyhow::Result<()> {
         self.cluster.shutdown()?;
         Ok(())
     }
 
-    fn on_child_failure(&mut self, context: &mut ActorContext, child: &ActorRef, error: &Error) -> Directive {
+    fn on_child_failure(&mut self, context: &mut ActorContext1, child: &ActorRef, error: &Error) -> Directive {
         //TODO check panic error
         context.myself().cast_system(PoisonPill, ActorRef::no_sender());
         Directive::Stop
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

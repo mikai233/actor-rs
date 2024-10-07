@@ -16,7 +16,7 @@ use tracing::{debug, error, trace};
 use actor_derive::EmptyCodec;
 
 use crate::{Actor, CodecMessage, DynMessage, Message};
-use crate::actor::context::{ActorContext, Context};
+use crate::actor::context::{ActorContext1, ActorContext};
 use crate::actor::props::Props;
 use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -43,7 +43,7 @@ impl TimersActor {
 
     fn watch_receiver(
         watching_receivers: &mut HashMap<ActorRef, HashSet<u64>>,
-        context: &mut ActorContext,
+        context: &mut ActorContext1,
         receiver: &ActorRef,
         index: u64,
     ) -> anyhow::Result<()> {
@@ -62,7 +62,7 @@ impl TimersActor {
     }
     fn unwatch_receiver(
         watching_receivers: &mut HashMap<ActorRef, HashSet<u64>>,
-        context: &mut ActorContext,
+        context: &mut ActorContext1,
         index: u64,
     ) {
         watching_receivers.retain(|receiver, indexes| {
@@ -79,12 +79,12 @@ impl TimersActor {
 
 #[async_trait]
 impl Actor for TimersActor {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         debug!("{} started", context.myself);
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
@@ -166,7 +166,7 @@ enum Schedule {
 impl Message for Schedule {
     type A = TimersActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         match &*self {
             Schedule::Once { index, delay, receiver, .. } => {
                 let index = *index;
@@ -270,7 +270,7 @@ struct CancelSchedule {
 impl Message for CancelSchedule {
     type A = TimersActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         match actor.index.remove(&self.index) {
             None => {
                 debug!("{}[{}] not found in TimerScheduler", self.message, self.index);
@@ -293,7 +293,7 @@ struct CancelAllSchedule;
 impl Message for CancelAllSchedule {
     type A = TimersActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.index.clear();
         actor.queue.clear();
         for receiver in actor.watching_receivers.keys() {
@@ -312,7 +312,7 @@ struct PollExpired;
 impl Message for PollExpired {
     type A = TimersActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         let waker = &actor.waker;
         let queue = &mut actor.queue;
         let indexes = &mut actor.index;
@@ -381,7 +381,7 @@ impl ReceiverTerminated {
 impl Message for ReceiverTerminated {
     type A = TimersActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         let watchee = self.0.actor;
         if let Some(indexes) = actor.watching_receivers.remove(&watchee) {
             for index in &indexes {
@@ -414,7 +414,7 @@ pub struct Timers {
 }
 
 impl Timers {
-    pub fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
+    pub fn new(context: &mut ActorContext1) -> anyhow::Result<Self> {
         let scheduler_actor = context
             .spawn(
                 Props::new_with_ctx(move |context| Ok(TimersActor::new(context.myself.clone()))),

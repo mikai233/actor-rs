@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use async_trait::async_trait;
 
 use actor_core::{EmptyCodec, Message, OrphanEmptyCodec};
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 
 use crate::pubsub::distributed_pub_sub_mediator::DistributedPubSubMediator;
 
@@ -14,7 +14,7 @@ pub struct GetTopics;
 impl Message for GetTopics {
     type A = DistributedPubSubMediator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         todo!()
     }
 }

@@ -61,7 +61,7 @@ impl LocalActorRefProvider {
                 ActorDeferredSpawn::new(
                     root_guardian.clone().into(),
                     mailbox,
-                    root_props.spawner,
+                    root_props.creator,
                 ),
             ),
         );

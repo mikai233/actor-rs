@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use itertools::Itertools;
 use tracing::debug;
 
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::CEmptyCodec;
 use actor_core::Message;
@@ -19,7 +19,7 @@ pub(super) struct RebalanceTick;
 impl Message for RebalanceTick {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         if actor.state.regions.is_empty().not() && actor.preparing_for_shutdown.not() {
             let strategy = actor.allocation_strategy.clone();
             let regions = actor.state.regions

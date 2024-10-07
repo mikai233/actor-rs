@@ -7,7 +7,7 @@ use tracing::trace;
 use actor_cluster::cluster::Cluster;
 use actor_cluster_tools::singleton::cluster_singleton_manager::ClusterSingletonManager;
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor::props::PropsBuilder;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -44,7 +44,7 @@ impl ClusterShardingGuardian {
 
     fn start_coordinator_if_needed(
         &self,
-        context: &mut ActorContext,
+        context: &mut ActorContext1,
         type_name: ImString,
         allocation_strategy: Box<dyn ShardAllocationStrategy>,
         settings: Arc<ClusterShardingSettings>,
@@ -75,12 +75,12 @@ impl ClusterShardingGuardian {
 
 #[async_trait]
 impl Actor for ClusterShardingGuardian {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         trace!("{} started", context.myself());
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

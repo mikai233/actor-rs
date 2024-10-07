@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc::channel;
 
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::ActorContext;
+use crate::actor::context::{ActorContext, ActorContext1};
 use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::actor::Actor;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -12,11 +12,11 @@ use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
 
-type ActorSpawner = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem) -> anyhow::Result<()> + Send>;
+type ActorCreator = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem) -> anyhow::Result<()> + Send>;
 
 pub struct Props {
     pub(crate) actor_name: &'static str,
-    pub(crate) spawner: ActorSpawner,
+    pub(crate) creator: ActorCreator,
     pub(crate) mailbox: Option<String>,
 }
 
@@ -30,17 +30,17 @@ impl Debug for Props {
 }
 
 impl Props {
-    pub fn new<F, A>(func: F) -> Self
+    pub fn new<F, A>(actor_creator: F) -> Self
     where
         F: FnOnce() -> anyhow::Result<A> + Send + 'static,
         A: Actor,
     {
-        let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
-            let actor = func()?;
-            let mut context = ActorContext::new(myself, system);
+        let creator = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
+            let actor = actor_creator()?;
+            let mut ctx = A::Context::new(system, myself);
             let runtime = ActorRuntime {
                 actor,
-                ctx: context,
+                ctx,
                 mailbox,
             };
             Self::run_actor(runtime)?;
@@ -48,23 +48,23 @@ impl Props {
         };
         Self {
             actor_name: type_name::<A>(),
-            spawner: Box::new(spawner),
+            creator: Box::new(creator),
             mailbox: None,
         }
     }
 
-    pub fn new_with_ctx<F, A>(func: F) -> Self
+    pub fn new_with_ctx<F, A>(actor_creator: F) -> Self
     where
-        F: FnOnce(&mut ActorContext) -> anyhow::Result<A> + Send + 'static,
+        F: FnOnce(&mut ActorContext1) -> anyhow::Result<A> + Send + 'static,
         A: Actor,
     {
         let actor_name = type_name::<A>();
-        let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
-            let mut context = ActorContext::new(myself, system);
-            let actor = func(&mut context)?;
+        let creator = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
+            let mut ctx = A::Context::new(system, myself);
+            let actor = actor_creator(&mut ctx)?;
             let runtime = ActorRuntime {
                 actor,
-                ctx: context,
+                ctx,
                 mailbox,
             };
             Self::run_actor(runtime)?;
@@ -72,7 +72,7 @@ impl Props {
         };
         Self {
             actor_name,
-            spawner: Box::new(spawner),
+            creator: Box::new(creator),
             mailbox: None,
         }
     }
@@ -107,7 +107,7 @@ impl Props {
         mailbox: Mailbox,
         system: ActorSystem,
     ) -> anyhow::Result<()> {
-        (self.spawner)(myself, mailbox, system)
+        (self.creator)(myself, mailbox, system)
     }
 
     #[cfg(feature = "tokio-tracing")]
@@ -138,11 +138,11 @@ pub trait DeferredSpawn {
 pub struct ActorDeferredSpawn {
     pub actor_ref: ActorRef,
     pub mailbox: Mailbox,
-    pub spawner: ActorSpawner,
+    pub spawner: ActorCreator,
 }
 
 impl ActorDeferredSpawn {
-    pub fn new(actor_ref: ActorRef, mailbox: Mailbox, spawner: ActorSpawner) -> Self {
+    pub fn new(actor_ref: ActorRef, mailbox: Mailbox, spawner: ActorCreator) -> Self {
         Self {
             actor_ref,
             mailbox,
@@ -219,7 +219,7 @@ impl<Arg> PropsBuilder<Arg> {
 
     pub fn new_wit_ctx<A, Builder>(builder: Builder) -> Self
     where
-        Builder: Fn(&mut ActorContext, Arg) -> anyhow::Result<A> + Send + Sync + 'static,
+        Builder: Fn(&mut ActorContext1, Arg) -> anyhow::Result<A> + Send + Sync + 'static,
         Arg: Send + 'static,
         A: Actor,
     {

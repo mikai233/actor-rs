@@ -6,7 +6,7 @@ use imstr::ImString;
 use tracing::debug;
 
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor::timers::Timers;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -38,7 +38,7 @@ pub(crate) struct RebalanceWorker {
 
 #[async_trait]
 impl Actor for RebalanceWorker {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         for region in &self.regions {
             region.cast(BeginHandoff { shard: self.shard.clone().into() }, Some(context.myself().clone()));
         }
@@ -57,14 +57,14 @@ impl Actor for RebalanceWorker {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
 
 impl RebalanceWorker {
     pub(super) fn new(
-        context: &mut ActorContext,
+        context: &mut ActorContext1,
         type_name: ImString,
         shard: ImShardId,
         shard_region_from: ActorRef,
@@ -88,14 +88,14 @@ impl RebalanceWorker {
         Ok(myself)
     }
 
-    fn done(&self, context: &mut ActorContext, ok: bool) {
+    fn done(&self, context: &mut ActorContext1, ok: bool) {
         context.parent().foreach(|parent| {
             parent.cast(RebalanceDone { shard: self.shard.clone(), ok }, Some(context.myself().clone()));
         });
         context.stop(context.myself());
     }
 
-    fn acked(&mut self, context: &mut ActorContext, shard_region: &ActorRef) {
+    fn acked(&mut self, context: &mut ActorContext1, shard_region: &ActorRef) {
         self.remaining.remove(shard_region);
         if self.remaining.is_empty() {
             debug!("{}: All shard regions acked, handing off shard [{}.]", self.type_name, self.shard);

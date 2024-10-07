@@ -9,7 +9,7 @@ use actor_core::{Actor, CodecMessage, DynMessage, Message};
 use actor_core::actor::actor_selection::ActorSelectionPath;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::{Address, Protocol};
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor::props::Props;
 use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
@@ -35,7 +35,7 @@ struct RemoteActor {
 
 #[async_trait]
 impl Actor for RemoteActor {
-    async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
         info!("{} started", context.myself());
         if let Some(remote_ref) = &self.remote_ref {
             context.watch_with(remote_ref.clone(), RemoteTerminated::new)?;
@@ -44,7 +44,7 @@ impl Actor for RemoteActor {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
@@ -62,7 +62,7 @@ impl RemoteTerminated {
 impl Message for RemoteTerminated {
     type A = RemoteActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut Self::A) -> anyhow::Result<()> {
         info!("{} watched {} terminated", context.myself(), self.0);
         Ok(())
     }

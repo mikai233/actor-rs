@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use tracing::trace;
 
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::{ActorContext1, ActorContext};
 use actor_core::actor::props::Props;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
@@ -20,7 +20,7 @@ pub(crate) struct AddOnMemberRemovedListener(pub(crate) Box<dyn FnOnce() + Send>
 impl Message for AddOnMemberRemovedListener {
     type A = ClusterDaemon;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut Self::A) -> anyhow::Result<()> {
         let listener = context.spawn_anonymous(Props::new_with_ctx(|ctx| {
             Ok(OnMemberStatusChangedListener::new(ctx, MemberStatus::Removed))
         }))?;

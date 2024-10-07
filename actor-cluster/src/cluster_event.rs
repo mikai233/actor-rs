@@ -9,7 +9,7 @@ use crate::membership_state::MembershipState;
 use crate::reachability::Reachability;
 use crate::unique_address::UniqueAddress;
 use actor_core::actor::address::Address;
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 use actor_core::actor::receive::Receive;
 use actor_core::actor::Actor;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -583,11 +583,11 @@ impl Actor for ClusterDomainEventPublisher {
 }
 
 impl ClusterDomainEventPublisher {
-    fn event_stream<'a>(&self, context: &'a ActorContext<Self>) -> &'a EventStream {
+    fn event_stream<'a>(&self, context: &'a ActorContext1<Self>) -> &'a EventStream {
         &context.system().event_stream
     }
 
-    fn publish<E: Clone>(&self, context: &ActorContext<Self>, event: E) {
+    fn publish<E: Clone>(&self, context: &ActorContext1<Self>, event: E) {
         self.event_stream(context).publish(event);
     }
 }

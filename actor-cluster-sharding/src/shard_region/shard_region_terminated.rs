@@ -3,7 +3,7 @@ use itertools::Itertools;
 use tracing::debug;
 
 use actor_core::{CodecMessage, DynMessage, Message};
-use actor_core::actor::context::ActorContext;
+use actor_core::actor::context::ActorContext1;
 use actor_core::EmptyCodec;
 use actor_core::message::terminated::Terminated;
 
@@ -22,7 +22,7 @@ impl ShardRegionTerminated {
 impl Message for ShardRegionTerminated {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
         let shard_region = self.0.actor;
         if actor.regions.contains_key(&shard_region) {
             if let Some(shards) = actor.regions.remove(&shard_region) {
