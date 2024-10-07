@@ -1,24 +1,13 @@
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
-use std::ops::Deref;
-use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
 
 use crate::actor::address::Address;
 use crate::actor_path::{ActorPath, TActorPath};
 
-#[derive(Debug, Clone)]
-pub struct RootActorPath {
-    pub inner: Arc<Inner>,
-}
-
-impl Deref for RootActorPath {
-    type Target = Arc<Inner>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
+#[derive(Debug, Clone, derive_more::Deref)]
+pub struct RootActorPath(pub(crate) Arc<RootActorPathInner>);
 
 impl Display for RootActorPath {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
@@ -27,7 +16,7 @@ impl Display for RootActorPath {
 }
 
 #[derive(Debug)]
-pub struct Inner {
+pub struct RootActorPathInner {
     address: Address,
     name: String,
     cached_hash: AtomicU64,
@@ -101,9 +90,8 @@ impl RootActorPath {
             "# is a fragment separator and is not legal in ActorPath names: {}",
             name
         );
-        Self {
-            inner: Arc::new(Inner { address, name, cached_hash: AtomicU64::default() }),
-        }
+        let inner = RootActorPathInner { address, name, cached_hash: AtomicU64::default() };
+        Self(inner.into())
     }
 
     pub(crate) fn cached_hash(&self) -> &AtomicU64 {

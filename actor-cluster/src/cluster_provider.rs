@@ -9,13 +9,13 @@ use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
 use actor_core::actor::props::{DeferredSpawn, FuncDeferredSpawn, Props};
 use actor_core::actor_path::ActorPath;
-use actor_core::actor_ref::ActorRef;
 use actor_core::actor_ref::local_ref::LocalActorRef;
-use actor_core::AsAny;
-use actor_remote::codec::MessageRegistry;
-use actor_core::provider::{ActorRefProvider, TActorRefProvider};
+use actor_core::actor_ref::ActorRef;
 use actor_core::provider::builder::{Provider, ProviderBuilder};
 use actor_core::provider::local_provider::LocalActorRefProvider;
+use actor_core::provider::{ActorRefProvider, TActorRefProvider};
+use actor_core::AsAny;
+use actor_remote::codec::MessageRegistry;
 use actor_remote::remote_provider::RemoteActorRefProvider;
 
 use crate::cluster::Cluster;
@@ -83,7 +83,7 @@ impl TActorRefProvider for ClusterActorRefProvider {
         self.remote.temp_path()
     }
 
-    fn temp_path_of_prefix(&self, prefix: Option<&String>) -> ActorPath {
+    fn temp_path_of_prefix(&self, prefix: Option<&str>) -> ActorPath {
         self.remote.temp_path_of_prefix(prefix)
     }
 

@@ -11,7 +11,7 @@ use crate::actor::watching::Watching;
 use crate::actor_path::child_actor_path::ChildActorPath;
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
-use crate::actor_ref::function_ref::{FunctionRef, Inner};
+use crate::actor_ref::function_ref::{FunctionRef, FunctionRefInner};
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::cell::envelope::Envelope;
@@ -425,7 +425,7 @@ impl ActorContext1 {
         }
         let child_path = ChildActorPath::new(self.myself.path().clone(), n, ActorPath::new_uid());
         let name = child_path.name().clone();
-        let inner = Inner {
+        let inner = FunctionRefInner {
             system: self.system.downgrade(),
             path: child_path.into(),
             message_handler: Arc::new(func),

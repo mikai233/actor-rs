@@ -1,25 +1,14 @@
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
-use std::ops::Deref;
-use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
 
 use crate::actor::address::Address;
-use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_path::root_actor_path::RootActorPath;
+use crate::actor_path::{ActorPath, TActorPath};
 
-#[derive(Debug, Clone)]
-pub struct ChildActorPath {
-    pub(crate) inner: Arc<Inner>,
-}
-
-impl Deref for ChildActorPath {
-    type Target = Arc<Inner>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
+#[derive(Debug, Clone, derive_more::Deref)]
+pub struct ChildActorPath(pub(crate) Arc<ChildActorPathInner>);
 
 impl Display for ChildActorPath {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
@@ -35,7 +24,7 @@ impl Display for ChildActorPath {
 }
 
 #[derive(Debug)]
-pub struct Inner {
+pub struct ChildActorPathInner {
     pub(crate) parent: ActorPath,
     pub(crate) name: Arc<String>,
     pub(crate) uid: i32,
@@ -99,7 +88,12 @@ impl TActorPath for ChildActorPath {
     }
 
     fn to_string_with_address(&self, address: &Address) -> String {
-        let path = self.elements().iter().map(|e| e.as_str()).collect::<Vec<_>>().join("/");
+        let path = self
+            .elements()
+            .iter()
+            .map(|e| e.as_str())
+            .collect::<Vec<_>>()
+            .join("/");
         format!("{}/{}", address, path)
     }
 
@@ -126,9 +120,13 @@ impl ChildActorPath {
             "# is a fragment separator and is not legal in ActorPath names: {}",
             name
         );
-        Self {
-            inner: Arc::new(Inner { parent, name, uid, cached_hash: AtomicU64::default() }),
-        }
+        let inner = ChildActorPathInner {
+            parent,
+            name,
+            uid,
+            cached_hash: AtomicU64::default(),
+        };
+        Self(inner.into())
     }
 
     pub(crate) fn cached_hash(&self) -> &AtomicU64 {

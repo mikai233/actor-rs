@@ -5,7 +5,6 @@ use bytes::BytesMut;
 use tracing_subscriber::fmt::time::LocalTime;
 use tracing_subscriber::EnvFilter;
 
-pub mod option_ext;
 pub mod as_any;
 pub mod maybe_ref;
 pub mod duration_ext;

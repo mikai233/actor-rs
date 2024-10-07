@@ -4,40 +4,26 @@ use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
 
-use arc_swap::Guard;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::error::Elapsed;
 
 use actor_derive::AsAny;
 
 use crate::actor::actor_selection::ActorSelection;
-use crate::actor::actor_system::WeakSystem;
 use crate::actor_path::ActorPath;
-use crate::actor_ref::{ActorRef, get_child_default, TActorRef};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
-use crate::DynMessage;
+use crate::actor_ref::{get_child_default, ActorRef, TActorRef};
+use crate::message::DynMessage;
 use crate::provider::ActorRefProvider;
 
-#[derive(Clone, AsAny)]
-pub struct DeferredActorRef {
-    pub(crate) inner: Arc<Inner>,
-}
+#[derive(Clone, AsAny, derive_more::Deref)]
+pub struct DeferredActorRef(Arc<DeferredActorRefInner>);
 
-pub struct Inner {
-    system: WeakSystem,
-    provider: Guard<Arc<ActorRefProvider>>,
+pub struct DeferredActorRefInner {
+    provider: ActorRefProvider,
     path: ActorPath,
     parent: ActorRef,
     sender: Sender<DynMessage>,
-    message_name: &'static str,
-}
-
-impl Deref for DeferredActorRef {
-    type Target = Arc<Inner>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
 }
 
 impl Debug for DeferredActorRef {
@@ -54,10 +40,6 @@ impl Debug for DeferredActorRef {
 }
 
 impl TActorRef for DeferredActorRef {
-    fn system(&self) -> &WeakSystem {
-        &self.system
-    }
-
     fn path(&self) -> &ActorPath {
         &self.path
     }
@@ -66,7 +48,19 @@ impl TActorRef for DeferredActorRef {
         let _ = self.sender.try_send(message);
     }
 
+    fn start(&self) {
+        todo!()
+    }
+
     fn stop(&self) {}
+
+    fn resume(&self) {
+        todo!()
+    }
+
+    fn suspend(&self) {
+        todo!()
+    }
 
     fn parent(&self) -> Option<&ActorRef> {
         Some(&self.parent)
@@ -78,22 +72,17 @@ impl TActorRef for DeferredActorRef {
 }
 
 impl DeferredActorRef {
-    pub(crate) fn new(system: WeakSystem, ref_path_prefix: &String, message_name: &'static str) -> anyhow::Result<(Self, Receiver<DynMessage>)> {
-        let provider = system.upgrade()?.provider();
+    pub(crate) fn new(provider: ActorRefProvider, ref_path_prefix: &String) -> anyhow::Result<(Self, Receiver<DynMessage>)> {
         let path = provider.temp_path_of_prefix(Some(ref_path_prefix));
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         let parent = provider.temp_container();
-        let inner = Inner {
-            system,
+        let inner = DeferredActorRefInner {
             provider,
             path,
             parent,
             sender: tx,
-            message_name,
         };
-        let deferred_ref = DeferredActorRef {
-            inner: inner.into(),
-        };
+        let deferred_ref = DeferredActorRef(inner.into());
         deferred_ref.provider.register_temp_actor(deferred_ref.clone().into(), deferred_ref.path());
         Ok((deferred_ref, rx))
     }

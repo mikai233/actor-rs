@@ -4,7 +4,7 @@ use crate::actor::props::Props;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::actor_ref::ActorRef;
+use crate::actor_ref::{ActorRef, TActorRef};
 use crate::ext::as_any::AsAny;
 use std::any::type_name;
 use std::any::Any;
@@ -30,9 +30,9 @@ pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
 
     fn temp_path(&self) -> ActorPath;
 
-    fn temp_path_of_prefix(&self, prefix: Option<&String>) -> ActorPath;
+    fn temp_path_of_prefix(&self, prefix: Option<&str>) -> ActorPath;
 
-    fn temp_container(&self) -> ActorRef;
+    fn temp_container(&self) -> &dyn TActorRef;
 
     fn register_temp_actor(&self, actor: ActorRef, path: &ActorPath);
 

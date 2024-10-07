@@ -5,34 +5,21 @@ use std::sync::Arc;
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_system::WeakSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::DynMessage;
+use crate::message::DynMessage;
 
-#[derive(Clone, AsAny)]
-pub struct FunctionRef {
-    pub(crate) inner: Arc<Inner>,
-}
+#[derive(Clone, AsAny, derive_more::Deref)]
+pub struct FunctionRef(Arc<FunctionRefInner>);
 
-pub struct Inner {
-    pub(crate) system: WeakSystem,
+pub struct FunctionRefInner {
     pub(crate) path: ActorPath,
-    pub(crate) message_handler: Arc<dyn Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static>,
-}
-
-impl Deref for FunctionRef {
-    type Target = Arc<Inner>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
+    pub(crate) message_handler: Box<dyn Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static>,
 }
 
 impl Debug for FunctionRef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FunctionRef")
-            .field("system", &"..")
             .field("path", &self.path)
             .field("message_handler", &"..")
             .finish()
@@ -40,10 +27,6 @@ impl Debug for FunctionRef {
 }
 
 impl TActorRef for FunctionRef {
-    fn system(&self) -> &WeakSystem {
-        &self.system
-    }
-
     fn path(&self) -> &ActorPath {
         &self.path
     }
@@ -52,7 +35,19 @@ impl TActorRef for FunctionRef {
         (self.message_handler)(message, sender);
     }
 
+    fn start(&self) {
+        todo!()
+    }
+
     fn stop(&self) {
+        todo!()
+    }
+
+    fn resume(&self) {
+        todo!()
+    }
+
+    fn suspend(&self) {
         todo!()
     }
 

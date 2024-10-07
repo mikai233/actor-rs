@@ -11,7 +11,7 @@ use enum_dispatch::enum_dispatch;
 use rand::random;
 
 use crate::actor::address::{ActorPathExtractor, Address};
-use crate::actor_path::child_actor_path::{ChildActorPath, Inner};
+use crate::actor_path::child_actor_path::{ChildActorPath, ChildActorPathInner};
 use crate::actor_path::root_actor_path::RootActorPath;
 
 pub mod child_actor_path;
@@ -29,15 +29,13 @@ pub trait TActorPath {
 
     fn child(&self, child: &str) -> ActorPath {
         let (child_name, uid) = ActorPath::split_name_and_uid(&child);
-        ChildActorPath {
-            inner: Arc::new(Inner {
-                parent: self.myself(),
-                name: child_name.into(),
-                uid,
-                cached_hash: AtomicU64::default(),
-            }),
-        }
-        .into()
+        let inner = ChildActorPathInner {
+            parent: self.myself(),
+            name: child_name.into(),
+            uid,
+            cached_hash: AtomicU64::default(),
+        };
+        ChildActorPath(inner.into()).into()
     }
 
     fn descendant<'a, I>(&self, names: I) -> ActorPath

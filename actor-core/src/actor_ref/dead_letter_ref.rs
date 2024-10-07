@@ -10,54 +10,37 @@ use actor_derive::AsAny;
 use crate::actor::actor_system::WeakSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::DynMessage;
+use crate::message::DynMessage;
 
-#[derive(Clone, AsAny)]
-pub struct DeadLetterActorRef {
-    pub(crate) inner: Arc<Inner>,
-}
+#[derive(Clone, AsAny, derive_more::Deref)]
+pub struct DeadLetterActorRef(Arc<DeadLetterActorRefInner>);
 
-pub struct Inner {
-    pub(crate) system: WeakSystem,
+pub struct DeadLetterActorRefInner {
     pub(crate) path: ActorPath,
 }
 
 impl DeadLetterActorRef {
-    pub(crate) fn new(system: WeakSystem, path: ActorPath) -> Self {
-        Self {
-            inner: Arc::new(Inner { system, path }),
-        }
-    }
-}
-
-impl Deref for DeadLetterActorRef {
-    type Target = Arc<Inner>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
+    pub(crate) fn new(path: ActorPath) -> Self {
+        let inner = DeadLetterActorRefInner { path };
+        DeadLetterActorRef(inner.into())
     }
 }
 
 impl Debug for DeadLetterActorRef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DeadLetterActorRef")
-            .field("system", &"..")
             .field("path", &self.path)
             .finish()
     }
 }
 
 impl TActorRef for DeadLetterActorRef {
-    fn system(&self) -> &WeakSystem {
-        &self.system
-    }
-
     fn path(&self) -> &ActorPath {
         &self.path
     }
 
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
-        let name = message.name();
+        let name = message.signature();
         match sender {
             None => {
                 info!("dead letter recv message {}", name);
@@ -68,7 +51,19 @@ impl TActorRef for DeadLetterActorRef {
         }
     }
 
+    fn start(&self) {
+        todo!()
+    }
+
     fn stop(&self) {}
+
+    fn resume(&self) {
+        todo!()
+    }
+
+    fn suspend(&self) {
+        todo!()
+    }
 
     fn parent(&self) -> Option<&ActorRef> {
         None

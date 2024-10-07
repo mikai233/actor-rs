@@ -15,7 +15,7 @@ use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::local_ref::LocalActorRef;
-use actor_core::actor_ref::{ActorRef, TActorRef};
+use actor_core::actor_ref::ActorRef;
 use actor_core::provider::builder::{Provider, ProviderBuilder};
 use actor_core::provider::local_provider::LocalActorRefProvider;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
@@ -154,7 +154,7 @@ impl TActorRefProvider for RemoteActorRefProvider {
         self.local.temp_path()
     }
 
-    fn temp_path_of_prefix(&self, prefix: Option<&String>) -> ActorPath {
+    fn temp_path_of_prefix(&self, prefix: Option<&str>) -> ActorPath {
         self.local.temp_path_of_prefix(prefix)
     }
 

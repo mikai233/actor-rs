@@ -8,8 +8,9 @@ use actor_derive::AsAny;
 
 use crate::actor::actor_system::{ActorSystem, Settings};
 use crate::actor::address::{Address, Protocol};
-use crate::actor::props::{DeferredSpawn, Props};
+use crate::actor::props::Props;
 use crate::actor::root_guardian::RootGuardian;
+use crate::actor::system_guardian::SystemGuardian;
 use crate::actor_path::root_actor_path::RootActorPath;
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::local_ref::LocalActorRef;
@@ -19,6 +20,7 @@ use crate::config::settings::Settings;
 use crate::ext::base64;
 use crate::provider::builder::{Provider, ProviderBuilder};
 use crate::provider::{cast_self_to_dyn, ActorRefProvider, TActorRefProvider};
+use crate::util::duration::ConfigDuration;
 use crate::REFERENCE;
 
 #[derive(Debug, AsAny)]
@@ -38,35 +40,26 @@ pub struct LocalActorRefProvider {
 }
 
 impl LocalActorRefProvider {
-    pub fn new(settings: Settings, address: Option<Address>) -> anyhow::Result<Provider<Self>> {
-        let mut spawns: Vec<Box<dyn DeferredSpawn>> = vec![];
-        let address = match address {
-            None => {
-                Address::new(Protocol::Akka, system.name.clone(), None)
-            }
-            Some(address) => address
-        };
+    pub fn new(settings: Settings) -> anyhow::Result<Provider<Self>> {
         let (termination_tx, _) = channel(1);
-        let root_path = RootActorPath::new(address, "/");
+        //TODO address
+        let root_path = RootActorPath::new(Address::new(Protocol::Akka, "test", None), "/");
         let termination_tx_clone = termination_tx.clone();
         let root_props = Props::new(move || { Ok(RootGuardian::new(termination_tx_clone)) });
-        let (sender, mailbox) = root_props.mailbox(&)?;
+        let mailbox = crate::config::mailbox::Mailbox {
+            mailbox_capacity: None,
+            mailbox_push_timeout_time: ConfigDuration::from_days(1),
+            stash_capacity: None,
+            throughput: 100,
+        };
+        let (sender, mailbox) = root_props.mailbox(mailbox)?;
         let root_guardian = LocalActorRef::new(
             root_path.clone().into(),
             sender,
-            ActorCell::new(None),
+            None,
         );
-        spawns.push(
-            Box::new(
-                ActorDeferredSpawn::new(
-                    root_guardian.clone().into(),
-                    mailbox,
-                    root_props.creator,
-                ),
-            ),
-        );
-        let (system_guardian, deferred) = root_guardian
-            .attach_child_deferred_start(
+        let system_guardian = root_guardian
+            .attach_child(
                 Props::new(|| Ok(SystemGuardian)),
                 Some("system".to_string()),
                 Some(ActorPath::undefined_uid()),
@@ -143,19 +136,19 @@ impl TActorRefProvider for LocalActorRefProvider {
         self.temp_path_of_prefix(None)
     }
 
-    fn temp_path_of_prefix(&self, prefix: Option<&String>) -> ActorPath {
+    fn temp_path_of_prefix(&self, prefix: Option<&str>) -> ActorPath {
         let mut builder = String::new();
         let prefix_is_none_or_empty = prefix.map(|p| p.is_empty()).unwrap_or(true);
         if !prefix_is_none_or_empty {
-            builder.push_str(prefix.unwrap().as_str());
+            builder.push_str(prefix.unwrap());
         }
         builder.push_str("$");
         let builder = base64(self.temp_number.fetch_add(1, Ordering::Relaxed), builder);
         self.temp_node.child(&builder)
     }
 
-    fn temp_container(&self) -> ActorRef {
-        self.temp_container.clone().into()
+    fn temp_container(&self) -> &dyn TActorRef {
+        &self.temp_container
     }
 
     fn register_temp_actor(&self, actor: ActorRef, path: &ActorPath) {
