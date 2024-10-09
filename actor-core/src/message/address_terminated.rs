@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use actor_derive::Message;
 
 use crate::actor::address::Address;
-use crate::actor::context::{ActorContext1, ActorContext};
+use crate::actor::context::{Context, ActorContext};
 use crate::actor_path::TActorPath;
 use crate::actor_ref::ActorRef;
 use crate::message::death_watch_notification::DeathWatchNotification;
@@ -17,7 +17,7 @@ pub struct AddressTerminated {
 
 #[async_trait]
 impl SystemMessage for AddressTerminated {
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut dyn Actor) -> anyhow::Result<()> {
         context.maintain_address_terminated_subscription(None, |ctx| {
             ctx.watched_by.retain(|w| { &self.address != w.path().address() });
         });

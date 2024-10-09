@@ -5,7 +5,7 @@ use tracing::info;
 
 use actor_cluster_sharding::shard_region::ImShardId;
 use actor_core::{Actor, DynMessage};
-use actor_core::actor::context::ActorContext1;
+use actor_core::actor::context::Context;
 use actor_core::actor::props::PropsBuilder;
 
 #[derive(Debug)]
@@ -17,12 +17,12 @@ pub struct PlayerActor {
 
 #[async_trait]
 impl Actor for PlayerActor {
-    async fn started(&mut self, _context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn started(&mut self, _context: &mut Context) -> anyhow::Result<()> {
         info!("player {} started", self.id);
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

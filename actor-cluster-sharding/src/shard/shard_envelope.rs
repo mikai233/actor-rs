@@ -3,7 +3,7 @@ use std::any::Any;
 use async_trait::async_trait;
 
 use actor_core::{CodecMessage, DynMessage, Message};
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::ext::{decode_bytes, encode_bytes};
 use actor_remote::codec::MessageRegistry;
 use actor_core::message::MessageDecoder;
@@ -16,7 +16,7 @@ use crate::shard_region::ShardRegion;
 impl Message for ShardEnvelope<Shard> {
     type A = Shard;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.deliver_message(context, *self, context.sender().cloned())
     }
 }

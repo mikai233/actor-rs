@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use tracing::warn;
 
 use actor_core::{CodecMessage, DynMessage, Message};
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::EmptyCodec;
 
 use crate::shard::Shard;
@@ -25,7 +25,7 @@ impl Passivate {
 impl Message for Passivate {
     type A = Shard;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         match context.sender() {
             None => {
                 let name = self.stop_message.name();

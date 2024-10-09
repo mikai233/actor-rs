@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use tracing::trace;
 
 use actor_core::{Actor, CodecMessage, DynMessage};
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor::props::Props;
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -30,7 +30,7 @@ pub(crate) struct ClusterHeartbeatSender {
 
 #[async_trait]
 impl Actor for ClusterHeartbeatSender {
-    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
         trace!("{} started", context.myself());
         Cluster::get(context.system()).subscribe(
             context.myself().clone(),
@@ -46,7 +46,7 @@ impl Actor for ClusterHeartbeatSender {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut Context) -> anyhow::Result<()> {
         trace!("{} stopped", context.myself());
         if let Some(key) = self.key.take() {
             key.cancel();
@@ -55,7 +55,7 @@ impl Actor for ClusterHeartbeatSender {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

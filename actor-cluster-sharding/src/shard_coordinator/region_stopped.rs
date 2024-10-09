@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::debug;
 
-use actor_core::actor::context::ActorContext1;
+use actor_core::actor::context::Context;
 use actor_core::actor_ref::ActorRef;
 use actor_core::Message;
 use actor_core::MessageCodec;
@@ -18,7 +18,7 @@ pub(crate) struct RegionStopped {
 impl Message for RegionStopped {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         let shard_region = self.shard_region;
         debug!("{}: ShardRegion stopped: [{}]", actor.type_name, shard_region);
         actor.region_terminated(context, shard_region).await;

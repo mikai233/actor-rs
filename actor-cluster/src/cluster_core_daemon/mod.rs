@@ -17,7 +17,7 @@ use tracing::{debug, error};
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use actor_core::actor::address::Address;
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_EXITING, PHASE_CLUSTER_EXITING_DONE};
 use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
@@ -76,7 +76,7 @@ pub(crate) struct ClusterCoreDaemon {
 }
 
 impl ClusterCoreDaemon {
-    pub(crate) fn new(context: &mut ActorContext1) -> anyhow::Result<Self> {
+    pub(crate) fn new(context: &mut Context) -> anyhow::Result<Self> {
         let (self_exiting_tx, mut self_exiting_rx) = channel(1);
         let coord_shutdown = CoordinatedShutdown::get(context.system());
         let cluster_ext = Cluster::get(context.system()).clone();
@@ -138,7 +138,7 @@ impl ClusterCoreDaemon {
         &self.membership_state.latest_gossip
     }
 
-    fn cluster_core(context: &mut ActorContext1, address: Address) -> anyhow::Result<ActorSelection> {
+    fn cluster_core(context: &mut Context, address: Address) -> anyhow::Result<ActorSelection> {
         let path = RootActorPath::new(address, "/")
             .child("system")
             .child("cluster")
@@ -180,17 +180,17 @@ impl ClusterCoreDaemon {
 
 #[async_trait]
 impl Actor for ClusterCoreDaemon {
-    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
         context.spawn(ClusterHeartbeatSender::props(), ClusterHeartbeatSender::name())?;
         Ok(())
     }
 
-    async fn stopped(&mut self, _context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn stopped(&mut self, _context: &mut Context) -> anyhow::Result<()> {
         let _ = self.self_exiting.send(()).await;
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

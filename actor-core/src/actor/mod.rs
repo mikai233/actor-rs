@@ -1,6 +1,6 @@
 use crate::actor::actor_selection::ActorSelectionMessage;
 use crate::actor::behavior::Behavior;
-use crate::actor::context::{ActorContext, ActorContext1};
+use crate::actor::context::{ActorContext, Context};
 use crate::actor::directive::Directive;
 use crate::actor::receive::Receive;
 use crate::actor_ref::ActorRef;
@@ -36,7 +36,7 @@ pub(crate) mod state;
 pub(crate) mod system_guardian;
 pub mod timers;
 pub(crate) mod user_guardian;
-mod watching;
+pub(crate) mod watching;
 
 pub trait Actor: Send + Sized {
     type Context: ActorContext;
@@ -54,7 +54,7 @@ pub trait Actor: Send + Sized {
     #[allow(unused_variables)]
     fn on_child_failure(
         &mut self,
-        context: &mut ActorContext1,
+        context: &mut Context,
         child: &ActorRef,
         error: &anyhow::Error,
     ) -> Directive {
@@ -67,7 +67,7 @@ pub trait Actor: Send + Sized {
         &self,
         receive: &Receive<Self>,
         actor: &mut Self,
-        ctx: &mut ActorContext1,
+        ctx: &mut Context,
         message: DynMessage,
         sender: Option<ActorRef>,
     ) -> anyhow::Result<Behavior<Self>> {
@@ -75,7 +75,7 @@ pub trait Actor: Send + Sized {
     }
 
     #[allow(unused_variables)]
-    fn unhandled(&mut self, ctx: &mut ActorContext1, message: DynMessage) {
+    fn unhandled(&mut self, ctx: &mut Context, message: DynMessage) {
         todo!("unhandled message: {:?}", message);
     }
 }

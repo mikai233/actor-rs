@@ -6,7 +6,7 @@ use tracing::info;
 
 use actor_core::{Actor, DynMessage, Message};
 use actor_core::actor::actor_system::ActorSystem;
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor::props::Props;
 use actor_core::actor::timers::Timers;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -39,7 +39,7 @@ struct FibActor {
 }
 
 impl FibActor {
-    fn new(context: &mut ActorContext1) -> anyhow::Result<Self> {
+    fn new(context: &mut Context) -> anyhow::Result<Self> {
         let timers = Timers::new(context)?;
         Ok(Self {
             timers,
@@ -49,14 +49,14 @@ impl FibActor {
 
 #[async_trait]
 impl Actor for FibActor {
-    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
         let n = rand::thread_rng().gen_range(1..=50);
         self.timers.start_timer_with_fixed_delay(None, Duration::from_millis(100), Fib(n), context.myself().clone());
         info!("{} started", context.myself());
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
@@ -68,7 +68,7 @@ struct Fib(i32);
 impl Message for Fib {
     type A = FibActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext1, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut Context, _actor: &mut Self::A) -> anyhow::Result<()> {
         fibonacci(self.0);
         Ok(())
     }

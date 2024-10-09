@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use async_trait::async_trait;
 use tracing::info;
 
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::EmptyCodec;
 use actor_core::Message;
 
@@ -18,7 +18,7 @@ pub(super) struct Disconnected {
 impl Message for Disconnected {
     type A = ArteryActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.message_buffer.remove(&self.addr);
         info!("{} disconnected from {}", context.myself(), self.addr);
         Ok(())

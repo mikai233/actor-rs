@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::debug;
 
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
@@ -25,7 +25,7 @@ pub(crate) struct BeginHandoff {
 impl Message for BeginHandoff {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         debug!("{}: BeginHandOff shard [{}]", actor.type_name, self.shard);
         if actor.preparing_for_shutdown.not() {
             if let Some(region_ref) = actor.region_by_shard.remove(self.shard.as_str()) {

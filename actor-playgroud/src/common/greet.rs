@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::info;
 
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::Message;
 use actor_core::MessageCodec;
 
@@ -15,7 +15,7 @@ pub struct Greet(pub usize);
 impl Message for Greet {
     type A = SingletonActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut Self::A) -> anyhow::Result<()> {
         println!("{:?}", *self);
         info!("{} recv {:?}", context.myself(), *self);
         Ok(())

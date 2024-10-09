@@ -1,4 +1,4 @@
-use crate::actor::context::{ActorContext1, ActorContext};
+use crate::actor::context::{Context, ActorContext};
 use crate::actor_ref::ActorRef;
 use actor_derive::Message;
 use async_trait::async_trait;
@@ -15,7 +15,7 @@ pub struct Unwatch {
 
 #[async_trait]
 impl SystemMessage for Unwatch {
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut dyn Actor) -> anyhow::Result<()> {
         let Unwatch { watchee, watcher } = *self;
         let watchee_self = watchee == context.myself;
         let watcher_self = watcher == context.myself;

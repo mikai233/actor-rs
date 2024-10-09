@@ -2,7 +2,7 @@ use ahash::{HashMap, HashMapExt};
 use async_trait::async_trait;
 use tracing::info;
 
-use actor_core::actor::context::ActorContext1;
+use actor_core::actor::context::Context;
 use actor_core::EmptyCodec;
 use actor_core::Message;
 
@@ -16,7 +16,7 @@ pub(crate) struct SelfRemoved;
 impl Message for SelfRemoved {
     type A = ClusterCoreDaemon;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         *actor.cluster.members_write() = HashMap::new();
         let mut self_member = actor.cluster.self_member_write();
         self_member.status = MemberStatus::Removed;

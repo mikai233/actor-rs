@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use itertools::Itertools;
 use tracing::info;
 
-use actor_core::actor::context::ActorContext1;
+use actor_core::actor::context::Context;
 use actor_core::EmptyCodec;
 use actor_core::Message;
 
@@ -17,7 +17,7 @@ pub(super) struct StopShardTimeout(pub(super) uuid::Uuid);
 impl Message for StopShardTimeout {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         let request_id = self.0;
         let mut timed_out_shards = vec![];
         let mut empty_shards = vec![];

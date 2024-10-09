@@ -3,7 +3,7 @@ use bincode::{Decode, Encode};
 
 use actor_core::{EmptyTestActor, Message};
 use actor_core::{MessageCodec, OrphanCodec};
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor_ref::ActorRefExt;
 
 #[derive(Encode, Decode, MessageCodec)]
@@ -13,7 +13,7 @@ pub struct MessageToAsk;
 impl Message for MessageToAsk {
     type A = EmptyTestActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut Self::A) -> anyhow::Result<()> {
         context.sender().unwrap().cast_orphan_ns(MessageToAns {
             content: "hello world".to_string(),
         });

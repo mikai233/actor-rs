@@ -5,7 +5,7 @@ use tracing::debug;
 
 use actor_core::{CodecMessage, Message};
 use actor_core::actor::actor_selection::ActorSelectionPath;
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -23,7 +23,7 @@ pub(super) struct HeartbeatTick;
 impl Message for HeartbeatTick {
     type A = RemoteWatcher;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         let watching_nodes = actor.watchee_by_nodes.keys();
         for addr in watching_nodes {
             if actor.unreachable.contains(addr).not() {

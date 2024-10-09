@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use actor_core::actor::context::ActorContext1;
+use actor_core::actor::context::Context;
 use actor_core::EmptyCodec;
 use actor_core::Message;
 
@@ -15,7 +15,7 @@ pub(super) struct ClusterEventWrap(pub(super) MemberEvent);
 impl Message for ClusterEventWrap {
     type A = ClusterHeartbeatSender;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         match self.0 {
             MemberEvent::MemberUp(m) => {
                 if actor.self_member.as_ref().is_some_and(|sm| sm.unique_address == m.unique_address) {

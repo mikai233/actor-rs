@@ -12,7 +12,6 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::broadcast::Receiver;
 
-pub mod builder;
 pub mod local_provider;
 
 pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use tracing::{error, info};
 
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::EmptyCodec;
@@ -17,7 +17,7 @@ pub(super) struct LockSuccess(pub(super) Vec<u8>);
 impl Message for LockSuccess {
     type A = ClusterSingletonManager;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.lock_key = Some(self.0);
         match context.spawn(actor.singleton_props.props(()), actor.singleton_name()) {
             Ok(singleton) => {

@@ -1,5 +1,5 @@
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::ActorContext1;
+use crate::actor::context::Context;
 use crate::actor::props::{Props, PropsBuilder};
 use crate::routing::routee::Routee;
 use crate::routing::router_actor::{Router, RouterActor};
@@ -38,7 +38,7 @@ impl<A> Pool for BroadcastPool<A> where A: Clone + Send + 'static {
         self.nr_of_instances
     }
 
-    fn new_routee(&self, context: &mut ActorContext1) -> anyhow::Result<Routee> {
+    fn new_routee(&self, context: &mut Context) -> anyhow::Result<Routee> {
         let routee = spawn_actor_routee(context, &self.routee_props, self.arg.clone())?;
         Ok(routee.into())
     }

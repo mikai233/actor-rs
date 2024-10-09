@@ -7,7 +7,6 @@ pub struct Mailbox {
     pub(crate) message: Receiver<Envelope>,
     pub(crate) system: Receiver<Envelope>,
     pub(crate) throughput: usize,
-    pub(crate) stash_capacity: Option<usize>,
 }
 
 impl Mailbox {

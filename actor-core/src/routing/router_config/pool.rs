@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::ActorContext1;
+use crate::actor::context::Context;
 use crate::routing::routee::Routee;
 use crate::routing::router_config::TRouterConfig;
 use crate::routing::routing_logic::RoutingLogic;
@@ -9,7 +9,7 @@ use crate::routing::routing_logic::RoutingLogic;
 pub trait Pool: TRouterConfig {
     fn nr_of_instances(&self, sys: &ActorSystem) -> usize;
 
-    fn new_routee(&self, context: &mut ActorContext1) -> anyhow::Result<Routee>;
+    fn new_routee(&self, context: &mut Context) -> anyhow::Result<Routee>;
 }
 
 pub struct PoolRouterConfig {
@@ -43,7 +43,7 @@ impl Pool for PoolRouterConfig {
         self.pool.nr_of_instances(sys)
     }
 
-    fn new_routee(&self, context: &mut ActorContext1) -> anyhow::Result<Routee> {
+    fn new_routee(&self, context: &mut Context) -> anyhow::Result<Routee> {
         self.pool.new_routee(context)
     }
 }

@@ -9,7 +9,7 @@ use tracing::debug;
 
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::address::Address;
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor::props::Props;
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_path::TActorPath;
@@ -54,7 +54,7 @@ pub struct RemoteWatcher {
 
 #[async_trait]
 impl Actor for RemoteWatcher {
-    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
         let myself = context.myself().clone();
         let heartbeat_task = context.system()
             .scheduler
@@ -73,7 +73,7 @@ impl Actor for RemoteWatcher {
     }
 
 
-    async fn stopped(&mut self, _context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn stopped(&mut self, _context: &mut Context) -> anyhow::Result<()> {
         if let Some(task) = self.heartbeat_task.take() {
             task.cancel();
         }
@@ -83,7 +83,7 @@ impl Actor for RemoteWatcher {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
@@ -95,7 +95,7 @@ impl RemoteWatcher {
         })
     }
 
-    pub fn new<F>(context: &mut ActorContext1, registry: F) -> Self where F: FailureDetectorRegistry<A=Address> + 'static {
+    pub fn new<F>(context: &mut Context, registry: F) -> Self where F: FailureDetectorRegistry<A=Address> + 'static {
         Self {
             failure_detector: Box::new(registry),
             heartbeat_interval: Duration::from_secs(1),
@@ -111,7 +111,7 @@ impl RemoteWatcher {
         }
     }
 
-    pub fn add_watch(&mut self, context: &mut ActorContext1, watchee: ActorRef, watcher: ActorRef) -> anyhow::Result<()> {
+    pub fn add_watch(&mut self, context: &mut Context, watchee: ActorRef, watcher: ActorRef) -> anyhow::Result<()> {
         debug_assert_ne!(&watcher, context.myself());
         debug!("Watching: [{} -> {}]", watcher, watchee);
         match self.watching.entry(watchee.clone()) {
@@ -132,7 +132,7 @@ impl RemoteWatcher {
         Ok(())
     }
 
-    pub fn remove_watch(&mut self, context: &mut ActorContext1, watchee: ActorRef, watcher: ActorRef) {
+    pub fn remove_watch(&mut self, context: &mut Context, watchee: ActorRef, watcher: ActorRef) {
         debug_assert_ne!(&watcher, context.myself());
         if let Some(watchers) = self.watching.get_mut(&watchee) {
             watchers.remove(&watcher);
@@ -181,7 +181,7 @@ impl RemoteWatcher {
         self.failure_detector.remove(watche_address);
     }
 
-    pub fn receive_heartbeat_rsp(&mut self, context: &mut ActorContext1, uid: i64) -> anyhow::Result<()> {
+    pub fn receive_heartbeat_rsp(&mut self, context: &mut Context, uid: i64) -> anyhow::Result<()> {
         let from = context.sender().into_result().context("receive_heartbeat_rsp")?.path().address();
         if self.failure_detector.is_monitoring(from) {
             debug!("Received heartbeat rsp from [{}]", from);
@@ -211,7 +211,7 @@ impl RemoteWatcher {
         }
     }
 
-    pub fn receive_heartbeat(&self, context: &mut ActorContext1) -> anyhow::Result<()> {
+    pub fn receive_heartbeat(&self, context: &mut Context) -> anyhow::Result<()> {
         let sender = context.sender().into_result().context("receive_heartbeat")?;
         sender.cast(ArteryHeartbeatRsp { uid: context.system().uid }, Some(context.myself().clone()));
         Ok(())

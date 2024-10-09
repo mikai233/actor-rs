@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 
-use actor_core::actor::context::ActorContext1;
+use actor_core::actor::context::Context;
 use actor_core::Message;
 use actor_core::MessageCodec;
 
@@ -14,7 +14,7 @@ pub struct Init;
 impl Message for Init {
     type A = PlayerActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext1, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut Context, _actor: &mut Self::A) -> anyhow::Result<()> {
         Ok(())
     }
 }

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use actor_core::actor::address::Address;
-use actor_core::actor::context::ActorContext1;
+use actor_core::actor::context::Context;
 use actor_core::EmptyCodec;
 use actor_core::Message;
 
@@ -15,7 +15,7 @@ pub(crate) struct Leave(pub(crate) Address);
 impl Message for Leave {
     type A = ClusterCoreDaemon;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         let member = {
             actor.cluster.members()
                 .iter()

@@ -4,15 +4,16 @@ use std::sync::Arc;
 use tokio::sync::mpsc::channel;
 
 use crate::actor::actor_system::ActorSystem;
-use crate::actor::context::{ActorContext, ActorContext1};
+use crate::actor::context::{ActorContext, Context};
 use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::actor::Actor;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
+use crate::actor_ref::local_ref::SignalReceiver;
 use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
 
-type ActorCreator = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem) -> anyhow::Result<()> + Send>;
+type ActorCreator = Box<dyn FnOnce(ActorRef, SignalReceiver, Mailbox, ActorSystem) -> anyhow::Result<()> + Send>;
 
 pub struct Props {
     pub(crate) actor_name: &'static str,
@@ -35,7 +36,7 @@ impl Props {
         F: FnOnce() -> anyhow::Result<A> + Send + 'static,
         A: Actor,
     {
-        let creator = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
+        let creator = move |myself: ActorRef, signal: SignalReceiver, mailbox: Mailbox, system: ActorSystem| {
             let actor = actor_creator()?;
             let mut ctx = A::Context::new(system, myself);
             let runtime = ActorRuntime {
@@ -55,7 +56,7 @@ impl Props {
 
     pub fn new_with_ctx<F, A>(actor_creator: F) -> Self
     where
-        F: FnOnce(&mut ActorContext1) -> anyhow::Result<A> + Send + 'static,
+        F: FnOnce(&mut Context) -> anyhow::Result<A> + Send + 'static,
         A: Actor,
     {
         let actor_name = type_name::<A>();
@@ -91,7 +92,6 @@ impl Props {
             message: m_rx,
             system: s_rx,
             throughput: mailbox.throughput,
-            stash_capacity: mailbox.stash_capacity,
         };
         Ok((sender, mailbox))
     }
@@ -104,10 +104,11 @@ impl Props {
     pub(crate) fn spawn(
         self,
         myself: ActorRef,
+        signal: SignalReceiver,
         mailbox: Mailbox,
         system: ActorSystem,
     ) -> anyhow::Result<()> {
-        (self.creator)(myself, mailbox, system)
+        (self.creator)(myself, signal, mailbox, system)
     }
 
     #[cfg(feature = "tokio-tracing")]
@@ -219,7 +220,7 @@ impl<Arg> PropsBuilder<Arg> {
 
     pub fn new_wit_ctx<A, Builder>(builder: Builder) -> Self
     where
-        Builder: Fn(&mut ActorContext1, Arg) -> anyhow::Result<A> + Send + Sync + 'static,
+        Builder: Fn(&mut Context, Arg) -> anyhow::Result<A> + Send + Sync + 'static,
         Arg: Send + 'static,
         A: Actor,
     {

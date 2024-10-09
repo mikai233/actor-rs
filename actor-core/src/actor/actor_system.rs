@@ -189,8 +189,8 @@ impl ActorRefFactory for ActorSystem {
         self.provider().guardian()
     }
 
-    fn lookup_root(&self) -> ActorRef {
-        self.provider().root_guardian().clone().into()
+    fn lookup_root(&self) -> &dyn TActorRef {
+        self.provider().root_guardian()
     }
 
     fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {

@@ -4,7 +4,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use tracing::{debug, warn};
 
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::EmptyCodec;
 use actor_core::ext::option_ext::OptionExt;
@@ -26,7 +26,7 @@ pub(super) struct RebalanceDone {
 impl Message for RebalanceDone {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         let sender = context.sender().into_result().context(type_name::<RebalanceDone>())?;
         actor.rebalance_workers.remove(sender);
         if self.ok {

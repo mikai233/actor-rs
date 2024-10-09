@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use tracing::trace;
 
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::EmptyCodec;
 use actor_core::Message;
 
@@ -15,7 +15,7 @@ pub(super) struct ClusterEventWrap(pub(super) MemberEvent);
 impl Message for ClusterEventWrap {
     type A = ClusterHeartbeatReceiver;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         trace!("{} {:?}", context.myself(), self);
         match self.0 {
             MemberEvent::MemberUp(m) => {

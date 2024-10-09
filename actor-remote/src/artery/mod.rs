@@ -13,7 +13,7 @@ use tracing::{debug, info, warn};
 
 use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_system::ActorSystem;
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor::coordinated_shutdown::ActorSystemStartFailedReason;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -66,7 +66,7 @@ pub struct ArteryActor {
 
 #[async_trait]
 impl Actor for ArteryActor {
-    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
         match self.transport {
             Transport::Tcp => {
                 Self::spawn_tcp_listener(context, self.socket_addr)?;
@@ -76,7 +76,7 @@ impl Actor for ArteryActor {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
@@ -174,7 +174,7 @@ impl ArteryActor {
         }
     }
 
-    fn spawn_tcp_listener(context: &mut ActorContext1, addr: SocketAddr) -> anyhow::Result<()> {
+    fn spawn_tcp_listener(context: &mut Context, addr: SocketAddr) -> anyhow::Result<()> {
         let myself = context.myself().clone();
         let system = context.system().clone();
         context.spawn_fut(format!("tcp_listener_{}", addr), async move {
@@ -279,7 +279,7 @@ mod test {
     use actor_core::{Actor, DynMessage, EmptyTestActor, Message};
     use actor_core::{EmptyCodec, MessageCodec, OrphanCodec};
     use actor_core::actor::actor_system::ActorSystem;
-    use actor_core::actor::context::{ActorContext1, ActorContext};
+    use actor_core::actor::context::{Context, ActorContext};
     use actor_core::actor::props::Props;
     use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
     use actor_core::actor_ref::ActorRefExt;
@@ -300,7 +300,7 @@ mod test {
     impl Message for Ping {
         type A = PingPongActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut Self::A) -> anyhow::Result<()> {
             let myself = context.myself().clone();
             let sender = context.sender().unwrap().clone();
             context.spawn_fut("pong", async move {
@@ -318,7 +318,7 @@ mod test {
     impl Message for Pong {
         type A = PingPongActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut Self::A) -> anyhow::Result<()> {
             info!("{} pong", context.myself());
             Ok(())
         }
@@ -333,7 +333,7 @@ mod test {
     impl Message for PingTo {
         type A = PingPongActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut Self::A) -> anyhow::Result<()> {
             let to = context.system().provider().resolve_actor_ref(&self.to);
             to.cast(Ping, Some(context.myself().clone()));
             Ok(())
@@ -342,12 +342,12 @@ mod test {
 
     #[async_trait]
     impl Actor for PingPongActor {
-        async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
+        async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
             info!("{} started", context.myself());
             Ok(())
         }
 
-        async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
+        async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
             Self::handle_message(self, context, message).await
         }
     }
@@ -383,7 +383,7 @@ mod test {
     impl Message for MessageToAsk {
         type A = EmptyTestActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut Self::A) -> anyhow::Result<()> {
             context.sender().unwrap().cast_orphan_ns(MessageToAns {
                 content: "hello world".to_string(),
             });

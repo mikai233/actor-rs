@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::debug;
 
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::CMessageCodec;
 use actor_core::Message;
@@ -24,7 +24,7 @@ pub(crate) struct Register {
 impl Message for Register {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         let region = self.shard_region;
         if matches!(actor.coordinator_state, CoordinatorState::WaitingForStateInitialized) {
             debug!("{}: Ignoring registration from region [{}] while initializing", actor.type_name, region);

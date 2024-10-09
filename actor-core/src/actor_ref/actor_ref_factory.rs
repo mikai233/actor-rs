@@ -17,7 +17,7 @@ pub trait ActorRefFactory {
 
     fn guardian(&self) -> &LocalActorRef;
 
-    fn lookup_root(&self) -> ActorRef;
+    fn lookup_root(&self) -> &ActorRef;
 
     fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef>;
 

@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use async_trait::async_trait;
 use tracing::info;
 
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::EmptyCodec;
 use actor_core::Message;
 use actor_core::message::message_buffer::BufferEnvelope;
@@ -22,7 +22,7 @@ pub(super) struct Connected {
 impl Message for Connected {
     type A = ArteryActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.connections.insert(self.addr, ConnectionStatus::Connected(self.tx));
         info!("{} connected to {}", context.myself(), self.addr);
         if let Some(buffers) = actor.message_buffer.remove(&self.addr) {

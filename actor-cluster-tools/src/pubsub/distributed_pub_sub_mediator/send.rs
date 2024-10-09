@@ -4,7 +4,7 @@ use anyhow::ensure;
 use async_trait::async_trait;
 
 use actor_core::{CodecMessage, DynMessage, EmptyCodec, Message};
-use actor_core::actor::context::ActorContext1;
+use actor_core::actor::context::Context;
 
 use crate::pubsub::distributed_pub_sub_mediator::DistributedPubSubMediator;
 
@@ -19,7 +19,7 @@ pub struct Send {
 impl Message for Send {
     type A = DistributedPubSubMediator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         todo!()
     }
 }

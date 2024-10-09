@@ -14,15 +14,14 @@ pub struct FunctionRef(Arc<FunctionRefInner>);
 
 pub struct FunctionRefInner {
     pub(crate) path: ActorPath,
-    pub(crate) message_handler: Box<dyn Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static>,
+    pub(crate) transform: Box<dyn Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static>,
 }
 
 impl Debug for FunctionRef {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FunctionRef")
             .field("path", &self.path)
-            .field("message_handler", &"..")
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -32,7 +31,7 @@ impl TActorRef for FunctionRef {
     }
 
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
-        (self.message_handler)(message, sender);
+        (self.transform)(message, sender);
     }
 
     fn start(&self) {
@@ -70,5 +69,20 @@ impl TActorRef for FunctionRef {
 impl Into<ActorRef> for FunctionRef {
     fn into(self) -> ActorRef {
         ActorRef::new(self)
+    }
+}
+
+impl FunctionRef {
+    pub fn new<F>(
+        path: impl Into<ActorPath>,
+        transform: F) -> Self
+    where
+        F: Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static,
+    {
+        let inner = FunctionRefInner {
+            path: path.into(),
+            transform: Box::new(transform),
+        };
+        FunctionRef(inner.into())
     }
 }

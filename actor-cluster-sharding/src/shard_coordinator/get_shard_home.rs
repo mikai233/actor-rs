@@ -8,7 +8,7 @@ use bincode::{Decode, Encode};
 use itertools::Itertools;
 use tracing::error;
 
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
@@ -27,7 +27,7 @@ pub(crate) struct GetShardHome {
 impl Message for GetShardHome {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         let sender = context.sender().into_result().context(type_name::<GetShardHome>())?.clone();
         let shard: ImShardId = self.shard.into();
         if !actor.handle_get_shard_home(context, sender.clone(), shard.clone()) {

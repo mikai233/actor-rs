@@ -4,7 +4,7 @@ use bincode::{Decode, Encode};
 use tracing::{debug, warn};
 
 use actor_core::{CodecMessage, Message};
-use actor_core::actor::context::{ActorContext1, ActorContext, ContextExt};
+use actor_core::actor::context::{Context, ActorContext, ContextExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
@@ -22,7 +22,7 @@ pub(crate) struct Handoff {
 impl Message for Handoff {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         let type_name = &actor.type_name;
         let shard_id = self.shard.into();
         debug!("{type_name}: Handoff shard [{shard_id}]");

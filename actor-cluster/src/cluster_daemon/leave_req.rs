@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor::props::Props;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::EmptyCodec;
@@ -17,7 +17,7 @@ pub(super) struct LeaveReq;
 impl Message for LeaveReq {
     type A = ClusterDaemon;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut Self::A) -> anyhow::Result<()> {
         let reply_to = context.sender().into_result()?.clone();
         context.spawn_anonymous(Props::new_with_ctx(|ctx| {
             Ok(CoordinatedShutdownLeave::new(ctx, reply_to))

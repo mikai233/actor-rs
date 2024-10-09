@@ -3,7 +3,7 @@ use crate::cluster_event::{ClusterDomainEvent, CurrentClusterState, CurrentInter
 use crate::member::Member;
 use crate::reachability::Reachability;
 use actor_core::actor::address::Address;
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::{Actor, DynMessage};
 use arc_swap::ArcSwap;
@@ -36,13 +36,13 @@ impl EventBusListener {
 
 #[async_trait]
 impl Actor for EventBusListener {
-    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
         let cluster = Cluster::get(context.system());
         cluster.subscribe::<dyn ClusterDomainEvent>(context.myself().clone());
         todo!()
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

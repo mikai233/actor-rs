@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use tracing::debug;
 
-use actor_core::actor::context::ActorContext1;
+use actor_core::actor::context::Context;
 use actor_core::actor_ref::ActorRef;
 use actor_core::EmptyCodec;
 use actor_core::Message;
@@ -20,7 +20,7 @@ pub(super) struct AllocateShardResult {
 impl Message for AllocateShardResult {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { shard, shard_region, get_shard_home_sender } = *self;
         match shard_region {
             None => {

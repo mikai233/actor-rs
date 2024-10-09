@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use tracing::debug;
 
 use actor_core::{CodecMessage, DynMessage, Message};
-use actor_core::actor::context::ActorContext1;
+use actor_core::actor::context::Context;
 use actor_core::EmptyCodec;
 use actor_core::message::terminated::Terminated;
 
@@ -21,7 +21,7 @@ impl SingletonTerminated {
 impl Message for SingletonTerminated {
     type A = ClusterSingletonManager;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         let singleton = self.0.actor;
         debug!("singleton manager watch singleton actor {} terminated", singleton);
         actor.singleton = None;

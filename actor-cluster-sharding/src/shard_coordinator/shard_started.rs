@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 
-use actor_core::actor::context::ActorContext1;
+use actor_core::actor::context::Context;
 use actor_core::Message;
 use actor_core::MessageCodec;
 
@@ -17,7 +17,7 @@ pub(crate) struct ShardStarted {
 impl Message for ShardStarted {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         if let Some(key) = actor.un_acked_host_shards.remove(self.shard.as_str()) {
             key.cancel();
         }

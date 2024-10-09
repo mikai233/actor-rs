@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use imstr::ImString;
 
-use actor_core::actor::context::ActorContext1;
+use actor_core::actor::context::Context;
 use actor_core::EmptyCodec;
 use actor_core::Message;
 
@@ -22,7 +22,7 @@ pub(crate) struct StartCoordinatorIfNeeded {
 impl Message for StartCoordinatorIfNeeded {
     type A = ClusterShardingGuardian;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self { type_name, settings, allocation_strategy } = *self;
         actor.start_coordinator_if_needed(context, type_name, allocation_strategy, settings)?;
         Ok(())

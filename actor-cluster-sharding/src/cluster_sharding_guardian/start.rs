@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use imstr::ImString;
 
 use actor_core::{DynMessage, Message};
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor::props::PropsBuilder;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
@@ -32,7 +32,7 @@ pub(crate) struct Start {
 impl Message for Start {
     type A = ClusterShardingGuardian;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         let Self {
             type_name,
             entity_props,

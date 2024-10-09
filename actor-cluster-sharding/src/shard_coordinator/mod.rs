@@ -14,7 +14,7 @@ use actor_cluster::cluster::Cluster;
 use actor_cluster::etcd_actor::keep_alive::KeepAlive;
 use actor_cluster::etcd_client::PutOptions;
 use actor_core::{Actor, CodecMessage, DynMessage};
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor::props::Props;
 use actor_core::actor::timers::{ScheduleKey, Timers};
 use actor_core::actor_path::TActorPath;
@@ -92,7 +92,7 @@ pub struct ShardCoordinator {
 
 impl ShardCoordinator {
     pub(crate) fn new(
-        context: &mut ActorContext1,
+        context: &mut Context,
         type_name: ImString,
         settings: Arc<ClusterShardingSettings>,
         allocation_strategy: Box<dyn ShardAllocationStrategy>,
@@ -129,7 +129,7 @@ impl ShardCoordinator {
 
 #[async_trait]
 impl Actor for ShardCoordinator {
-    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
         self.timers.start_timer_with_fixed_delay(
             None,
             self.settings.rebalance_interval,
@@ -184,18 +184,18 @@ impl Actor for ShardCoordinator {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut Context) -> anyhow::Result<()> {
         debug!("{}: ShardCoordinator {} stopped", self.type_name, context.myself());
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
 
 impl ShardCoordinator {
-    fn clear_rebalance_in_progress(&mut self, context: &mut ActorContext1, shard: ShardId) {
+    fn clear_rebalance_in_progress(&mut self, context: &mut Context, shard: ShardId) {
         if let Some(pending_get_shard_home) = self.rebalance_in_progress.remove(shard.as_str()) {
             let msg = GetShardHome { shard };
             let myself = context.myself();
@@ -205,7 +205,7 @@ impl ShardCoordinator {
         }
     }
 
-    fn is_member(&self, context: &mut ActorContext1, region: &ActorRef) -> bool {
+    fn is_member(&self, context: &mut Context, region: &ActorRef) -> bool {
         let region_address = region.path().address();
         region_address == context.myself().path().address() || self.cluster.state().is_member_up(region_address)
     }
@@ -248,7 +248,7 @@ impl ShardCoordinator {
 
     fn shutdown_shards(
         &mut self,
-        context: &mut ActorContext1,
+        context: &mut Context,
         shutting_down_region: ActorRef,
         shards: HashSet<ImShardId>,
     ) -> anyhow::Result<()> {
@@ -268,7 +268,7 @@ impl ShardCoordinator {
         Ok(())
     }
 
-    fn continue_rebalance(&mut self, context: &mut ActorContext1, shards: HashSet<ImShardId>) -> anyhow::Result<()> {
+    fn continue_rebalance(&mut self, context: &mut Context, shards: HashSet<ImShardId>) -> anyhow::Result<()> {
         if shards.is_empty().not() || self.rebalance_in_progress.is_empty().not() {
             let shards_str = shards.iter().join(", ");
             let rebalance_str = self.rebalance_in_progress.keys().join(", ");
@@ -303,7 +303,7 @@ impl ShardCoordinator {
 
     fn start_shard_rebalance_if_needed(
         &mut self,
-        context: &mut ActorContext1,
+        context: &mut Context,
         shard: ImShardId,
         from: ActorRef,
         handoff_timeout: Duration,
@@ -353,7 +353,7 @@ impl ShardCoordinator {
         })
     }
 
-    fn terminate(&mut self, context: &mut ActorContext1) {
+    fn terminate(&mut self, context: &mut Context) {
         //TODO
         if self.region_termination_in_progress.is_empty() {
             debug!("{}: Received termination message.", self.type_name);
@@ -367,7 +367,7 @@ impl ShardCoordinator {
         context.stop(context.myself());
     }
 
-    async fn region_terminated(&mut self, context: &mut ActorContext1, region: ActorRef) {
+    async fn region_terminated(&mut self, context: &mut Context, region: ActorRef) {
         for worker in &self.rebalance_workers {
             worker.cast_ns(ShardRegionTerminated { region: region.clone() });
         }
@@ -393,7 +393,7 @@ impl ShardCoordinator {
         }
     }
 
-    async fn region_proxy_terminated(&mut self, context: &mut ActorContext1, proxy: ActorRef) {
+    async fn region_proxy_terminated(&mut self, context: &mut Context, proxy: ActorRef) {
         for worker in &self.rebalance_workers {
             worker.cast_ns(ShardRegionTerminated { region: proxy.clone() });
         }
@@ -403,11 +403,11 @@ impl ShardCoordinator {
         }
     }
 
-    async fn update_state(&mut self, context: &mut ActorContext1, state: ShardState) {
+    async fn update_state(&mut self, context: &mut Context, state: ShardState) {
         self.update(context, Some(state)).await;
     }
 
-    async fn update(&mut self, context: &mut ActorContext1, state: Option<ShardState>) {
+    async fn update(&mut self, context: &mut Context, state: Option<ShardState>) {
         if let Some(state) = state {
             self.state.updated(state);
         }
@@ -430,7 +430,7 @@ impl ShardCoordinator {
         }
     }
 
-    fn send_host_shard_msg(&mut self, context: &mut ActorContext1, shard: ImShardId, region: ActorRef) {
+    fn send_host_shard_msg(&mut self, context: &mut Context, shard: ImShardId, region: ActorRef) {
         region.cast(HostShard { shard: shard.clone().into() }, Some(context.myself().clone()));
         let resend_shard_host = ResendShardHost {
             shard: shard.clone(),
@@ -444,7 +444,7 @@ impl ShardCoordinator {
         self.un_acked_host_shards.insert(shard, key);
     }
 
-    fn handle_get_shard_home(&mut self, context: &mut ActorContext1, sender: ActorRef, shard: ImShardId) -> bool {
+    fn handle_get_shard_home(&mut self, context: &mut Context, sender: ActorRef, shard: ImShardId) -> bool {
         if self.rebalance_in_progress.contains_key(&shard) {
             self.defer_get_shard_home_request(shard, sender);
             self.unstash_one_get_shard_home_request(context);
@@ -519,13 +519,13 @@ impl ShardCoordinator {
         self.get_shard_home_requests.insert((sender, request));
     }
 
-    fn unstash_one_get_shard_home_request(&mut self, context: &mut ActorContext1) {
+    fn unstash_one_get_shard_home_request(&mut self, context: &mut Context) {
         if let Some((sender, request)) = self.get_shard_home_requests.pop_first() {
             context.myself().tell(request.into_dyn(), Some(sender));
         }
     }
 
-    async fn continue_get_shard_home(&mut self, context: &mut ActorContext1, shard: ImShardId, region: ActorRef, get_shard_home_sender: ActorRef) {
+    async fn continue_get_shard_home(&mut self, context: &mut Context, shard: ImShardId, region: ActorRef, get_shard_home_sender: ActorRef) {
         if self.rebalance_in_progress.contains_key(&shard) {
             self.defer_get_shard_home_request(shard, get_shard_home_sender);
         } else {

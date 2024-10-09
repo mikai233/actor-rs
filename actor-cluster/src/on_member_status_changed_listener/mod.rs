@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use actor_core::{Actor, CodecMessage, DynMessage};
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::option_ext::OptionExt;
 
@@ -19,7 +19,7 @@ pub(crate) struct OnMemberStatusChangedListener {
 }
 
 impl OnMemberStatusChangedListener {
-    pub(crate) fn new(context: &mut ActorContext1, status: MemberStatus) -> Self {
+    pub(crate) fn new(context: &mut Context, status: MemberStatus) -> Self {
         let cluster = Cluster::get(context.system());
         Self {
             callback: None,
@@ -28,7 +28,7 @@ impl OnMemberStatusChangedListener {
         }
     }
 
-    fn done(&mut self, context: &mut ActorContext1) {
+    fn done(&mut self, context: &mut Context) {
         self.callback.take().into_foreach(|cb| cb());
         context.stop(context.myself());
     }
@@ -40,13 +40,13 @@ impl OnMemberStatusChangedListener {
 
 #[async_trait]
 impl Actor for OnMemberStatusChangedListener {
-    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
         self.cluster.subscribe(context.myself().clone(), |event| { ClusterEventWrap(event).into_dyn() })?;
         debug_assert!(matches!(self.status,MemberStatus::Up) || matches!(self.status,MemberStatus::Removed));
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut Context) -> anyhow::Result<()> {
         if matches!(self.status,MemberStatus::Removed) {
             self.callback.take().into_foreach(|cb| cb());
         };
@@ -54,7 +54,7 @@ impl Actor for OnMemberStatusChangedListener {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

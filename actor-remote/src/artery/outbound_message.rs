@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::{debug, warn};
 
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::EmptyCodec;
@@ -29,7 +29,7 @@ pub(crate) struct OutboundMessage {
 impl Message for OutboundMessage {
     type A = ArteryActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         let addr: SocketAddr = self.envelope.target.path()
             .address().addr
             .map(|a| a.into())

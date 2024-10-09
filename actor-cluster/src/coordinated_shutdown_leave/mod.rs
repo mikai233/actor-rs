@@ -1,9 +1,8 @@
 use async_trait::async_trait;
 
-use actor_core::{Actor, CodecMessage, DynMessage};
-use actor_core::actor::context::{ActorContext1, ActorContext};
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 
 use crate::cluster::Cluster;
 use crate::coordinated_shutdown_leave::cluster_event::ClusterEventWrap;
@@ -19,7 +18,7 @@ pub(crate) struct CoordinatedShutdownLeave {
 }
 
 impl CoordinatedShutdownLeave {
-    pub(crate) fn new(context: &mut ActorContext1, reply_to: ActorRef) -> Self {
+    pub(crate) fn new(context: &mut Context, reply_to: ActorRef) -> Self {
         let cluster = Cluster::get(context.system()).clone();
         Self {
             cluster,
@@ -27,7 +26,7 @@ impl CoordinatedShutdownLeave {
         }
     }
 
-    fn done(&self, context: &mut ActorContext1) {
+    fn done(&self, context: &mut Context) {
         self.reply_to.cast_orphan_ns(LeaveResp);
         context.stop(context.myself());
     }
@@ -35,7 +34,7 @@ impl CoordinatedShutdownLeave {
 
 #[async_trait]
 impl Actor for CoordinatedShutdownLeave {
-    async fn started(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
         self.cluster.subscribe(
             context.myself().clone(),
             |event| { ClusterEventWrap(event).into_dyn() },
@@ -44,12 +43,12 @@ impl Actor for CoordinatedShutdownLeave {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut ActorContext1) -> anyhow::Result<()> {
+    async fn stopped(&mut self, context: &mut Context) -> anyhow::Result<()> {
         self.cluster.unsubscribe_cluster_event(context.myself())?;
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext1, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

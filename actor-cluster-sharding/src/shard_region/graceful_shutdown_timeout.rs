@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use itertools::Itertools;
 use tracing::warn;
 
-use actor_core::actor::context::{ActorContext1, ActorContext};
+use actor_core::actor::context::{Context, ActorContext};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::EmptyCodec;
 use actor_core::Message;
@@ -16,7 +16,7 @@ pub(super) struct GracefulShutdownTimeout;
 impl Message for GracefulShutdownTimeout {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         let shards = actor.shards.keys().join(", ");
         let buffer_size = actor.shard_buffers.total_size();
         warn!(

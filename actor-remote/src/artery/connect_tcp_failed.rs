@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use async_trait::async_trait;
 
 use actor_core::{EmptyCodec, Message};
-use actor_core::actor::context::ActorContext1;
+use actor_core::actor::context::Context;
 
 use crate::artery::ArteryActor;
 
@@ -16,7 +16,7 @@ pub(super) struct ConnectFailed {
 impl Message for ConnectFailed {
     type A = ArteryActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, _context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         actor.connections.remove(&self.addr);
         Ok(())
     }

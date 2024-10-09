@@ -4,7 +4,7 @@ use std::pin::Pin;
 
 use async_trait::async_trait;
 
-use actor_core::actor::context::ActorContext1;
+use actor_core::actor::context::Context;
 use actor_core::EmptyCodec;
 use actor_core::Message;
 
@@ -20,7 +20,7 @@ pub(super) struct SpawnInbound {
 impl Message for SpawnInbound {
     type A = ArteryActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut Self::A) -> anyhow::Result<()> {
         context.spawn_fut(format!("connection_in_{}", self.peer_addr), self.fut)?;
         Ok(())
     }

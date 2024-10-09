@@ -4,7 +4,7 @@ use bincode::{Decode, Encode};
 use itertools::Itertools;
 use tracing::{debug, error};
 
-use actor_core::actor::context::ActorContext1;
+use actor_core::actor::context::Context;
 use actor_core::actor_ref::ActorRef;
 use actor_core::Message;
 use actor_core::MessageCodec;
@@ -20,7 +20,7 @@ pub(crate) struct ShardHomes {
 impl Message for ShardHomes {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext1, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
         let homes_str = self.homes.keys().join(", ");
         debug!("Got shard homes for regions [{homes_str}]");
         for (shard_region_ref, shards) in self.homes {

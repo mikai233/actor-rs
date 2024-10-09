@@ -6,11 +6,11 @@ use std::sync::Arc;
 
 use tracing::error;
 
-use crate::codec::{MessageCodecRegistry, MessageRegistry};
+use crate::codec::MessageCodecRegistry;
 use actor_core::actor::actor_system::WeakSystem;
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
+use actor_core::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use actor_core::message::poison_pill::PoisonPill;
 use actor_core::message::resume::Resume;
 use actor_core::message::suspend::Suspend;
@@ -18,7 +18,6 @@ use actor_core::message::unwatch::Unwatch;
 use actor_core::message::watch::Watch;
 use actor_core::message::DynMessage;
 use actor_core::AsAny;
-use actor_core::{CodecMessage, DynMessage};
 
 use crate::artery::outbound_message::OutboundMessage;
 use crate::artery::remote_envelope::RemoteEnvelope;
@@ -26,12 +25,9 @@ use crate::remote_watcher::unwatch_remote::UnwatchRemote;
 use crate::remote_watcher::watch_remote::WatchRemote;
 
 #[derive(Clone, AsAny)]
-pub struct RemoteActorRef {
-    pub(crate) inner: Arc<Inner>,
-}
+pub struct RemoteActorRef(Arc<RemoteActorRefInner>);
 
-pub struct Inner {
-    pub(crate) system: WeakSystem,
+pub struct RemoteActorRefInner {
     pub(crate) path: ActorPath,
     pub(crate) transport: ActorRef,
     pub(crate) remote_watcher: ActorRef,
@@ -44,14 +40,12 @@ impl RemoteActorRef {
         transport: ActorRef,
         remote_watcher: ActorRef,
     ) -> Self {
-        Self {
-            inner: Arc::new(Inner {
-                system,
-                path,
-                transport,
-                remote_watcher,
-            }),
-        }
+        let inner = RemoteActorRefInner {
+            path,
+            transport,
+            remote_watcher,
+        };
+        Self(inner.into())
     }
 
     pub(crate) fn is_watch_intercepted(&self, watchee: &ActorRef, watcher: &ActorRef) -> bool {
@@ -85,7 +79,7 @@ impl RemoteActorRef {
 }
 
 impl Deref for RemoteActorRef {
-    type Target = Arc<Inner>;
+    type Target = Arc<RemoteActorRefInner>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner

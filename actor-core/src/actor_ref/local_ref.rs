@@ -14,7 +14,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::mailbox::MailboxSender;
 use crate::actor::props::Props;
 use crate::actor_path::child_actor_path::ChildActorPath;
-use crate::actor_path::ActorPath;
+use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::cell::envelope::Envelope;
 use crate::cell::Cell;
@@ -25,6 +25,10 @@ use crate::message::suspend::Suspend;
 use crate::message::DynMessage;
 use crate::provider::TActorRefProvider;
 
+pub type SignalSender = tokio::sync::mpsc::Sender<()>;
+
+pub type SignalReceiver = tokio::sync::mpsc::Receiver<()>;
+
 #[derive(Clone, derive_more::Deref, AsAny)]
 pub struct LocalActorRef(Arc<LocalActorRefInner>);
 
@@ -33,8 +37,7 @@ pub struct LocalActorRefInner {
     pub(crate) sender: MailboxSender,
     pub(crate) parent: Option<ActorRef>,
     pub(crate) children: DashMap<String, ActorRef, RandomState>,
-    pub(crate) tx: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
-    pub(crate) rx: Mutex<Option<tokio::sync::oneshot::Receiver<()>>>,
+    pub(crate) signal: SignalSender,
 }
 
 impl Debug for LocalActorRef {
@@ -44,6 +47,7 @@ impl Debug for LocalActorRef {
             .field("sender", &self.sender)
             .field("parent", &self.parent)
             .field("children", &self.children)
+            .field("signal", &self.signal)
             .finish()
     }
 }
@@ -58,7 +62,7 @@ impl TActorRef for LocalActorRef {
     }
 
     fn start(&self) {
-        self.tx.lock().take().unwrap().send(()).unwrap();
+        let _ = self.signal.try_send(());
     }
 
     fn stop(&self) {
@@ -113,17 +117,16 @@ impl Into<ActorRef> for LocalActorRef {
 }
 
 impl LocalActorRef {
-    pub(crate) fn new(path: ActorPath, sender: MailboxSender, parent: Option<ActorRef>) -> Self {
-        let (tx, rx) = tokio::sync::oneshot::channel();
+    pub(crate) fn new(path: ActorPath, sender: MailboxSender, parent: Option<ActorRef>) -> (Self, SignalReceiver) {
+        let (tx, rx) = tokio::sync::mpsc::channel(1);
         let inner = LocalActorRefInner {
             path,
             sender,
             parent,
             children: DashMap::with_hasher(RandomState::default()),
-            tx: Mutex::new(Some(tx)),
-            rx: Mutex::new(Some(rx)),
+            signal: tx,
         };
-        LocalActorRef(inner.into())
+        (LocalActorRef(inner.into()), rx)
     }
 
     fn log_send_error(&self, error: TrySendError<Envelope>) {
@@ -184,8 +187,8 @@ impl LocalActorRef {
             }
         };
         let (sender, mailbox) = props.mailbox(mailbox)?;
-        let child_ref = self.make_child(name, uid, sender)?;
-        props.spawn(child_ref.clone(), mailbox, system)?;
+        let (child_ref, signal) = self.make_child(name, uid, sender)?;
+        props.spawn(child_ref.clone(), signal, mailbox, system)?;
         Ok(child_ref)
     }
 
@@ -194,7 +197,7 @@ impl LocalActorRef {
         name: Option<String>,
         uid: Option<i32>,
         sender: MailboxSender,
-    ) -> anyhow::Result<ActorRef> {
+    ) -> anyhow::Result<(ActorRef, SignalReceiver)> {
         if let Some(name) = &name {
             if name.is_empty() {
                 return Err(anyhow!("name cannot be empty"));
@@ -207,8 +210,42 @@ impl LocalActorRef {
         if self.children.contains_key(&name) {
             return Err(anyhow!("duplicate actor name {}", name));
         }
-        let child_ref: ActorRef = LocalActorRef::new(path, sender, Some(self.clone().into())).into();
-        self.children.insert(name, child_ref.clone());
-        Ok(child_ref)
+        let (child_ref, signal) = LocalActorRef::new(path, sender, Some(self.clone().into()));
+        self.children.insert(name, child_ref.clone().into());
+        Ok((child_ref.into(), signal))
+    }
+
+    fn get_child_by_name(&self, name: &str) -> Option<ActorRef> {
+        self.children.get(name).map(|c| c.clone())
+    }
+
+    fn get_single_child(&self, name: &str) -> Option<ActorRef> {
+        match name.find('#') {
+            Some(_) => {
+                let (child_name, uid) = ActorPath::split_name_and_uid(name);
+                match self.get_child_by_name(&child_name) {
+                    Some(a) => {
+                        if a.path().uid() == uid {
+                            Some(a)
+                        } else {
+                            None
+                        }
+                    }
+                    None => None,
+                }
+            }
+            None => self.get_child_by_name(name),
+        }
+    }
+
+    pub(crate) fn remove_child(&self, name: &String) -> Option<ActorRef> {
+        match self.children_refs().remove(name) {
+            None => {
+                None
+            }
+            Some((_, child)) => {
+                Some(child)
+            }
+        }
     }
 }
