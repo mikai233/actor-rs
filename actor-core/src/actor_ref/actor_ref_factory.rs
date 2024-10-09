@@ -1,13 +1,9 @@
-use std::sync::Arc;
-
-use arc_swap::Guard;
-
 use crate::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::props::Props;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::actor_ref::ActorRef;
+use crate::actor_ref::{ActorRef, TActorRef};
 use crate::provider::ActorRefProvider;
 
 pub trait ActorRefFactory {
@@ -17,7 +13,7 @@ pub trait ActorRefFactory {
 
     fn guardian(&self) -> &LocalActorRef;
 
-    fn lookup_root(&self) -> &ActorRef;
+    fn lookup_root(&self) -> &dyn TActorRef;
 
     fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef>;
 

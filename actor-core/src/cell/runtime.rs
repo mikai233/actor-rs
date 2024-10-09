@@ -141,7 +141,7 @@ impl<A> ActorRuntime<A> where A: Actor {
         }
     }
 
-    fn handle_failure(actor: &mut A, ctx: &mut Context<A>, msg: Failed, _: Option<ActorRef>) -> anyhow::Result<Behavior<A>> {
+    fn handle_failure(actor: &mut A, ctx: &mut Context, msg: Failed, _: Option<ActorRef>) -> anyhow::Result<Behavior<A>> {
         let Failed { child, error } = msg;
         let directive = actor.on_child_failure(ctx, &child, &error);
         match directive {

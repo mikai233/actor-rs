@@ -2,9 +2,8 @@ use actor_derive::Message;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::actor::context::{Context, ActorContext};
+use crate::actor::context::{ActorContext, Context};
 use crate::actor_ref::ActorRef;
-use crate::ext::option_ext::OptionExt;
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Message, derive_more::Display)]
 #[cloneable]

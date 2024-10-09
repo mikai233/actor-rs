@@ -13,6 +13,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast::Receiver;
 
 pub mod local_provider;
+pub mod provider;
 
 pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
     fn settings(&self) -> &Settings;

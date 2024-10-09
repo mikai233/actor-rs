@@ -399,19 +399,19 @@ impl Context {
     }
 
 
-    fn myself(&self) -> &ActorRef {
+    pub fn myself(&self) -> &ActorRef {
         &self.myself
     }
 
-    fn children(&self) -> &DashMap<String, ActorRef, RandomState> {
+    pub fn children(&self) -> &DashMap<String, ActorRef, RandomState> {
         &local!(self.myself).children
     }
 
-    fn child(&self, name: &str) -> Option<ActorRef> {
+    pub fn child(&self, name: &str) -> Option<ActorRef> {
         local!(self.myself).children.get(name).map(|c| c.value().clone())
     }
 
-    fn parent(&self) -> Option<&ActorRef> {
+    pub fn parent(&self) -> Option<&ActorRef> {
         local!(self.myself).parent.as_ref()
     }
 

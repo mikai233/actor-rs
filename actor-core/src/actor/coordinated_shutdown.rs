@@ -3,13 +3,14 @@ use std::collections::{BTreeSet, HashSet};
 use std::fmt::{Debug, Display, Formatter};
 use std::future::Future;
 use std::ops::Deref;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
-use ahash::HashMap;
+use ahash::{HashMap, RandomState};
 use anyhow::{anyhow, Error};
-use futures::future::{BoxFuture, join_all};
+use dashmap::DashMap;
+use futures::future::{join_all, BoxFuture};
 use futures::FutureExt;
 use imstr::ImString;
 use parking_lot::Mutex;
@@ -37,20 +38,17 @@ pub const PHASE_BEFORE_ACTOR_SYSTEM_TERMINATE: &str = "before-actor-system-termi
 pub const PHASE_ACTOR_SYSTEM_TERMINATE: &str = "actor-system-terminate";
 
 #[derive(Debug, Clone, AsAny)]
-pub struct CoordinatedShutdown {
-    inner: Arc<Inner>,
-}
+pub struct CoordinatedShutdown(Arc<CoordinatedShutdownInner>);
 
 #[derive(Debug)]
-pub struct Inner {
-    system: WeakSystem,
-    registered_phases: Mutex<HashMap<ImString, PhaseTask>>,
+pub struct CoordinatedShutdownInner {
+    registered_phases: DashMap<ImString, PhaseTask, RandomState>,
     ordered_phases: Vec<ImString>,
     run_started: AtomicBool,
 }
 
 impl Deref for CoordinatedShutdown {
-    type Target = Arc<Inner>;
+    type Target = Arc<CoordinatedShutdownInner>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -64,7 +62,7 @@ impl CoordinatedShutdown {
             .downcast_ref::<LocalActorRefProvider>()
             .ok_or(anyhow!("LocalActorRefProvider not found"))?;
         let ordered_phases = Self::topological_sort(&local.settings().coordinated_shutdown.phases)?;
-        let inner = Inner {
+        let inner = CoordinatedShutdownInner {
             system: system.downgrade(),
             registered_phases: Default::default(),
             ordered_phases,
@@ -118,8 +116,7 @@ impl CoordinatedShutdown {
     where
         F: Future<Output=()> + Send + 'static,
     {
-        let mut registered_phases = self.registered_phases.lock();
-        let phase_tasks = registered_phases.entry(phase_name).or_insert(PhaseTask::default());
+        let phase_tasks = self.registered_phases.entry(phase_name).or_insert(PhaseTask::default());
         let task = TaskDefinition {
             name,
             fut: fut.boxed(),
@@ -167,13 +164,12 @@ impl CoordinatedShutdown {
         system.get_extension::<Self>().expect(&format!("{} not found", type_name::<Self>()))
     }
 
-    pub fn run<R: Reason + 'static>(&self, reason: R) -> impl Future<Output=()> {
-        self.inner_run(Box::new(reason))
+    pub fn run<R: Reason + 'static>(&self, system: ActorSystem, reason: R) -> impl Future<Output=()> {
+        self.inner_run(system, Box::new(reason))
     }
 
-    fn inner_run(&self, reason: Box<dyn Reason>) -> impl Future<Output=()> {
+    fn inner_run(&self, system: ActorSystem, reason: Box<dyn Reason>) -> impl Future<Output=()> {
         let started = self.run_started.swap(true, Ordering::Relaxed);
-        let system = self.system.upgrade().unwrap();
         let mut run_tasks = vec![];
         if !started {
             info!("running coordinated shutdown with reason [{}]",  reason);

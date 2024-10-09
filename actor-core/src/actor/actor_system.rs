@@ -31,6 +31,7 @@ use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::event::event_stream::EventStream;
 use crate::ext::option_ext::OptionExt;
 use crate::message::stop_child::StopChild;
+use crate::provider::provider::Provider;
 use crate::provider::{ActorRefProvider, TActorRefProvider};
 
 #[derive(Debug, Clone, derive_more::Deref)]
@@ -51,10 +52,11 @@ pub struct ActorSystemInner {
 }
 
 impl ActorSystem {
-    pub fn new<P>(provider: P) -> anyhow::Result<ActorSystemRunner>
+    pub fn new<P>(provider: Provider<P>) -> anyhow::Result<ActorSystemRunner>
     where
         P: TActorRefProvider + 'static,
     {
+        let Provider { provider, actor_refs } = provider;
         let scheduler = scheduler();
         let (signal_tx, mut signal_rx) = channel(1);
         let inner = ActorSystemInner {
