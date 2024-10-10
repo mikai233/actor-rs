@@ -1,5 +1,6 @@
 use crate::actor::behavior::Behavior;
-use crate::actor::{Actor, ActorRef};
+use crate::actor::Actor;
+use crate::actor_ref::ActorRef;
 use crate::message::Message;
 
 pub trait MessageHandler<A: Actor>: Message + Sized {

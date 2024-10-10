@@ -1,6 +1,5 @@
 use std::fmt::{Debug, Formatter};
 use std::iter::Peekable;
-use std::ops::Deref;
 use std::sync::Arc;
 
 use actor_derive::AsAny;
@@ -54,14 +53,10 @@ impl TActorRef for FunctionRef {
         None
     }
 
-    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {
         match names.next() {
-            None => {
-                Some(self.clone().into())
-            }
-            Some(_) => {
-                None
-            }
+            None => Some(self.clone().into()),
+            Some(_) => None,
         }
     }
 }
@@ -73,9 +68,7 @@ impl Into<ActorRef> for FunctionRef {
 }
 
 impl FunctionRef {
-    pub fn new<F>(
-        path: impl Into<ActorPath>,
-        transform: F) -> Self
+    pub fn new<F>(path: impl Into<ActorPath>, transform: F) -> Self
     where
         F: Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static,
     {

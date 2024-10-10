@@ -1,25 +1,19 @@
 use std::any::type_name;
-use std::any::Any;
 use std::collections::VecDeque;
-use std::ops::Deref;
-use std::panic::AssertUnwindSafe;
 
 use anyhow::anyhow;
-use futures::FutureExt;
 use tokio::task::yield_now;
 use tracing::{debug, error};
 
 use crate::actor::actor_selection::ActorSelectionMessage;
 use crate::actor::behavior::Behavior;
 use crate::actor::context::{ActorContext, Context};
-use crate::actor::directive::Directive;
 use crate::actor::mailbox::Mailbox;
-use crate::actor::receive::{Receive, ReceiveFn};
+use crate::actor::receive::Receive;
 use crate::actor::state::ActorState;
 use crate::actor::Actor;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::local_ref::SignalReceiver;
-use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::cell::envelope::Envelope;
 use crate::message::address_terminated::AddressTerminated;
 use crate::message::death_watch_notification::DeathWatchNotification;
@@ -30,6 +24,7 @@ use crate::message::poison_pill::PoisonPill;
 use crate::message::resume::Resume;
 use crate::message::suspend::Suspend;
 use crate::message::terminate::Terminate;
+use crate::message::terminated::Terminated;
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
 
@@ -119,8 +114,9 @@ where
                 actor.unhandled(ctx, message);
             }
             Some(receive) => {
-                let behavior =
-                    std::panic::catch_unwind(|| receive.receive(actor, ctx, message, sender));
+                let behavior = std::panic::catch_unwind(|| {
+                    actor.around_receive(receive, actor, ctx, message, sender)
+                });
                 match behavior {
                     Ok(behavior) => match behavior {
                         Ok(behavior) => match behavior {

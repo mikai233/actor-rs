@@ -1,7 +1,6 @@
 use ahash::RandomState;
 use anyhow::anyhow;
 use dashmap::DashMap;
-use parking_lot::Mutex;
 use std::fmt::{Debug, Formatter};
 use std::iter::Peekable;
 use std::sync::Arc;
@@ -17,7 +16,6 @@ use crate::actor_path::child_actor_path::ChildActorPath;
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::cell::envelope::Envelope;
-use crate::cell::Cell;
 use crate::ext::{check_name, random_actor_name};
 use crate::message::poison_pill::PoisonPill;
 use crate::message::resume::Resume;
@@ -81,8 +79,11 @@ impl TActorRef for LocalActorRef {
         self.parent.as_ref()
     }
 
-    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
-        fn rec(actor: ActorRef, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {
+        fn rec(
+            actor: ActorRef,
+            names: &mut Peekable<&mut dyn Iterator<Item = &str>>,
+        ) -> Option<ActorRef> {
             match actor.local() {
                 None => actor.get_child(names),
                 Some(l) => {
@@ -91,17 +92,15 @@ impl TActorRef for LocalActorRef {
                         None => {
                             return Some(actor);
                         }
-                        Some(name) => {
-                            match name {
-                                ".." => l.parent().cloned(),
-                                "" => Some(actor),
-                                _ => { l.get_single_child(name) }
-                            }
-                        }
+                        Some(name) => match name {
+                            ".." => l.parent().cloned(),
+                            "" => Some(actor),
+                            _ => l.get_single_child(name),
+                        },
                     };
                     match next {
                         None => None,
-                        Some(next) => { rec(next, names) }
+                        Some(next) => rec(next, names),
                     }
                 }
             }
@@ -117,7 +116,11 @@ impl Into<ActorRef> for LocalActorRef {
 }
 
 impl LocalActorRef {
-    pub(crate) fn new(path: ActorPath, sender: MailboxSender, parent: Option<ActorRef>) -> (Self, SignalReceiver) {
+    pub(crate) fn new(
+        path: ActorPath,
+        sender: MailboxSender,
+        parent: Option<ActorRef>,
+    ) -> (Self, SignalReceiver) {
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         let inner = LocalActorRefInner {
             path,
@@ -179,12 +182,14 @@ impl LocalActorRef {
     ) -> anyhow::Result<ActorRef> {
         let provider = provider.as_ref();
         let mailbox: crate::config::mailbox::Mailbox = match props.mailbox.as_ref() {
-            None => {
-                provider.settings().cfg.get("akka.actor.mailbox.default-mailbox")?
-            }
-            Some(mailbox_name) => {
-                provider.settings().cfg.get(&format!("akka.actor.mailbox.{}", mailbox_name))?
-            }
+            None => provider
+                .settings()
+                .cfg
+                .get("akka.actor.mailbox.default-mailbox")?,
+            Some(mailbox_name) => provider
+                .settings()
+                .cfg
+                .get(&format!("akka.actor.mailbox.{}", mailbox_name))?,
         };
         let (sender, mailbox) = props.mailbox(mailbox)?;
         let (child_ref, signal) = self.make_child(name, uid, sender)?;
@@ -240,12 +245,8 @@ impl LocalActorRef {
 
     pub(crate) fn remove_child(&self, name: &String) -> Option<ActorRef> {
         match self.children_refs().remove(name) {
-            None => {
-                None
-            }
-            Some((_, child)) => {
-                Some(child)
-            }
+            None => None,
+            Some((_, child)) => Some(child),
         }
     }
 }

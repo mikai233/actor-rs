@@ -41,7 +41,7 @@ pub(crate) mod watching;
 
 pub trait Actor: Send + Sized {
     type Context: ActorContext;
-    
+
     #[allow(unused_variables)]
     fn started(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
         Ok(())
@@ -109,7 +109,7 @@ pub(crate) fn is_system_message(message: &DynMessage) -> bool {
         Unwatch::signature_sized().name,
         DeathWatchNotification::signature_sized().name,
         Resume::signature_sized().name,
-        Suspend::signature_sized().name
+        Suspend::signature_sized().name,
     ];
     if MSG.contains(&message.signature().name) {
         true

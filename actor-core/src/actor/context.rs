@@ -1,8 +1,7 @@
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::future::Future;
-use std::ops::{Deref, DerefMut, Not};
-use std::sync::Arc;
+use std::ops::Not;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::props::Props;
@@ -11,7 +10,7 @@ use crate::actor::watching::Watching;
 use crate::actor_path::child_actor_path::ChildActorPath;
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
-use crate::actor_ref::function_ref::{FunctionRef, FunctionRefInner};
+use crate::actor_ref::function_ref::FunctionRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::cell::envelope::Envelope;
@@ -58,6 +57,7 @@ pub struct Context {
     pub(crate) system: ActorSystem,
     pub(crate) watching: Watching,
     pub(crate) watched_by: HashSet<ActorRef>,
+    pub(crate) terminated_queue: HashMap<ActorRef, Option<DynMessage>>,
 }
 
 impl ActorRefFactory for Context {
@@ -121,6 +121,7 @@ impl ActorContext for Context {
             system,
             watching: Default::default(),
             watched_by: Default::default(),
+            terminated_queue: Default::default(),
         }
     }
 
@@ -214,11 +215,23 @@ impl Context {
                     existence_confirmed,
                     address_terminated,
                 };
-                self.myself.tell(optional_message(terminated), None);
+                self.terminated_queued_for(&actor, optional_message);
+                self.myself.tell(terminated, Some(actor));
             }
         }
         if self.children().contains_key(actor.path().name()) {
             self.handle_child_terminated(actor);
+        }
+    }
+
+    pub(crate) fn terminated_queued_for(
+        &mut self,
+        subject: &ActorRef,
+        custom_message: Option<DynMessage>,
+    ) {
+        if !self.terminated_queue.contains_key(subject) {
+            self.terminated_queue
+                .insert(subject.clone(), custom_message);
         }
     }
 
@@ -256,13 +269,16 @@ impl Context {
     }
 
     fn unwatch_watched_actors(&mut self) {
-        self.maintain_address_terminated_subscription(None, |ctx| {
-            ctx.watching.drain().for_each(|(actor, _)| {
-                let watchee = actor.clone();
-                let watcher = ctx.myself.clone();
-                actor.cast_ns(Unwatch { watchee, watcher });
+        if !self.watching.is_empty() {
+            self.maintain_address_terminated_subscription(None, |ctx| {
+                ctx.watching.drain().for_each(|(actor, _)| {
+                    let watchee = actor.clone();
+                    let watcher = ctx.myself.clone();
+                    actor.cast_ns(Unwatch { watchee, watcher });
+                });
+                ctx.terminated_queue.clear();
             });
-        });
+        }
     }
 
     pub fn spawn_fut<F>(
@@ -476,10 +492,12 @@ impl Context {
             let watchee = subject.clone();
             let watcher = self.myself.clone();
             let unwatch = Unwatch { watchee, watcher };
-            subject.cast_system(unwatch, ActorRef::no_sender());
+            //TODO send system message
+            subject.cast_ns(unwatch);
             self.maintain_address_terminated_subscription(Some(subject), |ctx| {
                 ctx.watching.remove(subject);
             });
+            self.terminated_queue.remove(subject);
         }
     }
 

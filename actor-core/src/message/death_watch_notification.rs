@@ -1,7 +1,16 @@
-use crate::actor_ref::ActorRef;
+use crate::{
+    actor::{
+        behavior::Behavior,
+        context::{self, ActorContext},
+        Actor,
+    },
+    actor_ref::ActorRef,
+};
 use actor_derive::Message;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
+
+use super::handler::MessageHandler;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[cloneable]
@@ -20,5 +29,23 @@ impl Display for DeathWatchNotification {
             self.existence_confirmed,
             self.address_terminated,
         )
+    }
+}
+
+impl<A: Actor> MessageHandler<A> for DeathWatchNotification {
+    fn handle(
+        actor: &mut A,
+        ctx: &mut <A as Actor>::Context,
+        message: Self,
+        _: Option<ActorRef>,
+    ) -> anyhow::Result<Behavior<A>> {
+        let DeathWatchNotification {
+            actor,
+            existence_confirmed,
+            address_terminated,
+        } = message;
+        let context = ctx.context_mut();
+        context.watched_actor_terminated(actor, existence_confirmed, address_terminated);
+        Ok(Behavior::same())
     }
 }
