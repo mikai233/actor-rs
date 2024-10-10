@@ -3,10 +3,14 @@ use async_trait::async_trait;
 use actor_derive::Message;
 
 use crate::actor::address::Address;
-use crate::actor::context::{Context, ActorContext};
+use crate::actor::behavior::Behavior;
+use crate::actor::context::{ActorContext, Context};
+use crate::actor::Actor;
 use crate::actor_path::TActorPath;
-use crate::actor_ref::ActorRef;
+use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::message::death_watch_notification::DeathWatchNotification;
+
+use super::handler::MessageHandler;
 
 #[derive(Debug, Clone, Message, derive_more::Display)]
 #[cloneable]
@@ -15,22 +19,30 @@ pub struct AddressTerminated {
     pub address: Address,
 }
 
-#[async_trait]
-impl SystemMessage for AddressTerminated {
-    async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut dyn Actor) -> anyhow::Result<()> {
-        context.maintain_address_terminated_subscription(None, |ctx| {
-            ctx.watched_by.retain(|w| { &self.address != w.path().address() });
-        });
-        context.watching.iter()
-            .filter(|(a, _)| { a.path().address() == &self.address })
-            .for_each(|(a, _)| {
+impl<A: Actor> MessageHandler<A> for AddressTerminated {
+    fn handle(
+        actor: &mut A,
+        ctx: &mut <A as Actor>::Context,
+        message: Self,
+        _: Option<ActorRef>,
+    ) -> anyhow::Result<Behavior<A>> {
+        ctx.context_mut()
+            .maintain_address_terminated_subscription(None, |ctx| {
+                ctx.watched_by
+                    .retain(|w| &message.address != w.path().address());
+            });
+        ctx.context()
+            .watching
+            .iter()
+            .filter(|(w, _)| w.path().address() == &message.address)
+            .for_each(|(w, _)| {
                 let notification = DeathWatchNotification {
-                    actor: a.clone(),
-                    existence_confirmed: context.child(a.path().name()).is_some(),
+                    actor: w.clone(),
+                    existence_confirmed: ctx.context().children().contains_key(w.path().name()),
                     address_terminated: true,
                 };
-                context.myself().cast_system(notification, ActorRef::no_sender());
+                ctx.context().myself.cast_ns(notification);
             });
-        Ok(())
+        Ok(Behavior::same())
     }
 }

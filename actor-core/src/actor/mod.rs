@@ -12,6 +12,7 @@ use crate::message::kill::Kill;
 use crate::message::poison_pill::PoisonPill;
 use crate::message::resume::Resume;
 use crate::message::suspend::Suspend;
+use crate::message::task_finish::TaskFinish;
 use crate::message::terminate::Terminate;
 use crate::message::terminated::Terminated;
 use crate::message::unwatch::Unwatch;
@@ -80,7 +81,7 @@ pub trait Actor: Send + Sized {
     }
 }
 
-pub(crate) fn is_auto_receive_message(message: &DynMessage) -> bool {
+pub(crate) fn is_auto_received_message(message: &DynMessage) -> bool {
     static MSG: &'static [&'static str] = &[
         Terminated::signature_sized().name,
         AddressTerminated::signature_sized().name,
@@ -88,6 +89,7 @@ pub(crate) fn is_auto_receive_message(message: &DynMessage) -> bool {
         Kill::signature_sized().name,
         ActorSelectionMessage::signature_sized().name,
         Identify::signature_sized().name,
+        TaskFinish::signature_sized().name,
     ];
 
     if MSG.contains(&message.signature().name) {

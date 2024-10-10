@@ -1,17 +1,25 @@
 use actor_derive::Message;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::actor::context::Context;
+use crate::{
+    actor::{behavior::Behavior, context::ActorContext, Actor},
+    actor_ref::ActorRef,
+};
+
+use super::handler::MessageHandler;
 
 #[derive(Debug, Copy, Clone, Message, Serialize, Deserialize, derive_more::Display)]
 #[display("Terminate")]
 pub struct Terminate;
 
-#[async_trait]
-impl SystemMessage for Terminate {
-    async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut dyn Actor) -> anyhow::Result<()> {
-        context.terminate();
-        Ok(())
+impl<A: Actor> MessageHandler<A> for Terminate {
+    fn handle(
+        actor: &mut A,
+        ctx: &mut <A as Actor>::Context,
+        message: Self,
+        _: Option<ActorRef>,
+    ) -> anyhow::Result<Behavior<A>> {
+        ctx.context_mut().terminate();
+        Ok(Behavior::same())
     }
 }

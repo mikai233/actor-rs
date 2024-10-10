@@ -84,7 +84,13 @@ impl ActorRefFactory for Context {
                 self.myself
             ));
         }
-        local!(self.myself).attach_child(props, self.system.clone(), self.provider(), Some(name.into()), None)
+        local!(self.myself).attach_child(
+            props,
+            self.system.clone(),
+            self.provider(),
+            Some(name.into()),
+            None,
+        )
     }
 
     fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
@@ -123,7 +129,7 @@ impl ActorContext for Context {
     }
 
     fn context_mut(&mut self) -> &mut Context {
-        &mut self
+        self
     }
 }
 
@@ -311,7 +317,7 @@ impl Context {
         let task_name = name.clone();
         let handle = tokio::spawn(async move {
             let output = future.await;
-            myself.cast(TaskFinish { name: task_name });
+            myself.cast_ns(TaskFinish { name: task_name });
             output
         });
         let abort_handle = handle.abort_handle();
@@ -351,12 +357,14 @@ impl Context {
     ) {
         error!("{} handle message {} error {:?}", actor, message, error);
         self.state = ActorState::Suspend;
-        let myself = self.myself().local().unwrap();
         for child in self.children() {
             child.value().suspend();
         }
         if let Some(parent) = self.parent() {
-            parent.cast_ns(Failed { child, error });
+            parent.cast_ns(Failed {
+                child: self.myself.clone(),
+                error,
+            });
         }
     }
 
@@ -398,7 +406,6 @@ impl Context {
         }
     }
 
-
     pub fn myself(&self) -> &ActorRef {
         &self.myself
     }
@@ -408,7 +415,10 @@ impl Context {
     }
 
     pub fn child(&self, name: &str) -> Option<ActorRef> {
-        local!(self.myself).children.get(name).map(|c| c.value().clone())
+        local!(self.myself)
+            .children
+            .get(name)
+            .map(|c| c.value().clone())
     }
 
     pub fn parent(&self) -> Option<&ActorRef> {
@@ -461,7 +471,7 @@ impl Context {
         Ok(())
     }
 
-    fn unwatch(&mut self, subject: &ActorRef) {
+    pub(crate) fn unwatch(&mut self, subject: &ActorRef) {
         if &self.myself != subject && self.watching.contains_key(subject) {
             let watchee = subject.clone();
             let watcher = self.myself.clone();

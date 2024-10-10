@@ -1,27 +1,34 @@
-use async_trait::async_trait;
+use crate::{
+    actor::{behavior::Behavior, context::ActorContext, Actor},
+    actor_ref::ActorRef,
+};
+use actor_derive::Message;
 use tracing::{error, trace};
 
-use actor_derive::SystemEmptyCodec;
+use super::handler::MessageHandler;
 
-use crate::{Actor, SystemMessage};
-use crate::actor::context::Context;
-
-#[derive(Debug, SystemEmptyCodec)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("TaskFinish {{ name: {name} }}")]
 pub(crate) struct TaskFinish {
     pub(crate) name: String,
 }
 
-#[async_trait]
-impl SystemMessage for TaskFinish {
-    async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut dyn Actor) -> anyhow::Result<()> {
-        match context.abort_handles.remove(&self.name) {
+impl<A: Actor> MessageHandler<A> for TaskFinish {
+    fn handle(
+        actor: &mut A,
+        ctx: &mut <A as Actor>::Context,
+        message: Self,
+        _: Option<ActorRef>,
+    ) -> anyhow::Result<Behavior<A>> {
+        let context = ctx.context_mut();
+        match context.abort_handles.remove(&message.name) {
             None => {
-                error!("finish task not found: {}", self.name);
+                error!("finish task not found: {}", message.name);
             }
             Some(_) => {
-                trace!("finish task: {}", self.name);
+                trace!("finish task: {}", message.name);
             }
         }
-        Ok(())
+        Ok(Behavior::same())
     }
 }
