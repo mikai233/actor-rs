@@ -12,6 +12,7 @@ use crate::actor_ref::{ActorRef, TActorRef};
 use crate::message::identify::{ActorIdentity, Identify};
 use crate::message::{downcast_ref, DynMessage, Message, Signature};
 use crate::pattern::patterns::Patterns;
+use crate::provider::ActorRefProvider;
 use anyhow::anyhow;
 use enum_dispatch::enum_dispatch;
 use itertools::Itertools;
@@ -60,9 +61,13 @@ impl ActorSelection {
         };
     }
 
-    pub async fn resolve_one(&self, timeout: Duration) -> anyhow::Result<ActorRef> {
+    pub async fn resolve_one(
+        &self,
+        timeout: Duration,
+        provider: &ActorRefProvider,
+    ) -> anyhow::Result<ActorRef> {
         let actor_identity: ActorIdentity =
-            Patterns::ask_selection_sys(self, Identify, timeout).await?;
+            Patterns::ask_selection(self, Identify, timeout, provider).await?;
         match actor_identity.actor_ref {
             None => Err(anyhow!("actor not found of selection {}", self)),
             Some(actor_ref) => Ok(actor_ref),

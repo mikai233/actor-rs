@@ -1,10 +1,10 @@
+use crate::actor::address::Address;
+use crate::actor_path::{ActorPath, TActorPath};
+use imstr::ImString;
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
-
-use crate::actor::address::Address;
-use crate::actor_path::{ActorPath, TActorPath};
 
 #[derive(Debug, Clone, derive_more::Deref)]
 pub struct RootActorPath(pub(crate) Arc<RootActorPathInner>);
@@ -31,7 +31,7 @@ impl TActorPath for RootActorPath {
         &self.address
     }
 
-    fn name(&self) -> &String {
+    fn name(&self) -> &str {
         &self.name
     }
 
@@ -39,7 +39,7 @@ impl TActorPath for RootActorPath {
         self.clone().into()
     }
 
-    fn elements(&self) -> VecDeque<Arc<String>> {
+    fn elements(&self) -> VecDeque<ImString> {
         let mut v = VecDeque::with_capacity(1);
         v.push_back("".to_string().into());
         v

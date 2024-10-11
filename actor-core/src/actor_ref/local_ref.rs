@@ -75,8 +75,8 @@ impl TActorRef for LocalActorRef {
         self.cast_ns(Suspend);
     }
 
-    fn parent(&self) -> Option<&ActorRef> {
-        self.parent.as_ref()
+    fn parent(&self) -> Option<&dyn TActorRef> {
+        self.parent.as_ref().map(|actor_ref| &***actor_ref)
     }
 
     fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {

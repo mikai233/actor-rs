@@ -57,7 +57,7 @@ impl TActorRef for DeadLetterActorRef {
 
     fn suspend(&self) {}
 
-    fn parent(&self) -> Option<&ActorRef> {
+    fn parent(&self) -> Option<&dyn TActorRef> {
         None
     }
 

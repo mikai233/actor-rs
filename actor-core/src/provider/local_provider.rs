@@ -195,15 +195,15 @@ impl TActorRefProvider for LocalActorRefProvider {
                     .unwrap_or_else(|| self.dead_letters().clone()),
             }
         } else {
-            self.dead_letters().clone()
+            self.dead_letters.clone()
         }
     }
 
-    fn dead_letters(&self) -> &ActorRef {
+    fn dead_letters(&self) -> &dyn TActorRef {
         &self.dead_letters
     }
 
-    fn ignore_ref(&self) -> &ActorRef {
+    fn ignore_ref(&self) -> &dyn TActorRef {
         &self.ignore_ref
     }
 

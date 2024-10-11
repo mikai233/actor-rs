@@ -20,8 +20,6 @@ use crate::actor::coordinated_shutdown::{ActorSystemTerminateReason, Coordinated
 use crate::actor::extension::{Extension, SystemExtension};
 use crate::actor::props::{ActorDeferredSpawn, Props};
 use crate::actor::scheduler::{scheduler, SchedulerSender};
-use crate::actor::system_guardian::SystemGuardian;
-use crate::actor::user_guardian::UserGuardian;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -218,10 +216,8 @@ impl ActorRefFactory for ActorSystem {
         let parent = path.parent();
         let guard = self.guardian();
         let sys = self.system_guardian();
-        if parent == guard.path {
-            guard.cast_ns(StopChild::<UserGuardian>::new(actor.clone()));
-        } else if parent == sys.path {
-            sys.cast_ns(StopChild::<SystemGuardian>::new(actor.clone()));
+        if parent == guard.path || parent == sys.path {
+            guard.cast_ns(StopChild { child: actor.clone() });
         } else {
             actor.stop();
         }

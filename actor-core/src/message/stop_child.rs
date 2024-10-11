@@ -11,7 +11,7 @@ use crate::Message;
 #[derive(Debug, Message, derive_more::Display)]
 #[display("StopChild {{ child: {child} }}")]
 pub(crate) struct StopChild {
-    child: ActorRef,
+    pub(crate) child: ActorRef,
 }
 
 impl MessageHandler<UserGuardian> for StopChild {

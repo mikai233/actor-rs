@@ -110,7 +110,7 @@ pub trait PatternsExt {
         message: Request,
         timeout: Duration,
         provider: &ActorRefProvider,
-    ) -> impl Future<Output=anyhow::Result<Response>> + Send
+    ) -> impl Future<Output = anyhow::Result<Response>> + Send
     where
         Request: Message,
         Response: Message;
@@ -122,7 +122,7 @@ impl PatternsExt for ActorRef {
         message: Request,
         timeout: Duration,
         provider: &ActorRefProvider,
-    ) -> impl Future<Output=anyhow::Result<Response>> + Send
+    ) -> impl Future<Output = anyhow::Result<Response>> + Send
     where
         Request: Message,
         Response: Message,
@@ -137,7 +137,7 @@ impl PatternsExt for ActorSelection {
         message: Request,
         timeout: Duration,
         provider: &ActorRefProvider,
-    ) -> impl Future<Output=anyhow::Result<Response>> + Send
+    ) -> impl Future<Output = anyhow::Result<Response>> + Send
     where
         Request: Message,
         Response: Message,

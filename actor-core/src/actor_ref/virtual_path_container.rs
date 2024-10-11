@@ -51,7 +51,7 @@ impl TActorRef for VirtualPathContainer {
 
     fn stop(&self) {}
 
-    fn parent(&self) -> Option<&ActorRef> {
+    fn parent(&self) -> Option<&dyn TActorRef> {
         Some(&self.parent)
     }
 

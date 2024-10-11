@@ -5,9 +5,9 @@ use std::format;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
-use std::sync::Arc;
 
 use enum_dispatch::enum_dispatch;
+use imstr::ImString;
 use rand::random;
 
 use crate::actor::address::{ActorPathExtractor, Address};
@@ -23,7 +23,7 @@ pub trait TActorPath {
 
     fn address(&self) -> &Address;
 
-    fn name(&self) -> &String;
+    fn name(&self) -> &str;
 
     fn parent(&self) -> ActorPath;
 
@@ -52,7 +52,7 @@ pub trait TActorPath {
         })
     }
 
-    fn elements(&self) -> VecDeque<Arc<String>>;
+    fn elements(&self) -> VecDeque<ImString>;
 
     fn root(&self) -> &RootActorPath;
 
@@ -134,6 +134,7 @@ impl Ord for ActorPath {
 
 impl Hash for ActorPath {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        //TODO initial cached hash?
         let cached_hash = match self {
             ActorPath::RootActorPath(r) => r.cached_hash(),
             ActorPath::ChildActorPath(c) => c.cached_hash(),

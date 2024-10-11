@@ -1,11 +1,11 @@
+use crate::actor::address::Address;
+use crate::actor_path::root_actor_path::RootActorPath;
+use crate::actor_path::{ActorPath, TActorPath};
+use imstr::ImString;
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
-
-use crate::actor::address::Address;
-use crate::actor_path::root_actor_path::RootActorPath;
-use crate::actor_path::{ActorPath, TActorPath};
 
 #[derive(Debug, Clone, derive_more::Deref)]
 pub struct ChildActorPath(pub(crate) Arc<ChildActorPathInner>);
@@ -26,7 +26,7 @@ impl Display for ChildActorPath {
 #[derive(Debug)]
 pub struct ChildActorPathInner {
     pub(crate) parent: ActorPath,
-    pub(crate) name: Arc<String>,
+    pub(crate) name: ImString,
     pub(crate) uid: i32,
     pub(crate) cached_hash: AtomicU64,
 }
@@ -40,7 +40,7 @@ impl TActorPath for ChildActorPath {
         self.root().address()
     }
 
-    fn name(&self) -> &String {
+    fn name(&self) -> &str {
         &self.name
     }
 
@@ -48,7 +48,7 @@ impl TActorPath for ChildActorPath {
         self.parent.clone()
     }
 
-    fn elements(&self) -> VecDeque<Arc<String>> {
+    fn elements(&self) -> VecDeque<ImString> {
         let mut queue = VecDeque::with_capacity(10);
         queue.push_front(self.name.clone());
         let mut parent = &self.parent;
@@ -108,7 +108,7 @@ impl TActorPath for ChildActorPath {
 }
 
 impl ChildActorPath {
-    pub fn new(parent: ActorPath, name: impl Into<Arc<String>>, uid: i32) -> Self {
+    pub fn new(parent: ActorPath, name: impl Into<ImString>, uid: i32) -> Self {
         let name = name.into();
         assert!(
             name.find('/').is_none(),

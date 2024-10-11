@@ -57,10 +57,15 @@ where
 
         if let Err(error) = actor.started(&mut ctx) {
             error!("actor {} start error {:?}", type_name::<A>(), error);
-            ctx.stop(&ctx.myself());
-            while let Some(message) = mailbox.system.recv() {
-                Self::handle_system_message(&mut ctx, &mut actor, message, &system_receive);
-                if matches!(ctx.state(), ActorState::CanTerminate) {
+            ctx.stop(ctx.context().myself());
+            while let Some(message) = mailbox.system.recv().await {
+                Self::handle_system_message(
+                    ctx.context_mut(),
+                    &mut actor,
+                    message,
+                    &system_receive,
+                );
+                if matches!(ctx.context().state, ActorState::CanTerminate) {
                     break;
                 }
             }
@@ -72,12 +77,12 @@ where
             tokio::select! {
                 biased;
                 Some(envelope) = mailbox.system.recv() => {
-                    Self::handle_system_message(&mut ctx, &mut actor, envelope, &system_receive);
-                    if matches!(ctx.state(), ActorState::CanTerminate) {
+                    Self::handle_system_message(ctx.context_mut(), &mut actor, envelope, &system_receive);
+                    if matches!(ctx.context().state, ActorState::CanTerminate) {
                         break;
                     }
                 }
-                Some(envelope) = mailbox.message.recv(), if matches!(ctx.state(), ActorState::Started) => {
+                Some(envelope) = mailbox.message.recv(), if matches!(ctx.context().state, ActorState::Started) => {
                     Self::handle_message(&mut ctx, &mut actor, &mut behavior_stack, envelope);
                     throughput += 1;
                     if throughput >= mailbox.throughput {
@@ -94,11 +99,13 @@ where
             error!("actor {} stop error {:?}", type_name::<A>(), error);
         }
         mailbox.close();
-        ctx.context_mut().state = ActorState::Terminated;
-        for (name, handle) in ctx.context_mut().abort_handles {
+        let context = ctx.context_mut();
+        context.state = ActorState::Terminated;
+        for (name, handle) in &context.abort_handles {
             handle.abort();
             debug!("{} abort task: {}", type_name::<A>(), name);
         }
+        context.abort_handles.clear();
     }
 
     fn handle_message(

@@ -49,7 +49,7 @@ impl TActorRef for FunctionRef {
         todo!()
     }
 
-    fn parent(&self) -> Option<&ActorRef> {
+    fn parent(&self) -> Option<&dyn TActorRef> {
         None
     }
 

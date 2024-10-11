@@ -52,7 +52,7 @@ impl TActorRef for EmptyLocalActorRef {
         todo!()
     }
 
-    fn parent(&self) -> Option<&ActorRef> {
+    fn parent(&self) -> Option<&dyn TActorRef> {
         None
     }
 

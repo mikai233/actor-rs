@@ -1,12 +1,12 @@
+use dyn_clone::DynClone;
+use serde::de::{Error, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::any::Any;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::iter::Peekable;
 use std::sync::Arc;
-
-use serde::de::{Error, Visitor};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::task_local;
 
 use crate::actor_path::ActorPath;
@@ -29,7 +29,7 @@ task_local! {
     pub static PROVIDER: Arc<ActorRefProvider>;
 }
 
-pub trait TActorRef: Debug + Send + Sync + Any + AsAny {
+pub trait TActorRef: Debug + Send + Sync + Any + AsAny + DynClone {
     fn path(&self) -> &ActorPath;
 
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>);
@@ -42,10 +42,12 @@ pub trait TActorRef: Debug + Send + Sync + Any + AsAny {
 
     fn suspend(&self);
 
-    fn parent(&self) -> Option<&ActorRef>;
+    fn parent(&self) -> Option<&dyn TActorRef>;
 
     fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef>;
 }
+
+dyn_clone::clone_trait_object!(TActorRef);
 
 impl<T: ?Sized> ActorRefExt for T where T: TActorRef {}
 
@@ -66,14 +68,14 @@ pub trait ActorRefExt: TActorRef {
 }
 
 #[derive(Clone, derive_more::Deref)]
-pub struct ActorRef(Arc<dyn TActorRef>);
+pub struct ActorRef(Box<dyn TActorRef>);
 
 impl ActorRef {
     pub fn new<R>(actor_ref: R) -> Self
     where
         R: TActorRef,
     {
-        Self(Arc::new(actor_ref))
+        Self(Box::new(actor_ref))
     }
 }
 
@@ -129,7 +131,7 @@ impl Debug for ActorRef {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("ActorRef")
             .field("path", self.path())
-            .finish_non_exhaustive()
+            .finish()
     }
 }
 impl Serialize for ActorRef {

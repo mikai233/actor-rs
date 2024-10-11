@@ -40,7 +40,7 @@ impl TActorRef for IgnoreActorRef {
 
     fn suspend(&self) {}
 
-    fn parent(&self) -> Option<&ActorRef> {
+    fn parent(&self) -> Option<&dyn TActorRef> {
         None
     }
 
