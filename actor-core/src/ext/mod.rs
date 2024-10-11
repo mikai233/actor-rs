@@ -6,9 +6,9 @@ use tracing_subscriber::fmt::time::LocalTime;
 use tracing_subscriber::EnvFilter;
 
 pub mod as_any;
-pub mod maybe_ref;
-pub mod duration_ext;
 pub mod collection;
+pub mod duration_ext;
+pub mod maybe_ref;
 
 const BASE64_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+~";
 static ACTOR_NAME_OFFSET: AtomicI64 = AtomicI64::new(0);
@@ -48,9 +48,7 @@ pub fn init_logger_with_filter(filter: impl Into<EnvFilter>) {
 
 pub(crate) fn base64(l: i64, mut s: String) -> String {
     let index = (l & 63) as usize;
-    let c = BASE64_CHARS
-        .get(index..index + 1)
-        .unwrap();
+    let c = BASE64_CHARS.get(index..index + 1).unwrap();
     s.push_str(c);
     let next = (l >> 6).abs();
     if next == 0 {
@@ -72,11 +70,14 @@ pub(crate) fn random_name(prefix: String) -> String {
 pub(crate) fn check_name(name: &String) -> anyhow::Result<()> {
     let valid = name.chars().all(|c| match c {
         'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => true,
-        _ => false
+        _ => false,
     });
     if valid {
         Ok(())
     } else {
-        Err(anyhow!( "name {} is invalid, allowed chars a..=z, A..=Z, 0..=9, _", name, ))
+        Err(anyhow!(
+            "name {} is invalid, allowed chars a..=z, A..=Z, 0..=9, _",
+            name,
+        ))
     }
 }

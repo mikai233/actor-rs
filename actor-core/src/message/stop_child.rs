@@ -1,4 +1,5 @@
 use crate::actor::behavior::Behavior;
+use crate::actor::receive::Receive;
 use crate::actor::system_guardian::SystemGuardian;
 use crate::actor::user_guardian::UserGuardian;
 use crate::actor::Actor;
@@ -19,6 +20,7 @@ impl MessageHandler<UserGuardian> for StopChild {
         ctx: &mut <UserGuardian as Actor>::Context,
         message: Self,
         _: Option<ActorRef>,
+        _: &Receive<UserGuardian>,
     ) -> anyhow::Result<Behavior<UserGuardian>> {
         ctx.stop(&message.child);
         Ok(Behavior::same())
@@ -31,6 +33,7 @@ impl MessageHandler<SystemGuardian> for StopChild {
         ctx: &mut <SystemGuardian as Actor>::Context,
         message: Self,
         _: Option<ActorRef>,
+        _: &Receive<SystemGuardian>,
     ) -> anyhow::Result<Behavior<SystemGuardian>> {
         ctx.stop(&message.child);
         Ok(Behavior::same())

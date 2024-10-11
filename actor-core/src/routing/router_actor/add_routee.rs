@@ -1,24 +1,35 @@
-use async_trait::async_trait;
+use std::fmt::Display;
 
-use actor_derive::EmptyCodec;
+use actor_derive::Message;
 
-use crate::actor::context::Context;
-use crate::Message;
+use crate::actor::behavior::Behavior;
+use crate::actor::receive::Receive;
+use crate::actor::Actor;
+use crate::actor_ref::ActorRef;
+use crate::message::handler::MessageHandler;
 use crate::routing::routee::Routee;
 use crate::routing::router_actor::Router;
 
-#[derive(EmptyCodec)]
+#[derive(Debug, Message)]
 pub struct AddRoutee {
     pub routee: Routee,
 }
 
-#[async_trait]
-impl Message for AddRoutee {
-    type A = Box<dyn Router>;
+impl Display for AddRoutee {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
 
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        let Self { routee, .. } = *self;
-        actor.routees_mut().push(routee);
-        Ok(())
+impl<R: Router> MessageHandler<R> for AddRoutee {
+    fn handle(
+        actor: &mut R,
+        ctx: &mut <R as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<R>,
+    ) -> anyhow::Result<Behavior<R>> {
+        actor.routees_mut().push(message.routee);
+        todo!()
     }
 }

@@ -1,10 +1,14 @@
 use tokio::sync::broadcast::Sender;
 use tracing::debug;
 
-use crate::actor::context::{Context, ActorContext};
+use crate::{
+    actor::context::{ActorContext, Context},
+    message::stop_child::StopChild,
+};
 
-use super::Actor;
+use super::{receive::Receive, Actor};
 
+#[derive(Debug)]
 pub(crate) struct RootGuardian {
     termination_tx: Sender<()>,
 }
@@ -16,18 +20,20 @@ impl RootGuardian {
 }
 
 impl Actor for RootGuardian {
-    async fn started(&mut self, context: &mut Context<Self>) -> anyhow::Result<()> {
-        debug!("{} started", context.myself());
+    type Context = Context;
+
+    fn started(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
+        debug!("{} started", ctx.myself());
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut Context<Self>) -> anyhow::Result<()> {
-        debug!("{} stopped", context.myself());
+    fn stopped(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
+        debug!("{} stopped", ctx.myself());
         let _ = self.termination_tx.send(());
         Ok(())
     }
 
     fn receive(&self) -> super::receive::Receive<Self> {
-        todo!()
+        Receive::new().handle::<StopChild>()
     }
 }

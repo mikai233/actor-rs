@@ -32,7 +32,7 @@ pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
 
     fn temp_path_of_prefix(&self, prefix: Option<&str>) -> ActorPath;
 
-    fn temp_container(&self) -> &dyn TActorRef;
+    fn temp_container(&self) -> ActorRef;
 
     fn register_temp_actor(&self, actor: ActorRef, path: &ActorPath);
 

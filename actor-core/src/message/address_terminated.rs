@@ -1,10 +1,9 @@
-use async_trait::async_trait;
-
 use actor_derive::Message;
 
 use crate::actor::address::Address;
 use crate::actor::behavior::Behavior;
-use crate::actor::context::{ActorContext, Context};
+use crate::actor::context::ActorContext;
+use crate::actor::receive::Receive;
 use crate::actor::Actor;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::{ActorRef, ActorRefExt};
@@ -25,6 +24,7 @@ impl<A: Actor> MessageHandler<A> for AddressTerminated {
         ctx: &mut <A as Actor>::Context,
         message: Self,
         _: Option<ActorRef>,
+        _: &Receive<A>,
     ) -> anyhow::Result<Behavior<A>> {
         ctx.context_mut()
             .maintain_address_terminated_subscription(None, |ctx| {

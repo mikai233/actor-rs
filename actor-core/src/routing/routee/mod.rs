@@ -3,15 +3,15 @@ use std::fmt::Debug;
 use enum_dispatch::enum_dispatch;
 
 use crate::actor_ref::ActorRef;
-use crate::DynMessage;
+use crate::message::DynMessage;
 use crate::routing::routee::actor_ref_routee::ActorRefRoutee;
 use crate::routing::routee::actor_selection_routee::ActorSelectionRoutee;
 use crate::routing::routee::no_routee::NoRoutee;
 use crate::routing::routee::several_routees::SeveralRoutees;
 
 pub mod actor_ref_routee;
-pub mod no_routee;
 pub mod actor_selection_routee;
+pub mod no_routee;
 pub mod several_routees;
 
 #[enum_dispatch(Routee)]

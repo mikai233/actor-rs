@@ -3,6 +3,7 @@ use tracing::trace;
 
 use crate::actor::behavior::Behavior;
 use crate::actor::context::ActorContext;
+use crate::actor::receive::Receive;
 use crate::actor::state::ActorState;
 use crate::actor::Actor;
 use crate::actor_ref::ActorRef;
@@ -20,6 +21,7 @@ impl<A: Actor> MessageHandler<A> for Suspend {
         ctx: &mut A::Context,
         message: Self,
         _: Option<ActorRef>,
+        _: &Receive<A>,
     ) -> anyhow::Result<Behavior<A>> {
         let context = ctx.context_mut();
         context.state = ActorState::Suspend;

@@ -7,16 +7,16 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::actor::Actor;
-use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::local_ref::SignalReceiver;
 use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
 
-type ActorCreator = Box<dyn FnOnce(ActorRef, SignalReceiver, Mailbox, ActorSystem) -> anyhow::Result<()> + Send>;
+type ActorCreator =
+    Box<dyn FnOnce(ActorRef, SignalReceiver, Mailbox, ActorSystem) -> anyhow::Result<()> + Send>;
 
 pub struct Props {
-    pub(crate) actor_name: &'static str,
+    pub(crate) name: &'static str,
     pub(crate) creator: ActorCreator,
     pub(crate) mailbox: Option<String>,
 }
@@ -24,7 +24,7 @@ pub struct Props {
 impl Debug for Props {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("Props")
-            .field("actor_name", &self.actor_name)
+            .field("name", &self.name)
             .field("mailbox", &self.mailbox)
             .finish_non_exhaustive()
     }
@@ -36,19 +36,23 @@ impl Props {
         F: FnOnce() -> anyhow::Result<A> + Send + 'static,
         A: Actor,
     {
-        let creator = move |myself: ActorRef, signal: SignalReceiver, mailbox: Mailbox, system: ActorSystem| {
+        let creator = move |myself: ActorRef,
+                            signal: SignalReceiver,
+                            mailbox: Mailbox,
+                            system: ActorSystem| {
             let actor = actor_creator()?;
             let mut ctx = A::Context::new(system, myself);
             let runtime = ActorRuntime {
                 actor,
                 ctx,
                 mailbox,
+                signal,
             };
             Self::run_actor(runtime)?;
             Ok::<_, anyhow::Error>(())
         };
         Self {
-            actor_name: type_name::<A>(),
+            name: type_name::<A>(),
             creator: Box::new(creator),
             mailbox: None,
         }
@@ -60,19 +64,23 @@ impl Props {
         A: Actor,
     {
         let actor_name = type_name::<A>();
-        let creator = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
+        let creator = move |myself: ActorRef,
+                            signal: SignalReceiver,
+                            mailbox: Mailbox,
+                            system: ActorSystem| {
             let mut ctx = A::Context::new(system, myself);
             let actor = actor_creator(&mut ctx)?;
             let runtime = ActorRuntime {
                 actor,
                 ctx,
                 mailbox,
+                signal,
             };
             Self::run_actor(runtime)?;
             Ok::<_, anyhow::Error>(())
         };
         Self {
-            actor_name,
+            name: actor_name,
             creator: Box::new(creator),
             mailbox: None,
         }
@@ -243,7 +251,7 @@ impl<Arg> PropsBuilder<Arg> {
 
 impl<A> Debug for PropsBuilder<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PropsBuilderSync")
+        f.debug_struct("PropsBuilder")
             .field("name", &self.name)
             .finish_non_exhaustive()
     }

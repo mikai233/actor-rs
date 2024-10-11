@@ -441,7 +441,7 @@ impl Context {
         local!(self.myself).parent.as_ref()
     }
 
-    fn watch(&mut self, subject: &ActorRef) -> anyhow::Result<()> {
+    pub fn watch(&mut self, subject: &ActorRef) -> anyhow::Result<()> {
         if subject != self.myself() {
             match self.watching.get(&subject) {
                 None => {
@@ -464,7 +464,7 @@ impl Context {
         Ok(())
     }
 
-    fn watch_with(&mut self, subject: &ActorRef, msg: DynMessage) -> anyhow::Result<()> {
+    pub fn watch_with(&mut self, subject: &ActorRef, msg: DynMessage) -> anyhow::Result<()> {
         if subject != self.myself() {
             match self.watching.get(&subject) {
                 None => {
@@ -487,7 +487,7 @@ impl Context {
         Ok(())
     }
 
-    pub(crate) fn unwatch(&mut self, subject: &ActorRef) {
+    pub fn unwatch(&mut self, subject: &ActorRef) {
         if &self.myself != subject && self.watching.contains_key(subject) {
             let watchee = subject.clone();
             let watcher = self.myself.clone();
@@ -501,7 +501,7 @@ impl Context {
         }
     }
 
-    fn is_watching(&self, subject: &ActorRef) -> bool {
+    pub fn is_watching(&self, subject: &ActorRef) -> bool {
         self.watching.contains_key(subject)
     }
 }

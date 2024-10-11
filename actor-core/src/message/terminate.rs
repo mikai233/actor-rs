@@ -2,7 +2,7 @@ use actor_derive::Message;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    actor::{behavior::Behavior, context::ActorContext, Actor},
+    actor::{behavior::Behavior, context::ActorContext, receive::Receive, Actor},
     actor_ref::ActorRef,
 };
 
@@ -18,6 +18,7 @@ impl<A: Actor> MessageHandler<A> for Terminate {
         ctx: &mut <A as Actor>::Context,
         message: Self,
         _: Option<ActorRef>,
+        _: &Receive<A>,
     ) -> anyhow::Result<Behavior<A>> {
         ctx.context_mut().terminate();
         Ok(Behavior::same())

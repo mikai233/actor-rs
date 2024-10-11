@@ -1,6 +1,5 @@
 use std::fmt::{Debug, Formatter};
 use std::iter::Peekable;
-use std::ops::Deref;
 use std::sync::Arc;
 
 use actor_derive::AsAny;
@@ -57,7 +56,7 @@ impl TActorRef for EmptyLocalActorRef {
         None
     }
 
-    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {
         get_child_default(self.clone(), names)
     }
 }

@@ -1,6 +1,6 @@
-use crate::actor::behavior::Behavior;
 use crate::actor::context::ActorContext;
 use crate::actor::Actor;
+use crate::actor::{behavior::Behavior, receive::Receive};
 use crate::actor_ref::ActorRef;
 use actor_derive::Message;
 use serde::{Deserialize, Serialize};
@@ -22,6 +22,7 @@ impl<A: Actor> MessageHandler<A> for Unwatch {
         ctx: &mut <A as Actor>::Context,
         message: Self,
         _: Option<ActorRef>,
+        _: &Receive<A>,
     ) -> anyhow::Result<Behavior<A>> {
         let Self { watchee, watcher } = message;
         let context = ctx.context_mut();

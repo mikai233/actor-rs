@@ -1,15 +1,16 @@
 use crate::actor::receive::Receive;
 use crate::actor::Actor;
-use crate::cell::actor_cell::ActorCell;
+use crate::message::stop_child::StopChild;
+
+use super::context::Context;
 
 #[derive(Debug)]
 pub(crate) struct UserGuardian;
 
-
 impl Actor for UserGuardian {
-    type Context = ActorCell;
+    type Context = Context;
 
     fn receive(&self) -> Receive<Self> {
-        todo!()
+        Receive::new().handle::<StopChild>()
     }
 }

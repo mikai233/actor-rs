@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Formatter};
 use std::iter::Peekable;
-use std::ops::{Deref, Not};
+use std::ops::Not;
 use std::sync::Arc;
 
 use dashmap::mapref::one::Ref;
@@ -55,27 +55,27 @@ impl TActorRef for VirtualPathContainer {
         Some(&self.parent)
     }
 
-    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {
         match names.next() {
-            None => {
-                Some(self.clone().into())
-            }
+            None => Some(self.clone().into()),
             Some(name) => {
                 if name.is_empty() {
                     Some(self.clone().into())
                 } else {
                     match self.children.get(name) {
-                        None => {
-                            None
-                        }
-                        Some(child) => {
-                            child.value().get_child(names)
-                        }
+                        None => None,
+                        Some(child) => child.value().get_child(names),
                     }
                 }
             }
         }
     }
+
+    fn start(&self) {}
+
+    fn resume(&self) {}
+
+    fn suspend(&self) {}
 }
 
 impl Into<ActorRef> for VirtualPathContainer {
@@ -104,11 +104,18 @@ impl VirtualPathContainer {
         self.children.remove(name)
     }
 
-    pub(crate) fn remove_child_ref(&self, name: &String, child: &ActorRef) -> Option<(String, ActorRef)> {
-        self.children.remove_if(name, |_, c| { c == child })
+    pub(crate) fn remove_child_ref(
+        &self,
+        name: &String,
+        child: &ActorRef,
+    ) -> Option<(String, ActorRef)> {
+        self.children.remove_if(name, |_, c| c == child)
     }
 
-    pub(crate) fn get_child(&self, name: &String) -> Option<Ref<String, ActorRef, ahash::RandomState>> {
+    pub(crate) fn get_child(
+        &self,
+        name: &String,
+    ) -> Option<Ref<String, ActorRef, ahash::RandomState>> {
         self.children.get(name)
     }
 

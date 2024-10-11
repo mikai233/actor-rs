@@ -8,7 +8,7 @@ use actor_derive::AsAny;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::extension::Extension;
-use crate::actor_ref::{ActorRef, ActorRefSystemExt};
+use crate::actor_ref::ActorRef;
 use crate::message::address_terminated::AddressTerminated;
 
 #[derive(Debug, Clone, Default, AsAny)]
@@ -35,7 +35,9 @@ impl AddressTerminatedTopic {
     }
 
     pub fn get(system: &ActorSystem) -> Self {
-        system.get_extension::<Self>().expect(&format!("{} not found", type_name::<Self>()))
+        system
+            .get_extension::<Self>()
+            .expect(&format!("{} not found", type_name::<Self>()))
     }
 
     pub fn subscribe(&self, subscriber: ActorRef) {

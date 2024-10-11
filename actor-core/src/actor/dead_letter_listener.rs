@@ -1,9 +1,8 @@
-use super::Actor;
-use crate::actor::behavior::Behavior;
+use super::{context::Context, receive::Receive, Actor};
 use crate::actor_ref::ActorRef;
-use crate::cell::actor_cell::ActorCell;
 use crate::message::handler::MessageHandler;
 use crate::message::DynMessage;
+use crate::{actor::behavior::Behavior, message::Message};
 use actor_derive::Message;
 use std::fmt::{Display, Formatter};
 
@@ -11,7 +10,7 @@ use std::fmt::{Display, Formatter};
 pub struct DeadLetterListener;
 
 impl Actor for DeadLetterListener {
-    type Context = ActorCell;
+    type Context = Context;
 
     fn receive(&self) -> super::receive::Receive<Self> {
         todo!()
@@ -26,9 +25,12 @@ pub struct Dropped {
 }
 
 impl Dropped {
-    pub fn new(message: DynMessage, reason: String, sender: Option<ActorRef>) -> Self {
+    pub fn new<M>(message: M, reason: String, sender: Option<ActorRef>) -> Self
+    where
+        M: Message,
+    {
         Self {
-            message,
+            message: Box::new(message),
             reason,
             sender,
         }
@@ -40,9 +42,7 @@ impl Display for Dropped {
         write!(
             f,
             "Dropped {{ message: {}, reason: {}, sender: {:?} }}",
-            self.message,
-            self.reason,
-            self.sender,
+            self.message, self.reason, self.sender,
         )
     }
 }
@@ -53,6 +53,7 @@ impl MessageHandler<DeadLetterListener> for Dropped {
         ctx: &mut <DeadLetterListener as Actor>::Context,
         message: Self,
         sender: Option<ActorRef>,
+        receive: &Receive<DeadLetterListener>,
     ) -> anyhow::Result<Behavior<DeadLetterListener>> {
         todo!()
     }
@@ -68,6 +69,7 @@ impl MessageHandler<DeadLetterListener> for DeadMessage {
         ctx: &mut <DeadLetterListener as Actor>::Context,
         message: Self,
         sender: Option<ActorRef>,
+        receive: &Receive<DeadLetterListener>,
     ) -> anyhow::Result<Behavior<DeadLetterListener>> {
         todo!()
     }

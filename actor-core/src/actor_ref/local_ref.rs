@@ -172,7 +172,7 @@ impl LocalActorRef {
         }
     }
 
-    pub fn attach_child(
+    pub(crate) fn attach_child(
         &self,
         props: Props,
         system: ActorSystem,
@@ -220,11 +220,11 @@ impl LocalActorRef {
         Ok((child_ref.into(), signal))
     }
 
-    fn get_child_by_name(&self, name: &str) -> Option<ActorRef> {
+    pub(crate) fn get_child_by_name(&self, name: &str) -> Option<ActorRef> {
         self.children.get(name).map(|c| c.clone())
     }
 
-    fn get_single_child(&self, name: &str) -> Option<ActorRef> {
+    pub(crate) fn get_single_child(&self, name: &str) -> Option<ActorRef> {
         match name.find('#') {
             Some(_) => {
                 let (child_name, uid) = ActorPath::split_name_and_uid(name);
@@ -243,8 +243,8 @@ impl LocalActorRef {
         }
     }
 
-    pub(crate) fn remove_child(&self, name: &String) -> Option<ActorRef> {
-        match self.children_refs().remove(name) {
+    pub(crate) fn remove_child(&self, name: &str) -> Option<ActorRef> {
+        match self.children.remove(name) {
             None => None,
             Some((_, child)) => Some(child),
         }

@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_system::WeakSystem;
 use crate::actor::address::{Address, Protocol};
 use crate::actor_path::root_actor_path::RootActorPath;
 use crate::actor_path::{ActorPath, TActorPath};
@@ -33,25 +32,19 @@ impl TActorRef for IgnoreActorRef {
 
     fn tell(&self, _: DynMessage, _: Option<ActorRef>) {}
 
-    fn start(&self) {
-        todo!()
-    }
+    fn start(&self) {}
 
     fn stop(&self) {}
 
-    fn resume(&self) {
-        todo!()
-    }
+    fn resume(&self) {}
 
-    fn suspend(&self) {
-        todo!()
-    }
+    fn suspend(&self) {}
 
     fn parent(&self) -> Option<&ActorRef> {
         None
     }
 
-    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {
         get_child_default(self.clone(), names)
     }
 }
@@ -63,7 +56,7 @@ impl Into<ActorRef> for IgnoreActorRef {
 }
 
 impl IgnoreActorRef {
-    pub(crate) fn new(system: WeakSystem) -> Self {
+    pub(crate) fn new() -> Self {
         let path = Self::path();
         let inner = IgnoreActorRefInner { path };
         Self(inner.into())
@@ -74,9 +67,12 @@ impl IgnoreActorRef {
     }
 
     fn path() -> ActorPath {
-        RootActorPath::new(Address::new(Protocol::Akka, Self::fake_system_name(), None), "/")
-            .child("ignore")
-            .into()
+        RootActorPath::new(
+            Address::new(Protocol::Akka, Self::fake_system_name(), None),
+            "/",
+        )
+        .child("ignore")
+        .into()
     }
 
     fn is_ignore_ref_path_str(&self, other_path: &str) -> bool {

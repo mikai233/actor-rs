@@ -84,7 +84,6 @@ dependencies = [
  "ahash",
  "anyhow",
  "arc-swap",
- "async-trait",
  "bincode 1.3.3",
  "bytes",
  "config",

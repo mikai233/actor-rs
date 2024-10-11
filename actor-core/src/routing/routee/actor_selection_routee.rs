@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use crate::actor::actor_selection::ActorSelection;
 use crate::actor_ref::ActorRef;
-use crate::DynMessage;
+use crate::message::DynMessage;
 use crate::routing::routee::TRoutee;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]

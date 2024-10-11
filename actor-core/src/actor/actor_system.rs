@@ -29,7 +29,6 @@ use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::event::event_stream::EventStream;
-use crate::ext::option_ext::OptionExt;
 use crate::message::stop_child::StopChild;
 use crate::provider::provider::Provider;
 use crate::provider::{ActorRefProvider, TActorRefProvider};
@@ -56,7 +55,10 @@ impl ActorSystem {
     where
         P: TActorRefProvider + 'static,
     {
-        let Provider { provider, actor_refs } = provider;
+        let Provider {
+            provider,
+            actor_refs,
+        } = provider;
         let scheduler = scheduler();
         let (signal_tx, mut signal_rx) = channel(1);
         let inner = ActorSystemInner {
@@ -133,7 +135,8 @@ impl ActorSystem {
     }
 
     pub fn spawn_system(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
-        self.system_guardian().attach_child(props, self.clone(), self.provider(), name, None)
+        self.system_guardian()
+            .attach_child(props, self.clone(), self.provider(), name, None)
     }
 
     pub fn spawn_system_deferred(
@@ -174,7 +177,7 @@ impl ActorSystem {
     where
         R: Reason + 'static,
     {
-        CoordinatedShutdown::get(self.system()).run(reason)
+        CoordinatedShutdown::get(self.system()).run(self.system().clone(), reason)
     }
 }
 
@@ -196,11 +199,18 @@ impl ActorRefFactory for ActorSystem {
     }
 
     fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
-        self.guardian().attach_child(props, self.clone(), self.provider(), Some(name.into()), None)
+        self.guardian().attach_child(
+            props,
+            self.clone(),
+            self.provider(),
+            Some(name.into()),
+            None,
+        )
     }
 
     fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
-        self.guardian().attach_child(props, self.clone(), self.provider(), None, None)
+        self.guardian()
+            .attach_child(props, self.clone(), self.provider(), None, None)
     }
 
     fn stop(&self, actor: &ActorRef) {

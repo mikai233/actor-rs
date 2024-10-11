@@ -1,23 +1,22 @@
-use std::any::Any;
 use std::any::type_name;
+use std::any::Any;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use anyhow::anyhow;
-use dashmap::DashMap;
 use dashmap::mapref::one::MappedRef;
+use dashmap::DashMap;
 use dyn_clone::DynClone;
 
 use crate::ext::as_any::AsAny;
 
-pub mod actor_setting;
-pub mod mailbox;
-pub mod settings;
 pub mod actor;
-pub mod debug;
-pub mod phase;
-pub mod coordinated_shutdown;
 pub mod circuit_breaker;
+pub mod coordinated_shutdown;
+pub mod debug;
+pub mod mailbox;
+pub mod phase;
+pub mod settings;
 pub trait Config: Debug + Send + Sync + Any + AsAny + DynClone {}
 
 dyn_clone::clone_trait_object!(Config);
@@ -28,7 +27,10 @@ pub struct ActorConfigs {
 }
 
 impl ActorConfigs {
-    pub fn add<C>(&self, config: C) -> anyhow::Result<()> where C: Config {
+    pub fn add<C>(&self, config: C) -> anyhow::Result<()>
+    where
+        C: Config,
+    {
         let name = type_name::<C>();
         if !self.configs.contains_key(name) {
             self.configs.insert(name, Box::new(config));
@@ -38,19 +40,18 @@ impl ActorConfigs {
         Ok(())
     }
 
-    pub fn get<C>(&self) -> Option<MappedRef<&'static str, Box<dyn Config>, C>> where C: Config {
+    pub fn get<C>(&self) -> Option<MappedRef<&'static str, Box<dyn Config>, C>>
+    where
+        C: Config,
+    {
         let name = type_name::<C>();
-        let config = self.configs
-            .get(name)
-            .and_then(|e| {
-                let e = e.try_map::<_, C>(|e| {
-                    e.deref().as_any().downcast_ref::<C>()
-                });
-                match e {
-                    Ok(r) => Some(r),
-                    Err(_) => None,
-                }
-            });
+        let config = self.configs.get(name).and_then(|e| {
+            let e = e.try_map::<_, C>(|e| e.deref().as_any().downcast_ref::<C>());
+            match e {
+                Ok(r) => Some(r),
+                Err(_) => None,
+            }
+        });
         config
     }
 }

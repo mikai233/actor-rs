@@ -1,5 +1,7 @@
 use crate::{
-    actor::{behavior::Behavior, context::ActorContext, directive::Directive, Actor},
+    actor::{
+        behavior::Behavior, context::ActorContext, directive::Directive, receive::Receive, Actor,
+    },
     actor_ref::ActorRef,
 };
 use actor_derive::Message;
@@ -19,6 +21,7 @@ impl<A: Actor> MessageHandler<A> for Failed {
         ctx: &mut <A as Actor>::Context,
         message: Self,
         _: Option<ActorRef>,
+        _: &Receive<A>,
     ) -> anyhow::Result<Behavior<A>> {
         let Failed { child, error } = message;
         let directive = actor.on_child_failure(ctx, &child, &error);

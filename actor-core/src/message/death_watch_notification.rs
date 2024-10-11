@@ -1,9 +1,5 @@
 use crate::{
-    actor::{
-        behavior::Behavior,
-        context::{self, ActorContext},
-        Actor,
-    },
+    actor::{behavior::Behavior, context::ActorContext, receive::Receive, Actor},
     actor_ref::ActorRef,
 };
 use actor_derive::Message;
@@ -38,6 +34,7 @@ impl<A: Actor> MessageHandler<A> for DeathWatchNotification {
         ctx: &mut <A as Actor>::Context,
         message: Self,
         _: Option<ActorRef>,
+        _: &Receive<A>,
     ) -> anyhow::Result<Behavior<A>> {
         let DeathWatchNotification {
             actor,

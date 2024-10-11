@@ -1,5 +1,5 @@
 use crate::{
-    actor::{behavior::Behavior, context::ActorContext, Actor},
+    actor::{behavior::Behavior, context::ActorContext, receive::Receive, Actor},
     actor_ref::ActorRef,
 };
 use actor_derive::Message;
@@ -19,6 +19,7 @@ impl<A: Actor> MessageHandler<A> for TaskFinish {
         ctx: &mut <A as Actor>::Context,
         message: Self,
         _: Option<ActorRef>,
+        _: &Receive<A>,
     ) -> anyhow::Result<Behavior<A>> {
         let context = ctx.context_mut();
         match context.abort_handles.remove(&message.name) {

@@ -1,11 +1,11 @@
 use std::time::Duration;
 
-use async_trait::async_trait;
-
-use crate::{Actor, DynMessage};
 use crate::actor::context::Context;
 use crate::actor::props::{Props, PropsBuilder};
+use crate::actor::receive::Receive;
+use crate::actor::Actor;
 use crate::actor_ref::ActorRef;
+use crate::message::DynMessage;
 use crate::pattern::backoff_opts::{BackoffReset, HandlingWhileStopped};
 use crate::pattern::hand_backoff::HandBackoff;
 
@@ -65,9 +65,10 @@ impl HandBackoff for BackoffOnStopSupervisor {
     }
 }
 
-#[async_trait]
 impl Actor for BackoffOnStopSupervisor {
-    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
-        Self::handle_message(self, context, message).await
+    type Context = Context;
+
+    fn receive(&self) -> Receive<Self> {
+        todo!()
     }
 }

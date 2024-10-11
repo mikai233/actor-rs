@@ -3,13 +3,8 @@ use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::iter::Peekable;
-use std::ops::Deref;
 use std::sync::Arc;
 
-use bincode::de::Decoder;
-use bincode::enc::Encoder;
-use bincode::error::{DecodeError, EncodeError};
-use bincode::{impl_borrow_decode, Decode, Encode};
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::task_local;

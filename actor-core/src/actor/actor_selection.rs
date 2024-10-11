@@ -4,12 +4,11 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::time::Duration;
 
-use crate::actor::context::{Context, ActorContext};
+use crate::actor::context::ActorContext;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::empty_local_ref::EmptyLocalActorRef;
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::cell::Cell;
 use crate::message::identify::{ActorIdentity, Identify};
 use crate::message::{downcast_ref, DynMessage, Message, Signature};
 use crate::pattern::patterns::Patterns;
@@ -18,7 +17,7 @@ use enum_dispatch::enum_dispatch;
 use itertools::Itertools;
 use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use tracing::{error, warn};
+use tracing::error;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ActorSelection {
@@ -132,7 +131,10 @@ impl ActorSelection {
                                         empty_ref.tell(sel, sender.clone())
                                     } else {
                                         for child in matching_children {
-                                            let message = sel.message.clone_box().expect("message is not cloneable");
+                                            let message = sel
+                                                .message
+                                                .clone_box()
+                                                .expect("message is not cloneable");
                                             child.value().tell(message, sender.clone());
                                         }
                                     }
@@ -182,10 +184,8 @@ impl ActorSelection {
                         }
                     },
                     None => {
-                        let sel = sel.copy_with_elements(
-                            iter.cloned().collect(),
-                            sel.wildcard_fan_out,
-                        );
+                        let sel =
+                            sel.copy_with_elements(iter.cloned().collect(), sel.wildcard_fan_out);
                         actor.tell(sel, sender);
                         break;
                     }
@@ -357,7 +357,7 @@ impl ActorSelectionMessage {
         let Self { message, .. } = self;
         let message = message.clone_box().expect("message is not cloneable");
         Self {
-            message, 
+            message,
             elements,
             wildcard_fan_out,
         }

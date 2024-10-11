@@ -1,13 +1,11 @@
 use std::fmt::{Debug, Formatter};
 use std::iter::Peekable;
-use std::ops::Deref;
 use std::sync::Arc;
 
 use tracing::info;
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_system::WeakSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::message::DynMessage;
@@ -51,25 +49,19 @@ impl TActorRef for DeadLetterActorRef {
         }
     }
 
-    fn start(&self) {
-        todo!()
-    }
+    fn start(&self) {}
 
     fn stop(&self) {}
 
-    fn resume(&self) {
-        todo!()
-    }
+    fn resume(&self) {}
 
-    fn suspend(&self) {
-        todo!()
-    }
+    fn suspend(&self) {}
 
     fn parent(&self) -> Option<&ActorRef> {
         None
     }
 
-    fn get_child(&self, _names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+    fn get_child(&self, _names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {
         None
     }
 }

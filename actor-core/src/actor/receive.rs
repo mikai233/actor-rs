@@ -11,6 +11,7 @@ pub type ReceiveFn<A: Actor> = Box<
         &mut A::Context,
         DynMessage,
         Option<ActorRef>,
+        &Receive<A>,
     ) -> anyhow::Result<Behavior<A>>,
 >;
 
@@ -34,7 +35,7 @@ impl<A: Actor> Receive<A> {
     ) -> anyhow::Result<Behavior<A>> {
         let signature = message.signature();
         if let Some(receiver) = self.receiver.get(&signature.type_id) {
-            receiver(actor, ctx, message, sender)
+            receiver(actor, ctx, message, sender, self)
         } else {
             Err(anyhow::anyhow!(
                 "No receiver found for message: {}",
@@ -45,7 +46,13 @@ impl<A: Actor> Receive<A> {
 
     pub fn is<M>(
         mut self,
-        handler: impl Fn(&mut A, &mut A::Context, M, Option<ActorRef>) -> anyhow::Result<Behavior<A>>
+        handler: impl Fn(
+                &mut A,
+                &mut A::Context,
+                M,
+                Option<ActorRef>,
+                &Receive<A>,
+            ) -> anyhow::Result<Behavior<A>>
             + 'static,
     ) -> Self
     where
@@ -54,10 +61,10 @@ impl<A: Actor> Receive<A> {
         let signature = M::signature_sized();
         self.receiver.insert(
             signature.type_id,
-            Box::new(move |actor, ctx, message, sender| {
+            Box::new(move |actor, ctx, message, sender, receive| {
                 let message = downcast_into::<M>(message)
                     .map_err(|_| anyhow::anyhow!("Downcast {signature} failed"))?;
-                handler(actor, ctx, *message, sender)
+                handler(actor, ctx, *message, sender, receive)
             }),
         );
         self
@@ -67,6 +74,8 @@ impl<A: Actor> Receive<A> {
     where
         M: Message + MessageHandler<A>,
     {
-        self.is(|actor, ctx, message, sender| M::handle(actor, ctx, message, sender))
+        self.is(|actor, ctx, message, sender, receive| {
+            M::handle(actor, ctx, message, sender, receive)
+        })
     }
 }

@@ -1,5 +1,5 @@
 use crate::{
-    actor::{behavior::Behavior, context::ActorContext, Actor},
+    actor::{behavior::Behavior, context::ActorContext, receive::Receive, Actor},
     actor_ref::ActorRef,
 };
 use actor_derive::Message;
@@ -42,16 +42,19 @@ impl<A: Actor> MessageHandler<A> for Terminated {
         ctx: &mut <A as Actor>::Context,
         message: Self,
         sender: Option<ActorRef>,
+        receive: &Receive<A>,
     ) -> anyhow::Result<Behavior<A>> {
         let context = ctx.context_mut();
         if let Some(optional_message) = context.terminated_queue.remove(&message.actor) {
             match optional_message {
                 Some(custom_termination) => {
+                    actor.around_receive(receive, actor, ctx, message, sender)
                     //TODO currentMessage?
                 }
-                None => {}
+                None => actor.around_receive(receive, actor, ctx, message, sender),
             }
+        } else {
+            Ok(Behavior::same())
         }
-        Ok(Behavior::same())
     }
 }

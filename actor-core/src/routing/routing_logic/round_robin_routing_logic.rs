@@ -1,7 +1,7 @@
 use std::cell::Cell;
 
-use crate::DynMessage;
 use crate::ext::maybe_ref::MaybeRef;
+use crate::message::DynMessage;
 use crate::routing::routee::no_routee::NoRoutee;
 use crate::routing::routee::Routee;
 use crate::routing::routing_logic::RoutingLogic;

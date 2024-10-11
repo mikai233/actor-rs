@@ -7,18 +7,17 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use ahash::{HashMap, RandomState};
+use ahash::HashMap;
 use anyhow::{anyhow, Error};
-use dashmap::DashMap;
 use futures::future::{join_all, BoxFuture};
 use futures::FutureExt;
 use imstr::ImString;
-use parking_lot::Mutex;
+use parking_lot::RwLock;
 use tracing::{debug, error, info, warn};
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_system::{ActorSystem, WeakSystem};
+use crate::actor::actor_system::ActorSystem;
 use crate::actor::extension::Extension;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::config::phase::Phase;
@@ -42,7 +41,7 @@ pub struct CoordinatedShutdown(Arc<CoordinatedShutdownInner>);
 
 #[derive(Debug)]
 pub struct CoordinatedShutdownInner {
-    registered_phases: DashMap<ImString, PhaseTask, RandomState>,
+    registered_phases: RwLock<HashMap<ImString, PhaseTask>>,
     ordered_phases: Vec<ImString>,
     run_started: AtomicBool,
 }
@@ -63,22 +62,20 @@ impl CoordinatedShutdown {
             .ok_or(anyhow!("LocalActorRefProvider not found"))?;
         let ordered_phases = Self::topological_sort(&local.settings().coordinated_shutdown.phases)?;
         let inner = CoordinatedShutdownInner {
-            system: system.downgrade(),
             registered_phases: Default::default(),
             ordered_phases,
             run_started: Default::default(),
         };
-        let shutdown = Self {
-            inner: inner.into(),
-        };
-        shutdown.init_ctrl_c_signal()?;
-        shutdown.init_phase_actor_system_terminate(system)?;
-        Ok(shutdown)
+        let mut coordinated_shutdown = Self(inner.into());
+        coordinated_shutdown.init_ctrl_c_signal()?;
+        coordinated_shutdown.init_phase_actor_system_terminate(system)?;
+        Ok(coordinated_shutdown)
     }
 
     fn topological_sort(phases: &HashMap<ImString, Phase>) -> anyhow::Result<Vec<ImString>> {
         let mut result = vec![];
-        let mut unmarked = phases.keys()
+        let mut unmarked = phases
+            .keys()
             .cloned()
             .chain(phases.values().flat_map(|p| &p.depends_on).cloned())
             .collect::<BTreeSet<_>>();
@@ -114,9 +111,12 @@ impl CoordinatedShutdown {
 
     fn register<F>(&self, phase_name: ImString, name: ImString, fut: F)
     where
-        F: Future<Output=()> + Send + 'static,
+        F: Future<Output = ()> + Send + 'static,
     {
-        let phase_tasks = self.registered_phases.entry(phase_name).or_insert(PhaseTask::default());
+        let phase_tasks = self
+            .registered_phases
+            .entry(phase_name)
+            .or_insert(PhaseTask::default());
         let task = TaskDefinition {
             name,
             fut: fut.boxed(),
@@ -130,7 +130,10 @@ impl CoordinatedShutdown {
         phase: impl Into<ImString>,
         task_name: impl Into<ImString>,
         fut: F,
-    ) -> anyhow::Result<()> where F: Future<Output=()> + Send + 'static {
+    ) -> anyhow::Result<()>
+    where
+        F: Future<Output = ()> + Send + 'static,
+    {
         let phase = phase.into();
         let known_phases = Self::known_phases(system);
         if !known_phases.contains(&phase) {
@@ -161,24 +164,31 @@ impl CoordinatedShutdown {
     }
 
     pub fn get(system: &ActorSystem) -> Self {
-        system.get_extension::<Self>().expect(&format!("{} not found", type_name::<Self>()))
+        system
+            .get_extension::<Self>()
+            .expect(&format!("{} not found", type_name::<Self>()))
     }
 
-    pub fn run<R: Reason + 'static>(&self, system: ActorSystem, reason: R) -> impl Future<Output=()> {
+    pub fn run<R: Reason + 'static>(
+        &self,
+        system: ActorSystem,
+        reason: R,
+    ) -> impl Future<Output = ()> {
         self.inner_run(system, Box::new(reason))
     }
 
-    fn inner_run(&self, system: ActorSystem, reason: Box<dyn Reason>) -> impl Future<Output=()> {
+    fn inner_run(&self, system: ActorSystem, reason: Box<dyn Reason>) -> impl Future<Output = ()> {
         let started = self.run_started.swap(true, Ordering::Relaxed);
         let mut run_tasks = vec![];
         if !started {
-            info!("running coordinated shutdown with reason [{}]",  reason);
+            info!("running coordinated shutdown with reason [{}]", reason);
             let mut registered_phases = {
                 let error = reason.into_error();
                 if error.is_some() {
                     *system.termination_error.lock() = error;
                 }
-                self.registered_phases.lock()
+                self.registered_phases
+                    .write()
                     .drain()
                     .collect::<HashMap<_, _>>()
             };
@@ -227,8 +237,12 @@ impl CoordinatedShutdown {
                         }
                         Some(timeout) => {
                             let timeout = timeout.to_std_duration();
-                            if tokio::time::timeout(timeout, join_all(task_futures)).await.err().is_some() {
-                                warn!("execute phase [{}] timeout after [{:?}]",  phase, timeout);
+                            if tokio::time::timeout(timeout, join_all(task_futures))
+                                .await
+                                .err()
+                                .is_some()
+                            {
+                                warn!("execute phase [{}] timeout after [{:?}]", phase, timeout);
                             }
                         }
                     }
@@ -244,13 +258,18 @@ impl CoordinatedShutdown {
 
     fn init_phase_actor_system_terminate(&self, system: ActorSystem) -> anyhow::Result<()> {
         let sys = system.clone();
-        self.add_task(&system, PHASE_ACTOR_SYSTEM_TERMINATE, "terminate-system", async move {
-            let provider = sys.provider();
-            let mut termination_rx = provider.termination_rx();
-            sys.final_terminated();
-            let _ = termination_rx.recv().await;
-            sys.when_terminated().await;
-        })?;
+        self.add_task(
+            &system,
+            PHASE_ACTOR_SYSTEM_TERMINATE,
+            "terminate-system",
+            async move {
+                let provider = sys.provider();
+                let mut termination_rx = provider.termination_rx();
+                sys.final_terminated();
+                let _ = termination_rx.recv().await;
+                sys.when_terminated().await;
+            },
+        )?;
         Ok(())
     }
 
@@ -279,12 +298,11 @@ impl CoordinatedShutdown {
             .coordinated_shutdown
             .phases
             .get(phase)
-            .and_then(|p| { p.timeout.map(|t| t.to_std_duration()) })
+            .and_then(|p| p.timeout.map(|t| t.to_std_duration()))
     }
 }
 
 impl Extension for CoordinatedShutdown {}
-
 
 #[derive(Default)]
 struct PhaseTask {

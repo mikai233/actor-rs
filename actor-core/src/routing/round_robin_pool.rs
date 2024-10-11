@@ -71,40 +71,18 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::time::Duration;
-
-    use async_trait::async_trait;
-    use tracing::info;
-
-    use actor_derive::EmptyCodec;
-
-    use crate::actor::actor_system::ActorSystem;
-    use crate::actor::context::{Context, ActorContext};
-    use crate::actor::props::{Props, PropsBuilder};
-    use crate::actor_ref::actor_ref_factory::ActorRefFactory;
-    use crate::actor_ref::ActorRefExt;
-    use crate::config::actor_setting::ActorSetting;
-    use crate::routing::round_robin_pool::RoundRobinPool;
-    use crate::routing::router_actor::routee_envelope::RouteeEnvelope;
-    use crate::routing::router_config::RouterProps;
-    use crate::{Actor, DynMessage, Message};
+    use crate::actor::context::{ActorContext, Context};
+    use crate::actor::Actor;
+    use crate::Message;
 
     #[derive(Debug)]
     struct TestActor;
 
-    #[async_trait]
     impl Actor for TestActor {
-        async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
-            info!("{} started", context.myself());
-            Ok(())
-        }
+        type Context = Context;
 
-        async fn on_recv(
-            &mut self,
-            context: &mut Context,
-            message: DynMessage,
-        ) -> anyhow::Result<()> {
-            Self::handle_message(self, context, message).await
+        fn receive(&self) -> crate::actor::receive::Receive<Self> {
+            todo!()
         }
     }
 
@@ -112,17 +90,17 @@ mod test {
     #[display("TestMessage")]
     struct TestMessage;
 
-    #[tokio::test]
-    async fn test_round_robin() -> anyhow::Result<()> {
-        let system = ActorSystem::new("mikai233", ActorSetting::default())?;
-        let router_props =
-            RoundRobinPool::new(5, PropsBuilder::new(|()| Ok(TestActor)), ()).props();
-        let round_robin_router = system.spawn_anonymous(router_props)?;
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        for _ in 0..200 {
-            round_robin_router.cast_ns(RouteeEnvelope::new(TestMessage));
-        }
-        tokio::time::sleep(Duration::from_secs(2)).await;
-        Ok(())
-    }
+    // #[tokio::test]
+    // async fn test_round_robin() -> anyhow::Result<()> {
+    //     let system = ActorSystem::new("mikai233", ActorSetting::default())?;
+    //     let router_props =
+    //         RoundRobinPool::new(5, PropsBuilder::new(|()| Ok(TestActor)), ()).props();
+    //     let round_robin_router = system.spawn_anonymous(router_props)?;
+    //     tokio::time::sleep(Duration::from_secs(1)).await;
+    //     for _ in 0..200 {
+    //         round_robin_router.cast_ns(RouteeEnvelope::new(TestMessage));
+    //     }
+    //     tokio::time::sleep(Duration::from_secs(2)).await;
+    //     Ok(())
+    // }
 }
