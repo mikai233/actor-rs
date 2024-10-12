@@ -4,11 +4,11 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::time::Duration;
 
-use crate::actor::context::ActorContext;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::empty_local_ref::EmptyLocalActorRef;
-use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
+use crate::message::handler::MessageHandler;
 use crate::message::identify::{ActorIdentity, Identify};
 use crate::message::{downcast_ref, DynMessage, Message, Signature};
 use crate::pattern::patterns::Patterns;
@@ -19,6 +19,11 @@ use itertools::Itertools;
 use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tracing::error;
+
+use super::behavior::Behavior;
+use super::context::ActorContext;
+use super::receive::Receive;
+use super::Actor;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ActorSelection {
@@ -96,7 +101,6 @@ impl ActorSelection {
                 .map(|e| e.to_string())
                 .collect::<Vec<_>>();
             let empty_ref = EmptyLocalActorRef::new(
-                anchor.system().clone(),
                 anchor
                     .path()
                     .descendant(elements.iter().map(|e| e.as_str())),
@@ -119,7 +123,7 @@ impl ActorSelection {
                                     }
                                     None => {
                                         if !sel.wildcard_fan_out {
-                                            empty_ref.tell(sel, sender);
+                                            empty_ref.cast(sel, sender);
                                         }
                                         break;
                                     }
@@ -127,13 +131,13 @@ impl ActorSelection {
                             }
                             SelectionPathElement::SelectChildPattern(p) => {
                                 let matching_children = local
-                                    .children()
+                                    .children
                                     .iter()
                                     .filter(|c| p.is_match(c.value().path().name()))
-                                    .collect::<Vec<_>>();
+                                    .collect_vec();
                                 if iter.peek().is_none() {
                                     if matching_children.is_empty() && !sel.wildcard_fan_out {
-                                        empty_ref.tell(sel, sender.clone())
+                                        empty_ref.cast(sel, sender.clone())
                                     } else {
                                         for child in matching_children {
                                             let message = sel
@@ -145,7 +149,7 @@ impl ActorSelection {
                                     }
                                 } else {
                                     if matching_children.is_empty() && !sel.wildcard_fan_out {
-                                        empty_ref.tell(sel, sender.clone());
+                                        empty_ref.cast(sel, sender.clone());
                                     } else {
                                         let wildcard_fan_out =
                                             sel.wildcard_fan_out || matching_children.len() > 1;
@@ -173,10 +177,10 @@ impl ActorSelection {
                                 Some(parent) => {
                                     if iter.peek().is_none() {
                                         parent
-                                            .tell(sel.message.dyn_clone().unwrap(), sender.clone());
+                                            .tell(sel.message.clone_box().unwrap(), sender.clone());
                                         break;
                                     } else {
-                                        actor = parent.clone();
+                                        actor = dyn_clone::clone_box(parent).into();
                                     }
                                 }
                                 None => {
@@ -191,7 +195,7 @@ impl ActorSelection {
                     None => {
                         let sel =
                             sel.copy_with_elements(iter.cloned().collect(), sel.wildcard_fan_out);
-                        actor.tell(sel, sender);
+                        actor.cast(sel, sender);
                         break;
                     }
                 }
@@ -274,7 +278,8 @@ impl<'de> Deserialize<'de> for SelectChildPattern {
         D: Deserializer<'de>,
     {
         let pattern_str = String::deserialize(deserializer)?;
-        Ok(Self::new(pattern_str)?)
+        let pattern = Self::new(pattern_str).map_err(|e| serde::de::Error::custom(e))?;
+        Ok(pattern)
     }
 }
 
@@ -339,7 +344,7 @@ impl ActorSelectionMessage {
         elements: Vec<SelectionPathElement>,
         wildcard_fan_out: bool,
     ) -> anyhow::Result<Self> {
-        if message.cloneable() {
+        if message.is_cloneable() {
             let myself = Self {
                 message,
                 elements,
@@ -350,6 +355,7 @@ impl ActorSelectionMessage {
             Err(anyhow!("message {} must be cloneable", message.signature()))
         }
     }
+
     pub(crate) fn identify_request(&self) -> Option<&Identify> {
         downcast_ref(&self.message)
     }
@@ -416,5 +422,22 @@ impl Display for ActorSelectionMessage {
             self.elements.iter().join(", "),
             self.wildcard_fan_out,
         )
+    }
+}
+
+impl<A: Actor> MessageHandler<A> for ActorSelectionMessage {
+    fn handle(
+        _: &mut A,
+        ctx: &mut A::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<A>,
+    ) -> anyhow::Result<Behavior<A>> {
+        if message.elements.is_empty() {
+            ctx.context().myself.tell(message.message, sender);
+        } else {
+            ActorSelection::deliver_selection(ctx.context().myself.clone(), sender, message);
+        }
+        Ok(Behavior::same())
     }
 }

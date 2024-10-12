@@ -3,11 +3,11 @@ use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::ops::Deref;
 use std::pin::Pin;
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::{anyhow, Context as _};
+use anyhow::anyhow;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use parking_lot::Mutex;
@@ -18,7 +18,7 @@ use tokio::sync::mpsc::{channel, Sender};
 use crate::actor::address::Address;
 use crate::actor::coordinated_shutdown::{ActorSystemTerminateReason, CoordinatedShutdown, Reason};
 use crate::actor::extension::{Extension, SystemExtension};
-use crate::actor::props::{ActorDeferredSpawn, Props};
+use crate::actor::props::Props;
 use crate::actor::scheduler::{scheduler, SchedulerSender};
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
@@ -28,7 +28,7 @@ use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::event::event_stream::EventStream;
 use crate::message::stop_child::StopChild;
-use crate::provider::provider::Provider;
+use crate::provider::provider::{ActorSpawn, Provider};
 use crate::provider::{ActorRefProvider, TActorRefProvider};
 
 #[derive(Debug, Clone, derive_more::Deref)]
@@ -53,10 +53,7 @@ impl ActorSystem {
     where
         P: TActorRefProvider + 'static,
     {
-        let Provider {
-            provider,
-            actor_refs,
-        } = provider;
+        let Provider { provider, spawns } = provider;
         let scheduler = scheduler();
         let (signal_tx, mut signal_rx) = channel(1);
         let inner = ActorSystemInner {
@@ -72,6 +69,12 @@ impl ActorSystem {
             termination_error: Mutex::default(),
         };
         let system = Self(inner.into());
+
+        for spawn in spawns {
+            spawn.myself.start();
+            spawn.spawn(system.clone())?;
+        }
+
         system.register_extension(|_| Ok(AddressTerminatedTopic::new()))?;
         system.register_extension(CoordinatedShutdown::new)?;
         let signal = async move {
@@ -134,16 +137,16 @@ impl ActorSystem {
 
     pub fn spawn_system(&self, props: Props, name: Option<String>) -> anyhow::Result<ActorRef> {
         self.system_guardian()
-            .attach_child(props, self.clone(), self.provider(), name, None)
+            .attach_child(props, self.clone(), name, None)
     }
 
     pub fn spawn_system_deferred(
         &self,
         props: Props,
         name: Option<String>,
-    ) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
+    ) -> anyhow::Result<ActorSpawn> {
         self.system_guardian()
-            .attach_child_deferred_start(props, name, None)
+            .attach_child_deferred(props, name, None)
     }
 
     pub fn register_extension<E, F>(&self, ext_fn: F) -> anyhow::Result<()>
@@ -167,7 +170,7 @@ impl ActorSystem {
         self.extension.get()
     }
 
-    pub fn dead_letters(&self) -> &ActorRef {
+    pub fn dead_letters(&self) -> &dyn TActorRef {
         self.provider().dead_letters()
     }
 
@@ -197,18 +200,13 @@ impl ActorRefFactory for ActorSystem {
     }
 
     fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
-        self.guardian().attach_child(
-            props,
-            self.clone(),
-            self.provider(),
-            Some(name.into()),
-            None,
-        )
+        self.guardian()
+            .attach_child(props, self.clone(), Some(name.into()), None)
     }
 
     fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
         self.guardian()
-            .attach_child(props, self.clone(), self.provider(), None, None)
+            .attach_child(props, self.clone(), None, None)
     }
 
     fn stop(&self, actor: &ActorRef) {
@@ -217,24 +215,12 @@ impl ActorRefFactory for ActorSystem {
         let guard = self.guardian();
         let sys = self.system_guardian();
         if parent == guard.path || parent == sys.path {
-            guard.cast_ns(StopChild { child: actor.clone() });
+            guard.cast_ns(StopChild {
+                child: actor.clone(),
+            });
         } else {
             actor.stop();
         }
-    }
-}
-
-#[derive(Debug, Clone, derive_more::Deref)]
-pub struct WeakSystem(Weak<ActorSystemInner>);
-
-impl WeakSystem {
-    pub fn upgrade(&self) -> anyhow::Result<ActorSystem> {
-        let inner = self
-            .0
-            .upgrade()
-            .into_result()
-            .context("ActorSystem destroyed, any system week reference is invalid")?;
-        Ok(ActorSystem(inner))
     }
 }
 

@@ -17,9 +17,9 @@ pub struct Suspend;
 
 impl<A: Actor> MessageHandler<A> for Suspend {
     fn handle(
-        actor: &mut A,
+        _: &mut A,
         ctx: &mut A::Context,
-        message: Self,
+        _: Self,
         _: Option<ActorRef>,
         _: &Receive<A>,
     ) -> anyhow::Result<Behavior<A>> {

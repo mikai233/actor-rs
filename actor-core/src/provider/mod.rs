@@ -1,4 +1,4 @@
-use crate::actor::actor_system::Settings;
+use crate::actor::actor_system::{ActorSystem, Settings};
 use crate::actor::address::Address;
 use crate::actor::props::Props;
 use crate::actor_path::ActorPath;
@@ -38,12 +38,17 @@ pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
 
     fn unregister_temp_actor(&self, path: &ActorPath);
 
-    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef>;
+    fn spawn_actor(
+        &self,
+        props: Props,
+        supervisor: &ActorRef,
+        system: ActorSystem,
+    ) -> anyhow::Result<ActorRef>;
 
     fn resolve_actor_ref(&self, path: &str) -> ActorRef {
         match path.parse::<ActorPath>() {
             Ok(actor_path) => self.resolve_actor_ref_of_path(&actor_path),
-            Err(_) => self.dead_letters().clone(),
+            Err(_) => dyn_clone::clone_box(self.dead_letters()).into(),
         }
     }
 

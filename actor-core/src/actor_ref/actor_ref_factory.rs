@@ -24,15 +24,22 @@ pub trait ActorRefFactory {
             ActorSelectionPath::RelativePath(rp) => {
                 let mut elements = rp.split("/").peekable();
                 match elements.peek() {
-                    None => {
-                        ActorSelection::new(self.provider().dead_letters().clone(), vec![""])
-                    }
+                    None => ActorSelection::new(
+                        dyn_clone::clone_box(self.provider().dead_letters()).into(),
+                        vec![""],
+                    ),
                     Some(n) => {
                         if n.is_empty() {
                             elements.next();
-                            ActorSelection::new(self.provider().root_guardian().clone().into(), elements.into_iter())
+                            ActorSelection::new(
+                                self.provider().root_guardian().clone().into(),
+                                elements.into_iter(),
+                            )
                         } else {
-                            ActorSelection::new(self.provider().root_guardian().clone().into(), elements.into_iter())
+                            ActorSelection::new(
+                                self.provider().root_guardian().clone().into(),
+                                elements.into_iter(),
+                            )
                         }
                     }
                 }

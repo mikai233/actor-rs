@@ -20,7 +20,7 @@ pub struct AddressTerminated {
 
 impl<A: Actor> MessageHandler<A> for AddressTerminated {
     fn handle(
-        actor: &mut A,
+        _: &mut A,
         ctx: &mut <A as Actor>::Context,
         message: Self,
         _: Option<ActorRef>,

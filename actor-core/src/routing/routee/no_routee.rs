@@ -6,5 +6,5 @@ use crate::routing::routee::TRoutee;
 pub struct NoRoutee;
 
 impl TRoutee for NoRoutee {
-    fn send(&self, message: DynMessage, sender: Option<ActorRef>) {}
+    fn send(&self, _: DynMessage, _: Option<ActorRef>) {}
 }

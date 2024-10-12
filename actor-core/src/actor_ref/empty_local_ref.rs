@@ -5,7 +5,6 @@ use std::sync::Arc;
 use actor_derive::AsAny;
 
 use crate::actor::actor_selection::ActorSelectionMessage;
-use crate::actor::actor_system::WeakSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{get_child_default, ActorRef, ActorRefExt, TActorRef};
 use crate::message::death_watch_notification::DeathWatchNotification;
@@ -62,7 +61,7 @@ impl TActorRef for EmptyLocalActorRef {
 }
 
 impl EmptyLocalActorRef {
-    pub(crate) fn new(system: WeakSystem, path: ActorPath) -> Self {
+    pub(crate) fn new(path: ActorPath) -> Self {
         let inner = EmptyLocalActorRefInner { path };
         Self(inner.into())
     }

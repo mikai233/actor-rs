@@ -7,15 +7,13 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::props::Props;
 use crate::actor::state::ActorState;
 use crate::actor::watching::Watching;
-use crate::actor_path::child_actor_path::ChildActorPath;
-use crate::actor_path::{ActorPath, TActorPath};
+use crate::actor_path::TActorPath;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
-use crate::actor_ref::function_ref::FunctionRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::cell::envelope::Envelope;
 use crate::event::address_terminated_topic::AddressTerminatedTopic;
-use crate::ext::random_name;
+use crate::local;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::failed::Failed;
 use crate::message::task_finish::TaskFinish;
@@ -31,13 +29,7 @@ use dashmap::DashMap;
 use tokio::task::{AbortHandle, JoinHandle};
 use tracing::{debug, error, warn};
 
-macro_rules! local {
-    ($actor_ref: expr) => {
-        $actor_ref.local().expect("ActorRef is not LocalActorRef")
-    };
-}
-
-pub trait ActorContext: ActorRefFactory + Sized {
+pub trait ActorContext: ActorRefFactory + Send + Sized {
     fn new(system: ActorSystem, myself: ActorRef) -> Self;
 
     fn context(&self) -> &Context;
@@ -49,7 +41,6 @@ pub trait ActorContext: ActorRefFactory + Sized {
 pub struct Context {
     pub(crate) state: ActorState,
     pub(crate) myself: ActorRef,
-    pub(crate) function_refs: HashMap<String, FunctionRef>,
     pub(crate) stash_capacity: Option<usize>,
     pub(crate) stash: VecDeque<Envelope>,
     pub(crate) task_id: usize,
@@ -74,7 +65,7 @@ impl ActorRefFactory for Context {
     }
 
     fn lookup_root(&self) -> &dyn TActorRef {
-        self.myself()
+        &**self.myself
     }
 
     fn spawn(&self, props: Props, name: impl Into<String>) -> anyhow::Result<ActorRef> {
@@ -84,13 +75,7 @@ impl ActorRefFactory for Context {
                 self.myself
             ));
         }
-        local!(self.myself).attach_child(
-            props,
-            self.system.clone(),
-            self.provider(),
-            Some(name.into()),
-            None,
-        )
+        local!(self.myself).attach_child(props, self.system.clone(), Some(name.into()), None)
     }
 
     fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
@@ -100,7 +85,7 @@ impl ActorRefFactory for Context {
                 self.myself
             ));
         }
-        local!(self.myself).attach_child(props, self.system.clone(), self.provider(), None, None)
+        local!(self.myself).attach_child(props, self.system.clone(), None, None)
     }
 
     fn stop(&self, actor: &ActorRef) {
@@ -113,7 +98,6 @@ impl ActorContext for Context {
         Context {
             state: ActorState::Init,
             myself,
-            function_refs: Default::default(),
             stash_capacity: None,
             stash: Default::default(),
             task_id: 0,
@@ -175,8 +159,8 @@ impl Context {
         self.state = ActorState::Terminating;
         let children = self.children();
         if children.is_empty().not() {
-            for child in &children {
-                self.stop(child);
+            for child in children {
+                self.stop(&child);
             }
         } else {
             self.finish_terminate();
@@ -216,7 +200,7 @@ impl Context {
                     address_terminated,
                 };
                 self.terminated_queued_for(&actor, optional_message);
-                self.myself.tell(terminated, Some(actor));
+                self.myself.cast(terminated, Some(actor.clone()));
             }
         }
         if self.children().contains_key(actor.path().name()) {
@@ -247,12 +231,17 @@ impl Context {
         let (local_watchers, remote_watchers): (Vec<_>, Vec<_>) = self
             .watched_by
             .iter()
-            .partition(|w| &self.system().address() == w.path().address());
+            .partition(|w| self.system().address() == w.path().address());
         remote_watchers
             .iter()
             .chain(&local_watchers)
             .for_each(|watcher| {
-                if self.myself.parent().map(|p| &p != watcher).unwrap_or(true) {
+                if self
+                    .myself
+                    .parent()
+                    .map(|p| p.path() != watcher.path())
+                    .unwrap_or(true)
+                {
                     let myself = self.myself.clone();
                     debug!("{} tell watcher {} we died", myself, watcher);
                     let notification = DeathWatchNotification {
@@ -260,7 +249,7 @@ impl Context {
                         existence_confirmed: true,
                         address_terminated: false,
                     };
-                    watcher.cast_system(notification, ActorRef::no_sender());
+                    watcher.cast_ns(notification);
                 }
             });
         self.maintain_address_terminated_subscription(None, |ctx| {
@@ -339,30 +328,6 @@ impl Context {
         let abort_handle = handle.abort_handle();
         self.abort_handles.insert(name, abort_handle);
         Ok(handle)
-    }
-
-    pub(crate) fn add_function_ref<F>(&mut self, transform: F, name: Option<String>) -> FunctionRef
-    where
-        F: Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static,
-    {
-        let mut n = random_name("$$".to_string());
-        if let Some(name) = name {
-            n.push_str(&*format!("-{}", name));
-        }
-        let child_path = ChildActorPath::new(self.myself.path().clone(), n, ActorPath::new_uid());
-        let name = child_path.name().clone();
-        let function_ref = FunctionRef::new(child_path, transform);
-        self.function_refs.insert(name, function_ref.clone());
-        function_ref
-    }
-
-    pub(crate) fn remove_function_ref(&self, name: &str) -> bool {
-        self.myself
-            .local()
-            .unwrap()
-            .underlying()
-            .remove_function_ref(name)
-            .is_some()
     }
 
     pub(crate) fn handle_invoke_failure(

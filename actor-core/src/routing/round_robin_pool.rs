@@ -2,7 +2,7 @@ use crate::actor::actor_system::ActorSystem;
 use crate::actor::context::Context;
 use crate::actor::props::{Props, PropsBuilder};
 use crate::routing::routee::Routee;
-use crate::routing::router_actor::{Router, RouterActor};
+use crate::routing::router_actor::RouterActor;
 use crate::routing::router_config::pool::{Pool, PoolRouterConfig};
 use crate::routing::router_config::{RouterConfig, RouterProps, TRouterConfig};
 use crate::routing::routing_logic::round_robin_routing_logic::RoundRobinRoutingLogic;
@@ -63,8 +63,7 @@ where
     fn props(self) -> Props {
         let router_config = RouterConfig::PoolRouterConfig(PoolRouterConfig::new(self));
         Props::new(move || {
-            let router: Box<dyn Router> = Box::new(RouterActor::new(router_config));
-            Ok(router)
+            Ok(RouterActor::new(router_config))
         })
     }
 }
@@ -72,8 +71,9 @@ where
 #[cfg(test)]
 mod test {
     use crate::actor::context::{ActorContext, Context};
+    use crate::actor::receive::Receive;
     use crate::actor::Actor;
-    use crate::Message;
+    use actor_derive::Message;
 
     #[derive(Debug)]
     struct TestActor;
@@ -81,8 +81,8 @@ mod test {
     impl Actor for TestActor {
         type Context = Context;
 
-        fn receive(&self) -> crate::actor::receive::Receive<Self> {
-            todo!()
+        fn receive(&self) -> Receive<Self> {
+            Receive::new()
         }
     }
 

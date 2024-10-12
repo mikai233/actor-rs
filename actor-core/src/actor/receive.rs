@@ -7,12 +7,14 @@ use std::any::TypeId;
 
 pub type ReceiveFn<A: Actor> = Box<
     dyn Fn(
-        &mut A,
-        &mut A::Context,
-        DynMessage,
-        Option<ActorRef>,
-        &Receive<A>,
-    ) -> anyhow::Result<Behavior<A>>,
+            &mut A,
+            &mut A::Context,
+            DynMessage,
+            Option<ActorRef>,
+            &Receive<A>,
+        ) -> anyhow::Result<Behavior<A>>
+        + Send
+        + Sync,
 >;
 
 pub struct Receive<A: Actor> {
@@ -53,6 +55,8 @@ impl<A: Actor> Receive<A> {
                 Option<ActorRef>,
                 &Receive<A>,
             ) -> anyhow::Result<Behavior<A>>
+            + Send
+            + Sync
             + 'static,
     ) -> Self
     where
@@ -70,7 +74,7 @@ impl<A: Actor> Receive<A> {
         self
     }
 
-    pub fn handle<M>(mut self) -> Self
+    pub fn handle<M>(self) -> Self
     where
         M: Message + MessageHandler<A>,
     {

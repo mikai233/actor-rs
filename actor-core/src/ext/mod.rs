@@ -67,7 +67,7 @@ pub(crate) fn random_name(prefix: String) -> String {
     base64(num, prefix)
 }
 
-pub(crate) fn check_name(name: &String) -> anyhow::Result<()> {
+pub(crate) fn check_name(name: &str) -> anyhow::Result<()> {
     let valid = name.chars().all(|c| match c {
         'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => true,
         _ => false,

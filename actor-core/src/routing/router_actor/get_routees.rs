@@ -1,31 +1,45 @@
-use async_trait::async_trait;
-
-use actor_derive::{EmptyCodec, OrphanEmptyCodec};
-
-use crate::actor::context::Context;
-use crate::actor_ref::ActorRefExt;
-use crate::ext::option_ext::OptionExt;
-use crate::Message;
+use crate::actor::behavior::Behavior;
+use crate::actor::receive::Receive;
+use crate::actor_ref::{ActorRef, ActorRefExt};
+use crate::message::handler::MessageHandler;
 use crate::routing::routee::Routee;
 use crate::routing::router_actor::Router;
+use actor_derive::Message;
+use itertools::Itertools;
+use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Serialize, Deserialize, Message, derive_more::Display)]
+#[display("GetRoutees")]
 pub struct GetRoutees;
 
-#[async_trait]
-impl Message for GetRoutees {
-    type A = Box<dyn Router>;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
+impl<A: Router> MessageHandler<A> for GetRoutees {
+    fn handle(
+        actor: &mut A,
+        _: &mut A::Context,
+        _: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<A>,
+    ) -> anyhow::Result<Behavior<A>> {
         let routees = actor.routees().clone();
-        context.sender.foreach(move |sender| {
-            sender.cast_orphan_ns(GetRouteesResp { routees });
-        });
-        Ok(())
+        if let Some(sender) = sender {
+            sender.cast_ns(GetRouteesResp { routees });
+        }
+        Ok(Behavior::same())
     }
 }
 
-#[derive(OrphanEmptyCodec)]
+#[derive(Debug, Message)]
 pub struct GetRouteesResp {
     pub routees: Vec<Routee>,
+}
+
+impl Display for GetRouteesResp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "GetRouteesResp{{ routees: {} }}",
+            self.routees.iter().join(", ")
+        )
+    }
 }

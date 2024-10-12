@@ -1,6 +1,5 @@
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use config::{Config, File, FileFormat};
 use dashmap::DashMap;
 use tokio::sync::broadcast::{channel, Receiver, Sender};
 
@@ -11,6 +10,7 @@ use crate::actor::address::{Address, Protocol};
 use crate::actor::props::Props;
 use crate::actor::root_guardian::RootGuardian;
 use crate::actor::system_guardian::SystemGuardian;
+use crate::actor::user_guardian::UserGuardian;
 use crate::actor_path::root_actor_path::RootActorPath;
 use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
@@ -19,10 +19,10 @@ use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::ext::base64;
-use crate::provider::provider::Provider;
+use crate::local;
+use crate::provider::provider::{ActorSpawn, Provider};
 use crate::provider::{cast_self_to_dyn, ActorRefProvider, TActorRefProvider};
 use crate::util::duration::ConfigDuration;
-use crate::REFERENCE;
 
 #[derive(Debug, AsAny)]
 pub struct LocalActorRefProvider {
@@ -42,6 +42,7 @@ pub struct LocalActorRefProvider {
 
 impl LocalActorRefProvider {
     pub fn new(settings: Settings) -> anyhow::Result<Provider<Self>> {
+        let mut actor_spawns = vec![];
         let (termination_tx, _) = channel(1);
         //TODO address
         let root_path = RootActorPath::new(Address::new(Protocol::Akka, "test", None), "/");
@@ -54,23 +55,25 @@ impl LocalActorRefProvider {
             throughput: 100,
         };
         let (sender, mailbox) = root_props.mailbox(mailbox)?;
-        let root_guardian = LocalActorRef::new(root_path.clone().into(), sender, None);
-        let system_guardian = root_guardian.attach_child(
+        let (root_guardian, signal_rx) = LocalActorRef::new(root_path.clone().into(), sender, None);
+        let root_spawn =
+            ActorSpawn::new(root_props, root_guardian.clone().into(), signal_rx, mailbox);
+        actor_spawns.push(root_spawn);
+        let system_spawn = root_guardian.attach_child_deferred(
             Props::new(|| Ok(SystemGuardian)),
             Some("system".to_string()),
             Some(ActorPath::undefined_uid()),
         )?;
-        spawns.push(Box::new(deferred));
-        let system_guardian = system_guardian.local().unwrap();
-        let (user_guardian, deferred) = root_guardian.attach_child_deferred_start(
+        let system_guardian = local!(system_spawn.myself).clone();
+        actor_spawns.push(system_spawn);
+        let user_spawn = root_guardian.attach_child_deferred(
             Props::new(|| Ok(UserGuardian)),
             Some("user".to_string()),
             Some(ActorPath::undefined_uid()),
         )?;
-        spawns.push(Box::new(deferred));
-        let user_guardian = user_guardian.local().unwrap();
-        let dead_letters =
-            DeadLetterActorRef::new(system.downgrade(), root_path.child("dead_letters"));
+        let user_guardian = local!(user_spawn.myself).clone();
+        actor_spawns.push(user_spawn);
+        let dead_letters = DeadLetterActorRef::new(root_path.child("dead_letters"));
         let temp_node = root_path.child("temp");
         let temp_container =
             VirtualPathContainer::new(temp_node.clone(), root_guardian.clone().into());
@@ -89,7 +92,7 @@ impl LocalActorRefProvider {
             temp_container,
             termination_tx,
         };
-        Ok(Provider::new(local, spawns))
+        Ok(Provider::new(local, actor_spawns))
     }
 
     pub fn settings(&self) -> &Settings {
@@ -164,35 +167,37 @@ impl TActorRefProvider for LocalActorRefProvider {
         self.temp_container.remove_child(path.name());
     }
 
-    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
-        supervisor
-            .local()
-            .unwrap()
-            .attach_child(props, self, None, None)
+    fn spawn_actor(
+        &self,
+        props: Props,
+        supervisor: &ActorRef,
+        system: ActorSystem,
+    ) -> anyhow::Result<ActorRef> {
+        local!(supervisor).attach_child(props, system, None, None)
     }
 
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {
         if path.address() == self.root_path().address() {
             //TODO opt
             let elements = path.elements();
-            let iter = &mut elements.iter().map(|e| e.as_str()) as &mut dyn Iterator<Item=&str>;
+            let iter = &mut elements.iter().map(|e| e.as_str()) as &mut dyn Iterator<Item = &str>;
             let mut iter = iter.peekable();
             match iter.peek() {
                 Some(peek) if *peek == "temp" => {
                     iter.next();
                     TActorRef::get_child(&self.temp_container, &mut iter)
-                        .unwrap_or_else(|| self.dead_letters().clone())
+                        .unwrap_or_else(|| self.dead_letters.clone())
                 }
                 Some(peek) if *peek == "dead_letters" => self.dead_letters.clone(),
                 Some(peek) if self.extra_names.contains_key(&**peek) => self
                     .extra_names
                     .get(&**peek)
                     .map(|r| r.value().clone())
-                    .unwrap_or_else(|| self.dead_letters().clone()),
+                    .unwrap_or_else(|| self.dead_letters.clone()),
                 _ => self
                     .root_guardian()
                     .get_child(&mut iter)
-                    .unwrap_or_else(|| self.dead_letters().clone()),
+                    .unwrap_or_else(|| self.dead_letters.clone()),
             }
         } else {
             self.dead_letters.clone()
@@ -200,11 +205,11 @@ impl TActorRefProvider for LocalActorRefProvider {
     }
 
     fn dead_letters(&self) -> &dyn TActorRef {
-        &self.dead_letters
+        &**self.dead_letters
     }
 
     fn ignore_ref(&self) -> &dyn TActorRef {
-        &self.ignore_ref
+        &**self.ignore_ref
     }
 
     fn termination_rx(&self) -> Receiver<()> {
@@ -216,73 +221,8 @@ impl TActorRefProvider for LocalActorRefProvider {
     }
 }
 
-impl ProviderBuilder<Self> for LocalActorRefProvider {
-    fn build(
-        system: ActorSystem,
-        config: Config,
-        _registry: MessageRegistry,
-    ) -> anyhow::Result<Provider<Self>> {
-        let config = Config::builder()
-            .add_source(File::from_str(REFERENCE, FileFormat::Toml))
-            .add_source(config)
-            .build()?;
-        Self::new(system, &config, None)
-    }
-}
-
 impl Into<ActorRefProvider> for LocalActorRefProvider {
     fn into(self) -> ActorRefProvider {
         ActorRefProvider::new(self)
     }
 }
-
-// #[cfg(test)]
-// mod local_provider_test {
-//     use async_trait::async_trait;
-//     use tracing::info;
-//
-//     use crate::{Actor, EmptyTestActor, EmptyTestMessage};
-//     use crate::actor::actor_ref::ActorRefExt;
-//     use crate::actor_ref_factory::ActorRefFactory;
-//     use crate::actor::context::ActorContext;
-//     use crate::props::Props;
-//     use crate::system::ActorSystem;
-//     use crate::system::config::ActorSystemConfig;
-//
-//     #[derive(Debug)]
-//     struct ActorA;
-//
-//     #[async_trait]
-//     impl Actor for ActorA {
-//         async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-//             info!("actor a {} pre start", context.myself);
-//             context.spawn_anonymous_actor(Props::create(|_| ActorA))?;
-//             Ok(())
-//         }
-//     }
-//
-//     #[derive(Debug)]
-//     struct ActorB;
-//
-//     #[async_trait]
-//     impl Actor for ActorB {
-//         async fn pre_start(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-//             info!("actor b {} pre start", context.myself);
-//             context.spawn_anonymous_actor(Props::create(|_| EmptyTestActor))?;
-//             Ok(())
-//         }
-//     }
-//
-//
-//     #[tokio::test]
-//     async fn test() -> anyhow::Result<()> {
-//         let system = ActorSystem::create(ActorSystemConfig::default()).await?;
-//         let _ = system.spawn_anonymous_actor(Props::create(|_| ActorA))?;
-//         let actor_c = system
-//             .provider()
-//             .resolve_actor_ref(&"tcp://game@127.0.0.1:12121/user/$a/$b/$c".to_string());
-//         actor_c.cast(EmptyTestMessage, None);
-//         std::thread::park();
-//         Ok(())
-//     }
-// }

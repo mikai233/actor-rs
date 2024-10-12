@@ -52,7 +52,7 @@ impl TActorRef for VirtualPathContainer {
     fn stop(&self) {}
 
     fn parent(&self) -> Option<&dyn TActorRef> {
-        Some(&self.parent)
+        Some(&**self.parent)
     }
 
     fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {
@@ -100,7 +100,7 @@ impl VirtualPathContainer {
         }
     }
 
-    pub(crate) fn remove_child(&self, name: &String) -> Option<(String, ActorRef)> {
+    pub(crate) fn remove_child(&self, name: &str) -> Option<(String, ActorRef)> {
         self.children.remove(name)
     }
 

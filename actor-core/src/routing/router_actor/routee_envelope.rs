@@ -1,33 +1,43 @@
-use async_trait::async_trait;
-
-use actor_derive::EmptyCodec;
-
-use crate::{DynMessage, Message};
-use crate::actor::context::{Context, ActorContext};
+use crate::actor::behavior::Behavior;
+use crate::actor::receive::Receive;
+use crate::actor_ref::ActorRef;
+use crate::message::handler::MessageHandler;
+use crate::message::{DynMessage, Message};
 use crate::routing::routee::TRoutee;
 use crate::routing::router_actor::Router;
 use crate::routing::router_config::TRouterConfig;
+use actor_derive::Message;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("RouteeEnvelope {{ message: {message} }}")]
 pub struct RouteeEnvelope {
     pub message: DynMessage,
 }
 
 impl RouteeEnvelope {
-    pub fn new<M>(message: M) -> Self where M: Message {
+    pub fn new<M>(message: M) -> Self
+    where
+        M: Message,
+    {
         Self {
-            message: DynMessage::user(message),
+            message: Box::new(message),
         }
     }
 }
 
-#[async_trait]
-impl Message for RouteeEnvelope {
-    type A = Box<dyn Router>;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        let routee = actor.router_config().routing_logic().select(&self.message, actor.routees());
-        routee.send(self.message, context.sender().cloned());
-        Ok(())
+impl<A: Router> MessageHandler<A> for RouteeEnvelope {
+    fn handle(
+        actor: &mut A,
+        _: &mut A::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<A>,
+    ) -> anyhow::Result<Behavior<A>> {
+        let routee = actor
+            .router_config()
+            .routing_logic()
+            .select(&message.message, actor.routees());
+        routee.send(message.message, sender);
+        Ok(Behavior::same())
     }
 }

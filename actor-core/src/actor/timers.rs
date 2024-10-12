@@ -1,5 +1,4 @@
 use std::any::type_name;
-use std::collections::hash_map::Entry;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -48,17 +47,18 @@ impl TimersActor {
     fn watch_receiver(
         watching_receivers: &mut HashMap<ActorRef, HashSet<u64>>,
         context: &mut Context,
-        receiver: ActorRef,
+        receiver: &ActorRef,
         index: u64,
     ) -> anyhow::Result<()> {
-        match watching_receivers.entry(receiver) {
-            Entry::Occupied(mut o) => {
-                o.get_mut().insert(index);
+        match watching_receivers.get_mut(receiver) {
+            Some(receiver) => {
+                receiver.insert(index);
             }
-            Entry::Vacant(v) => {
+            None => {
                 let mut indices = HashSet::new();
                 indices.insert(index);
-                v.insert(indices);
+                watching_receivers.insert(receiver.clone(), indices);
+                context.watch(receiver);
             }
         }
         Ok(())
@@ -111,7 +111,7 @@ impl TimersActor {
         actor: &mut TimersActor,
         ctx: &mut Context,
         message: Terminated,
-        sender: Option<ActorRef>,
+        _: Option<ActorRef>,
         _: &Receive<Self>,
     ) -> anyhow::Result<Behavior<Self>> {
         let watchee = message.actor;
@@ -237,11 +237,7 @@ impl Display for Schedule {
                     index, delay, message, receiver
                 )
             }
-            Schedule::OnceWith {
-                index,
-                delay,
-                block,
-            } => {
+            Schedule::OnceWith { index, delay, .. } => {
                 write!(
                     f,
                     "Schedule::OnceWith {{ index: {}, delay: {:?}, block: ..",
@@ -269,7 +265,7 @@ impl Display for Schedule {
                 index,
                 initial_delay,
                 interval,
-                block,
+                ..
             } => {
                 write!(
                     f,
@@ -288,7 +284,7 @@ impl MessageHandler<TimersActor> for Schedule {
         actor: &mut TimersActor,
         ctx: &mut <TimersActor as Actor>::Context,
         message: Self,
-        sender: Option<ActorRef>,
+        _: Option<ActorRef>,
         _: &Receive<TimersActor>,
     ) -> anyhow::Result<Behavior<TimersActor>> {
         match &message {
@@ -298,7 +294,9 @@ impl MessageHandler<TimersActor> for Schedule {
                 receiver,
                 ..
             } => {
-                TimersActor::watch_receiver(&mut actor.watching_receivers, ctx, receiver, index)?;
+                TimersActor::watch_receiver(&mut actor.watching_receivers, ctx, receiver, *index)?;
+                let index = *index;
+                let delay = *delay;
                 actor.once(message, index, delay);
             }
             Schedule::FixedDelay {
@@ -309,9 +307,14 @@ impl MessageHandler<TimersActor> for Schedule {
                 ..
             } => {
                 TimersActor::watch_receiver(&mut actor.watching_receivers, ctx, receiver, *index)?;
+                let index = *index;
+                let initial_delay = *initial_delay;
+                let interval = *interval;
                 actor.fixed_delay(message, index, initial_delay, interval);
             }
             Schedule::OnceWith { index, delay, .. } => {
+                let index = *index;
+                let delay = *delay;
                 actor.once(message, index, delay);
             }
             Schedule::FixedDelayWith {
@@ -320,6 +323,9 @@ impl MessageHandler<TimersActor> for Schedule {
                 interval,
                 ..
             } => {
+                let index = *index;
+                let initial_delay = *initial_delay;
+                let interval = *interval;
                 actor.fixed_delay(message, index, initial_delay, interval);
             }
         }
@@ -443,8 +449,8 @@ impl MessageHandler<TimersActor> for PollExpired {
     fn handle(
         actor: &mut TimersActor,
         ctx: &mut <TimersActor as Actor>::Context,
-        message: Self,
-        sender: Option<ActorRef>,
+        _: Self,
+        _: Option<ActorRef>,
         _: &Receive<TimersActor>,
     ) -> anyhow::Result<Behavior<TimersActor>> {
         let waker = &actor.waker;
@@ -462,7 +468,7 @@ impl MessageHandler<TimersActor> for PollExpired {
                     ..
                 } => {
                     indexes.remove(&index);
-                    receiver.cast_ns(message);
+                    receiver.tell(message, ActorRef::no_sender());
                     TimersActor::unwatch_receiver(
                         &mut actor.watching_receivers,
                         ctx.context_mut(),
@@ -476,12 +482,12 @@ impl MessageHandler<TimersActor> for PollExpired {
                     receiver,
                     ..
                 } => {
-                    match message.dyn_clone() {
-                        Ok(message) => {
-                            receiver.cast_ns(message);
+                    match message.clone_box() {
+                        Some(message) => {
+                            receiver.tell(message, ActorRef::no_sender());
                         }
-                        Err(_) => {
-                            error!("fixed delay with message {:?} not impl dyn_clone, message cannot be cloned", message);
+                        None => {
+                            error!("fixed delay with message {} is not cloneable", message);
                         }
                     }
                     let next_delay = interval;
@@ -542,7 +548,9 @@ pub struct Timers {
 impl Timers {
     pub fn new(context: &mut Context) -> anyhow::Result<Self> {
         let scheduler_actor = context.spawn(
-            Props::new_with_ctx(move |context| Ok(TimersActor::new(context.myself.clone()))),
+            Props::new_with_ctx(move |context: &mut Context| {
+                Ok(TimersActor::new(context.myself.clone()))
+            }),
             "timers",
         )?;
         Ok(Self {

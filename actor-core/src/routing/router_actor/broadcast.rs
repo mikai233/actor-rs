@@ -1,41 +1,59 @@
-use std::any::type_name;
-use std::ops::Not;
-
-use anyhow::anyhow;
-use async_trait::async_trait;
-
-use actor_derive::EmptyCodec;
-
-use crate::{DynMessage, Message};
-use crate::actor::context::{Context, ActorContext};
+use crate::actor::behavior::Behavior;
+use crate::actor::receive::Receive;
+use crate::actor_ref::ActorRef;
+use crate::message::handler::MessageHandler;
+use crate::message::{DynMessage, Message};
 use crate::routing::routee::TRoutee;
 use crate::routing::router_actor::Router;
+use actor_derive::Message;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("Broadcast {{ message: {message} }}")]
+#[cloneable]
 pub struct Broadcast {
     message: DynMessage,
 }
 
 impl Broadcast {
-    pub fn new<M>(message: M) -> anyhow::Result<Self> where M: Message {
-        if message.cloneable().not() {
-            return Err(anyhow!("broadcast message {} require cloneable", type_name::<M>()));
+    pub fn new<M>(message: M) -> Self
+    where
+        M: Message + Clone,
+    {
+        Self {
+            message: Box::new(message),
         }
-        let msg = Self {
-            message: DynMessage::user(message),
-        };
-        Ok(msg)
+    }
+
+    pub fn message(&self) -> &DynMessage {
+        &self.message
     }
 }
 
-#[async_trait]
-impl Message for Broadcast {
-    type A = Box<dyn Router>;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
+impl<A: Router> MessageHandler<A> for Broadcast {
+    fn handle(
+        actor: &mut A,
+        _: &mut A::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<A>,
+    ) -> anyhow::Result<Behavior<A>> {
         for routee in actor.routees() {
-            routee.send(self.message.dyn_clone()?, context.sender().cloned());
+            routee.send(message.message.clone_box().unwrap(), sender.clone());
         }
-        Ok(())
+        Ok(Behavior::same())
+    }
+}
+
+impl Into<DynMessage> for Broadcast {
+    fn into(self) -> DynMessage {
+        self.message
+    }
+}
+
+impl Clone for Broadcast {
+    fn clone(&self) -> Self {
+        Self {
+            message: self.message.clone_box().unwrap(),
+        }
     }
 }

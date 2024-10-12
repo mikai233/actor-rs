@@ -55,7 +55,7 @@ pub trait Actor: Send + Sized {
     #[allow(unused_variables)]
     fn on_child_failure(
         &mut self,
-        context: &mut Context,
+        context: &mut Self::Context,
         child: &ActorRef,
         error: &anyhow::Error,
     ) -> Directive {
@@ -65,18 +65,17 @@ pub trait Actor: Send + Sized {
     fn receive(&self) -> Receive<Self>;
 
     fn around_receive(
-        &self,
+        &mut self,
         receive: &Receive<Self>,
-        actor: &mut Self,
-        ctx: &mut Context,
+        ctx: &mut Self::Context,
         message: DynMessage,
         sender: Option<ActorRef>,
     ) -> anyhow::Result<Behavior<Self>> {
-        receive.receive(actor, ctx, message, sender)
+        receive.receive(self, ctx, message, sender)
     }
 
     #[allow(unused_variables)]
-    fn unhandled(&mut self, ctx: &mut Context, message: DynMessage) {
+    fn unhandled(&mut self, ctx: &mut Self::Context, message: DynMessage) {
         todo!("unhandled message: {:?}", message);
     }
 }

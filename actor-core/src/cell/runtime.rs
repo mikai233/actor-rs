@@ -35,7 +35,7 @@ where
     pub(crate) actor: A,
     pub(crate) ctx: A::Context,
     pub(crate) mailbox: Mailbox,
-    pub(crate) signal: SignalReceiver,
+    pub(crate) signal_rx: SignalReceiver,
 }
 
 impl<A> ActorRuntime<A>
@@ -47,24 +47,19 @@ where
             mut actor,
             mut ctx,
             mut mailbox,
-            mut signal,
+            mut signal_rx,
         } = self;
         let mut behavior_stack = VecDeque::new();
         behavior_stack.push_back(actor.receive());
         let system_receive = Self::system_receive();
 
-        signal.recv().await; //wait start signal
+        signal_rx.recv().await; //wait start signal
 
         if let Err(error) = actor.started(&mut ctx) {
             error!("actor {} start error {:?}", type_name::<A>(), error);
             ctx.stop(ctx.context().myself());
             while let Some(message) = mailbox.system.recv().await {
-                Self::handle_system_message(
-                    ctx.context_mut(),
-                    &mut actor,
-                    message,
-                    &system_receive,
-                );
+                Self::handle_system_message(&mut ctx, &mut actor, message, &system_receive);
                 if matches!(ctx.context().state, ActorState::CanTerminate) {
                     break;
                 }
@@ -77,7 +72,7 @@ where
             tokio::select! {
                 biased;
                 Some(envelope) = mailbox.system.recv() => {
-                    Self::handle_system_message(ctx.context_mut(), &mut actor, envelope, &system_receive);
+                    Self::handle_system_message(&mut ctx, &mut actor, envelope, &system_receive);
                     if matches!(ctx.context().state, ActorState::CanTerminate) {
                         break;
                     }
@@ -122,7 +117,7 @@ where
             }
             Some(receive) => {
                 let behavior = std::panic::catch_unwind(|| {
-                    actor.around_receive(receive, actor, ctx, message, sender)
+                    actor.around_receive(receive, ctx, message, sender)
                 });
                 match behavior {
                     Ok(behavior) => match behavior {
@@ -154,7 +149,7 @@ where
     }
 
     fn handle_system_message(
-        ctx: &mut Context,
+        ctx: &mut A::Context,
         actor: &mut A,
         envelope: Envelope,
         receive: &Receive<A>,
@@ -162,7 +157,8 @@ where
         let Envelope { message, sender } = envelope;
         let name = message.signature().name;
         if let Some(error) = receive.receive(actor, ctx, message, sender).err() {
-            ctx.handle_invoke_failure(actor, name, error);
+            ctx.context_mut()
+                .handle_invoke_failure(type_name::<A>(), name, error);
         }
     }
 

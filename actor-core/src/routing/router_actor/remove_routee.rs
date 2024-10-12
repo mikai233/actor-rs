@@ -1,24 +1,27 @@
-use async_trait::async_trait;
-
-use actor_derive::EmptyCodec;
-
-use crate::actor::context::Context;
-use crate::Message;
+use crate::actor::behavior::Behavior;
+use crate::actor::receive::Receive;
+use crate::actor_ref::ActorRef;
+use crate::message::handler::MessageHandler;
 use crate::routing::routee::Routee;
 use crate::routing::router_actor::Router;
+use actor_derive::Message;
 
-#[derive(EmptyCodec)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("RemoveRoutee {{ routee: {routee} }}")]
 pub struct RemoveRoutee {
     pub routee: Routee,
 }
 
-#[async_trait]
-impl Message for RemoveRoutee {
-    type A = Box<dyn Router>;
 
-    async fn handle(self: Box<Self>, _context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        let Self { routee: remove_routee } = *self;
-        actor.routees_mut().retain(|routee| *routee != remove_routee);
-        Ok(())
+impl<A: Router> MessageHandler<A> for RemoveRoutee {
+    fn handle(
+        actor: &mut A,
+        _: &mut A::Context,
+        message: Self,
+        _: Option<ActorRef>,
+        _: &Receive<A>,
+    ) -> anyhow::Result<Behavior<A>> {
+        actor.routees_mut().retain(|routee| *routee != message.routee);
+        todo!()
     }
 }

@@ -49,11 +49,11 @@ impl Display for Dropped {
 
 impl MessageHandler<DeadLetterListener> for Dropped {
     fn handle(
-        actor: &mut DeadLetterListener,
-        ctx: &mut <DeadLetterListener as Actor>::Context,
-        message: Self,
-        sender: Option<ActorRef>,
-        receive: &Receive<DeadLetterListener>,
+        _: &mut DeadLetterListener,
+        _: &mut <DeadLetterListener as Actor>::Context,
+        _: Self,
+        _: Option<ActorRef>,
+        _: &Receive<DeadLetterListener>,
     ) -> anyhow::Result<Behavior<DeadLetterListener>> {
         todo!()
     }
@@ -65,11 +65,11 @@ pub struct DeadMessage(pub DynMessage);
 
 impl MessageHandler<DeadLetterListener> for DeadMessage {
     fn handle(
-        actor: &mut DeadLetterListener,
-        ctx: &mut <DeadLetterListener as Actor>::Context,
-        message: Self,
-        sender: Option<ActorRef>,
-        receive: &Receive<DeadLetterListener>,
+        _: &mut DeadLetterListener,
+        _: &mut <DeadLetterListener as Actor>::Context,
+        _: Self,
+        _: Option<ActorRef>,
+        _: &Receive<DeadLetterListener>,
     ) -> anyhow::Result<Behavior<DeadLetterListener>> {
         todo!()
     }

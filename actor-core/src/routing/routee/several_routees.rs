@@ -23,12 +23,12 @@ impl Deref for SeveralRoutees {
 impl TRoutee for SeveralRoutees {
     fn send(&self, message: DynMessage, sender: Option<ActorRef>) {
         for routee in &self.routees {
-            match message.dyn_clone() {
-                Ok(message) => {
+            match message.clone_box() {
+                Some(message) => {
                     routee.send(message, sender.clone());
                 }
-                Err(_) => {
-                    error!("route message {} not impl dyn_clone", message.name())
+                None => {
+                    error!("route message {} not cloneable", message.signature());
                 }
             }
         }

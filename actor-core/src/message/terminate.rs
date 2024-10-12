@@ -14,9 +14,9 @@ pub struct Terminate;
 
 impl<A: Actor> MessageHandler<A> for Terminate {
     fn handle(
-        actor: &mut A,
+        _: &mut A,
         ctx: &mut <A as Actor>::Context,
-        message: Self,
+        _: Self,
         _: Option<ActorRef>,
         _: &Receive<A>,
     ) -> anyhow::Result<Behavior<A>> {

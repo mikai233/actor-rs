@@ -47,7 +47,7 @@ impl TActorRef for DeferredActorRef {
     fn suspend(&self) {}
 
     fn parent(&self) -> Option<&dyn TActorRef> {
-        Some(&self.parent)
+        Some(&**self.parent)
     }
 
     fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {

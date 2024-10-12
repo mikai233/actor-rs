@@ -170,7 +170,7 @@ impl TActorRefProvider for RemoteActorRefProvider {
         self.local.unregister_temp_actor(path)
     }
 
-    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
+    fn spawn_actor(&self, props: Props, supervisor: &ActorRef, system: ActorSystem) -> anyhow::Result<ActorRef> {
         // TODO remote spawn
         self.local.spawn_actor(props, supervisor)
     }

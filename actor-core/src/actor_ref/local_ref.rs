@@ -10,22 +10,32 @@ use tracing::warn;
 use actor_derive::AsAny;
 
 use crate::actor::actor_system::ActorSystem;
+use crate::actor::is_system_message;
 use crate::actor::mailbox::MailboxSender;
 use crate::actor::props::Props;
 use crate::actor_path::child_actor_path::ChildActorPath;
 use crate::actor_path::{ActorPath, TActorPath};
+use crate::actor_ref::function_ref::FunctionRef;
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::cell::envelope::Envelope;
-use crate::ext::{check_name, random_actor_name};
+use crate::ext::{check_name, random_actor_name, random_name};
 use crate::message::poison_pill::PoisonPill;
 use crate::message::resume::Resume;
 use crate::message::suspend::Suspend;
 use crate::message::DynMessage;
-use crate::provider::TActorRefProvider;
+use crate::provider::provider::ActorSpawn;
+use crate::util::duration::ConfigDuration;
 
 pub type SignalSender = tokio::sync::mpsc::Sender<()>;
 
 pub type SignalReceiver = tokio::sync::mpsc::Receiver<()>;
+
+#[macro_export]
+macro_rules! local {
+    ($actor_ref: expr) => {
+        $actor_ref.local().expect("ActorRef is not LocalActorRef")
+    };
+}
 
 #[derive(Clone, derive_more::Deref, AsAny)]
 pub struct LocalActorRef(Arc<LocalActorRefInner>);
@@ -35,6 +45,7 @@ pub struct LocalActorRefInner {
     pub(crate) sender: MailboxSender,
     pub(crate) parent: Option<ActorRef>,
     pub(crate) children: DashMap<String, ActorRef, RandomState>,
+    pub(crate) function_refs: DashMap<String, FunctionRef, RandomState>,
     pub(crate) signal: SignalSender,
 }
 
@@ -45,6 +56,7 @@ impl Debug for LocalActorRef {
             .field("sender", &self.sender)
             .field("parent", &self.parent)
             .field("children", &self.children)
+            .field("function_refs", &self.function_refs)
             .field("signal", &self.signal)
             .finish()
     }
@@ -56,7 +68,12 @@ impl TActorRef for LocalActorRef {
     }
 
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
-        unimplemented!("LocalActorRef.tell")
+        let envelope = Envelope { message, sender };
+        if is_system_message(&envelope.message) {
+            self.handle_result(self.sender.system.try_send(envelope));
+        } else {
+            self.handle_result(self.sender.message.try_send(envelope));
+        }
     }
 
     fn start(&self) {
@@ -64,7 +81,7 @@ impl TActorRef for LocalActorRef {
     }
 
     fn stop(&self) {
-        self.cast_system(PoisonPill, None)
+        self.cast_ns(PoisonPill);
     }
 
     fn resume(&self) {
@@ -93,7 +110,7 @@ impl TActorRef for LocalActorRef {
                             return Some(actor);
                         }
                         Some(name) => match name {
-                            ".." => l.parent().cloned(),
+                            ".." => l.parent().map(|p| dyn_clone::clone_box(p).into()),
                             "" => Some(actor),
                             _ => l.get_single_child(name),
                         },
@@ -127,45 +144,48 @@ impl LocalActorRef {
             sender,
             parent,
             children: DashMap::with_hasher(RandomState::default()),
+            function_refs: DashMap::with_hasher(RandomState::default()),
             signal: tx,
         };
         (LocalActorRef(inner.into()), rx)
     }
 
-    fn log_send_error(&self, error: TrySendError<Envelope>) {
-        let actor: ActorRef = self.clone().into();
-        match error {
-            TrySendError::Full(envelop) => {
-                let name = envelop.name();
-                match &envelop.sender {
-                    None => {
-                        warn!(
-                            "message {} to {} was not delivered because mailbox is full",
-                            name, actor
-                        );
-                    }
-                    Some(sender) => {
-                        warn!(
+    fn handle_result(&self, result: Result<(), TrySendError<Envelope>>) {
+        if let Some(error) = result.err() {
+            let actor_ref: ActorRef = self.clone().into();
+            match error {
+                TrySendError::Full(envelop) => {
+                    let name = envelop.name();
+                    match &envelop.sender {
+                        None => {
+                            warn!(
+                                "message {} to {} was not delivered because mailbox is full",
+                                name, actor_ref
+                            );
+                        }
+                        Some(sender) => {
+                            warn!(
                             "message {} from {} to {} was not delivered because mailbox is full",
-                            name, sender, actor
+                            name, sender, actor_ref
                         );
+                        }
                     }
                 }
-            }
-            TrySendError::Closed(envelop) => {
-                let name = envelop.name();
-                match &envelop.sender {
-                    None => {
-                        warn!(
-                            "message {} to {} was not delivered because actor stopped",
-                            name, actor
-                        );
-                    }
-                    Some(sender) => {
-                        warn!(
-                            "message {} from {} to {} was not delivered because actor stopped",
-                            name, sender, actor
-                        );
+                TrySendError::Closed(envelop) => {
+                    let name = envelop.name();
+                    match &envelop.sender {
+                        None => {
+                            warn!(
+                                "message {} to {} was not delivered because actor stopped",
+                                name, actor_ref
+                            );
+                        }
+                        Some(sender) => {
+                            warn!(
+                                "message {} from {} to {} was not delivered because actor stopped",
+                                name, sender, actor_ref
+                            );
+                        }
                     }
                 }
             }
@@ -176,25 +196,32 @@ impl LocalActorRef {
         &self,
         props: Props,
         system: ActorSystem,
-        provider: impl AsRef<dyn TActorRefProvider>,
         name: Option<String>,
         uid: Option<i32>,
     ) -> anyhow::Result<ActorRef> {
-        let provider = provider.as_ref();
-        let mailbox: crate::config::mailbox::Mailbox = match props.mailbox.as_ref() {
-            None => provider
-                .settings()
-                .cfg
-                .get("akka.actor.mailbox.default-mailbox")?,
-            Some(mailbox_name) => provider
-                .settings()
-                .cfg
-                .get(&format!("akka.actor.mailbox.{}", mailbox_name))?,
+        let actor_spawn = self.attach_child_deferred(props, name, uid)?;
+        let myself = actor_spawn.myself.clone();
+        actor_spawn.spawn(system)?;
+        Ok(myself)
+    }
+
+    pub(crate) fn attach_child_deferred(
+        &self,
+        props: Props,
+        name: Option<String>,
+        uid: Option<i32>,
+    ) -> anyhow::Result<ActorSpawn> {
+        //TODO mailbox
+        let mailbox = crate::config::mailbox::Mailbox {
+            mailbox_capacity: None,
+            mailbox_push_timeout_time: ConfigDuration::from_days(1),
+            stash_capacity: None,
+            throughput: 100,
         };
         let (sender, mailbox) = props.mailbox(mailbox)?;
-        let (child_ref, signal) = self.make_child(name, uid, sender)?;
-        props.spawn(child_ref.clone(), signal, mailbox, system)?;
-        Ok(child_ref)
+        let (child_ref, signal_rx) = self.make_child(name, uid, sender)?;
+        let actor_spawn = ActorSpawn::new(props, child_ref.clone(), signal_rx, mailbox);
+        Ok(actor_spawn)
     }
 
     pub(crate) fn make_child(
@@ -236,10 +263,15 @@ impl LocalActorRef {
                             None
                         }
                     }
-                    None => None,
+                    None => self.get_function_ref(name, uid).map(|f| f.into()),
                 }
             }
-            None => self.get_child_by_name(name),
+            None => match self.get_child_by_name(name) {
+                Some(child_ref) => Some(child_ref),
+                None => self
+                    .get_function_ref(name, ActorPath::undefined_uid())
+                    .map(|f| f.into()),
+            },
         }
     }
 
@@ -247,6 +279,37 @@ impl LocalActorRef {
         match self.children.remove(name) {
             None => None,
             Some((_, child)) => Some(child),
+        }
+    }
+
+    pub(crate) fn add_function_ref<F>(&mut self, transform: F, name: Option<String>) -> FunctionRef
+    where
+        F: Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static,
+    {
+        let mut n = random_name("$$".to_string());
+        if let Some(name) = name {
+            n.push('-');
+            n.push_str(&name);
+        }
+        let child_path = ChildActorPath::new(self.path().clone(), n, ActorPath::new_uid());
+        let name = child_path.name().to_string();
+        let function_ref = FunctionRef::new(child_path, transform);
+        self.function_refs.insert(name, function_ref.clone());
+        function_ref
+    }
+
+    pub(crate) fn remove_function_ref(&self, name: &str) -> Option<(String, FunctionRef)> {
+        self.function_refs.remove(name)
+    }
+
+    pub(crate) fn get_function_ref(&self, name: &str, uid: i32) -> Option<FunctionRef> {
+        match self.function_refs.get(name) {
+            Some(function_ref)
+                if uid == ActorPath::undefined_uid() || uid == function_ref.path.uid() =>
+            {
+                Some(function_ref.value().clone().into())
+            }
+            _ => None,
         }
     }
 }

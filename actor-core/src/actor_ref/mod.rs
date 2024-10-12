@@ -195,3 +195,9 @@ pub(crate) fn get_child_default(
         Some(_) => None,
     }
 }
+
+impl From<Box<dyn TActorRef>> for ActorRef {
+    fn from(actor_ref: Box<dyn TActorRef>) -> Self {
+        Self(actor_ref)
+    }
+}

@@ -48,10 +48,10 @@ impl<A: Actor> MessageHandler<A> for Terminated {
         if let Some(optional_message) = context.terminated_queue.remove(&message.actor) {
             match optional_message {
                 Some(custom_termination) => {
-                    actor.around_receive(receive, actor, ctx, message, sender)
+                    actor.around_receive(receive, ctx, Box::new(message), sender)
                     //TODO currentMessage?
                 }
-                None => actor.around_receive(receive, actor, ctx, message, sender),
+                None => actor.around_receive(receive, ctx, Box::new(message), sender),
             }
         } else {
             Ok(Behavior::same())

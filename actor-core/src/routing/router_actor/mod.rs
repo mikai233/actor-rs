@@ -1,11 +1,7 @@
-use anyhow::Error;
-use async_trait::async_trait;
-
-use crate::{Actor, DynMessage};
-use crate::actor::context::Context;
-use crate::actor::directive::Directive;
+use crate::actor::context::{ActorContext, Context};
+use crate::actor::receive::Receive;
+use crate::actor::Actor;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
-use crate::actor_ref::ActorRef;
 use crate::routing::routee::Routee;
 use crate::routing::router_config::pool::Pool;
 use crate::routing::router_config::RouterConfig;
@@ -40,9 +36,11 @@ impl RouterActor {
     }
 }
 
-#[async_trait]
 impl Actor for RouterActor {
-    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
+    type Context = Context;
+
+    fn started(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
+        let context = ctx.context_mut();
         match &self.router_config {
             RouterConfig::PoolRouterConfig(pool) => {
                 let n = pool.nr_of_instances(context.system());
@@ -56,8 +54,8 @@ impl Actor for RouterActor {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
-        Self::handle_message(self, context, message).await
+    fn receive(&self) -> Receive<Self> {
+        todo!()
     }
 }
 
@@ -72,24 +70,5 @@ impl Router for RouterActor {
 
     fn routees(&self) -> &Vec<Routee> {
         &self.routees
-    }
-}
-
-#[async_trait]
-impl Actor for Box<dyn Router> {
-    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
-        (&mut **self).started(context).await
-    }
-
-    async fn stopped(&mut self, context: &mut Context) -> anyhow::Result<()> {
-        (&mut **self).stopped(context).await
-    }
-
-    fn on_child_failure(&mut self, context: &mut Context, child: &ActorRef, error: &Error) -> Directive {
-        (&mut **self).on_child_failure(context, child, error)
-    }
-
-    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
-        (&mut **self).on_recv(context, message).await
     }
 }

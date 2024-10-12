@@ -18,7 +18,7 @@ pub struct Unwatch {
 
 impl<A: Actor> MessageHandler<A> for Unwatch {
     fn handle(
-        actor: &mut A,
+        _: &mut A,
         ctx: &mut <A as Actor>::Context,
         message: Self,
         _: Option<ActorRef>,
