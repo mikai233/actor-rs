@@ -8,7 +8,7 @@ use actor_derive::AsAny;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::extension::Extension;
-use crate::actor_ref::ActorRef;
+use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::message::address_terminated::AddressTerminated;
 
 #[derive(Debug, Clone, Default, AsAny)]
@@ -50,7 +50,7 @@ impl AddressTerminatedTopic {
 
     pub fn publish(&self, msg: AddressTerminated) {
         for subscriber in self.subscribers.iter() {
-            subscriber.cast_system(msg.clone(), ActorRef::no_sender());
+            subscriber.cast_ns(msg.clone());
         }
     }
 }

@@ -29,8 +29,8 @@ impl EventStream {
         E: Message + Clone,
     {
         let signature = E::signature_sized();
-        if let Entry::Occupied(mut o) = self.subscriptions.entry(&signature) {
-            o.get_mut().retain(|x| x.subscriber != *subscriber);
+        if let Entry::Occupied(mut o) = self.subscriptions.entry(&signature.name) {
+            o.get_mut().retain(|x| x != subscriber);
             trace!("{} unsubscribe from {}", subscriber, signature);
         }
     }

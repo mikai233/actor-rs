@@ -2,7 +2,7 @@ use crate::{
     actor::{
         behavior::Behavior, context::ActorContext, directive::Directive, receive::Receive, Actor,
     },
-    actor_ref::ActorRef,
+    actor_ref::{actor_ref_factory::ActorRefFactory, ActorRef, ActorRefExt},
 };
 use actor_derive::Message;
 
@@ -31,8 +31,8 @@ impl<A: Actor> MessageHandler<A> for Failed {
             }
             Directive::Stop => {
                 let children = ctx.context().children();
-                debug_assert!(children.iter().find(|c| c.value() == &child));
-                ctx.stop(&child);
+                debug_assert!(children.iter().find(|c| c.value() == &child).is_some());
+                ctx.context().stop(&child);
             }
             Directive::Escalate => {
                 if let Some(parent) = ctx.context().parent() {

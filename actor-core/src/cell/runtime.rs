@@ -1,12 +1,13 @@
 use std::any::type_name;
 use std::collections::VecDeque;
+use std::panic::AssertUnwindSafe;
 
 use anyhow::anyhow;
 use tokio::task::yield_now;
 use tracing::{debug, error};
 
 use crate::actor::actor_selection::ActorSelectionMessage;
-use crate::actor::behavior::Behavior;
+use crate::actor::behavior::{self, Behavior};
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::mailbox::Mailbox;
 use crate::actor::receive::Receive;
@@ -116,9 +117,9 @@ where
                 actor.unhandled(ctx, message);
             }
             Some(receive) => {
-                let behavior = std::panic::catch_unwind(|| {
+                let behavior = std::panic::catch_unwind(AssertUnwindSafe(|| {
                     actor.around_receive(receive, ctx, message, sender)
-                });
+                }));
                 match behavior {
                     Ok(behavior) => match behavior {
                         Ok(behavior) => match behavior {
@@ -137,11 +138,16 @@ where
                             }
                         },
                         Err(error) => {
-                            ctx.handle_invoke_failure(name, error);
+                            ctx.context_mut()
+                                .handle_invoke_failure(type_name::<A>(), name, error);
                         }
                     },
                     Err(_) => {
-                        ctx.handle_invoke_failure(name, anyhow!("{} panic", name));
+                        ctx.context_mut().handle_invoke_failure(
+                            type_name::<A>(),
+                            name,
+                            anyhow!("{} panic", name),
+                        );
                     }
                 }
             }

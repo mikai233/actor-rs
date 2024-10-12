@@ -1,6 +1,6 @@
 use crate::actor::actor_selection::ActorSelectionMessage;
 use crate::actor::behavior::Behavior;
-use crate::actor::context::{ActorContext, Context};
+use crate::actor::context::ActorContext;
 use crate::actor::directive::Directive;
 use crate::actor::receive::Receive;
 use crate::actor_ref::ActorRef;
@@ -81,17 +81,15 @@ pub trait Actor: Send + Sized {
 }
 
 pub(crate) fn is_auto_received_message(message: &DynMessage) -> bool {
-    static MSG: &'static [&'static str] = &[
-        Terminated::signature_sized().name,
-        AddressTerminated::signature_sized().name,
-        PoisonPill::signature_sized().name,
-        Kill::signature_sized().name,
-        ActorSelectionMessage::signature_sized().name,
-        Identify::signature_sized().name,
-        TaskFinish::signature_sized().name,
-    ];
-
-    if MSG.contains(&message.signature().name) {
+    let name = message.signature().name;
+    if name == Terminated::signature_sized().name
+        || name == AddressTerminated::signature_sized().name
+        || name == PoisonPill::signature_sized().name
+        || name == Kill::signature_sized().name
+        || name == ActorSelectionMessage::signature_sized().name
+        || name == Identify::signature_sized().name
+        || name == TaskFinish::signature_sized().name
+    {
         true
     } else {
         false
@@ -99,18 +97,15 @@ pub(crate) fn is_auto_received_message(message: &DynMessage) -> bool {
 }
 
 pub(crate) fn is_system_message(message: &DynMessage) -> bool {
-    static MSG: &'static [&'static str] = &[
-        Watch::signature_sized().name,
-        //Recreate
-        Terminate::signature_sized().name,
-        //Create
-        Failed::signature_sized().name,
-        Unwatch::signature_sized().name,
-        DeathWatchNotification::signature_sized().name,
-        Resume::signature_sized().name,
-        Suspend::signature_sized().name,
-    ];
-    if MSG.contains(&message.signature().name) {
+    let name = message.signature().name;
+    if name == Watch::signature_sized().name
+        || name == Terminate::signature_sized().name
+        || name == Failed::signature_sized().name
+        || name == Unwatch::signature_sized().name
+        || name == DeathWatchNotification::signature_sized().name
+        || name == Resume::signature_sized().name
+        || name == Suspend::signature_sized().name
+    {
         true
     } else {
         false

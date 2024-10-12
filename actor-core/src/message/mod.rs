@@ -6,6 +6,7 @@ pub mod death_watch_notification;
 pub mod failed;
 pub mod handler;
 pub mod identify;
+pub mod kill;
 pub mod message_buffer;
 pub mod poison_pill;
 pub mod resume;
@@ -16,7 +17,6 @@ pub mod terminate;
 pub mod terminated;
 pub mod unwatch;
 pub mod watch;
-pub mod kill;
 
 pub type DynMessage = Box<dyn Message>;
 

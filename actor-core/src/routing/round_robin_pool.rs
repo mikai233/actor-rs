@@ -62,15 +62,13 @@ where
 {
     fn props(self) -> Props {
         let router_config = RouterConfig::PoolRouterConfig(PoolRouterConfig::new(self));
-        Props::new(move || {
-            Ok(RouterActor::new(router_config))
-        })
+        Props::new(move || Ok(RouterActor::new(router_config)))
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::actor::context::{ActorContext, Context};
+    use crate::actor::context::Context;
     use crate::actor::receive::Receive;
     use crate::actor::Actor;
     use actor_derive::Message;

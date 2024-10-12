@@ -16,10 +16,10 @@ pub struct Identify;
 
 impl<A: Actor> MessageHandler<A> for Identify {
     fn handle(
-        actor: &mut A,
+        _: &mut A,
         ctx: &mut <A as Actor>::Context,
-        message: Self,
-        sender: Option<ActorRef>,
+        _: Self,
+        _: Option<ActorRef>,
         _: &Receive<A>,
     ) -> anyhow::Result<Behavior<A>> {
         let context = ctx.context();
@@ -36,7 +36,7 @@ impl<A: Actor> MessageHandler<A> for Identify {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message, derive_more::Display)]
 #[cloneable]
-#[display("ActorIdentity {{ actor_ref: {actor_ref} }}")]
+#[display("ActorIdentity {{ actor_ref: {actor_ref:?} }}")]
 pub struct ActorIdentity {
     pub actor_ref: Option<ActorRef>,
 }
