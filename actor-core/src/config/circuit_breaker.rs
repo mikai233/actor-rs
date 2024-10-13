@@ -1,19 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-use crate::util::duration::ConfigDuration;
+use super::duration::Duration;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, derive_more::Constructor)]
 pub struct CircuitBreaker {
-    #[serde(rename = "max-failures")]
     pub max_failures: usize,
-    #[serde(rename = "call-timeout")]
-    pub call_timeout: ConfigDuration,
-    #[serde(rename = "reset-timeout")]
-    pub reset_timeout: ConfigDuration,
-    #[serde(rename = "exponential-backoff-factor")]
+    pub call_timeout: Duration,
+    pub reset_timeout: Duration,
     pub exponential_backoff_factor: f64,
-    #[serde(rename = "random-factor")]
     pub random_factor: f64,
-    #[serde(rename = "exception-allowlist")]
     pub exception_allowlist: Vec<String>,
 }

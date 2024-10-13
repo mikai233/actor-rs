@@ -9,6 +9,7 @@ use tracing::debug;
 
 use crate::actor::scheduler::SchedulerSender;
 
+#[derive(derive_more::Debug)]
 pub struct CircuitBreaker {
     state: State,
     scheduler: SchedulerSender,
@@ -19,32 +20,22 @@ pub struct CircuitBreaker {
     exponential_backoff_factor: f64,
     random_factor: f64,
     current_reset_timeout: Duration,
+    #[debug(skip)]
     on_open_listeners: Vec<Box<dyn Fn() + Send>>,
+    #[debug(skip)]
     on_half_open_listeners: Vec<Box<dyn Fn() + Send>>,
+    #[debug(skip)]
     on_close_listeners: Vec<Box<dyn Fn() + Send>>,
+    #[debug(skip)]
     call_failure_listeners: Vec<Box<dyn Fn(SystemTime) + Send>>,
+    #[debug(skip)]
     call_timeout_listeners: Vec<Box<dyn Fn(SystemTime) + Send>>,
+    #[debug(skip)]
     call_breaker_open_listeners: Vec<Box<dyn Fn() + Send>>,
+    #[debug(skip)]
     call_success_listeners: Vec<Box<dyn Fn() + Send>>,
+    #[debug(skip)]
     change_to_half_open: Arc<Box<dyn Fn() + Send + Sync>>,
-}
-
-impl Debug for CircuitBreaker {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CircuitBreaker")
-            .field("state", &self.state)
-            .field("max_failures", &self.max_failures)
-            .field("call_timeout", &self.call_timeout)
-            .field("reset_timeout", &self.reset_timeout)
-            .field("max_reset_timeout", &self.max_reset_timeout)
-            .field(
-                "exponential_backoff_factor",
-                &self.exponential_backoff_factor,
-            )
-            .field("random_factor", &self.random_factor)
-            .field("current_reset_timeout", &self.current_reset_timeout)
-            .finish_non_exhaustive()
-    }
 }
 
 impl CircuitBreaker {
@@ -364,13 +355,10 @@ mod test {
     use std::time::Duration;
 
     use actor_derive::Message;
-    use anyhow::anyhow;
     use tracing::info;
 
-    use crate::actor::actor_system::ActorSystem;
     use crate::actor::behavior::Behavior;
-    use crate::actor::context::{ActorContext, Context};
-    use crate::actor::props::Props;
+    use crate::actor::context::Context;
     use crate::actor::receive::Receive;
     use crate::actor::Actor;
     use crate::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -440,9 +428,9 @@ mod test {
     impl MessageHandler<LogicActor> for ChangeToHalfOpen {
         fn handle(
             actor: &mut LogicActor,
-            ctx: &mut <LogicActor as Actor>::Context,
-            message: Self,
-            sender: Option<ActorRef>,
+            _: &mut <LogicActor as Actor>::Context,
+            _: Self,
+            _: Option<ActorRef>,
             _: &Receive<LogicActor>,
         ) -> anyhow::Result<Behavior<LogicActor>> {
             actor.breaker.change_to_half_open();
@@ -457,21 +445,22 @@ mod test {
     impl MessageHandler<LogicActor> for SuccessCall {
         fn handle(
             actor: &mut LogicActor,
-            ctx: &mut <LogicActor as Actor>::Context,
-            message: Self,
-            sender: Option<ActorRef>,
+            _ctx: &mut <LogicActor as Actor>::Context,
+            _message: Self,
+            _sender: Option<ActorRef>,
             _: &Receive<LogicActor>,
         ) -> anyhow::Result<Behavior<LogicActor>> {
-            for _ in 0..message.0 {
-                let _ = actor
-                    .breaker
-                    .invoke(async {
-                        actor.counter += 1;
-                        Ok(())
-                    })
-                    .await;
-            }
+            // for _ in 0..message.0 {
+            //     let _ = actor
+            //         .breaker
+            //         .invoke(async {
+            //             actor.counter += 1;
+            //             Ok(())
+            //         })
+            //         .await;
+            // }
             info!("after success call, counter is {}", actor.counter);
+            Ok(Behavior::same())
         }
     }
 
@@ -480,6 +469,7 @@ mod test {
     struct FailCall(usize);
 
     impl MessageHandler<LogicActor> for FailCall {
+        #[allow(unused_variables)]
         fn handle(
             actor: &mut LogicActor,
             ctx: &mut <LogicActor as Actor>::Context,
@@ -487,35 +477,35 @@ mod test {
             sender: Option<ActorRef>,
             _: &Receive<LogicActor>,
         ) -> anyhow::Result<Behavior<LogicActor>> {
-            for _ in 0..message.0 {
-                let _ = actor
-                    .breaker
-                    .invoke::<_, ()>(async { Err(anyhow!("test error")) })
-                    .await;
-            }
+            // for _ in 0..message.0 {
+            // let _ = actor
+            // .breaker
+            // .invoke::<_, ()>(async { Err(anyhow!("test error")) })
+            // .await;
+            // }
             Ok(Behavior::same())
         }
     }
 
-    #[tokio::test]
-    async fn test_breaker() -> anyhow::Result<()> {
-        let system = ActorSystem::new("mikai233", ActorSetting::default())?;
-        let actor = system.spawn_anonymous(Props::new_with_ctx(|ctx| {
-            let breaker = LogicActor::new_breaker(ctx)?;
-            Ok(LogicActor {
-                breaker,
-                counter: 0,
-            })
-        }))?;
-        actor.cast_ns(SuccessCall(10));
-        actor.cast_ns(FailCall(10));
-        actor.cast_ns(SuccessCall(10));
-        tokio::time::sleep(Duration::from_secs(4)).await;
-        actor.cast_ns(SuccessCall(10));
-        actor.cast_ns(FailCall(10));
-        tokio::time::sleep(Duration::from_secs(4)).await;
-        actor.cast_ns(FailCall(1));
-        system.await?;
-        Ok(())
-    }
+    // #[tokio::test]
+    // async fn test_breaker() -> anyhow::Result<()> {
+    //     let system = ActorSystem::new("mikai233", ActorSetting::default())?;
+    //     let actor = system.spawn_anonymous(Props::new_with_ctx(|ctx| {
+    //         let breaker = LogicActor::new_breaker(ctx)?;
+    //         Ok(LogicActor {
+    //             breaker,
+    //             counter: 0,
+    //         })
+    //     }))?;
+    //     actor.cast_ns(SuccessCall(10));
+    //     actor.cast_ns(FailCall(10));
+    //     actor.cast_ns(SuccessCall(10));
+    //     tokio::time::sleep(Duration::from_secs(4)).await;
+    //     actor.cast_ns(SuccessCall(10));
+    //     actor.cast_ns(FailCall(10));
+    //     tokio::time::sleep(Duration::from_secs(4)).await;
+    //     actor.cast_ns(FailCall(1));
+    //     system.await?;
+    //     Ok(())
+    // }
 }

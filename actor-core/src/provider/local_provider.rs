@@ -18,11 +18,11 @@ use crate::actor_ref::ignore_ref::IgnoreActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::actor_ref::{ActorRef, TActorRef};
+use crate::config::duration::Duration;
 use crate::ext::base64;
 use crate::local;
 use crate::provider::provider::{ActorSpawn, Provider};
 use crate::provider::{cast_self_to_dyn, ActorRefProvider, TActorRefProvider};
-use crate::util::duration::ConfigDuration;
 
 #[derive(Debug, AsAny)]
 pub struct LocalActorRefProvider {
@@ -50,7 +50,7 @@ impl LocalActorRefProvider {
         let root_props = Props::new(move || Ok(RootGuardian::new(termination_tx_clone)));
         let mailbox = crate::config::mailbox::Mailbox {
             mailbox_capacity: None,
-            mailbox_push_timeout_time: ConfigDuration::from_days(1),
+            mailbox_push_timeout_time: Duration::from_days(1),
             stash_capacity: None,
             throughput: 100,
         };

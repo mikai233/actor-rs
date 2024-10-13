@@ -1,17 +1,15 @@
 use ahash::HashMap;
-use imstr::ImString;
 use serde::{Deserialize, Serialize};
 
-use crate::config::debug::Debug;
+use crate::config::debug::DebugConfig;
 use crate::config::mailbox::Mailbox;
-use crate::util::duration::ConfigDuration;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Actor {
-    #[serde(rename = "guardian-supervisor-strategy")]
-    pub guardian_supervisor_strategy: ImString,
-    #[serde(rename = "creation-timeout")]
-    pub creation_timeout: ConfigDuration,
-    pub mailbox: HashMap<ImString, Mailbox>,
-    pub debug: Debug,
+use super::duration::Duration;
+
+#[derive(Debug, Clone, Serialize, Deserialize, derive_more::Constructor)]
+pub struct ActorConfig {
+    pub guardian_supervisor_strategy: String,
+    pub creation_timeout: Duration,
+    pub mailbox: HashMap<String, Mailbox>,
+    pub debug: DebugConfig,
 }

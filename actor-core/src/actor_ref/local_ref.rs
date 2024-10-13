@@ -18,13 +18,13 @@ use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::function_ref::FunctionRef;
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::cell::envelope::Envelope;
+use crate::config::duration::Duration;
 use crate::ext::{check_name, random_actor_name, random_name};
 use crate::message::poison_pill::PoisonPill;
 use crate::message::resume::Resume;
 use crate::message::suspend::Suspend;
 use crate::message::DynMessage;
 use crate::provider::provider::ActorSpawn;
-use crate::util::duration::ConfigDuration;
 
 pub type SignalSender = tokio::sync::mpsc::Sender<()>;
 
@@ -214,7 +214,7 @@ impl LocalActorRef {
         //TODO mailbox
         let mailbox = crate::config::mailbox::Mailbox {
             mailbox_capacity: None,
-            mailbox_push_timeout_time: ConfigDuration::from_days(1),
+            mailbox_push_timeout_time: Duration::from_days(1),
             stash_capacity: None,
             throughput: 100,
         };

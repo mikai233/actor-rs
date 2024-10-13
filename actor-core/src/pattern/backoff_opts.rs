@@ -1,8 +1,8 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 
 use crate::actor::props::{Props, PropsBuilder};
 use crate::actor_ref::ActorRef;
@@ -13,6 +13,7 @@ use crate::message::DynMessage;
 pub struct BackoffOpts;
 
 impl BackoffOpts {
+    #[allow(unused_variables)]
     fn on_failure(
         child_props: Props,
         child_name: impl Into<String>,
@@ -23,6 +24,7 @@ impl BackoffOpts {
         todo!()
     }
 
+    #[allow(unused_variables)]
     fn on_stop(
         child_props: Props,
         child_name: impl Into<String>,
@@ -59,7 +61,7 @@ trait BackoffOnStopOptions: ExtendedBackoffOptions {
 
 trait BackoffOnFailureOptions: ExtendedBackoffOptions {}
 
-#[derive(Clone)]
+#[derive(Clone, derive_more::Debug)]
 struct BackoffOnStopOptionsImpl {
     child_props: Arc<PropsBuilder<()>>,
     child_name: String,
@@ -68,21 +70,8 @@ struct BackoffOnStopOptionsImpl {
     random_factor: f64,
     reset: Option<BackoffReset>,
     handling_while_stopped: HandlingWhileStopped,
+    #[debug(skip)]
     final_stop_message: Option<Arc<Box<dyn Fn(DynMessage) -> bool>>>,
-}
-
-impl Debug for BackoffOnStopOptionsImpl {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("BackoffOnStopOptionsImpl")
-            .field("child_name", &self.child_name)
-            .field("min_backoff", &self.min_backoff)
-            .field("max_backoff", &self.max_backoff)
-            .field("random_factor", &self.random_factor)
-            .field("reset", &self.reset)
-            .field("handling_while_stopped", &self.handling_while_stopped)
-            .field("final_stop_message", &"..")
-            .finish_non_exhaustive()
-    }
 }
 
 impl BackoffOnStopOptionsImpl {
@@ -108,17 +97,19 @@ impl BackoffOnStopOptionsImpl {
     }
 
     fn with_reply_while_stopped(&self, reply_while_stopped: DynMessage) -> anyhow::Result<Self> {
-        if !reply_while_stopped.cloneable() {
-            return Err(anyhow!(
-                "message {} require cloneable",
-                reply_while_stopped.name
-            ));
+        match reply_while_stopped.clone_box() {
+            Some(msg) => {
+                let mut myself = self.clone();
+                myself.handling_while_stopped = HandlingWhileStopped::ReplyWith { msg };
+                Ok(myself)
+            }
+            None => {
+                bail!(
+                    "message {} require cloneable",
+                    reply_while_stopped.signature()
+                );
+            }
         }
-        let mut myself = self.clone();
-        myself.handling_while_stopped = HandlingWhileStopped::ReplyWith {
-            msg: reply_while_stopped,
-        };
-        Ok(myself)
     }
 
     fn with_handler_while_stopped(&self, handler_while_stopped: ActorRef) -> Self {
@@ -129,13 +120,14 @@ impl BackoffOnStopOptionsImpl {
         myself
     }
 
+    #[allow(unused_variables)]
     fn with_max_nr_of_retries(&self, max_nr_of_retries: i32) -> Self {
         let myself = self.clone();
         myself
     }
 
     fn with_default_stopping_strategy(&self) -> Self {
-        let mut myself = self.clone();
+        let myself = self.clone();
         myself
     }
 
@@ -193,9 +185,7 @@ impl Clone for HandlingWhileStopped {
                 handler: handler.clone(),
             },
             HandlingWhileStopped::ReplyWith { msg } => Self::ReplyWith {
-                msg: msg
-                    .dyn_clone()
-                    .expect(&format!("{} cannot be cloned", msg.name)),
+                msg: msg.clone_box().expect("message cannot be cloned"),
             },
         }
     }

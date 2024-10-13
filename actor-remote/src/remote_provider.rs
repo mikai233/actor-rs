@@ -21,7 +21,7 @@ use actor_core::provider::local_provider::LocalActorRefProvider;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::AsAny;
 
-use crate::artery::ArteryActor;
+use crate::artery::{ArteryActor, self};
 use crate::config::advanced::Advanced;
 use crate::config::artery::Transport;
 use crate::config::settings::Settings;
@@ -51,7 +51,7 @@ impl RemoteActorRefProvider {
         let canonical = settings.artery.canonical;
         let transport = settings.artery.transport;
         let address = Address::new(Protocol::Akka, system.name.clone(), Some(canonical));
-        let mut provider = LocalActorRefProvider::new(system, config, Some(address.clone()))?;
+        let mut provider = LocalActorRefProvider::new(system, )?;
         let (artery, deferred) = RemoteActorRefProvider::spawn_artery(&provider.provider, transport, canonical, settings.advanced.clone())?;
         provider.spawns.push(Box::new(deferred));
         let (remote_watcher, remote_watcher_deferred) = Self::create_remote_watcher(&provider.provider)?;

@@ -7,7 +7,6 @@ use tracing_subscriber::EnvFilter;
 
 pub mod as_any;
 pub mod collection;
-pub mod duration_ext;
 pub mod maybe_ref;
 
 const BASE64_CHARS: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+~";

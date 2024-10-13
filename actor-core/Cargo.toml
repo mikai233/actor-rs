@@ -13,7 +13,10 @@ enum_dispatch = { workspace = true }
 anyhow = { workspace = true }
 futures = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["local-time", "env-filter"] }
+tracing-subscriber = { workspace = true, features = [
+    "local-time",
+    "env-filter",
+] }
 bincode = { workspace = true }
 serde = { workspace = true, features = ["derive", "rc"] }
 bytes = { workspace = true }
@@ -29,7 +32,13 @@ pin-project = { workspace = true }
 config = { workspace = true }
 parking_lot = { workspace = true }
 imstr = { workspace = true, features = ["serde"] }
-derive_more = { workspace = true, features = ["display", "deref", "deref_mut", "constructor"] }
+derive_more = { workspace = true, features = [
+    "display",
+    "deref",
+    "debug",
+    "deref_mut",
+    "constructor",
+] }
 itertools = { workspace = true }
 
 [dev-dependencies]

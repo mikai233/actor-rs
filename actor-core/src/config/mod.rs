@@ -1,5 +1,6 @@
 use std::any::type_name;
 use std::any::Any;
+use std::fmt::Display;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
@@ -14,10 +15,12 @@ pub mod actor;
 pub mod circuit_breaker;
 pub mod coordinated_shutdown;
 pub mod debug;
+pub mod duration;
 pub mod mailbox;
 pub mod phase;
 pub mod settings;
-pub trait Config: Debug + Send + Sync + Any + AsAny + DynClone {}
+
+pub trait Config: Debug + Display + Send + Sync + Any + AsAny + DynClone {}
 
 dyn_clone::clone_trait_object!(Config);
 

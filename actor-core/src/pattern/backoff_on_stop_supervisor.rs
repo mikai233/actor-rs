@@ -36,6 +36,7 @@ impl HandBackoff for BackoffOnStopSupervisor {
         &self.reset
     }
 
+    #[allow(unused_variables)]
     fn handle_message_to_child(&self, message: DynMessage) {
         todo!()
     }
