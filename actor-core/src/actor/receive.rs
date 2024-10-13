@@ -5,10 +5,10 @@ use crate::message::{downcast_into, DynMessage, Message};
 use ahash::{HashMap, HashMapExt};
 use std::any::TypeId;
 
-pub type ReceiveFn<A: Actor> = Box<
+pub type ReceiveFn<A> = Box<
     dyn Fn(
             &mut A,
-            &mut A::Context,
+            &mut <A as Actor>::Context,
             DynMessage,
             Option<ActorRef>,
             &Receive<A>,

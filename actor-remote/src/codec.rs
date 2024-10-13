@@ -11,7 +11,7 @@ pub trait MessageCodec: Sized {
     fn decode(bytes: &[u8], registry: &dyn MessageCodecRegistry) -> anyhow::Result<Self::M>;
 }
 
-pub trait MessageCodecRegistry {
+pub trait MessageCodecRegistry: Send + Sync {
     fn encode(&self, message: &dyn Message) -> anyhow::Result<Vec<u8>>;
 
     fn decode(&self, bytes: &[u8]) -> anyhow::Result<DynMessage>;

@@ -10,6 +10,7 @@ use crate::actor::Actor;
 use crate::actor_ref::local_ref::SignalReceiver;
 use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
+use crate::config::mailbox::Mailbox as MailboxConfig;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
 
 type ActorCreator =
@@ -86,11 +87,11 @@ impl Props {
         }
     }
 
-    pub(crate) fn mailbox(
+    pub(crate) fn build_mailbox(
         &self,
-        mailbox: crate::config::mailbox::Mailbox,
+        mailbox: &MailboxConfig,
     ) -> anyhow::Result<(MailboxSender, Mailbox)> {
-        let (m_tx, m_rx) = channel(mailbox.mailbox_capacity.unwrap_or(1000000));
+        let (m_tx, m_rx) = channel(mailbox.mailbox_capacity);
         let (s_tx, s_rx) = channel(SYSTEM_MAILBOX_SIZE);
         let sender = MailboxSender {
             message: m_tx,
@@ -122,7 +123,7 @@ impl Props {
     #[cfg(feature = "tokio-tracing")]
     pub(crate) fn run_actor<A>(rt: ActorRuntime<A>) -> anyhow::Result<()>
     where
-        A: Actor,
+        A: Actor + 'static,
     {
         tokio::task::Builder::new()
             .name(type_name::<A>())

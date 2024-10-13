@@ -28,7 +28,6 @@ arc-swap = { workspace = true }
 dyn-clone = { workspace = true }
 regex = { workspace = true }
 toml = { workspace = true }
-pin-project = { workspace = true }
 config = { workspace = true }
 parking_lot = { workspace = true }
 imstr = { workspace = true, features = ["serde"] }

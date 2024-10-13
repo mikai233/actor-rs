@@ -1,5 +1,4 @@
 use std::any::type_name;
-use std::ops::Deref;
 use std::sync::Arc;
 
 use dashmap::DashSet;
@@ -11,22 +10,12 @@ use crate::actor::extension::Extension;
 use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::message::address_terminated::AddressTerminated;
 
-#[derive(Debug, Clone, Default, AsAny)]
-pub struct AddressTerminatedTopic {
-    inner: Arc<Inner>,
-}
+#[derive(Debug, Clone, Default, AsAny, derive_more::Deref)]
+pub struct AddressTerminatedTopic(Arc<AddressTerminatedTopicInner>);
 
 #[derive(Debug, Default)]
-pub struct Inner {
+pub struct AddressTerminatedTopicInner {
     subscribers: DashSet<ActorRef>,
-}
-
-impl Deref for AddressTerminatedTopic {
-    type Target = Arc<Inner>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
 }
 
 impl AddressTerminatedTopic {

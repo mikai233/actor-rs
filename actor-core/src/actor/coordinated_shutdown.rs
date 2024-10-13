@@ -1,8 +1,7 @@
 use std::any::type_name;
 use std::collections::{BTreeSet, HashSet};
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Display, Formatter};
 use std::future::Future;
-use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -11,8 +10,7 @@ use ahash::HashMap;
 use anyhow::{anyhow, Error};
 use futures::future::{join_all, BoxFuture};
 use futures::FutureExt;
-use imstr::ImString;
-use parking_lot::RwLock;
+use parking_lot::Mutex;
 use tracing::{debug, error, info, warn};
 
 use actor_derive::AsAny;
@@ -23,56 +21,46 @@ use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::config::phase::Phase;
 use crate::provider::local_provider::LocalActorRefProvider;
 
-pub const PHASE_BEFORE_SERVICE_UNBIND: &str = "before-service-unbind";
-pub const PHASE_SERVICE_UNBIND: &str = "service-unbind";
-pub const PHASE_SERVICE_REQUESTS_DONE: &str = "service-requests-done";
-pub const PHASE_SERVICE_STOP: &str = "service-stop";
-pub const PHASE_BEFORE_CLUSTER_SHUTDOWN: &str = "before-cluster-shutdown";
-pub const PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION: &str = "cluster-sharding-shutdown-region";
-pub const PHASE_CLUSTER_LEAVE: &str = "cluster-leave";
-pub const PHASE_CLUSTER_EXITING: &str = "cluster-exiting";
-pub const PHASE_CLUSTER_EXITING_DONE: &str = "cluster-exiting-done";
-pub const PHASE_CLUSTER_SHUTDOWN: &str = "cluster-shutdown";
-pub const PHASE_BEFORE_ACTOR_SYSTEM_TERMINATE: &str = "before-actor-system-terminate";
-pub const PHASE_ACTOR_SYSTEM_TERMINATE: &str = "actor-system-terminate";
+pub const PHASE_BEFORE_SERVICE_UNBIND: &str = "before_service_unbind";
+pub const PHASE_SERVICE_UNBIND: &str = "service_unbind";
+pub const PHASE_SERVICE_REQUESTS_DONE: &str = "service_requests_done";
+pub const PHASE_SERVICE_STOP: &str = "service_stop";
+pub const PHASE_BEFORE_CLUSTER_SHUTDOWN: &str = "before_cluster_shutdown";
+pub const PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION: &str = "cluster_sharding_shutdown_region";
+pub const PHASE_CLUSTER_LEAVE: &str = "cluster_leave";
+pub const PHASE_CLUSTER_EXITING: &str = "cluster_exiting";
+pub const PHASE_CLUSTER_EXITING_DONE: &str = "cluster_exiting_done";
+pub const PHASE_CLUSTER_SHUTDOWN: &str = "cluster_shutdown";
+pub const PHASE_BEFORE_ACTOR_SYSTEM_TERMINATE: &str = "before_actor_system_terminate";
+pub const PHASE_ACTOR_SYSTEM_TERMINATE: &str = "actor_system_terminate";
 
-#[derive(Debug, Clone, AsAny)]
+#[derive(Debug, Clone, AsAny, derive_more::Deref)]
 pub struct CoordinatedShutdown(Arc<CoordinatedShutdownInner>);
 
 #[derive(Debug)]
 pub struct CoordinatedShutdownInner {
-    registered_phases: RwLock<HashMap<ImString, PhaseTask>>,
-    ordered_phases: Vec<ImString>,
+    registered_phases: Mutex<HashMap<String, PhaseTask>>,
+    ordered_phases: Vec<String>,
     run_started: AtomicBool,
-}
-
-impl Deref for CoordinatedShutdown {
-    type Target = Arc<CoordinatedShutdownInner>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
 }
 
 impl CoordinatedShutdown {
     pub(crate) fn new(system: ActorSystem) -> anyhow::Result<Self> {
         let provider = system.provider();
-        let local = provider
-            .downcast_ref::<LocalActorRefProvider>()
-            .ok_or(anyhow!("LocalActorRefProvider not found"))?;
-        let ordered_phases = Self::topological_sort(&local.settings().coordinated_shutdown.phases)?;
+        let local = provider.downcast_ref::<LocalActorRefProvider>()?;
+        let ordered_phases = Self::topological_sort(&local.config.coordinated_shutdown.phases)?;
         let inner = CoordinatedShutdownInner {
             registered_phases: Default::default(),
             ordered_phases,
             run_started: Default::default(),
         };
-        let mut coordinated_shutdown = Self(inner.into());
-        coordinated_shutdown.init_ctrl_c_signal()?;
+        let coordinated_shutdown = Self(inner.into());
+        coordinated_shutdown.init_ctrl_c_signal(system.clone())?;
         coordinated_shutdown.init_phase_actor_system_terminate(system)?;
         Ok(coordinated_shutdown)
     }
 
-    fn topological_sort(phases: &HashMap<ImString, Phase>) -> anyhow::Result<Vec<ImString>> {
+    fn topological_sort(phases: &HashMap<String, Phase>) -> anyhow::Result<Vec<String>> {
         let mut result = vec![];
         let mut unmarked = phases
             .keys()
@@ -81,11 +69,11 @@ impl CoordinatedShutdown {
             .collect::<BTreeSet<_>>();
         let mut temp_mark = HashSet::new();
         fn depth_first_search(
-            result: &mut Vec<ImString>,
-            phases: &HashMap<ImString, Phase>,
-            unmarked: &mut BTreeSet<ImString>,
-            temp_mark: &mut HashSet<ImString>,
-            u: ImString,
+            result: &mut Vec<String>,
+            phases: &HashMap<String, Phase>,
+            unmarked: &mut BTreeSet<String>,
+            temp_mark: &mut HashSet<String>,
+            u: String,
         ) -> anyhow::Result<()> {
             if temp_mark.contains(&u) {
                 return Err(anyhow!("Cycle detected in graph of phases. It must be a DAG. phase [{}] depends transitively on itself. All dependencies: {:?}", u, phases));
@@ -109,12 +97,12 @@ impl CoordinatedShutdown {
         Ok(result)
     }
 
-    fn register<F>(&self, phase_name: ImString, name: ImString, fut: F)
+    fn register<F>(&self, phase_name: String, name: String, fut: F)
     where
         F: Future<Output = ()> + Send + 'static,
     {
-        let phase_tasks = self
-            .registered_phases
+        let mut registered_phases = self.registered_phases.lock();
+        let phase_tasks = registered_phases
             .entry(phase_name)
             .or_insert(PhaseTask::default());
         let task = TaskDefinition {
@@ -127,8 +115,8 @@ impl CoordinatedShutdown {
     pub fn add_task<F>(
         &self,
         system: &ActorSystem,
-        phase: impl Into<ImString>,
-        task_name: impl Into<ImString>,
+        phase: impl Into<String>,
+        task_name: impl Into<String>,
         fut: F,
     ) -> anyhow::Result<()>
     where
@@ -147,13 +135,13 @@ impl CoordinatedShutdown {
         Ok(())
     }
 
-    fn known_phases(system: &ActorSystem) -> HashSet<ImString> {
+    fn known_phases(system: &ActorSystem) -> HashSet<String> {
         let provider = system.provider();
         let local = provider
             .downcast_ref::<LocalActorRefProvider>()
             .expect("LocalActorRefProvider not found");
         let mut know_phases = HashSet::new();
-        let phases = local.settings().coordinated_shutdown.phases.clone();
+        let phases = local.config.coordinated_shutdown.phases.clone();
         for (name, phase) in phases {
             know_phases.insert(name);
             for depends in &phase.depends_on {
@@ -188,7 +176,7 @@ impl CoordinatedShutdown {
                     *system.termination_error.lock() = error;
                 }
                 self.registered_phases
-                    .write()
+                    .lock()
                     .drain()
                     .collect::<HashMap<_, _>>()
             };
@@ -196,8 +184,7 @@ impl CoordinatedShutdown {
             let local = provider
                 .downcast_ref::<LocalActorRefProvider>()
                 .expect("LocalActorRefProvider not found");
-            let settings = local.settings();
-            let phases = &settings.coordinated_shutdown.phases;
+            let phases = &local.config.coordinated_shutdown.phases;
             for phase_name in &self.ordered_phases {
                 if let Some(phase) = phases.get(phase_name) {
                     if phase.enabled {
@@ -273,13 +260,13 @@ impl CoordinatedShutdown {
         Ok(())
     }
 
-    fn init_ctrl_c_signal(&self) -> anyhow::Result<()> {
+    fn init_ctrl_c_signal(&self, system: ActorSystem) -> anyhow::Result<()> {
         let coordinated = self.clone();
         tokio::spawn(async move {
             if let Some(error) = tokio::signal::ctrl_c().await.err() {
                 error!("ctrl c signal error {}", error);
             }
-            coordinated.run(CtrlCExitReason).await;
+            coordinated.run(system, CtrlCExitReason).await;
         });
         Ok(())
     }
@@ -294,7 +281,7 @@ impl CoordinatedShutdown {
             .downcast_ref::<LocalActorRefProvider>()
             .expect("LocalActorRefProvider not found");
         local
-            .settings()
+            .config
             .coordinated_shutdown
             .phases
             .get(phase)
@@ -315,7 +302,7 @@ impl PhaseTask {
     }
 }
 
-impl Debug for PhaseTask {
+impl std::fmt::Debug for PhaseTask {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("PhaseTask")
             .field("tasks", &self.tasks)
@@ -323,22 +310,16 @@ impl Debug for PhaseTask {
     }
 }
 
+#[derive(derive_more::Debug)]
 struct TaskDefinition {
-    name: ImString,
+    name: String,
+    #[debug(skip)]
     fut: BoxFuture<'static, ()>,
 }
 
-impl Debug for TaskDefinition {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        f.debug_struct("TaskDefinition")
-            .field("name", &self.name)
-            .finish_non_exhaustive()
-    }
-}
-
 struct TaskRun {
-    name: ImString,
-    phase: ImString,
+    name: String,
+    phase: String,
     task: BoxFuture<'static, ()>,
 }
 

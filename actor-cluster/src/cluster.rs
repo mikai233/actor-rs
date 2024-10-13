@@ -71,9 +71,7 @@ impl Extension for Cluster {
             .context("cannot init Cluster more than once")?;
         let system = self.system()?;
         let provider = system.provider();
-        let local = provider
-            .downcast_ref::<LocalActorRefProvider>()
-            .ok_or(anyhow!("LocalActorRefProvider not found"))?;
+        let local = provider.downcast_ref::<LocalActorRefProvider>()?;
         let creation_timeout = local.settings().actor.creation_timeout.to_std_duration();
         Box::new(actor_spawn).spawn(system)?;
         let cluster_core = tokio::task::block_in_place(|| {
@@ -92,9 +90,7 @@ impl Extension for Cluster {
 impl Cluster {
     pub fn new(system: ActorSystem) -> anyhow::Result<Self> {
         let provider = system.provider();
-        let cluster_provider = provider
-            .downcast_ref::<ClusterActorRefProvider>()
-            .ok_or(anyhow!("ClusterActorRefProvider not found"))?;
+        let cluster_provider = provider.downcast_ref::<ClusterActorRefProvider>()?;
         let roles = cluster_provider.roles.clone();
         let address = cluster_provider.get_default_address();
         let self_unique_address = UniqueAddress {

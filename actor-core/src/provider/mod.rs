@@ -6,6 +6,7 @@ use crate::actor_path::TActorPath;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::ext::as_any::AsAny;
+use anyhow::anyhow;
 use std::any::type_name;
 use std::any::Any;
 use std::fmt::Debug;
@@ -78,13 +79,14 @@ impl ActorRefProvider {
         Self(Arc::new(provider))
     }
 
-    pub fn downcast_ref<P>(&self) -> Option<&P>
+    pub fn downcast_ref<P>(&self) -> anyhow::Result<&P>
     where
         P: TActorRefProvider,
     {
         self.0
             .as_provider(type_name::<P>())
             .and_then(|provider| provider.as_any().downcast_ref::<P>())
+            .ok_or(anyhow!("downcast to {} failed", type_name::<P>()))
     }
 }
 

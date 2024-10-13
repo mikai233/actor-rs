@@ -58,7 +58,7 @@ impl TimersActor {
                 let mut indices = HashSet::new();
                 indices.insert(index);
                 watching_receivers.insert(receiver.clone(), indices);
-                context.watch(receiver);
+                context.watch(receiver)?;
             }
         }
         Ok(())

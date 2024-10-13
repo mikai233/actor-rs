@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, derive_more::Constructor)]
-pub struct DebugConfig {
+pub struct Debug {
     pub receive: bool,
     pub auto_receive: bool,
     pub lifecycle: bool,

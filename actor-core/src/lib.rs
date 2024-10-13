@@ -1,7 +1,7 @@
 #[cfg(feature = "derive")]
 pub use actor_derive::{self, *};
 
-pub const REFERENCE: &'static str = include_str!("../reference.toml");
+pub const REFERENCE: &'static str = include_str!("../reference.json");
 
 pub mod ext;
 mod cell;

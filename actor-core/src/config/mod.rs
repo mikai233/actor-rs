@@ -18,7 +18,7 @@ pub mod debug;
 pub mod duration;
 pub mod mailbox;
 pub mod phase;
-pub mod settings;
+pub mod akka;
 
 pub trait Config: Debug + Display + Send + Sync + Any + AsAny + DynClone {}
 

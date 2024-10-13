@@ -1,4 +1,5 @@
 use crate::actor::behavior::Behavior;
+use crate::actor::context::ActorContext;
 use crate::actor::receive::Receive;
 use crate::actor_ref::ActorRef;
 use crate::message::handler::MessageHandler;
@@ -16,12 +17,15 @@ pub struct RemoveRoutee {
 impl<A: Router> MessageHandler<A> for RemoveRoutee {
     fn handle(
         actor: &mut A,
-        _: &mut A::Context,
+        ctx: &mut A::Context,
         message: Self,
         _: Option<ActorRef>,
         _: &Receive<A>,
     ) -> anyhow::Result<Behavior<A>> {
         actor.routees_mut().retain(|routee| *routee != message.routee);
-        todo!()
+        if let Routee::ActorRefRoutee(routee) = &message.routee {
+            ctx.context_mut().unwatch(routee);
+        }
+        Ok(Behavior::same())
     }
 }

@@ -1,127 +1,127 @@
 {
   "akka": {
-    "log-config-on-start": false,
-    "log-dead-letters": 10,
-    "log-dead-letters-during-shutdown": {},
-    "log-dead-letters-suspend-duration": {
+    "log_config_on_start": false,
+    "log_dead_letters": 10,
+    "log_dead_letters_during_shutdown": {},
+    "log_dead_letters_suspend_duration": {
       "minutes": 5
     },
     "extensions": [],
     "actor": {
       "provider": "local",
-      "guardian-supervisor-strategy": "akka.actor.DefaultSupervisorStrategy",
-      "creation-timeout": {
+      "guardian_supervisor_strategy": "akka.actor.DefaultSupervisorStrategy",
+      "creation_timeout": {
         "seconds": 20
       },
       "mailbox": {
-        "default-mailbox": {
-          "mailbox-capacity": 1000,
-          "mailbox-push-timeout-time": {
+        "default_mailbox": {
+          "mailbox_capacity": 1000,
+          "mailbox_push_timeout_time": {
             "seconds": 10
           },
-          "stash-capacity": {}
+          "stash_capacity": null
         }
       },
       "debug": {
         "receive": false,
-        "auto-receive": false,
+        "auto_receive": false,
         "lifecycle": false,
         "fsm": false,
-        "event-stream": false,
+        "event_stream": false,
         "unhandled": false,
-        "router-misconfiguration": false
+        "router_misconfiguration": false
       }
     },
-    "coordinated-shutdown": {
-      "default-phase-timeout": {
+    "coordinated_shutdown": {
+      "default_phase_timeout": {
         "seconds": 5
       },
-      "terminate-actor-system": true,
+      "terminate_actor_system": true,
       "phases": {
-        "before-service-unbind": {
+        "before_service_unbind": {
           "depends_on": []
         },
-        "service-unbind": {
+        "service_unbind": {
           "depends_on": [
-            "before-service-unbind"
+            "before_service_unbind"
           ]
         },
-        "service-requests-done": {
+        "service_requests_done": {
           "depends_on": [
-            "service-unbind"
+            "service_unbind"
           ]
         },
-        "service-stop": {
+        "service_stop": {
           "depends_on": [
-            "service-requests-done"
+            "service_requests_done"
           ]
         },
-        "before-cluster-shutdown": {
+        "before_cluster_shutdown": {
           "depends_on": [
-            "service-stop"
+            "service_stop"
           ]
         },
-        "cluster-sharding-shutdown-region": {
+        "cluster_sharding_shutdown_region": {
           "depends_on": [
-            "before-cluster-shutdown"
+            "before_cluster_shutdown"
           ]
         },
-        "cluster-leave": {
+        "cluster_leave": {
           "depends_on": [
-            "cluster-sharding-shutdown-region"
+            "cluster_sharding_shutdown_region"
           ]
         },
-        "cluster-exiting": {
+        "cluster_exiting": {
           "timeout": {
             "seconds": 10
           },
           "depends_on": [
-            "cluster-leave"
+            "cluster_leave"
           ]
         },
-        "cluster-exiting-done": {
+        "cluster_exiting_done": {
           "depends_on": [
-            "cluster-exiting"
+            "cluster_exiting"
           ]
         },
-        "cluster-shutdown": {
+        "cluster_shutdown": {
           "timeout": {
             "seconds": 10
           },
           "depends_on": [
-            "cluster-exiting-done"
+            "cluster_exiting_done"
           ]
         },
-        "before-actor-system-terminate": {
+        "before_actor_system_terminate": {
           "depends_on": [
-            "cluster-shutdown"
+            "cluster_shutdown"
           ]
         },
-        "actor-system-terminate": {
+        "actor_system_terminate": {
           "tiemout": {
             "seconds": 10
           },
           "depends_on": [
-            "before-actor-system-terminate"
+            "before_actor_system_terminate"
           ]
         }
       }
     },
-    "circuit-breaker": {
+    "circuit_breaker": {
       "default": {
-        "max-failures": 10,
-        "call-timeout": {
+        "max_failures": 10,
+        "call_timeout": {
           "seconds": 10
         },
-        "reset-timeout": {
+        "reset_timeout": {
           "seconds": 15
         },
-        "max-reset-timeout": {
+        "max_reset_timeout": {
           "days": 36500
         },
-        "exponential-backoff": 1.0,
-        "random-factor": 0.0,
-        "exception-allowlist": []
+        "exponential_backoff": 1.0,
+        "random_factor": 0.0,
+        "exception_allowlist": []
       }
     }
   }

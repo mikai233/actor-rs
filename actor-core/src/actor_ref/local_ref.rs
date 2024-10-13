@@ -18,12 +18,13 @@ use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::function_ref::FunctionRef;
 use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::cell::envelope::Envelope;
-use crate::config::duration::Duration;
+use crate::config::mailbox::Mailbox as MailboxConfig;
 use crate::ext::{check_name, random_actor_name, random_name};
 use crate::message::poison_pill::PoisonPill;
 use crate::message::resume::Resume;
 use crate::message::suspend::Suspend;
 use crate::message::DynMessage;
+use crate::provider::local_provider::LocalActorRefProvider;
 use crate::provider::provider::ActorSpawn;
 
 pub type SignalSender = tokio::sync::mpsc::Sender<()>;
@@ -199,7 +200,9 @@ impl LocalActorRef {
         name: Option<String>,
         uid: Option<i32>,
     ) -> anyhow::Result<ActorRef> {
-        let actor_spawn = self.attach_child_deferred(props, name, uid)?;
+        let local_provider = system.provider.downcast_ref::<LocalActorRefProvider>()?;
+        let mailbox_cfg = Self::get_mailbox_cfg(local_provider, &props)?;
+        let actor_spawn = self.attach_child_deferred(props, name, uid, mailbox_cfg)?;
         let myself = actor_spawn.myself.clone();
         actor_spawn.spawn(system)?;
         Ok(myself)
@@ -210,15 +213,9 @@ impl LocalActorRef {
         props: Props,
         name: Option<String>,
         uid: Option<i32>,
+        mailbox: &MailboxConfig,
     ) -> anyhow::Result<ActorSpawn> {
-        //TODO mailbox
-        let mailbox = crate::config::mailbox::Mailbox {
-            mailbox_capacity: None,
-            mailbox_push_timeout_time: Duration::from_days(1),
-            stash_capacity: None,
-            throughput: 100,
-        };
-        let (sender, mailbox) = props.mailbox(mailbox)?;
+        let (sender, mailbox) = props.build_mailbox(mailbox)?;
         let (child_ref, signal_rx) = self.make_child(name, uid, sender)?;
         let actor_spawn = ActorSpawn::new(props, child_ref.clone(), signal_rx, mailbox);
         Ok(actor_spawn)
@@ -311,5 +308,17 @@ impl LocalActorRef {
             }
             _ => None,
         }
+    }
+
+    pub fn get_mailbox_cfg<'a>(local_provider: &'a LocalActorRefProvider, props: &Props) -> anyhow::Result<&'a MailboxConfig> {
+        let mailbox_cfg = match &props.mailbox {
+            None => {
+                local_provider.config.actor.mailbox.get("default_mailbox").ok_or(anyhow!("default_mailbox not found"))?
+            }
+            Some(mailbox) => {
+                local_provider.config.actor.mailbox.get(mailbox).ok_or(anyhow!("mailbox {} not found", mailbox))?
+            }
+        };
+        Ok(mailbox_cfg)
     }
 }

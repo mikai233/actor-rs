@@ -1,6 +1,7 @@
-use std::sync::atomic::{AtomicI64, Ordering};
-
+use ahash::RandomState;
+use anyhow::anyhow;
 use dashmap::DashMap;
+use std::sync::atomic::{AtomicI64, Ordering};
 use tokio::sync::broadcast::{channel, Receiver, Sender};
 
 use actor_derive::AsAny;
@@ -18,11 +19,11 @@ use crate::actor_ref::ignore_ref::IgnoreActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::config::duration::Duration;
+use crate::config::akka::Akka;
 use crate::ext::base64;
-use crate::local;
 use crate::provider::provider::{ActorSpawn, Provider};
 use crate::provider::{cast_self_to_dyn, ActorRefProvider, TActorRefProvider};
+use crate::{local, REFERENCE};
 
 #[derive(Debug, AsAny)]
 pub struct LocalActorRefProvider {
@@ -31,38 +32,46 @@ pub struct LocalActorRefProvider {
     root_guardian: LocalActorRef,
     user_guardian: LocalActorRef,
     system_guardian: LocalActorRef,
-    extra_names: DashMap<String, ActorRef, ahash::RandomState>,
+    extra_names: DashMap<String, ActorRef, RandomState>,
     dead_letters: ActorRef,
     ignore_ref: ActorRef,
     temp_number: AtomicI64,
     temp_node: ActorPath,
     temp_container: VirtualPathContainer,
     termination_tx: Sender<()>,
+    pub config: Akka,
 }
 
 impl LocalActorRefProvider {
-    pub fn new(settings: Settings) -> anyhow::Result<Provider<Self>> {
+    pub fn new(mut settings: Settings) -> anyhow::Result<Provider<Self>> {
+        let cfg = config::Config::builder()
+            .add_source(config::File::from_str(&REFERENCE, config::FileFormat::Json))
+            .add_source(settings.cfg)
+            .build()?;
+        settings.cfg = cfg;
+        let actor_config: Akka = settings.cfg.get("akka")?;
         let mut actor_spawns = vec![];
         let (termination_tx, _) = channel(1);
         //TODO address
         let root_path = RootActorPath::new(Address::new(Protocol::Akka, "test", None), "/");
         let termination_tx_clone = termination_tx.clone();
         let root_props = Props::new(move || Ok(RootGuardian::new(termination_tx_clone)));
-        let mailbox = crate::config::mailbox::Mailbox {
-            mailbox_capacity: None,
-            mailbox_push_timeout_time: Duration::from_days(1),
-            stash_capacity: None,
-            throughput: 100,
-        };
-        let (sender, mailbox) = root_props.mailbox(mailbox)?;
+        let mailbox = &actor_config.actor.mailbox["default_mailbox"];
+        let (sender, mailbox) = root_props.build_mailbox(mailbox)?;
         let (root_guardian, signal_rx) = LocalActorRef::new(root_path.clone().into(), sender, None);
         let root_spawn =
             ActorSpawn::new(root_props, root_guardian.clone().into(), signal_rx, mailbox);
         actor_spawns.push(root_spawn);
+        let default_mailbox_cfg = actor_config
+            .actor
+            .mailbox
+            .get("default_mailbox")
+            .ok_or(anyhow!("default_mailbox not found"))?;
         let system_spawn = root_guardian.attach_child_deferred(
             Props::new(|| Ok(SystemGuardian)),
             Some("system".to_string()),
             Some(ActorPath::undefined_uid()),
+            default_mailbox_cfg,
         )?;
         let system_guardian = local!(system_spawn.myself).clone();
         actor_spawns.push(system_spawn);
@@ -70,6 +79,7 @@ impl LocalActorRefProvider {
             Props::new(|| Ok(UserGuardian)),
             Some("user".to_string()),
             Some(ActorPath::undefined_uid()),
+            default_mailbox_cfg,
         )?;
         let user_guardian = local!(user_spawn.myself).clone();
         actor_spawns.push(user_spawn);
@@ -77,20 +87,20 @@ impl LocalActorRefProvider {
         let temp_node = root_path.child("temp");
         let temp_container =
             VirtualPathContainer::new(temp_node.clone(), root_guardian.clone().into());
-        let settings = Settings::new(&config)?;
         let local = Self {
             settings,
             root_path: root_path.into(),
             root_guardian,
             user_guardian: user_guardian.clone(),
             system_guardian: system_guardian.clone(),
-            extra_names: DashMap::with_hasher(ahash::RandomState::new()),
+            extra_names: DashMap::with_hasher(RandomState::new()),
             dead_letters: dead_letters.into(),
             ignore_ref: IgnoreActorRef::new().into(),
             temp_number: AtomicI64::new(0),
             temp_node,
             temp_container,
             termination_tx,
+            config: actor_config,
         };
         Ok(Provider::new(local, actor_spawns))
     }
@@ -101,8 +111,8 @@ impl LocalActorRefProvider {
 }
 
 impl TActorRefProvider for LocalActorRefProvider {
-    fn settings(&self) -> &crate::actor::actor_system::Settings {
-        todo!()
+    fn settings(&self) -> &Settings {
+        &self.settings
     }
 
     fn root_guardian(&self) -> &LocalActorRef {

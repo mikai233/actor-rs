@@ -1,17 +1,13 @@
 use std::any::type_name;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Formatter;
 use std::future::Future;
-use std::ops::Deref;
-use std::pin::Pin;
 use std::sync::Arc;
-use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::anyhow;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use parking_lot::Mutex;
-use pin_project::pin_project;
 use rand::random;
 use tokio::sync::mpsc::{channel, Sender};
 
@@ -28,13 +24,14 @@ use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
 use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::event::event_stream::EventStream;
 use crate::message::stop_child::StopChild;
+use crate::provider::local_provider::LocalActorRefProvider;
 use crate::provider::provider::{ActorSpawn, Provider};
 use crate::provider::{ActorRefProvider, TActorRefProvider};
 
-#[derive(Debug, Clone, derive_more::Deref)]
+#[derive(std::fmt::Debug, Clone, derive_more::Deref)]
 pub struct ActorSystem(Arc<ActorSystemInner>);
 
-#[derive(Debug)]
+#[derive(std::fmt::Debug)]
 pub struct ActorSystemInner {
     pub name: String,
     pub uid: i64,
@@ -145,8 +142,10 @@ impl ActorSystem {
         props: Props,
         name: Option<String>,
     ) -> anyhow::Result<ActorSpawn> {
+        let local_provider = self.provider.downcast_ref::<LocalActorRefProvider>()?;
+        let mailbox_cfg = LocalActorRef::get_mailbox_cfg(local_provider, &props)?;
         self.system_guardian()
-            .attach_child_deferred(props, name, None)
+            .attach_child_deferred(props, name, None, mailbox_cfg)
     }
 
     pub fn register_extension<E, F>(&self, ext_fn: F) -> anyhow::Result<()>
@@ -224,36 +223,12 @@ impl ActorRefFactory for ActorSystem {
     }
 }
 
-#[pin_project]
+#[derive(derive_more::Debug, derive_more::Deref)]
 pub struct ActorSystemRunner {
+    #[deref]
     pub system: ActorSystem,
-    #[pin]
+    #[debug(skip)]
     pub signal: BoxFuture<'static, anyhow::Result<()>>,
-}
-
-impl Deref for ActorSystemRunner {
-    type Target = ActorSystem;
-
-    fn deref(&self) -> &Self::Target {
-        &self.system
-    }
-}
-
-impl Future for ActorSystemRunner {
-    type Output = anyhow::Result<()>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        let this = self.project();
-        this.signal.poll(cx)
-    }
-}
-
-impl Debug for ActorSystemRunner {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        f.debug_struct("ActorSystemRunner")
-            .field("system", &self.system)
-            .finish_non_exhaustive()
-    }
 }
 
 #[derive(Default)]
@@ -279,7 +254,7 @@ impl TerminationCallbacks {
     }
 }
 
-impl Debug for TerminationCallbacks {
+impl std::fmt::Debug for TerminationCallbacks {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("TerminationCallbacks")
             .field("callbacks", &"..")
@@ -287,7 +262,7 @@ impl Debug for TerminationCallbacks {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(std::fmt::Debug, Clone, derive_more::Constructor)]
 pub struct Settings {
     pub name: String,
     pub cfg: config::Config,

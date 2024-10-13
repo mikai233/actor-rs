@@ -12,7 +12,7 @@ pub struct DeadLetterListener;
 impl Actor for DeadLetterListener {
     type Context = Context;
 
-    fn receive(&self) -> super::receive::Receive<Self> {
+    fn receive(&self) -> Receive<Self> {
         todo!()
     }
 }

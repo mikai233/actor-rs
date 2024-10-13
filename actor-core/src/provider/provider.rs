@@ -12,7 +12,7 @@ pub struct Provider<P: TActorRefProvider> {
 }
 
 #[derive(Debug, derive_more::Constructor)]
-pub(crate) struct ActorSpawn {
+pub struct ActorSpawn {
     pub(crate) props: Props,
     pub(crate) myself: ActorRef,
     pub(crate) signal_rx: SignalReceiver,

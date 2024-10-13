@@ -6,22 +6,8 @@ use std::time::Duration;
 use config::{Config, File, FileFormat};
 use tokio::sync::broadcast::Receiver;
 
-use crate::codec::MessageRegistry;
-use actor_core::actor::actor_system::ActorSystem;
-use actor_core::actor::address::{Address, Protocol};
-use actor_core::actor::props::{ActorDeferredSpawn, Props};
-use actor_core::actor_path::root_actor_path::RootActorPath;
-use actor_core::actor_path::ActorPath;
-use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::actor_ref::local_ref::LocalActorRef;
-use actor_core::actor_ref::ActorRef;
-use actor_core::provider::builder::{Provider, ProviderBuilder};
-use actor_core::provider::local_provider::LocalActorRefProvider;
-use actor_core::provider::{ActorRefProvider, TActorRefProvider};
-use actor_core::AsAny;
-
-use crate::artery::{ArteryActor, self};
+use crate::artery::ArteryActor;
+use crate::codec::MessageCodecRegistry;
 use crate::config::advanced::Advanced;
 use crate::config::artery::Transport;
 use crate::config::settings::Settings;
@@ -33,6 +19,19 @@ use crate::remote_watcher::artery_heartbeat_rsp::ArteryHeartbeatRsp;
 use crate::remote_watcher::heartbeat::Heartbeat;
 use crate::remote_watcher::heartbeat_rsp::HeartbeatRsp;
 use crate::remote_watcher::RemoteWatcher;
+use actor_core::actor::actor_system::ActorSystem;
+use actor_core::actor::address::{Address, Protocol};
+use actor_core::actor::props::{ActorDeferredSpawn, Props};
+use actor_core::actor_path::root_actor_path::RootActorPath;
+use actor_core::actor_path::ActorPath;
+use actor_core::actor_path::TActorPath;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::local_ref::LocalActorRef;
+use actor_core::actor_ref::ActorRef;
+use actor_core::provider::local_provider::LocalActorRefProvider;
+use actor_core::provider::provider::{ActorSpawn, Provider};
+use actor_core::provider::{ActorRefProvider, TActorRefProvider};
+use actor_core::AsAny;
 
 #[derive(Debug, AsAny)]
 pub struct RemoteActorRefProvider {
@@ -40,12 +39,15 @@ pub struct RemoteActorRefProvider {
     pub local: LocalActorRefProvider,
     pub address: Address,
     pub artery: ActorRef,
-    pub registry: Arc<MessageRegistry>,
+    pub registry: Box<dyn MessageCodecRegistry>,
     pub remote_watcher: ActorRef,
 }
 
 impl RemoteActorRefProvider {
-    pub fn new(system: ActorSystem, config: &Config, mut registry: MessageRegistry) -> anyhow::Result<Provider<Self>> {
+    pub fn new<R>(settings: Settings, mut registry: R) -> anyhow::Result<Provider<Self>>
+    where
+        R: MessageCodecRegistry + 'static,
+    {
         Self::register_system_message(&mut registry);
         let settings = Settings::new(config)?;
         let canonical = settings.artery.canonical;
@@ -72,7 +74,7 @@ impl RemoteActorRefProvider {
         transport: Transport,
         socket_addr: SocketAddr,
         advanced: Advanced,
-    ) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
+    ) -> anyhow::Result<(ActorRef, ActorSpawn)> {
         provider.system_guardian()
             .attach_child_deferred_start(
                 Props::new_with_ctx(
@@ -89,7 +91,7 @@ impl RemoteActorRefProvider {
         address == self.local.root_path().address() || address == self.root_path().address() || address == &self.address
     }
 
-    fn create_remote_watcher(provider: &LocalActorRefProvider) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
+    fn create_remote_watcher(provider: &LocalActorRefProvider) -> anyhow::Result<(ActorRef, ActorSpawn)> {
         provider.system_guardian()
             .attach_child_deferred_start(
                 RemoteWatcher::props(Self::create_remote_watcher_failure_detector()),
@@ -111,7 +113,7 @@ impl RemoteActorRefProvider {
         })
     }
 
-    fn register_system_message(reg: &mut MessageRegistry) {
+    fn register_system_message<R>(reg: &mut R) {
         reg.register_system::<ArteryHeartbeat>();
         reg.register_system::<ArteryHeartbeatRsp>();
         reg.register_system::<Heartbeat>();
@@ -120,6 +122,10 @@ impl RemoteActorRefProvider {
 }
 
 impl TActorRefProvider for RemoteActorRefProvider {
+    fn settings(&self) -> &actor_core::actor::actor_system::Settings {
+        todo!()
+    }
+
     fn root_guardian(&self) -> &LocalActorRef {
         self.local.root_guardian()
     }
