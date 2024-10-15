@@ -6,6 +6,7 @@ use crate::message::{DynMessage, Message};
 use crate::routing::routee::TRoutee;
 use crate::routing::router_actor::Router;
 use actor_derive::Message;
+use anyhow::anyhow;
 
 #[derive(Debug, Message, derive_more::Display)]
 #[display("Broadcast {{ message: {message} }}")]
@@ -38,7 +39,11 @@ impl<A: Router> MessageHandler<A> for Broadcast {
         _: &Receive<A>,
     ) -> anyhow::Result<Behavior<A>> {
         for routee in actor.routees() {
-            routee.send(message.message.clone_box().unwrap(), sender.clone());
+            let message = message.message.clone_box().ok_or(anyhow!(
+                "message {} is not cloneable",
+                message.message.signature()
+            ))?;
+            routee.send(message, sender.clone());
         }
         Ok(Behavior::same())
     }
@@ -53,7 +58,10 @@ impl Into<DynMessage> for Broadcast {
 impl Clone for Broadcast {
     fn clone(&self) -> Self {
         Self {
-            message: self.message.clone_box().unwrap(),
+            message: self
+                .message
+                .clone_box()
+                .expect("Broadcast message is not cloneable"),
         }
     }
 }

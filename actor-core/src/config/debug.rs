@@ -7,6 +7,6 @@ pub struct Debug {
     pub lifecycle: bool,
     pub fsm: bool,
     pub event_stream: bool,
-    pub unwatch: bool,
+    pub unhandled: bool,
     pub router_misconfiguration: bool,
 }

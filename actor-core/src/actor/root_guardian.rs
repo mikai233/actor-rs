@@ -30,7 +30,7 @@ impl Actor for RootGuardian {
         Ok(())
     }
 
-    fn receive(&self) -> super::receive::Receive<Self> {
+    fn receive(&self) -> Receive<Self> {
         Receive::new().handle::<StopChild>()
     }
 }

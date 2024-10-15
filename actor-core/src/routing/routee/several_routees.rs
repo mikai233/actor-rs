@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use tracing::error;
 
 use crate::actor_ref::ActorRef;
@@ -7,17 +5,10 @@ use crate::message::DynMessage;
 use crate::routing::routee::{Routee, TRoutee};
 
 //TODO reference
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, derive_more::Deref)]
 pub struct SeveralRoutees {
+    #[deref]
     pub routees: Vec<Routee>,
-}
-
-impl Deref for SeveralRoutees {
-    type Target = Vec<Routee>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.routees
-    }
 }
 
 impl TRoutee for SeveralRoutees {

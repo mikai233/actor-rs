@@ -7,6 +7,7 @@ use crate::provider::TActorRefProvider;
 
 #[derive(Debug, derive_more::Constructor)]
 pub struct Provider<P: TActorRefProvider> {
+    pub(crate) name: String,
     pub(crate) provider: P,
     pub(crate) spawns: Vec<ActorSpawn>,
 }

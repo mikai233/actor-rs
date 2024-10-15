@@ -1,6 +1,6 @@
 use std::ops::{Deref, Sub};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use ahash::{HashMap, HashMapExt};
@@ -17,7 +17,7 @@ enum Schedule {
     FixedDelay(FixedDelay),
     FixedRate(FixedRate),
     Cancel(u64),
-    CancelALl,
+    CancelAll,
 }
 
 struct Once {
@@ -70,7 +70,7 @@ impl Schedule {
     }
 
     fn cancel_all() -> Self {
-        Schedule::CancelALl
+        Schedule::CancelAll
     }
 }
 
@@ -114,7 +114,7 @@ impl Scheduler {
             Schedule::Cancel(index) => {
                 Self::on_cancel(index, queue, index_map);
             }
-            Schedule::CancelALl => {
+            Schedule::CancelAll => {
                 Self::on_cancel_all(queue, index_map);
             }
         }
@@ -180,7 +180,7 @@ impl Scheduler {
             Schedule::FixedRate(fixed_rate) => {
                 Self::handle_fixed_rate_expired(fixed_rate, deadline, queue, index_map);
             }
-            _ => {}
+            Schedule::Cancel(_) | Schedule::CancelAll => {}
         }
     }
 

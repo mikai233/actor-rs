@@ -1,4 +1,4 @@
-use crate::actor::actor_system::{ActorSystem, Settings};
+use crate::actor::actor_system::ActorSystem;
 use crate::actor::address::Address;
 use crate::actor::props::Props;
 use crate::actor_path::ActorPath;
@@ -17,7 +17,7 @@ pub mod local_provider;
 pub mod provider;
 
 pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
-    fn settings(&self) -> &Settings;
+    fn config(&self) -> &config::Config;
 
     fn root_guardian(&self) -> &LocalActorRef;
 

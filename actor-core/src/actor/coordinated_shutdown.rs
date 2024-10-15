@@ -48,7 +48,7 @@ impl CoordinatedShutdown {
     pub(crate) fn new(system: ActorSystem) -> anyhow::Result<Self> {
         let provider = system.provider();
         let local = provider.downcast_ref::<LocalActorRefProvider>()?;
-        let ordered_phases = Self::topological_sort(&local.config.coordinated_shutdown.phases)?;
+        let ordered_phases = Self::topological_sort(&local.actor_config.coordinated_shutdown.phases)?;
         let inner = CoordinatedShutdownInner {
             registered_phases: Default::default(),
             ordered_phases,
@@ -141,7 +141,7 @@ impl CoordinatedShutdown {
             .downcast_ref::<LocalActorRefProvider>()
             .expect("LocalActorRefProvider not found");
         let mut know_phases = HashSet::new();
-        let phases = local.config.coordinated_shutdown.phases.clone();
+        let phases = local.actor_config.coordinated_shutdown.phases.clone();
         for (name, phase) in phases {
             know_phases.insert(name);
             for depends in &phase.depends_on {
@@ -184,7 +184,7 @@ impl CoordinatedShutdown {
             let local = provider
                 .downcast_ref::<LocalActorRefProvider>()
                 .expect("LocalActorRefProvider not found");
-            let phases = &local.config.coordinated_shutdown.phases;
+            let phases = &local.actor_config.coordinated_shutdown.phases;
             for phase_name in &self.ordered_phases {
                 if let Some(phase) = phases.get(phase_name) {
                     if phase.enabled {
@@ -281,7 +281,7 @@ impl CoordinatedShutdown {
             .downcast_ref::<LocalActorRefProvider>()
             .expect("LocalActorRefProvider not found");
         local
-            .config
+            .actor_config
             .coordinated_shutdown
             .phases
             .get(phase)

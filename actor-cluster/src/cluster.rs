@@ -72,7 +72,7 @@ impl Extension for Cluster {
         let system = self.system()?;
         let provider = system.provider();
         let local = provider.downcast_ref::<LocalActorRefProvider>()?;
-        let creation_timeout = local.settings().actor.creation_timeout.to_std_duration();
+        let creation_timeout = local.config().actor.creation_timeout.to_std_duration();
         Box::new(actor_spawn).spawn(system)?;
         let cluster_core = tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {

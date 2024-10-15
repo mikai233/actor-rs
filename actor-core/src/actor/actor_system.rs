@@ -50,11 +50,11 @@ impl ActorSystem {
     where
         P: TActorRefProvider + 'static,
     {
-        let Provider { provider, spawns } = provider;
+        let Provider { provider, spawns, name } = provider;
         let scheduler = scheduler();
         let (signal_tx, mut signal_rx) = channel(1);
         let inner = ActorSystemInner {
-            name: provider.settings().name.clone(),
+            name,
             uid: random(),
             start_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
             provider: ActorRefProvider::new(provider),
@@ -262,42 +262,74 @@ impl std::fmt::Debug for TerminationCallbacks {
     }
 }
 
-#[derive(std::fmt::Debug, Clone, derive_more::Constructor)]
-pub struct Settings {
-    pub name: String,
-    pub cfg: config::Config,
-}
+#[cfg(test)]
+mod system_test {
+    use std::time::Duration;
 
-// #[cfg(test)]
-// mod system_test {
-//     use std::time::Duration;
-//
-//     use tracing::info;
-//
-//     use crate::{EmptyTestActor, EmptyTestMessage};
-//     use crate::actor_path::TActorPath;
-//     use crate::actor_ref::{ActorRef, ActorRefExt, TActorRef};
-//     use crate::actor_ref_factory::ActorRefFactory;
-//     use crate::props::Props;
-//     use crate::system::ActorSystem;
-//
-//     #[tokio::test]
-//     async fn test_spawn_actor() -> anyhow::Result<()> {
-//         let system = ActorSystem::default();
-//         for i in 0..10 {
-//             let name = format!("testActor{}", i);
-//             let actor = system.spawn_actor(Props::create(|_| EmptyTestActor), name)?;
-//             let elements: Vec<String> = actor.path().elements();
-//             info!("{:?}", elements);
-//             tokio::spawn(async move {
-//                 info!("{}", actor);
-//                 loop {
-//                     actor.cast(EmptyTestMessage, ActorRef::no_sender());
-//                     tokio::time::sleep(Duration::from_secs(1)).await;
-//                 }
-//             });
-//         }
-//         tokio::time::sleep(Duration::from_secs(10)).await;
-//         Ok(())
-//     }
-// }
+    use crate::actor::actor_system::{ActorSystem, ActorSystemRunner};
+    use crate::actor::behavior::Behavior;
+    use crate::actor::context::Context;
+    use crate::actor::props::Props;
+    use crate::actor::receive::Receive;
+    use crate::actor::Actor;
+    use crate::actor_path::TActorPath;
+    use crate::actor_ref::actor_ref_factory::ActorRefFactory;
+    use crate::actor_ref::{ActorRef, ActorRefExt};
+    use crate::ext::init_logger;
+    use crate::message::handler::MessageHandler;
+    use crate::message::DynMessage;
+    use crate::provider::local_provider::LocalActorRefProvider;
+    use actor_derive::Message;
+    use tracing::{info, Level};
+
+    #[derive(Debug)]
+    struct MyActor;
+
+    impl Actor for MyActor {
+        type Context = Context;
+
+        fn receive(&self) -> Receive<Self> {
+            Receive::new()
+                .any(|x, x1, m, option, x2| {
+                    info!("received message {}", m.signature());
+                    Ok(Behavior::same())
+                })
+        }
+    }
+
+    #[derive(Debug, Message, derive_more::Display)]
+    #[display("MyMessage")]
+    struct MyMessage;
+
+    impl MessageHandler<MyActor> for MyMessage {
+        fn handle(
+            actor: &mut MyActor,
+            ctx: &mut <MyActor as Actor>::Context,
+            message: Self,
+            sender: Option<ActorRef>,
+            _: &Receive<MyActor>) -> anyhow::Result<Behavior<MyActor>> {
+            info!("Got a message: {}", message);
+            Ok(Behavior::same())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_spawn_actor() -> anyhow::Result<()> {
+        init_logger(Level::TRACE);
+        let provider = LocalActorRefProvider::new("mikai", None)?;
+        let ActorSystemRunner { system, signal } = ActorSystem::new(provider)?;
+        for i in 0..10 {
+            let name = format!("test_actor_{}", i);
+            let actor = system.spawn(Props::new(|| Ok(MyActor)), name)?;
+            let elements = actor.path().elements();
+            tokio::spawn(async move {
+                loop {
+                    actor.cast_ns(MyMessage);
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                }
+            });
+        }
+        tokio::time::sleep(Duration::from_secs(10)).await;
+        Ok(())
+    }
+}

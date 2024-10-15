@@ -122,7 +122,7 @@ impl RemoteActorRefProvider {
 }
 
 impl TActorRefProvider for RemoteActorRefProvider {
-    fn settings(&self) -> &actor_core::actor::actor_system::Settings {
+    fn config(&self) -> &actor_core::actor::actor_system::Settings {
         todo!()
     }
 

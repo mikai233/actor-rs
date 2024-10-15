@@ -6,7 +6,7 @@ use tokio::sync::broadcast::{channel, Receiver, Sender};
 
 use actor_derive::AsAny;
 
-use crate::actor::actor_system::{ActorSystem, Settings};
+use crate::actor::actor_system::ActorSystem;
 use crate::actor::address::{Address, Protocol};
 use crate::actor::props::Props;
 use crate::actor::root_guardian::RootGuardian;
@@ -27,7 +27,6 @@ use crate::{local, REFERENCE};
 
 #[derive(Debug, AsAny)]
 pub struct LocalActorRefProvider {
-    settings: Settings,
     root_path: ActorPath,
     root_guardian: LocalActorRef,
     user_guardian: LocalActorRef,
@@ -39,17 +38,19 @@ pub struct LocalActorRefProvider {
     temp_node: ActorPath,
     temp_container: VirtualPathContainer,
     termination_tx: Sender<()>,
-    pub config: Akka,
+    pub config: config::Config,
+    pub actor_config: Akka,
 }
 
 impl LocalActorRefProvider {
-    pub fn new(mut settings: Settings) -> anyhow::Result<Provider<Self>> {
-        let cfg = config::Config::builder()
-            .add_source(config::File::from_str(&REFERENCE, config::FileFormat::Json))
-            .add_source(settings.cfg)
-            .build()?;
-        settings.cfg = cfg;
-        let actor_config: Akka = settings.cfg.get("akka")?;
+    pub fn new(name: impl Into<String>, config: Option<config::Config>) -> anyhow::Result<Provider<Self>> {
+        let mut cfg_builder = config::Config::builder();
+        cfg_builder = cfg_builder.add_source(config::File::from_str(&REFERENCE, config::FileFormat::Json));
+        if let Some(cfg) = config {
+            cfg_builder = cfg_builder.add_source(cfg);
+        }
+        let config = cfg_builder.build()?;
+        let actor_config: Akka = config.get("akka")?;
         let mut actor_spawns = vec![];
         let (termination_tx, _) = channel(1);
         //TODO address
@@ -88,7 +89,6 @@ impl LocalActorRefProvider {
         let temp_container =
             VirtualPathContainer::new(temp_node.clone(), root_guardian.clone().into());
         let local = Self {
-            settings,
             root_path: root_path.into(),
             root_guardian,
             user_guardian: user_guardian.clone(),
@@ -100,19 +100,16 @@ impl LocalActorRefProvider {
             temp_node,
             temp_container,
             termination_tx,
-            config: actor_config,
+            config,
+            actor_config,
         };
-        Ok(Provider::new(local, actor_spawns))
-    }
-
-    pub fn settings(&self) -> &Settings {
-        &self.settings
+        Ok(Provider::new(name.into(), local, actor_spawns))
     }
 }
 
 impl TActorRefProvider for LocalActorRefProvider {
-    fn settings(&self) -> &Settings {
-        &self.settings
+    fn config(&self) -> &config::Config {
+        &self.config
     }
 
     fn root_guardian(&self) -> &LocalActorRef {

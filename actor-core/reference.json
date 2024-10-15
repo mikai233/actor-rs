@@ -1,14 +1,13 @@
 {
   "akka": {
     "log_config_on_start": false,
-    "log_dead_letters": 10,
-    "log_dead_letters_during_shutdown": {},
+    "log_dead_letters": true,
+    "log_dead_letters_during_shutdown": null,
     "log_dead_letters_suspend_duration": {
       "minutes": 5
     },
     "extensions": [],
     "actor": {
-      "provider": "local",
       "guardian_supervisor_strategy": "akka.actor.DefaultSupervisorStrategy",
       "creation_timeout": {
         "seconds": 20
@@ -19,7 +18,8 @@
           "mailbox_push_timeout_time": {
             "seconds": 10
           },
-          "stash_capacity": null
+          "stash_capacity": null,
+          "throughput": 5
         }
       },
       "debug": {

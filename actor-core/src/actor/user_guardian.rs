@@ -1,6 +1,7 @@
 use crate::actor::receive::Receive;
 use crate::actor::Actor;
 use crate::message::stop_child::StopChild;
+use tracing::debug;
 
 use super::context::Context;
 
@@ -9,6 +10,11 @@ pub(crate) struct UserGuardian;
 
 impl Actor for UserGuardian {
     type Context = Context;
+
+    fn started(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
+        debug!("{} started", ctx.myself());
+        Ok(())
+    }
 
     fn receive(&self) -> Receive<Self> {
         Receive::new().handle::<StopChild>()

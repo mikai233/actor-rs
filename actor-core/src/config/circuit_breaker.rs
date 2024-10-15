@@ -7,7 +7,7 @@ pub struct CircuitBreaker {
     pub max_failures: usize,
     pub call_timeout: Duration,
     pub reset_timeout: Duration,
-    pub exponential_backoff_factor: f64,
+    pub exponential_backoff: f64,
     pub random_factor: f64,
     pub exception_allowlist: Vec<String>,
 }

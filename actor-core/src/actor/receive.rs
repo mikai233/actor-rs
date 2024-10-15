@@ -19,12 +19,14 @@ pub type ReceiveFn<A> = Box<
 
 pub struct Receive<A: Actor> {
     pub receiver: HashMap<TypeId, ReceiveFn<A>>,
+    pub any_receiver: Option<ReceiveFn<A>>,
 }
 
 impl<A: Actor> Receive<A> {
     pub fn new() -> Self {
         Self {
             receiver: HashMap::new(),
+            any_receiver: None,
         }
     }
 
@@ -38,6 +40,8 @@ impl<A: Actor> Receive<A> {
         let signature = message.signature();
         if let Some(receiver) = self.receiver.get(&signature.type_id) {
             receiver(actor, ctx, message, sender, self)
+        } else if let Some(any_receiver) = &self.any_receiver {
+            any_receiver(actor, ctx, message, sender, self)
         } else {
             Err(anyhow::anyhow!(
                 "No receiver found for message: {}",
@@ -71,6 +75,23 @@ impl<A: Actor> Receive<A> {
                 handler(actor, ctx, *message, sender, receive)
             }),
         );
+        self
+    }
+
+    pub fn any<H>(mut self, handler: H) -> Self
+    where
+        H: Fn(
+                &mut A,
+                &mut A::Context,
+                DynMessage,
+                Option<ActorRef>,
+                &Receive<A>,
+            ) -> anyhow::Result<Behavior<A>>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.any_receiver = Some(Box::new(handler));
         self
     }
 

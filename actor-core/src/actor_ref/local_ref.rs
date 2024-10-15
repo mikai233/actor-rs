@@ -205,6 +205,7 @@ impl LocalActorRef {
         let actor_spawn = self.attach_child_deferred(props, name, uid, mailbox_cfg)?;
         let myself = actor_spawn.myself.clone();
         actor_spawn.spawn(system)?;
+        myself.start();
         Ok(myself)
     }
 
@@ -313,10 +314,10 @@ impl LocalActorRef {
     pub fn get_mailbox_cfg<'a>(local_provider: &'a LocalActorRefProvider, props: &Props) -> anyhow::Result<&'a MailboxConfig> {
         let mailbox_cfg = match &props.mailbox {
             None => {
-                local_provider.config.actor.mailbox.get("default_mailbox").ok_or(anyhow!("default_mailbox not found"))?
+                local_provider.actor_config.actor.mailbox.get("default_mailbox").ok_or(anyhow!("default_mailbox not found"))?
             }
             Some(mailbox) => {
-                local_provider.config.actor.mailbox.get(mailbox).ok_or(anyhow!("mailbox {} not found", mailbox))?
+                local_provider.actor_config.actor.mailbox.get(mailbox).ok_or(anyhow!("mailbox {} not found", mailbox))?
             }
         };
         Ok(mailbox_cfg)
