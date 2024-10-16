@@ -9,7 +9,7 @@ use actor_core::config::ConfigBuilder;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_remote::codec::MessageRegistry;
 use actor_remote::config::message_buffer::MessageBuffer;
-use actor_remote::config::RemoteConfig;
+use actor_remote::config::Remote;
 use actor_remote::config::transport::Transport;
 
 use crate::common::ask_ans::{MessageToAns, MessageToAsk};
@@ -32,7 +32,7 @@ pub mod stop_singleton;
 pub fn build_cluster_setting(addr: SocketAddrV4, client: impl Into<EtcdClient>) -> anyhow::Result<ActorSetting> {
     let client = client.into();
     let config = ClusterConfig {
-        remote: RemoteConfig { transport: Transport::tcp(addr, MessageBuffer::default()) },
+        remote: Remote { transport: Transport::tcp(addr, MessageBuffer::default()) },
         roles: Default::default(),
     };
     let mut reg = MessageRegistry::new();

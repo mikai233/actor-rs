@@ -1,6 +1,6 @@
 use actor_core::actor_ref::ActorRef;
-use actor_core::DynMessage;
 use actor_core::message::message_buffer::BufferEnvelope;
+use actor_core::message::DynMessage;
 
 #[derive(Debug)]
 pub(super) struct ArteryBufferEnvelope {
@@ -20,7 +20,10 @@ impl BufferEnvelope for ArteryBufferEnvelope {
     }
 
     fn into_inner(self) -> (Self::M, Option<ActorRef>) {
-        let Self { message: envelope, sender } = self;
+        let Self {
+            message: envelope,
+            sender,
+        } = self;
         (envelope, sender)
     }
 }

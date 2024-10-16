@@ -15,17 +15,13 @@ quick_cache = { workspace = true }
 stubborn-io = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["local-time"] }
-async-trait = { workspace = true }
 bincode = { workspace = true }
-typed-builder = { workspace = true }
 ahash = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 toml = { workspace = true }
-quinn = { workspace = true, features = ["futures-io"] }
-rcgen = { workspace = true }
-rustls = { workspace = true }
 config = { workspace = true }
 imstr = { workspace = true }
+derive_more = { workspace = true }
 
 [dev-dependencies]
 ctor = { workspace = true }

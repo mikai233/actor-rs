@@ -1,13 +1,13 @@
 use std::ops::{Deref, DerefMut};
 
 use anyhow::Context;
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use tokio_util::bytes::{BufMut, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
 
 use actor_core::ext::read_u32;
 
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Packet {
     pub body: Vec<u8>,
 }

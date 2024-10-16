@@ -23,10 +23,10 @@ use actor_core::ext::init_logger_with_filter;
 use actor_remote::codec::MessageRegistry;
 use actor_core::message::terminated::Terminated;
 use actor_remote::config::message_buffer::MessageBuffer;
-use actor_remote::config::RemoteConfig;
+use actor_remote::config::Remote;
 use actor_remote::config::transport::Transport;
 use actor_remote::remote_provider::RemoteActorRefProvider;
-use actor_remote::config::settings::Settings;
+use actor_remote::config::settings::Remote;
 
 #[derive(Debug)]
 struct RemoteActor {
@@ -81,8 +81,8 @@ async fn main() -> anyhow::Result<()> {
     let arg = Args::parse();
     let addr = arg.addr;
     init_logger_with_filter("debug,actor=debug,actor-core::scheduler=info,h2=info,tower=info,hyper=info");
-    let remote_setting = Settings {
-        config: RemoteConfig { transport: Transport::tcp(addr, MessageBuffer::default()) },
+    let remote_setting = Remote {
+        config: Remote { transport: Transport::tcp(addr, MessageBuffer::default()) },
         reg: MessageRegistry::new(),
     };
     let setting = ActorSetting::new(

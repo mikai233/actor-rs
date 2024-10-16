@@ -33,21 +33,13 @@ impl TActorRef for FunctionRef {
         (self.transform)(message, sender);
     }
 
-    fn start(&self) {
-        todo!()
-    }
+    fn start(&self) {}
 
-    fn stop(&self) {
-        todo!()
-    }
+    fn stop(&self) {}
 
-    fn resume(&self) {
-        todo!()
-    }
+    fn resume(&self) {}
 
-    fn suspend(&self) {
-        todo!()
-    }
+    fn suspend(&self) {}
 
     fn parent(&self) -> Option<&dyn TActorRef> {
         None

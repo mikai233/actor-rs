@@ -2,26 +2,32 @@ use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
-use async_trait::async_trait;
-
-use actor_core::actor::context::Context;
-use actor_core::EmptyCodec;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
 use actor_core::Message;
 
 use crate::artery::ArteryActor;
 
-#[derive(EmptyCodec)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("SpawnInbound({})", peer_addr)]
 pub(super) struct SpawnInbound {
     pub(super) peer_addr: SocketAddr,
-    pub(super) fut: Pin<Box<dyn Future<Output=()> + Send>>,
+    pub(super) fut: Pin<Box<dyn Future<Output = ()> + Send>>,
 }
 
-#[async_trait]
-impl Message for SpawnInbound {
-    type A = ArteryActor;
-
-    async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut Self::A) -> anyhow::Result<()> {
-        context.spawn_fut(format!("connection_in_{}", self.peer_addr), self.fut)?;
-        Ok(())
+impl MessageHandler<ArteryActor> for SpawnInbound {
+    fn handle(
+        actor: &mut ArteryActor,
+        ctx: &mut <ArteryActor as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<ArteryActor>,
+    ) -> anyhow::Result<Behavior<ArteryActor>> {
+        let context = ctx.context_mut();
+        context.spawn_fut(format!("connection_in_{}", message.peer_addr), message.fut)?;
+        Ok(Behavior::same())
     }
 }

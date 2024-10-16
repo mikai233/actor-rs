@@ -1,23 +1,14 @@
-use imstr::ImString;
+use actor_core::config::duration::Duration;
 use serde::{Deserialize, Serialize};
-
-use actor_core::util::duration::ConfigDuration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WatchFailureDetector {
-    #[serde(rename = "implementation-class")]
-    pub implementation_class: ImString,
-    #[serde(rename = "heartbeat-interval")]
-    pub heartbeat_interval: ConfigDuration,
+    pub implementation_class: String,
+    pub heartbeat_interval: Duration,
     pub threshold: f64,
-    #[serde(rename = "max-sample-size")]
     pub max_sample_size: usize,
-    #[serde(rename = "min-std-deviation")]
-    pub min_std_deviation: ConfigDuration,
-    #[serde(rename = "acceptable-heartbeat-pause")]
-    pub acceptable_heartbeat_pause: ConfigDuration,
-    #[serde(rename = "unreachable-nodes-reaper-interval")]
-    pub unreachable_nodes_reaper_interval: ConfigDuration,
-    #[serde(rename = "expected-response-after")]
-    pub expected_response_after: ConfigDuration,
+    pub min_std_deviation: Duration,
+    pub acceptable_heartbeat_pause: Duration,
+    pub unreachable_nodes_reaper_interval: Duration,
+    pub expected_response_after: Duration,
 }

@@ -37,19 +37,13 @@ impl TActorRef for EmptyLocalActorRef {
         self.special_handle(message, sender)
     }
 
-    fn start(&self) {
-        todo!()
-    }
+    fn start(&self) {}
 
     fn stop(&self) {}
 
-    fn resume(&self) {
-        todo!()
-    }
+    fn resume(&self) {}
 
-    fn suspend(&self) {
-        todo!()
-    }
+    fn suspend(&self) {}
 
     fn parent(&self) -> Option<&dyn TActorRef> {
         None

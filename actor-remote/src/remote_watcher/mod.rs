@@ -2,21 +2,20 @@ use std::collections::hash_map::Entry;
 use std::ops::Not;
 use std::time::Duration;
 
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
 use ahash::{HashMap, HashSet, HashSetExt};
 use anyhow::Context as _;
-use async_trait::async_trait;
 use tracing::debug;
 
-use actor_core::{Actor, DynMessage};
 use actor_core::actor::address::Address;
-use actor_core::actor::context::{Context, ActorContext};
+use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::event::address_terminated_topic::AddressTerminatedTopic;
-use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::address_terminated::AddressTerminated;
 use actor_core::message::watch::Watch;
 
@@ -26,20 +25,20 @@ use crate::remote_watcher::heartbeat_tick::HeartbeatTick;
 use crate::remote_watcher::reap_unreachable_tick::ReapUnreachableTick;
 use crate::remote_watcher::watchee_terminated::WatcheeTerminated;
 
-mod heartbeat_tick;
-pub(crate) mod heartbeat;
-pub(crate) mod heartbeat_rsp;
-pub(crate) mod watch_remote;
-pub(crate) mod unwatch_remote;
-mod watchee_terminated;
 pub(crate) mod artery_heartbeat;
 pub(crate) mod artery_heartbeat_rsp;
-mod reap_unreachable_tick;
 mod expected_first_heartbeat;
+pub(crate) mod heartbeat;
+pub(crate) mod heartbeat_rsp;
+mod heartbeat_tick;
+mod reap_unreachable_tick;
+pub(crate) mod unwatch_remote;
+pub(crate) mod watch_remote;
+mod watchee_terminated;
 
 #[derive(Debug)]
 pub struct RemoteWatcher {
-    failure_detector: Box<dyn FailureDetectorRegistry<A=Address>>,
+    failure_detector: Box<dyn FailureDetectorRegistry<A = Address>>,
     heartbeat_interval: Duration,
     unreachable_reaper_interval: Duration,
     heartbeat_expected_response_after: Duration,
@@ -52,28 +51,32 @@ pub struct RemoteWatcher {
     address_terminated_topic: AddressTerminatedTopic,
 }
 
-#[async_trait]
 impl Actor for RemoteWatcher {
-    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
-        let myself = context.myself().clone();
-        let heartbeat_task = context.system()
-            .scheduler
-            .schedule_with_fixed_delay(Some(self.heartbeat_interval), self.heartbeat_interval, move || {
+    type Context = Context;
+
+    fn started(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
+        let myself = ctx.myself().clone();
+        let heartbeat_task = ctx.system().scheduler.schedule_with_fixed_delay(
+            Some(self.heartbeat_interval),
+            self.heartbeat_interval,
+            move || {
                 myself.cast_ns(HeartbeatTick);
-            });
+            },
+        );
         self.heartbeat_task = Some(heartbeat_task);
-        let myself = context.myself().clone();
-        let failure_detector_reaper_task = context.system()
-            .scheduler
-            .schedule_with_fixed_delay(Some(self.unreachable_reaper_interval), self.unreachable_reaper_interval, move || {
+        let myself = ctx.myself().clone();
+        let failure_detector_reaper_task = ctx.system().scheduler.schedule_with_fixed_delay(
+            Some(self.unreachable_reaper_interval),
+            self.unreachable_reaper_interval,
+            move || {
                 myself.cast_ns(ReapUnreachableTick);
-            });
+            },
+        );
         self.failure_detector_reaper_task = Some(failure_detector_reaper_task);
         Ok(())
     }
 
-
-    async fn stopped(&mut self, _context: &mut Context) -> anyhow::Result<()> {
+    fn stopped(&mut self, _: &mut Self::Context) -> anyhow::Result<()> {
         if let Some(task) = self.heartbeat_task.take() {
             task.cancel();
         }
@@ -83,19 +86,23 @@ impl Actor for RemoteWatcher {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
-        Self::handle_message(self, context, message).await
+    fn receive(&self) -> Receive<Self> {
+        Receive::new()
     }
 }
 
 impl RemoteWatcher {
-    pub fn props<F>(registry: F) -> Props where F: FailureDetectorRegistry<A=Address> + 'static {
-        Props::new_with_ctx(move |ctx| {
-            Ok(Self::new(ctx, registry))
-        })
+    pub fn props<F>(registry: F) -> Props
+    where
+        F: FailureDetectorRegistry<A = Address> + 'static,
+    {
+        Props::new_with_ctx(move |ctx| Ok(Self::new(ctx, registry)))
     }
 
-    pub fn new<F>(context: &mut Context, registry: F) -> Self where F: FailureDetectorRegistry<A=Address> + 'static {
+    pub fn new<F>(context: &mut Context, registry: F) -> Self
+    where
+        F: FailureDetectorRegistry<A = Address> + 'static,
+    {
         Self {
             failure_detector: Box::new(registry),
             heartbeat_interval: Duration::from_secs(1),
@@ -111,7 +118,12 @@ impl RemoteWatcher {
         }
     }
 
-    pub fn add_watch(&mut self, context: &mut Context, watchee: ActorRef, watcher: ActorRef) -> anyhow::Result<()> {
+    pub fn add_watch(
+        &mut self,
+        context: &mut Context,
+        watchee: ActorRef,
+        watcher: ActorRef,
+    ) -> anyhow::Result<()> {
         debug_assert_ne!(&watcher, context.myself());
         debug!("Watching: [{} -> {}]", watcher, watchee);
         match self.watching.entry(watchee.clone()) {
@@ -159,7 +171,9 @@ impl RemoteWatcher {
 
     pub fn watch_node(&mut self, watchee: ActorRef) {
         let watchee_address = watchee.path().address();
-        if self.watchee_by_nodes.contains_key(watchee_address).not() && self.unreachable.contains(watchee_address) {
+        if self.watchee_by_nodes.contains_key(watchee_address).not()
+            && self.unreachable.contains(watchee_address)
+        {
             self.unreachable.remove(watchee_address);
             self.failure_detector.remove(watchee_address);
         }
@@ -182,14 +196,24 @@ impl RemoteWatcher {
     }
 
     pub fn receive_heartbeat_rsp(&mut self, context: &mut Context, uid: i64) -> anyhow::Result<()> {
-        let from = context.sender().into_result().context("receive_heartbeat_rsp")?.path().address();
+        let from = context
+            .sender()
+            .into_result()
+            .context("receive_heartbeat_rsp")?
+            .path()
+            .address();
         if self.failure_detector.is_monitoring(from) {
             debug!("Received heartbeat rsp from [{}]", from);
         } else {
             debug!("Received first heartbeat rsp from [{}]", from);
         }
         if self.watchee_by_nodes.contains_key(from) && self.unreachable.contains(from).not() {
-            if self.address_uids.get(from).map(|x| x != &uid).unwrap_or(true) {
+            if self
+                .address_uids
+                .get(from)
+                .map(|x| x != &uid)
+                .unwrap_or(true)
+            {
                 self.re_watch(context.myself().clone(), &from);
             }
             self.address_uids.insert(from.clone(), uid);
@@ -212,13 +236,22 @@ impl RemoteWatcher {
     }
 
     pub fn receive_heartbeat(&self, context: &mut Context) -> anyhow::Result<()> {
-        let sender = context.sender().into_result().context("receive_heartbeat")?;
-        sender.cast(ArteryHeartbeatRsp { uid: context.system().uid }, Some(context.myself().clone()));
+        let sender = context
+            .sender()
+            .into_result()
+            .context("receive_heartbeat")?;
+        sender.cast(
+            ArteryHeartbeatRsp {
+                uid: context.system().uid,
+            },
+            Some(context.myself().clone()),
+        );
         Ok(())
     }
 
     pub fn publish_address_terminated(&self, address: Address) {
         debug!("Publish AddressTerminated [{}]", address);
-        self.address_terminated_topic.publish(AddressTerminated { address });
+        self.address_terminated_topic
+            .publish(AddressTerminated { address });
     }
 }

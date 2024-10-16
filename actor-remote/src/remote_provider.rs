@@ -10,7 +10,7 @@ use crate::artery::ArteryActor;
 use crate::codec::MessageCodecRegistry;
 use crate::config::advanced::Advanced;
 use crate::config::artery::Transport;
-use crate::config::settings::Settings;
+use crate::config::settings::Remote;
 use crate::failure_detector::default_failure_detector_registry::DefaultFailureDetectorRegistry;
 use crate::failure_detector::phi_accrual_failure_detector::PhiAccrualFailureDetector;
 use crate::remote_actor_ref::RemoteActorRef;
@@ -35,7 +35,7 @@ use actor_core::AsAny;
 
 #[derive(Debug, AsAny)]
 pub struct RemoteActorRefProvider {
-    pub settings: Settings,
+    pub settings: Remote,
     pub local: LocalActorRefProvider,
     pub address: Address,
     pub artery: ActorRef,
@@ -44,12 +44,12 @@ pub struct RemoteActorRefProvider {
 }
 
 impl RemoteActorRefProvider {
-    pub fn new<R>(settings: Settings, mut registry: R) -> anyhow::Result<Provider<Self>>
+    pub fn new<R>(settings: Remote, mut registry: R) -> anyhow::Result<Provider<Self>>
     where
         R: MessageCodecRegistry + 'static,
     {
         Self::register_system_message(&mut registry);
-        let settings = Settings::new(config)?;
+        let settings = Remote::new(config)?;
         let canonical = settings.artery.canonical;
         let transport = settings.artery.transport;
         let address = Address::new(Protocol::Akka, system.name.clone(), Some(canonical));
