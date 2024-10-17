@@ -1,35 +1,35 @@
-use async_trait::async_trait;
-
-use actor_core::actor::context::Context;
-use actor_core::actor_ref::PROVIDER;
-use actor_core::EmptyCodec;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::{ActorRef, PROVIDER};
+use actor_core::message::handler::MessageHandler;
 use actor_core::Message;
 
-use crate::artery::ArteryActor;
 use crate::artery::remote_packet::RemotePacket;
+use crate::artery::ArteryActor;
 
-#[derive(Debug, EmptyCodec)]
-pub(super) struct InboundMessage {
-    pub(super) packet: RemotePacket,
-}
+#[derive(Debug, Message, derive_more::Display)]
+#[display("InboundMessage({_0})")]
+pub(super) struct InboundMessage(pub(super) RemotePacket);
 
-#[async_trait]
-impl Message for InboundMessage {
-    type A = ArteryActor;
-
-    async fn handle(self: Box<Self>, _context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
+impl MessageHandler<ArteryActor> for InboundMessage {
+    fn handle(
+        actor: &mut ArteryActor,
+        ctx: &mut <ArteryActor as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<ArteryActor>,
+    ) -> anyhow::Result<Behavior<ArteryActor>> {
         let RemotePacket {
             packet,
             sender,
             target,
-        } = self.packet;
+        } = message.0;
         let sender = sender.map(|s| actor.resolve_actor_ref(s));
         let target = actor.resolve_actor_ref(target);
         let reg = &actor.registration;
-        let message = PROVIDER.sync_scope(actor.provider.clone(), || {
-            reg.decode(packet)
-        });
+        let message = PROVIDER.sync_scope(actor.provider.clone(), || reg.decode(packet));
         target.tell(message?, sender);
-        Ok(())
+        Ok(Behavior::same())
     }
 }

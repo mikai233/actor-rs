@@ -1,8 +1,6 @@
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
-use crate::codec::IDPacket;
-
-#[derive(Debug, Encode, Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct RemotePacket {
     pub packet: IDPacket,
     pub sender: Option<String>,

@@ -9,7 +9,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::remote_watcher::RemoteWatcher;
 
-#[derive(Debug, Serialize, Deserialize, Message, MessageCodec, derive_more::Display)]
+#[derive(
+    Debug,
+    Serialize,
+    Deserialize,
+    Message,
+    MessageCodec,
+    derive_more::Display,
+    derive_more::Constructor,
+)]
 #[display("ArteryHeartbeatRsp {{ uid: {} }}", uid)]
 pub(crate) struct ArteryHeartbeatRsp {
     pub(super) uid: i64,
@@ -23,7 +31,7 @@ impl MessageHandler<RemoteWatcher> for ArteryHeartbeatRsp {
         sender: Option<ActorRef>,
         _: &Receive<RemoteWatcher>,
     ) -> anyhow::Result<Behavior<RemoteWatcher>> {
-        actor.receive_heartbeat_rsp(ctx, message.uid);
+        actor.receive_heartbeat_rsp(ctx, message.uid, sender)?;
         Ok(Behavior::same())
     }
 }

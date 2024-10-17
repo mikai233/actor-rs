@@ -109,7 +109,7 @@ impl ArteryActor {
             match framed.next().await {
                 Some(Ok(packet)) => match decode_bytes::<RemotePacket>(packet.body.as_slice()) {
                     Ok(packet) => {
-                        actor.cast_ns(InboundMessage { packet });
+                        actor.cast_ns(InboundMessage(packet));
                     }
                     Err(error) => {
                         warn!("{} deserialize error {:?}", addr, error);
@@ -224,7 +224,7 @@ impl ArteryActor {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use std::net::SocketAddrV4;
     use std::time::{Duration, SystemTime};
 
@@ -232,6 +232,7 @@ mod test {
     use actor_core::actor::receive::Receive;
     use actor_core::actor::Actor;
     use actor_core::message::handler::MessageHandler;
+    use anyhow::anyhow;
     use serde::{Deserialize, Serialize};
     use tracing::info;
 
@@ -245,7 +246,6 @@ mod test {
 
     use crate::config::message_buffer::MessageBuffer;
     use crate::config::settings::Remote;
-    use crate::config::Remote;
     use crate::remote_provider::RemoteActorRefProvider;
 
     #[derive(Debug)]
@@ -351,26 +351,45 @@ mod test {
         }
     }
 
-    #[derive(Encode, Decode, MessageCodec)]
-    struct MessageToAsk;
+    #[derive(Debug)]
+    struct EmptyTestActor;
 
-    #[async_trait]
-    impl Message for MessageToAsk {
-        type A = EmptyTestActor;
+    impl Actor for EmptyTestActor {
+        type Context = Context;
 
-        async fn handle(
-            self: Box<Self>,
-            context: &mut Context,
-            _actor: &mut Self::A,
-        ) -> anyhow::Result<()> {
-            context.sender().unwrap().cast_orphan_ns(MessageToAns {
-                content: "hello world".to_string(),
-            });
-            Ok(())
+        fn receive(&self) -> Receive<Self> {
+            Receive::new().handle::<MessageToAsk>()
         }
     }
 
     #[derive(Debug, Serialize, Deserialize, Message, MessageCodec, derive_more::Display)]
+    #[display("MessageToAsk")]
+    struct MessageToAsk;
+
+    impl MessageHandler<EmptyTestActor> for MessageToAsk {
+        fn handle(
+            actor: &mut EmptyTestActor,
+            ctx: &mut <EmptyTestActor as Actor>::Context,
+            message: Self,
+            sender: Option<ActorRef>,
+            _: &Receive<EmptyTestActor>,
+        ) -> anyhow::Result<Behavior<EmptyTestActor>> {
+            sender
+                .ok_or(anyhow!("sender not found"))?
+                .cast_ns(MessageToAns::new("hello world".to_string()));
+            Ok(Behavior::same())
+        }
+    }
+
+    #[derive(
+        Debug,
+        Serialize,
+        Deserialize,
+        Message,
+        MessageCodec,
+        derive_more::Display,
+        derive_more::Constructor,
+    )]
     #[display("MessageToAns")]
     struct MessageToAns {
         content: String,

@@ -6,7 +6,6 @@ use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::iter::Peekable;
-use std::sync::Arc;
 use tokio::task_local;
 
 use crate::actor_path::ActorPath;
@@ -26,7 +25,7 @@ pub mod local_ref;
 pub(crate) mod virtual_path_container;
 
 task_local! {
-    pub static PROVIDER: Arc<ActorRefProvider>;
+    pub static PROVIDER: ActorRefProvider;
 }
 
 pub trait TActorRef: Debug + Send + Sync + Any + AsAny + DynClone {

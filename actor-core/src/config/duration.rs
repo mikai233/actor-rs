@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, derive_more::Constructor)]
 pub struct Duration {
     days: Option<u64>,
     hours: Option<u64>,

@@ -1,5 +1,4 @@
 use actor_core::actor::behavior::Behavior;
-use actor_core::actor::context::Context;
 use actor_core::actor::receive::Receive;
 use actor_core::actor::Actor;
 use actor_core::actor_ref::ActorRef;

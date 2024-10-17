@@ -1,20 +1,27 @@
-use async_trait::async_trait;
-use bincode::{Decode, Encode};
-
-use actor_core::actor::context::Context;
-use actor_core::CMessageCodec;
-use actor_core::Message;
+use actor_core::{
+    actor::{behavior::Behavior, receive::Receive, Actor},
+    actor_ref::ActorRef,
+    message::handler::MessageHandler,
+    Message, MessageCodec,
+};
+use serde::{Deserialize, Serialize};
 
 use crate::remote_watcher::RemoteWatcher;
 
-#[derive(Debug, Clone, Encode, Decode, CMessageCodec)]
+#[derive(Debug, Clone, Serialize, Deserialize, Message, MessageCodec, derive_more::Display)]
+#[cloneable]
+#[display("ArteryHeartbeat")]
 pub(crate) struct ArteryHeartbeat;
 
-#[async_trait]
-impl Message for ArteryHeartbeat {
-    type A = RemoteWatcher;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.receive_heartbeat(context)
+impl MessageHandler<RemoteWatcher> for ArteryHeartbeat {
+    fn handle(
+        actor: &mut RemoteWatcher,
+        ctx: &mut <RemoteWatcher as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<RemoteWatcher>,
+    ) -> anyhow::Result<Behavior<RemoteWatcher>> {
+        actor.receive_heartbeat(ctx, sender);
+        Ok(Behavior::same())
     }
 }

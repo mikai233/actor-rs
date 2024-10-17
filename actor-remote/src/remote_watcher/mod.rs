@@ -5,7 +5,7 @@ use std::time::Duration;
 use actor_core::actor::receive::Receive;
 use actor_core::actor::Actor;
 use ahash::{HashMap, HashSet, HashSetExt};
-use anyhow::Context as _;
+use anyhow::{anyhow, Context as _};
 use tracing::debug;
 
 use actor_core::actor::address::Address;
@@ -195,11 +195,14 @@ impl RemoteWatcher {
         self.failure_detector.remove(watche_address);
     }
 
-    pub fn receive_heartbeat_rsp(&mut self, context: &mut Context, uid: i64) -> anyhow::Result<()> {
-        let from = context
-            .sender()
-            .into_result()
-            .context("receive_heartbeat_rsp")?
+    pub fn receive_heartbeat_rsp(
+        &mut self,
+        context: &mut Context,
+        uid: i64,
+        sender: Option<ActorRef>,
+    ) -> anyhow::Result<()> {
+        let from = sender
+            .ok_or(anyhow!("receive_heartbeat_rsp sender is none"))?
             .path()
             .address();
         if self.failure_detector.is_monitoring(from) {
@@ -235,18 +238,8 @@ impl RemoteWatcher {
         }
     }
 
-    pub fn receive_heartbeat(&self, context: &mut Context) -> anyhow::Result<()> {
-        let sender = context
-            .sender()
-            .into_result()
-            .context("receive_heartbeat")?;
-        sender.cast(
-            ArteryHeartbeatRsp {
-                uid: context.system().uid,
-            },
-            Some(context.myself().clone()),
-        );
-        Ok(())
+    pub fn receive_heartbeat(&self, context: &mut Context, sender: Option<ActorRef>) {
+        sender.cast(ArteryHeartbeatRsp::new(context.system().uid), sender);
     }
 
     pub fn publish_address_terminated(&self, address: Address) {

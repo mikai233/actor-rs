@@ -1,30 +1,38 @@
 use std::net::SocketAddr;
 
-use async_trait::async_trait;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
+use actor_core::Message;
 use tracing::info;
 
-use actor_core::actor::context::{Context, ActorContext};
-use actor_core::EmptyCodec;
-use actor_core::Message;
+use actor_core::actor::context::ActorContext;
 
-use crate::artery::ArteryActor;
 use crate::artery::connection_status::ConnectionStatus;
+use crate::artery::ArteryActor;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("Disconnect {{ addr: {addr} }}")]
 pub struct Disconnect {
     pub addr: SocketAddr,
 }
 
-#[async_trait]
-impl Message for Disconnect {
-    type A = ArteryActor;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        if let Some(ConnectionStatus::Connecting(handle)) = actor.connections.remove(&self.addr) {
+impl MessageHandler<ArteryActor> for Disconnect {
+    fn handle(
+        actor: &mut ArteryActor,
+        ctx: &mut <ArteryActor as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<ArteryActor>,
+    ) -> anyhow::Result<Behavior<ArteryActor>> {
+        let Self { addr } = message;
+        if let Some(ConnectionStatus::Connecting(handle)) = actor.connections.remove(&addr) {
             handle.abort();
         }
-        actor.message_buffer.remove(&self.addr);
-        info!("{} disconnect from {}", context.myself(), self.addr);
-        Ok(())
+        actor.message_buffer.remove(&addr);
+        info!("{} disconnect from {}", ctx.myself(), addr);
+        Ok(Behavior::same())
     }
 }

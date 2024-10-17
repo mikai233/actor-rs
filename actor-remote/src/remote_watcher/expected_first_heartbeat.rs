@@ -1,28 +1,36 @@
-use async_trait::async_trait;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
+use actor_core::Message;
 use tracing::debug;
 
 use actor_core::actor::address::Address;
-use actor_core::actor::context::Context;
-use actor_core::EmptyCodec;
-use actor_core::Message;
 
 use crate::remote_watcher::RemoteWatcher;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("ExpectedFirstHeartbeat {{ from: {from} }}")]
 pub(super) struct ExpectedFirstHeartbeat {
     pub(super) from: Address,
 }
 
-#[async_trait]
-impl Message for ExpectedFirstHeartbeat {
-    type A = RemoteWatcher;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        let address = self.from;
-        if actor.watchee_by_nodes.contains_key(&address) && !actor.failure_detector.is_monitoring(&address) {
+impl MessageHandler<RemoteWatcher> for ExpectedFirstHeartbeat {
+    fn handle(
+        actor: &mut RemoteWatcher,
+        ctx: &mut <RemoteWatcher as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<RemoteWatcher>,
+    ) -> anyhow::Result<Behavior<RemoteWatcher>> {
+        let address = message.from;
+        if actor.watchee_by_nodes.contains_key(&address)
+            && !actor.failure_detector.is_monitoring(&address)
+        {
             debug!("Trigger extra expected heartbeat from [{}]", address);
             actor.failure_detector.heartbeat(address);
         }
-        Ok(())
+        Ok(Behavior::same())
     }
 }

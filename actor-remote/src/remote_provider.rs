@@ -1,9 +1,7 @@
 use std::any::type_name;
 use std::net::SocketAddr;
-use std::sync::Arc;
 use std::time::Duration;
 
-use config::{Config, File, FileFormat};
 use tokio::sync::broadcast::Receiver;
 
 use crate::artery::ArteryActor;
@@ -21,13 +19,13 @@ use crate::remote_watcher::heartbeat_rsp::HeartbeatRsp;
 use crate::remote_watcher::RemoteWatcher;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::{Address, Protocol};
-use actor_core::actor::props::{ActorDeferredSpawn, Props};
+use actor_core::actor::props::Props;
 use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::local_ref::LocalActorRef;
-use actor_core::actor_ref::ActorRef;
+use actor_core::actor_ref::{ActorRef, TActorRef};
 use actor_core::provider::local_provider::LocalActorRefProvider;
 use actor_core::provider::provider::{ActorSpawn, Provider};
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
@@ -44,7 +42,7 @@ pub struct RemoteActorRefProvider {
 }
 
 impl RemoteActorRefProvider {
-    pub fn new<R>(settings: Remote, mut registry: R) -> anyhow::Result<Provider<Self>>
+    pub fn new<R>(name: impl Into<String>, config: Option<config::Config>, mut registry: R) -> anyhow::Result<Provider<Self>>
     where
         R: MessageCodecRegistry + 'static,
     {
@@ -53,20 +51,20 @@ impl RemoteActorRefProvider {
         let canonical = settings.artery.canonical;
         let transport = settings.artery.transport;
         let address = Address::new(Protocol::Akka, system.name.clone(), Some(canonical));
-        let mut provider = LocalActorRefProvider::new(system, )?;
-        let (artery, deferred) = RemoteActorRefProvider::spawn_artery(&provider.provider, transport, canonical, settings.advanced.clone())?;
-        provider.spawns.push(Box::new(deferred));
-        let (remote_watcher, remote_watcher_deferred) = Self::create_remote_watcher(&provider.provider)?;
-        provider.spawns.push(Box::new(remote_watcher_deferred));
+        let mut local_provider = LocalActorRefProvider::new(name, config)?;
+        let (artery, deferred) = RemoteActorRefProvider::spawn_artery(&local_provider.provider, transport, canonical, settings.advanced.clone())?;
+        local_provider.spawns.push(Box::new(deferred));
+        let (remote_watcher, remote_watcher_deferred) = Self::create_remote_watcher(&local_provider.provider)?;
+        local_provider.spawns.push(Box::new(remote_watcher_deferred));
         let remote = Self {
             settings,
-            local: provider.provider,
+            local: local_provider.provider,
             address,
             artery,
-            registry: Arc::new(registry),
+            registry: Box::new(registry),
             remote_watcher,
         };
-        Ok(Provider::new(remote, provider.spawns))
+        Ok(Provider::new(remote, local_provider.spawns))
     }
 
     pub(crate) fn spawn_artery(
@@ -195,11 +193,11 @@ impl TActorRefProvider for RemoteActorRefProvider {
         }
     }
 
-    fn dead_letters(&self) -> &ActorRef {
+    fn dead_letters(&self) -> &dyn TActorRef {
         &self.local.dead_letters()
     }
 
-    fn ignore_ref(&self) -> &ActorRef {
+    fn ignore_ref(&self) -> &dyn TActorRef {
         self.local.ignore_ref()
     }
 
@@ -215,17 +213,6 @@ impl TActorRefProvider for RemoteActorRefProvider {
         } else {
             None
         }
-    }
-}
-
-impl ProviderBuilder<Self> for RemoteActorRefProvider {
-    fn build(system: ActorSystem, config: Config, registry: MessageRegistry) -> anyhow::Result<Provider<Self>> {
-        let config = Config::builder()
-            .add_source(File::from_str(actor_core::REFERENCE, FileFormat::Toml))
-            .add_source(File::from_str(crate::REFERENCE, FileFormat::Toml))
-            .add_source(config)
-            .build()?;
-        Self::new(system, &config, registry)
     }
 }
 

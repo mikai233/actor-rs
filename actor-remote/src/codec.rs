@@ -6,6 +6,7 @@ pub type EncoderFn = Box<dyn Fn(&dyn Message, &dyn MessageCodecRegistry) -> anyh
 
 pub trait MessageCodec: Sized {
     type M: Message;
+
     fn encode(message: &Self::M, registry: &dyn MessageCodecRegistry) -> anyhow::Result<Vec<u8>>;
 
     fn decode(bytes: &[u8], registry: &dyn MessageCodecRegistry) -> anyhow::Result<Self::M>;

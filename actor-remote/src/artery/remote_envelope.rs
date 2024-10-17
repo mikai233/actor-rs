@@ -1,10 +1,10 @@
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::ActorRef;
-use crate::codec::IDPacket;
 
 use crate::artery::remote_packet::RemotePacket;
 
-#[derive(Debug)]
+#[derive(Debug, derive_more::Display)]
+#[display("RemoteEnvelope {{ packet: {packet}, sender: {sender}, target: {target} }}")]
 pub(crate) struct RemoteEnvelope {
     pub packet: IDPacket,
     pub sender: Option<ActorRef>,

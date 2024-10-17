@@ -17,10 +17,10 @@ impl MessageHandler<RemoteWatcher> for Heartbeat {
         actor: &mut RemoteWatcher,
         ctx: &mut <RemoteWatcher as Actor>::Context,
         _: Self,
-        _: Option<ActorRef>,
+        sender: Option<ActorRef>,
         _: &Receive<RemoteWatcher>,
     ) -> anyhow::Result<Behavior<RemoteWatcher>> {
-        actor.receive_heartbeat(ctx);
+        actor.receive_heartbeat(ctx, sender);
         Ok(Behavior::same())
     }
 }

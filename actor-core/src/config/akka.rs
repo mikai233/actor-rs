@@ -1,8 +1,9 @@
+use ahash::HashMap;
+use serde::{Deserialize, Serialize};
+
 use crate::config::actor::Actor;
 use crate::config::circuit_breaker::CircuitBreaker;
 use crate::config::coordinated_shutdown::CoordinatedShutdown;
-use ahash::HashMap;
-use serde::{Deserialize, Serialize};
 
 use super::duration::Duration;
 
