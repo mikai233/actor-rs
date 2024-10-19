@@ -1,6 +1,5 @@
 use std::net::SocketAddr;
 
-use imstr::ImString;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9,7 +8,7 @@ pub struct Artery {
     pub transport: Transport,
     pub canonical: SocketAddr,
     pub untrusted_mode: bool,
-    pub trusted_selection_paths: Vec<ImString>,
+    pub trusted_selection_paths: Vec<String>,
     pub log_received_messages: bool,
     pub log_sent_messages: bool,
     pub log_frame_size_exceeding: bool,

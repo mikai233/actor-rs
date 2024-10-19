@@ -43,9 +43,13 @@ pub struct LocalActorRefProvider {
 }
 
 impl LocalActorRefProvider {
-    pub fn new(name: impl Into<String>, config: Option<config::Config>) -> anyhow::Result<Provider<Self>> {
+    pub fn new(
+        name: impl Into<String>,
+        config: Option<config::Config>,
+    ) -> anyhow::Result<Provider<Self>> {
         let mut cfg_builder = config::Config::builder();
-        cfg_builder = cfg_builder.add_source(config::File::from_str(&REFERENCE, config::FileFormat::Json));
+        cfg_builder =
+            cfg_builder.add_source(config::File::from_str(&REFERENCE, config::FileFormat::Json));
         if let Some(cfg) = config {
             cfg_builder = cfg_builder.add_source(cfg);
         }

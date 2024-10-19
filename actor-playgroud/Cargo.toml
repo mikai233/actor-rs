@@ -13,13 +13,13 @@ actor-cluster-tools = { path = "../actor-cluster-tools" }
 actor-cluster-sharding = { path = "../actor-cluster-sharding" }
 tokio = { workspace = true, features = ["full"] }
 anyhow = { workspace = true }
-async-trait = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["local-time", "env-filter"] }
 bincode = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 rand = { workspace = true }
 futures = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 
 [[bin]]
 name = "node"

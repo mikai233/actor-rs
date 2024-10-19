@@ -193,7 +193,7 @@ impl LocalActorRef {
         }
     }
 
-    pub(crate) fn attach_child(
+    pub fn attach_child(
         &self,
         props: Props,
         system: ActorSystem,
@@ -209,7 +209,7 @@ impl LocalActorRef {
         Ok(myself)
     }
 
-    pub(crate) fn attach_child_deferred(
+    pub fn attach_child_deferred(
         &self,
         props: Props,
         name: Option<String>,

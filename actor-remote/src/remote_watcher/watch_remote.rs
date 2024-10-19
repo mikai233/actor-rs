@@ -19,7 +19,7 @@ impl MessageHandler<RemoteWatcher> for WatchRemote {
         actor: &mut RemoteWatcher,
         ctx: &mut <RemoteWatcher as Actor>::Context,
         message: Self,
-        sender: Option<ActorRef>,
+        _: Option<ActorRef>,
         _: &Receive<RemoteWatcher>,
     ) -> anyhow::Result<Behavior<RemoteWatcher>> {
         let Self { watchee, watcher } = message;

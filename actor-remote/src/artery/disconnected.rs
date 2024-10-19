@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use tracing::info;
 
 use actor_core::{
-    actor::{behavior::Behavior, context::ActorContext, receive::Receive, Actor},
+    actor::{behavior::Behavior, receive::Receive, Actor},
     actor_ref::ActorRef,
     message::handler::MessageHandler,
     Message,
@@ -22,7 +22,7 @@ impl MessageHandler<ArteryActor> for Disconnected {
         actor: &mut ArteryActor,
         ctx: &mut <ArteryActor as Actor>::Context,
         message: Self,
-        sender: Option<ActorRef>,
+        _: Option<ActorRef>,
         _: &Receive<ArteryActor>,
     ) -> anyhow::Result<Behavior<ArteryActor>> {
         let Self { addr } = message;

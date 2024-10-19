@@ -1,12 +1,12 @@
-pub const REFERENCE: &'static str = include_str!("../reference.toml");
+pub const REFERENCE: &'static str = include_str!("../reference.json");
 
-pub mod remote_provider;
-pub mod remote_actor_ref;
-pub mod config;
-mod remote_watcher;
-mod failure_detector;
 pub mod artery;
 pub mod codec;
+pub mod config;
+mod failure_detector;
+pub mod remote_actor_ref;
+pub mod remote_provider;
+mod remote_watcher;
 
 #[cfg(test)]
 mod test {

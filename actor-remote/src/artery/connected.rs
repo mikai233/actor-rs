@@ -8,7 +8,6 @@ use actor_core::message::handler::MessageHandler;
 use actor_core::Message;
 use tracing::info;
 
-use actor_core::actor::context::ActorContext;
 use actor_core::message::message_buffer::BufferEnvelope;
 
 use crate::artery::connection::ConnectionTx;

@@ -1,21 +1,19 @@
 use std::any::type_name;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use tokio::sync::broadcast::Receiver;
 
 use crate::artery::ArteryActor;
-use crate::codec::MessageCodecRegistry;
+use crate::codec::{register_remote_system_message, MessageCodecRegistry};
 use crate::config::advanced::Advanced;
 use crate::config::artery::Transport;
 use crate::config::settings::Remote;
 use crate::failure_detector::default_failure_detector_registry::DefaultFailureDetectorRegistry;
 use crate::failure_detector::phi_accrual_failure_detector::PhiAccrualFailureDetector;
 use crate::remote_actor_ref::RemoteActorRef;
-use crate::remote_watcher::artery_heartbeat::ArteryHeartbeat;
-use crate::remote_watcher::artery_heartbeat_rsp::ArteryHeartbeatRsp;
-use crate::remote_watcher::heartbeat::Heartbeat;
-use crate::remote_watcher::heartbeat_rsp::HeartbeatRsp;
 use crate::remote_watcher::RemoteWatcher;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::{Address, Protocol};
@@ -23,7 +21,6 @@ use actor_core::actor::props::Props;
 use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::local_ref::LocalActorRef;
 use actor_core::actor_ref::{ActorRef, TActorRef};
 use actor_core::provider::local_provider::LocalActorRefProvider;
@@ -33,38 +30,52 @@ use actor_core::AsAny;
 
 #[derive(Debug, AsAny)]
 pub struct RemoteActorRefProvider {
-    pub settings: Remote,
+    pub remote_cfg: Remote,
     pub local: LocalActorRefProvider,
     pub address: Address,
     pub artery: ActorRef,
-    pub registry: Box<dyn MessageCodecRegistry>,
+    pub registry: Arc<dyn MessageCodecRegistry>,
     pub remote_watcher: ActorRef,
 }
 
 impl RemoteActorRefProvider {
-    pub fn new<R>(name: impl Into<String>, config: Option<config::Config>, mut registry: R) -> anyhow::Result<Provider<Self>>
+    pub fn new<R>(
+        name: impl Into<String>,
+        config: Option<config::Config>,
+        mut registry: R,
+    ) -> anyhow::Result<Provider<Self>>
     where
         R: MessageCodecRegistry + 'static,
     {
-        Self::register_system_message(&mut registry);
-        let settings = Remote::new(config)?;
-        let canonical = settings.artery.canonical;
-        let transport = settings.artery.transport;
-        let address = Address::new(Protocol::Akka, system.name.clone(), Some(canonical));
-        let mut local_provider = LocalActorRefProvider::new(name, config)?;
-        let (artery, deferred) = RemoteActorRefProvider::spawn_artery(&local_provider.provider, transport, canonical, settings.advanced.clone())?;
-        local_provider.spawns.push(Box::new(deferred));
-        let (remote_watcher, remote_watcher_deferred) = Self::create_remote_watcher(&local_provider.provider)?;
-        local_provider.spawns.push(Box::new(remote_watcher_deferred));
+        //TODO add remote config
+        let Provider {
+            name,
+            provider,
+            mut spawns,
+        } = LocalActorRefProvider::new(name, config)?;
+        register_remote_system_message(&mut registry);
+        let remote_cfg = provider.config.get::<Remote>("akka.remote")?;
+        let canonical = remote_cfg.artery.canonical;
+        let transport = remote_cfg.artery.transport;
+        let address = Address::new(Protocol::Akka, name.clone(), Some(canonical));
+        let (artery, artery_spawn) = RemoteActorRefProvider::spawn_artery(
+            &provider,
+            transport,
+            canonical,
+            remote_cfg.advanced.clone(),
+        )?;
+        spawns.push(artery_spawn);
+        let (remote_watcher, remote_spawn) = Self::create_remote_watcher(&provider)?;
+        spawns.push(remote_spawn);
         let remote = Self {
-            settings,
-            local: local_provider.provider,
+            remote_cfg,
+            local: provider,
             address,
             artery,
-            registry: Box::new(registry),
+            registry: Arc::new(registry),
             remote_watcher,
         };
-        Ok(Provider::new(remote, local_provider.spawns))
+        Ok(Provider::new(name, remote, spawns))
     }
 
     pub(crate) fn spawn_artery(
@@ -73,29 +84,39 @@ impl RemoteActorRefProvider {
         socket_addr: SocketAddr,
         advanced: Advanced,
     ) -> anyhow::Result<(ActorRef, ActorSpawn)> {
-        provider.system_guardian()
-            .attach_child_deferred_start(
-                Props::new_with_ctx(
-                    move |context| {
-                        ArteryActor::new(context.system().clone(), transport, socket_addr, advanced)
-                    },
-                ),
-                Some("artery".to_string()),
-                None,
-            )
+        let props = Props::new_with_ctx::<_, ArteryActor>(move |context| {
+            ArteryActor::new(context.system().clone(), transport, socket_addr, advanced)
+        });
+        let mailbox_cfg = LocalActorRef::get_mailbox_cfg(provider, &props)?;
+        let actor_spawn = provider.system_guardian().attach_child_deferred(
+            props,
+            Some("artery".to_string()),
+            None,
+            mailbox_cfg,
+        )?;
+        let myself = actor_spawn.myself().clone();
+        Ok((myself, actor_spawn))
     }
 
     fn has_address(&self, address: &Address) -> bool {
-        address == self.local.root_path().address() || address == self.root_path().address() || address == &self.address
+        address == self.local.root_path().address()
+            || address == self.root_path().address()
+            || address == &self.address
     }
 
-    fn create_remote_watcher(provider: &LocalActorRefProvider) -> anyhow::Result<(ActorRef, ActorSpawn)> {
-        provider.system_guardian()
-            .attach_child_deferred_start(
-                RemoteWatcher::props(Self::create_remote_watcher_failure_detector()),
-                Some("remote_watcher".to_string()),
-                None,
-            )
+    fn create_remote_watcher(
+        provider: &LocalActorRefProvider,
+    ) -> anyhow::Result<(ActorRef, ActorSpawn)> {
+        let props = RemoteWatcher::props(Self::create_remote_watcher_failure_detector());
+        let mailbox_cfg = LocalActorRef::get_mailbox_cfg(provider, &props)?;
+        let actor_spawn = provider.system_guardian().attach_child_deferred(
+            props,
+            Some("remote_watcher".to_string()),
+            None,
+            mailbox_cfg,
+        )?;
+        let myself = actor_spawn.myself().clone();
+        Ok((myself, actor_spawn))
     }
 
     fn create_remote_watcher_failure_detector() -> DefaultFailureDetectorRegistry<Address> {
@@ -110,18 +131,11 @@ impl RemoteActorRefProvider {
             Box::new(detector)
         })
     }
-
-    fn register_system_message<R>(reg: &mut R) {
-        reg.register_system::<ArteryHeartbeat>();
-        reg.register_system::<ArteryHeartbeatRsp>();
-        reg.register_system::<Heartbeat>();
-        reg.register_system::<HeartbeatRsp>();
-    }
 }
 
 impl TActorRefProvider for RemoteActorRefProvider {
-    fn config(&self) -> &actor_core::actor::actor_system::Settings {
-        todo!()
+    fn config(&self) -> &config::Config {
+        self.local.config()
     }
 
     fn root_guardian(&self) -> &LocalActorRef {
@@ -133,7 +147,6 @@ impl TActorRefProvider for RemoteActorRefProvider {
             self.root_guardian().clone().into()
         } else {
             let remote = RemoteActorRef::new(
-                self.guardian().system().clone(),
                 RootActorPath::new(address.clone(), "/").into(),
                 self.artery.clone(),
                 self.remote_watcher.clone(),
@@ -174,9 +187,14 @@ impl TActorRefProvider for RemoteActorRefProvider {
         self.local.unregister_temp_actor(path)
     }
 
-    fn spawn_actor(&self, props: Props, supervisor: &ActorRef, system: ActorSystem) -> anyhow::Result<ActorRef> {
+    fn spawn_actor(
+        &self,
+        props: Props,
+        supervisor: &ActorRef,
+        system: ActorSystem,
+    ) -> anyhow::Result<ActorRef> {
         // TODO remote spawn
-        self.local.spawn_actor(props, supervisor)
+        self.local.spawn_actor(props, supervisor, system)
     }
 
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {
@@ -184,7 +202,6 @@ impl TActorRefProvider for RemoteActorRefProvider {
             self.local.resolve_actor_ref_of_path(path)
         } else {
             let remote = RemoteActorRef::new(
-                self.artery.system().clone(),
                 path.clone(),
                 self.artery.clone(),
                 self.remote_watcher.clone(),
@@ -194,7 +211,7 @@ impl TActorRefProvider for RemoteActorRefProvider {
     }
 
     fn dead_letters(&self) -> &dyn TActorRef {
-        &self.local.dead_letters()
+        self.local.dead_letters()
     }
 
     fn ignore_ref(&self) -> &dyn TActorRef {

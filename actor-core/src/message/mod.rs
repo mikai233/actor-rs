@@ -57,11 +57,11 @@ pub trait Message: Any + Send + Display + Debug {
     fn clone_box(&self) -> Option<Box<dyn Message>>;
 }
 
-pub fn downcast_ref<M>(message: &impl AsRef<dyn Message>) -> Option<&M>
+pub fn downcast_ref<M>(message: &dyn Message) -> Option<&M>
 where
     M: Message,
 {
-    message.as_ref().as_any().downcast_ref()
+    message.as_any().downcast_ref()
 }
 
 pub fn downcast_into<M>(message: Box<dyn Message>) -> Result<Box<M>, Box<dyn Any>>

@@ -66,12 +66,13 @@ impl<A: Actor> Receive<A> {
     where
         M: Message,
     {
-        let signature = M::signature_sized();
+        let to_signature = M::signature_sized();
         self.receiver.insert(
-            signature.type_id,
+            to_signature.type_id,
             Box::new(move |actor, ctx, message, sender, receive| {
+                let from_signature = message.signature();
                 let message = downcast_into::<M>(message)
-                    .map_err(|_| anyhow::anyhow!("Downcast {signature} failed"))?;
+                    .map_err(|_| anyhow::anyhow!("Downcast {from_signature} to {to_signature} failed"))?;
                 handler(actor, ctx, *message, sender, receive)
             }),
         );

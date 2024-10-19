@@ -17,9 +17,9 @@ pub(super) struct ReapUnreachableTick;
 impl MessageHandler<RemoteWatcher> for ReapUnreachableTick {
     fn handle(
         actor: &mut RemoteWatcher,
-        ctx: &mut <RemoteWatcher as Actor>::Context,
-        message: Self,
-        sender: Option<ActorRef>,
+        _: &mut <RemoteWatcher as Actor>::Context,
+        _: Self,
+        _: Option<ActorRef>,
         _: &Receive<RemoteWatcher>,
     ) -> anyhow::Result<Behavior<RemoteWatcher>> {
         let watching_nodes = actor.watchee_by_nodes.keys();

@@ -215,7 +215,7 @@ pub(crate) trait TSelectionPathElement: Display {}
 
 #[enum_dispatch]
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub(crate) enum SelectionPathElement {
+pub enum SelectionPathElement {
     SelectChildName,
     SelectChildPattern,
     SelectParent,
@@ -332,14 +332,14 @@ pub enum ActorSelectionPath {
 }
 
 #[derive(Debug)]
-pub(crate) struct ActorSelectionMessage {
+pub struct ActorSelectionMessage {
     pub(crate) message: DynMessage,
     pub(crate) elements: Vec<SelectionPathElement>,
     pub(crate) wildcard_fan_out: bool,
 }
 
 impl ActorSelectionMessage {
-    pub(crate) fn new(
+    pub fn new(
         message: DynMessage,
         elements: Vec<SelectionPathElement>,
         wildcard_fan_out: bool,
@@ -357,7 +357,7 @@ impl ActorSelectionMessage {
     }
 
     pub(crate) fn identify_request(&self) -> Option<&Identify> {
-        downcast_ref(&self.message)
+        downcast_ref(&*self.message)
     }
 
     pub(crate) fn copy_with_elements(
@@ -372,6 +372,18 @@ impl ActorSelectionMessage {
             elements,
             wildcard_fan_out,
         }
+    }
+
+    pub fn message(&self) -> &DynMessage {
+        &self.message
+    }
+
+    pub fn elements(&self) -> &[SelectionPathElement] {
+        &self.elements
+    }
+
+    pub fn wildcard_fan_out(&self) -> bool {
+        self.wildcard_fan_out
     }
 }
 

@@ -43,7 +43,6 @@ pub mod disconnect;
 pub mod disconnected;
 pub mod inbound_message;
 pub mod outbound_message;
-pub mod remote_envelope;
 pub mod remote_packet;
 pub mod spawn_inbound;
 pub mod transport_buffer_envelop;
@@ -178,7 +177,7 @@ impl ArteryActor {
         let context = ctx.context();
         let myself = context.myself().clone();
         let system = context.system().clone();
-        context.spawn_fut(format!("tcp_listener_{}", addr), async move {
+        ctx.spawn_fut(format!("tcp_listener_{}", addr), async move {
             info!("start bind tcp addr {}", addr);
             match TcpListener::bind(addr).await {
                 Ok(tcp_listener) => loop {
@@ -265,16 +264,18 @@ mod tests {
 
     impl MessageHandler<PingPongActor> for Ping {
         fn handle(
-            actor: &mut PingPongActor,
+            _: &mut PingPongActor,
             ctx: &mut <PingPongActor as actor_core::actor::Actor>::Context,
-            message: Self,
+            _: Self,
             sender: Option<ActorRef>,
             _: &Receive<PingPongActor>,
         ) -> anyhow::Result<Behavior<PingPongActor>> {
             let context = ctx.context_mut();
             let myself = context.myself().clone();
             context.spawn_fut("pong", async move {
-                sender.cast(Pong, Some(myself));
+                if let Some(sender) = sender {
+                    sender.cast(Pong, Some(myself));
+                }
                 tokio::time::sleep(Duration::from_secs(1)).await;
             })?;
             Ok(Behavior::same())
@@ -287,10 +288,10 @@ mod tests {
 
     impl MessageHandler<PingPongActor> for Pong {
         fn handle(
-            actor: &mut PingPongActor,
+            _: &mut PingPongActor,
             ctx: &mut <PingPongActor as Actor>::Context,
-            message: Self,
-            sender: Option<ActorRef>,
+            _: Self,
+            _: Option<ActorRef>,
             _: &Receive<PingPongActor>,
         ) -> anyhow::Result<Behavior<PingPongActor>> {
             let context = ctx.context();
@@ -307,10 +308,10 @@ mod tests {
 
     impl MessageHandler<PingPongActor> for PingTo {
         fn handle(
-            actor: &mut PingPongActor,
+            _: &mut PingPongActor,
             ctx: &mut <PingPongActor as Actor>::Context,
             message: Self,
-            sender: Option<ActorRef>,
+            _: Option<ActorRef>,
             _: &Receive<PingPongActor>,
         ) -> anyhow::Result<Behavior<PingPongActor>> {
             let context = ctx.context();
@@ -368,9 +369,9 @@ mod tests {
 
     impl MessageHandler<EmptyTestActor> for MessageToAsk {
         fn handle(
-            actor: &mut EmptyTestActor,
-            ctx: &mut <EmptyTestActor as Actor>::Context,
-            message: Self,
+            _: &mut EmptyTestActor,
+            _: &mut <EmptyTestActor as Actor>::Context,
+            _: Self,
             sender: Option<ActorRef>,
             _: &Receive<EmptyTestActor>,
         ) -> anyhow::Result<Behavior<EmptyTestActor>> {

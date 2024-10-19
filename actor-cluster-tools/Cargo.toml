@@ -8,12 +8,10 @@ edition = "2021"
 [dependencies]
 actor-core = { path = "../actor-core", features = ["derive"] }
 actor-cluster = { path = "../actor-cluster" }
-async-trait = { workspace = true }
 ahash = { workspace = true }
 dashmap = { workspace = true, features = ["inline"] }
 tracing = { workspace = true }
 anyhow = { workspace = true }
-typed-builder = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 futures = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

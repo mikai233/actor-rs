@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter};
 use std::ops::{Add, AddAssign, Not, Sub};
 use std::time::{Duration, Instant};
 
+use actor_core::actor::Actor;
 use ahash::{HashMap, HashSet};
 use anyhow::{anyhow, Context as _};
 use async_trait::async_trait;
@@ -27,7 +28,6 @@ use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::util::version::Version;
-use actor_core::{Actor, DynMessage};
 use actor_remote::artery::disconnect::Disconnect;
 
 use crate::cluster::Cluster;
@@ -207,23 +207,24 @@ impl ClusterCoreDaemon {
     }
 }
 
-#[async_trait]
 impl Actor for ClusterCoreDaemon {
-    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
-        context.spawn(
+    type Context = Context;
+
+    fn started(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
+        ctx.spawn(
             ClusterHeartbeatSender::props(),
             ClusterHeartbeatSender::name(),
         )?;
         Ok(())
     }
 
-    async fn stopped(&mut self, _context: &mut Context) -> anyhow::Result<()> {
+    fn stopped(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
         let _ = self.self_exiting.send(()).await;
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
-        Self::handle_message(self, context, message).await
+    fn receive(&self) -> Receive<Self> {
+        todo!()
     }
 }
 

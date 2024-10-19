@@ -1,0 +1,70 @@
+{
+  "akka": {
+    "actor": {
+      "deployment": {
+        "default": {
+          "remote": "",
+          "target": {
+            "nodes": []
+          }
+        }
+      }
+    },
+    "remote": {
+      "warn_about_direct_use": true,
+      "use_unsafe_remote_features_outside_cluster": false,
+      "warn_unsafe_watch_outside_cluster": true,
+      "watch_failure_detector": {
+        "implementation_class": "akka.remote.PhiAccrualFailureDetector",
+        "heartbeat_interval": {
+          "secs": 1,
+          "nanos": 0
+        },
+        "threshold": 10.0,
+        "max_sample_size": 200,
+        "min_std_deviation": {
+          "secs": 0,
+          "nanos": 100000
+        },
+        "acceptable_heartbeat_pause": {
+          "secs": 10,
+          "nanos": 0
+        },
+        "unreachable_nodes_reaper_interval": {
+          "secs": 1,
+          "nanos": 0
+        },
+        "expected_response_after": {
+          "secs": 1,
+          "nanos": 0
+        }
+      },
+      "deployment": {
+        "enable_allow_list": false,
+        "allowed_actor_classes": []
+      },
+      "artery": {
+        "enabled": true,
+        "transport": "tcp",
+        "large_message_destinations": [],
+        "untrusted_mode": false,
+        "trusted_selection_paths": [],
+        "log_received_messages": false,
+        "log_sent_messages": false,
+        "log_frame_size_exceeding": false,
+        "canonical": {
+          "port": 25520,
+          "hostname": "<getHostAddress>"
+        },
+        "bind": {
+          "port": "",
+          "hostname": "",
+          "bind_timeout": {
+            "secs": 3,
+            "nanos": 0
+          }
+        }
+      }
+    }
+  }
+}

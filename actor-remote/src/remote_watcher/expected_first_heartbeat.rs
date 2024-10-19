@@ -19,9 +19,9 @@ pub(super) struct ExpectedFirstHeartbeat {
 impl MessageHandler<RemoteWatcher> for ExpectedFirstHeartbeat {
     fn handle(
         actor: &mut RemoteWatcher,
-        ctx: &mut <RemoteWatcher as Actor>::Context,
+        _: &mut <RemoteWatcher as Actor>::Context,
         message: Self,
-        sender: Option<ActorRef>,
+        _: Option<ActorRef>,
         _: &Receive<RemoteWatcher>,
     ) -> anyhow::Result<Behavior<RemoteWatcher>> {
         let address = message.from;

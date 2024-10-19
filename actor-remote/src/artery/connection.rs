@@ -11,7 +11,6 @@ use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use crate::artery::codec::{Packet, PacketCodec};
 use crate::artery::disconnect::Disconnect;
 use crate::artery::disconnected::Disconnected;
-use crate::artery::remote_envelope::RemoteEnvelope;
 use crate::artery::remote_packet::RemotePacket;
 
 pub type ConnectionTx = tokio::sync::mpsc::Sender<RemoteEnvelope>;
@@ -71,11 +70,11 @@ where
     }
 
     fn disconnect(&self) {
-        self.transport.cast(Disconnect { addr: self.peer }, None);
+        self.transport.cast_ns(Disconnect { addr: self.peer });
     }
 
     fn disconnected(&self) {
-        self.transport.cast(Disconnected { addr: self.peer }, None);
+        self.transport.cast_ns(Disconnected { addr: self.peer });
     }
 
     async fn send(&mut self, envelope: RemoteEnvelope) -> anyhow::Result<()> {

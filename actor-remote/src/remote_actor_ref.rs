@@ -1,13 +1,7 @@
-use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 use std::iter::Peekable;
-use std::ops::Deref;
 use std::sync::Arc;
 
-use tracing::error;
-
-use crate::codec::MessageCodecRegistry;
-use actor_core::actor::actor_system::WeakSystem;
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt, TActorRef};
@@ -16,15 +10,14 @@ use actor_core::message::resume::Resume;
 use actor_core::message::suspend::Suspend;
 use actor_core::message::unwatch::Unwatch;
 use actor_core::message::watch::Watch;
-use actor_core::message::DynMessage;
+use actor_core::message::{downcast_into, DynMessage, Message};
 use actor_core::AsAny;
 
 use crate::artery::outbound_message::OutboundMessage;
-use crate::artery::remote_envelope::RemoteEnvelope;
 use crate::remote_watcher::unwatch_remote::UnwatchRemote;
 use crate::remote_watcher::watch_remote::WatchRemote;
 
-#[derive(Clone, AsAny)]
+#[derive(Clone, AsAny, derive_more::Deref)]
 pub struct RemoteActorRef(Arc<RemoteActorRefInner>);
 
 pub struct RemoteActorRefInner {
@@ -34,12 +27,7 @@ pub struct RemoteActorRefInner {
 }
 
 impl RemoteActorRef {
-    pub(crate) fn new(
-        system: WeakSystem,
-        path: ActorPath,
-        transport: ActorRef,
-        remote_watcher: ActorRef,
-    ) -> Self {
+    pub(crate) fn new(path: ActorPath, transport: ActorRef, remote_watcher: ActorRef) -> Self {
         let inner = RemoteActorRefInner {
             path,
             transport,
@@ -53,75 +41,47 @@ impl RemoteActorRef {
     }
 
     fn send_remote(&self, message: DynMessage, sender: Option<ActorRef>) {
-        match self.registry.encode_boxed(message) {
-            Ok(packet) => {
-                let envelope = RemoteEnvelope {
-                    packet,
-                    sender,
-                    target: self.clone().into(),
-                };
-                self.transport.cast_ns(OutboundMessage { name, envelope });
-            }
-            Err(err) => {
-                match sender {
-                    None => {
-                        let target: ActorRef = self.clone().into();
-                        error!("send message {} to {} error {:?}", name, target, err);
-                    }
-                    Some(sender) => {
-                        let target: ActorRef = self.clone().into();
-                        error!("send message {} from {} to {} error {:?}", name, sender, target, err);
-                    }
-                }
-            }
-        }
-    }
-}
-
-impl Deref for RemoteActorRef {
-    type Target = Arc<RemoteActorRefInner>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
+        let message = OutboundMessage::new(message, sender, self.clone().into());
+        self.transport.cast_ns(message);
     }
 }
 
 impl Debug for RemoteActorRef {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("RemoteActorRef")
-            .field("system", &"..")
             .field("path", &self.path)
             .field("transport", &self.transport)
+            .field("remote_watcher", &self.remote_watcher)
             .finish()
     }
 }
 
 impl TActorRef for RemoteActorRef {
-    fn system(&self) -> &WeakSystem {
-        &self.system
-    }
-
     fn path(&self) -> &ActorPath {
         &self.path
     }
 
     fn tell(&self, message: DynMessage, sender: Option<ActorRef>) {
-        let name = message.name();
-        if name == type_name::<Watch>() {
-            let Watch { watchee, watcher } = message.downcast_system::<Watch>().unwrap();
+        let name = message.signature().name;
+        if name == Watch::signature_sized().name {
+            let Watch { watchee, watcher } =
+                *downcast_into(message).expect("message is not Watch message");
             if self.is_watch_intercepted(&watchee, &watcher) {
-                self.remote_watcher.cast_ns(WatchRemote { watchee, watcher });
+                self.remote_watcher
+                    .cast_ns(WatchRemote { watchee, watcher });
             } else {
-                let watch = Watch { watchee, watcher }.into_dyn();
-                self.send_remote(watch, sender);
+                let watch = Watch { watchee, watcher };
+                self.send_remote(Box::new(watch), sender);
             }
-        } else if name == type_name::<Unwatch>() {
-            let Unwatch { watchee, watcher } = message.downcast_system::<Unwatch>().unwrap();
+        } else if name == Unwatch::signature_sized().name {
+            let Unwatch { watchee, watcher } =
+                *downcast_into(message).expect("message is not Unwatch message");
             if self.is_watch_intercepted(&watchee, &watcher) {
-                self.remote_watcher.cast_ns(UnwatchRemote { watchee, watcher });
+                self.remote_watcher
+                    .cast_ns(UnwatchRemote { watchee, watcher });
             } else {
-                let unwatch = Unwatch { watchee, watcher }.into_dyn();
-                self.send_remote(unwatch, sender);
+                let unwatch = Unwatch { watchee, watcher };
+                self.send_remote(Box::new(unwatch), sender);
             }
         } else {
             self.send_remote(message, sender);
@@ -129,22 +89,19 @@ impl TActorRef for RemoteActorRef {
     }
 
     fn stop(&self) {
-        self.cast_system(PoisonPill, None);
+        self.cast_ns(PoisonPill);
     }
 
-    fn parent(&self) -> Option<&ActorRef> {
+    fn parent(&self) -> Option<&dyn TActorRef> {
         None
     }
 
-    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {
         match names.peek() {
-            None => {
-                Some(self.clone().into())
-            }
+            None => Some(self.clone().into()),
             Some(&"..") => None,
             Some(_) => {
                 let remote_ref = RemoteActorRef::new(
-                    self.system.clone(),
                     self.path().descendant(names),
                     self.transport.clone(),
                     self.remote_watcher.clone(),
@@ -155,12 +112,14 @@ impl TActorRef for RemoteActorRef {
     }
 
     fn resume(&self) {
-        self.cast_system(Resume, ActorRef::no_sender());
+        self.cast_ns(Resume);
     }
 
     fn suspend(&self) {
-        self.cast_system(Suspend, ActorRef::no_sender());
+        self.cast_ns(Suspend);
     }
+
+    fn start(&self) {}
 }
 
 impl Into<ActorRef> for RemoteActorRef {

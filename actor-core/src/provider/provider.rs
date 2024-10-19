@@ -7,9 +7,9 @@ use crate::provider::TActorRefProvider;
 
 #[derive(Debug, derive_more::Constructor)]
 pub struct Provider<P: TActorRefProvider> {
-    pub(crate) name: String,
-    pub(crate) provider: P,
-    pub(crate) spawns: Vec<ActorSpawn>,
+    pub name: String,
+    pub provider: P,
+    pub spawns: Vec<ActorSpawn>,
 }
 
 #[derive(Debug, derive_more::Constructor)]
@@ -29,5 +29,13 @@ impl ActorSpawn {
             mailbox,
         } = self;
         props.spawn(myself, signal_rx, mailbox, system)
+    }
+
+    pub fn myself(&self) -> &ActorRef {
+        &self.myself
+    }
+
+    pub fn mailbox(&self) -> &Mailbox {
+        &self.mailbox
     }
 }

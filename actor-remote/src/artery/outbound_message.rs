@@ -4,26 +4,25 @@ use actor_core::actor::behavior::Behavior;
 use actor_core::actor::receive::Receive;
 use actor_core::actor::Actor;
 use actor_core::message::handler::MessageHandler;
+use actor_core::message::DynMessage;
 use actor_core::Message;
 use anyhow::anyhow;
 use tokio::sync::mpsc::error::TrySendError;
 use tracing::{debug, warn};
 
-use actor_core::actor::context::ActorContext;
-use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 
 use crate::artery::connect_tcp::ConnectTcp;
 use crate::artery::connection_status::ConnectionStatus;
 use crate::artery::disconnect::Disconnect;
-use crate::artery::remote_envelope::RemoteEnvelope;
 use crate::artery::ArteryActor;
 
-#[derive(Debug, Message, derive_more::Display)]
-#[display("OutboundMessage {{ name: {name}, envelope: {envelope} }}")]
+#[derive(Debug, Message, derive_more::Display, derive_more::Constructor)]
+#[display("OutboundMessage {{ message: {message}, sender: {sender:?}, target: {target} }}")]
 pub(crate) struct OutboundMessage {
-    pub(crate) name: &'static str,
-    pub(crate) envelope: RemoteEnvelope,
+    pub(crate) message: DynMessage,
+    pub(crate) sender: Option<ActorRef>,
+    pub(crate) target: ActorRef,
 }
 
 impl MessageHandler<ArteryActor> for OutboundMessage {

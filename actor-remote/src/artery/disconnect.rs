@@ -8,8 +8,6 @@ use actor_core::message::handler::MessageHandler;
 use actor_core::Message;
 use tracing::info;
 
-use actor_core::actor::context::ActorContext;
-
 use crate::artery::connection_status::ConnectionStatus;
 use crate::artery::ArteryActor;
 
@@ -24,7 +22,7 @@ impl MessageHandler<ArteryActor> for Disconnect {
         actor: &mut ArteryActor,
         ctx: &mut <ArteryActor as Actor>::Context,
         message: Self,
-        sender: Option<ActorRef>,
+        _: Option<ActorRef>,
         _: &Receive<ArteryActor>,
     ) -> anyhow::Result<Behavior<ArteryActor>> {
         let Self { addr } = message;

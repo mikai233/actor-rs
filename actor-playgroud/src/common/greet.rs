@@ -1,23 +1,27 @@
-use async_trait::async_trait;
-use bincode::{Decode, Encode};
-use tracing::info;
-
-use actor_core::actor::context::{Context, ActorContext};
+use crate::common::singleton_actor::SingletonActor;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
 use actor_core::Message;
 use actor_core::MessageCodec;
+use serde::{Deserialize, Serialize};
+use tracing::info;
 
-use crate::common::singleton_actor::SingletonActor;
-
-#[derive(Debug, Encode, Decode, MessageCodec)]
+#[derive(Debug, Serialize, Deserialize, Message, MessageCodec)]
 pub struct Greet(pub usize);
 
-#[async_trait]
-impl Message for Greet {
-    type A = SingletonActor;
-
-    async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut Self::A) -> anyhow::Result<()> {
-        println!("{:?}", *self);
-        info!("{} recv {:?}", context.myself(), *self);
-        Ok(())
+impl MessageHandler<SingletonActor> for Greet {
+    fn handle(
+        _: &mut SingletonActor,
+        ctx: &mut <SingletonActor as Actor>::Context,
+        message: Self,
+        _: Option<ActorRef>,
+        _: &Receive<SingletonActor>,
+    ) -> anyhow::Result<Behavior<SingletonActor>> {
+        info!("{} recv {}", ctx.myself(), message);
+        Ok(Behavior::same())
     }
 }

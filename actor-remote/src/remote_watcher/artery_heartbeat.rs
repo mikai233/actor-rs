@@ -17,7 +17,7 @@ impl MessageHandler<RemoteWatcher> for ArteryHeartbeat {
     fn handle(
         actor: &mut RemoteWatcher,
         ctx: &mut <RemoteWatcher as Actor>::Context,
-        message: Self,
+        _: Self,
         sender: Option<ActorRef>,
         _: &Receive<RemoteWatcher>,
     ) -> anyhow::Result<Behavior<RemoteWatcher>> {

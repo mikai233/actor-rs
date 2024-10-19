@@ -18,7 +18,6 @@ tracing-subscriber = { workspace = true, features = ["local-time"] }
 bincode = { workspace = true }
 ahash = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-toml = { workspace = true }
 config = { workspace = true }
 imstr = { workspace = true }
 derive_more = { workspace = true }

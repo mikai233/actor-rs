@@ -1,4 +1,5 @@
 use actor_derive::Message;
+use serde::{Deserialize, Serialize};
 
 use crate::actor::address::Address;
 use crate::actor::behavior::Behavior;
@@ -11,7 +12,7 @@ use crate::message::death_watch_notification::DeathWatchNotification;
 
 use super::handler::MessageHandler;
 
-#[derive(Debug, Clone, Message, derive_more::Display)]
+#[derive(Debug, Clone, Serialize, Deserialize, Message, derive_more::Display)]
 #[cloneable]
 #[display("AddressTerminated {{ address: {address} }}")]
 pub struct AddressTerminated {
