@@ -438,7 +438,7 @@ mod test {
     fn node_a() -> UniqueAddress {
         UniqueAddress {
             address: Address {
-                protocol: Protocol::Akka,
+                protocol: Protocol::Tcp,
                 system: "sys".into(),
                 addr: Some(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 2552)),
             },
@@ -449,7 +449,7 @@ mod test {
     fn node_b() -> UniqueAddress {
         UniqueAddress {
             address: Address {
-                protocol: Protocol::Akka,
+                protocol: Protocol::Tcp,
                 system: "sys".into(),
                 addr: Some(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 2552)),
             },
@@ -460,7 +460,7 @@ mod test {
     fn node_c() -> UniqueAddress {
         UniqueAddress {
             address: Address {
-                protocol: Protocol::Akka,
+                protocol: Protocol::Tcp,
                 system: "sys".into(),
                 addr: Some(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 2552)),
             },
@@ -471,7 +471,7 @@ mod test {
     fn node_d() -> UniqueAddress {
         UniqueAddress {
             address: Address {
-                protocol: Protocol::Akka,
+                protocol: Protocol::Tcp,
                 system: "sys".into(),
                 addr: Some(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 2552)),
             },
@@ -482,7 +482,7 @@ mod test {
     fn node_e() -> UniqueAddress {
         UniqueAddress {
             address: Address {
-                protocol: Protocol::Akka,
+                protocol: Protocol::Tcp,
                 system: "sys".into(),
                 addr: Some(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 2552)),
             },

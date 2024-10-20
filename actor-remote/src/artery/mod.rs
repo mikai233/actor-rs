@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use actor_core::actor::receive::Receive;
 use actor_core::actor::Actor;
+use actor_core::message::{DynMessage, Message};
 use ahash::{HashMap, HashMapExt};
 use anyhow::anyhow;
 use futures::StreamExt;
@@ -30,7 +31,7 @@ use crate::artery::transport_buffer_envelop::ArteryBufferEnvelope;
 use crate::codec::MessageCodecRegistry;
 use crate::config::advanced::Advanced;
 use crate::config::artery::Transport;
-use crate::config::message_buffer::MessageBuffer;
+use crate::config::buffer_type::BufferType;
 use crate::remote_provider::RemoteActorRefProvider;
 
 pub mod codec;
@@ -137,35 +138,37 @@ impl ArteryActor {
         }
     }
 
-    fn buffer_message(
+    fn buffer_message<M>(
         message_buffer: &mut MessageBufferMap<SocketAddr, ArteryBufferEnvelope>,
-        addr: SocketAddr,
-        msg: OutboundMessage,
+        target_addr: SocketAddr,
+        message: M,
         sender: Option<ActorRef>,
-        buffer: MessageBuffer,
-    ) {
+        buffer_type: BufferType,
+    ) where
+        M: Message,
+    {
         let envelope = ArteryBufferEnvelope {
-            message: DynMessage::user(msg),
+            message: Box::new(message),
             sender,
         };
-        match buffer {
-            MessageBuffer::Drop => {
+        match buffer_type {
+            BufferType::Drop => {
                 debug!(
                     "no buffer configured, drop buffer message {}",
-                    envelope.message.name()
+                    envelope.message.signature()
                 );
             }
-            MessageBuffer::Bound(size) => {
-                message_buffer.push(addr, envelope);
+            BufferType::Bound(size) => {
+                message_buffer.push(target_addr, envelope);
                 if message_buffer.total_size() > size {
-                    for envelope in message_buffer.drop_first_n(&addr, 1) {
-                        let msg_name = envelope.message.name();
-                        warn!("stash buffer is going to large than {size}, drop the oldest message {msg_name}");
+                    for envelope in message_buffer.drop_first_n(&target_addr, 1) {
+                        let signature = envelope.message.signature();
+                        warn!("stash buffer is going to large than {size}, drop the oldest message `{signature}`");
                     }
                 }
             }
-            MessageBuffer::Unbound => {
-                message_buffer.push(addr, envelope);
+            BufferType::Unbound => {
+                message_buffer.push(target_addr, envelope);
             }
         }
     }
@@ -243,7 +246,7 @@ mod tests {
     use actor_core::pattern::patterns::Patterns;
     use actor_core::{Message, MessageCodec};
 
-    use crate::config::message_buffer::MessageBuffer;
+    use crate::config::buffer_type::BufferType;
     use crate::config::settings::Remote;
     use crate::remote_provider::RemoteActorRefProvider;
 
@@ -324,7 +327,7 @@ mod tests {
     fn build_setting(addr: SocketAddrV4) -> anyhow::Result<ActorSetting> {
         let mut remote_setting = Remote {
             config: Remote {
-                transport: Transport::tcp(addr, MessageBuffer::default()),
+                transport: Transport::tcp(addr, BufferType::default()),
             },
             reg: Default::default(),
         };

@@ -219,7 +219,7 @@ mod test {
 
     fn build_address() -> Address {
         Address::new(
-            Protocol::Akka,
+            Protocol::Tcp,
             "mikai233",
             Some("127.0.0.1:12121".parse().unwrap()),
         )
@@ -312,13 +312,13 @@ mod test {
     #[test]
     fn test_to_string_with_address() {
         let actor_path = build_actor_path();
-        let address = Address::new(Protocol::Akka, "mikai", None);
+        let address = Address::new(Protocol::Tcp, "mikai", None);
         assert_eq!(
             actor_path.to_string_with_address(&address),
             "tcp://mikai/user/$a/$a/$aa"
         );
         let address = Address::new(
-            Protocol::Akka,
+            Protocol::Tcp,
             "mikai",
             Some("127.0.0.1:9988".parse().unwrap()),
         );
@@ -333,7 +333,7 @@ mod test {
         let actor_path = build_actor_path();
         assert_eq!(actor_path, actor_path);
         assert_ne!(actor_path, actor_path.child("u"));
-        let addr = Address::new(Protocol::Akka, "mikai233", None);
+        let addr = Address::new(Protocol::Tcp, "mikai233", None);
         let root: ActorPath = RootActorPath::new(addr, "/".to_string()).into();
         let actor_path2 = root.descendant(
             vec![
@@ -357,7 +357,7 @@ mod test {
         assert!(actor_path < actor_path2);
         let actor_path3 = actor_path.child("a");
         assert!(actor_path3 < actor_path2);
-        let addr = Address::new(Protocol::Akka, "mikai234", None);
+        let addr = Address::new(Protocol::Tcp, "mikai234", None);
         let root: ActorPath = RootActorPath::new(addr, "/".to_string()).into();
         let actor_path4 = root.descendant(
             vec![

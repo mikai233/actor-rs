@@ -26,7 +26,7 @@ impl MessageHandler<ArteryActor> for Connected {
         actor: &mut ArteryActor,
         ctx: &mut <ArteryActor as Actor>::Context,
         message: Self,
-        sender: Option<ActorRef>,
+        _: Option<ActorRef>,
         _: &Receive<ArteryActor>,
     ) -> anyhow::Result<Behavior<ArteryActor>> {
         let Self { addr, tx } = message;

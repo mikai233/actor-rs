@@ -22,7 +22,7 @@ use actor_core::EmptyCodec;
 use actor_core::ext::init_logger_with_filter;
 use actor_remote::codec::MessageRegistry;
 use actor_core::message::terminated::Terminated;
-use actor_remote::config::message_buffer::MessageBuffer;
+use actor_remote::config::buffer_type::BufferType;
 use actor_remote::config::Remote;
 use actor_remote::config::transport::Transport;
 use actor_remote::remote_provider::RemoteActorRefProvider;
@@ -82,7 +82,7 @@ async fn main() -> anyhow::Result<()> {
     let addr = arg.addr;
     init_logger_with_filter("debug,actor=debug,actor-core::scheduler=info,h2=info,tower=info,hyper=info");
     let remote_setting = Remote {
-        config: Remote { transport: Transport::tcp(addr, MessageBuffer::default()) },
+        config: Remote { transport: Transport::tcp(addr, BufferType::default()) },
         reg: MessageRegistry::new(),
     };
     let setting = ActorSetting::new(
@@ -99,7 +99,7 @@ async fn main() -> anyhow::Result<()> {
             }), "watchee")?;
         }
         Some(remote_addr) => {
-            let path = RootActorPath::new(Address::new(Protocol::Akka, "mikai233", Some(remote_addr)), "/")
+            let path = RootActorPath::new(Address::new(Protocol::Tcp, "mikai233", Some(remote_addr)), "/")
                 .child("user")
                 .child("watchee");
             let selection = system.actor_selection(ActorSelectionPath::FullPath(path))?;

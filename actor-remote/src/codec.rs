@@ -5,6 +5,8 @@ use crate::remote_watcher::{
     heartbeat::Heartbeat, heartbeat_rsp::HeartbeatRsp,
 };
 use actor_core::actor::actor_selection::{ActorSelectionMessage, SelectionPathElement};
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::PROVIDER;
 use actor_core::message::address_terminated::AddressTerminated;
 use actor_core::message::identify::{ActorIdentity, Identify};
 use actor_core::message::poison_pill::PoisonPill;
@@ -20,14 +22,14 @@ use actor_core::{
         Signature,
     },
 };
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use serde::{Deserialize, Serialize};
 
 pub type DecoderFn =
-Box<dyn Fn(&[u8], &ActorSystem, &dyn MessageCodecRegistry) -> anyhow::Result<DynMessage>>;
+    Box<dyn Fn(&[u8], &ActorSystem, &dyn MessageCodecRegistry) -> anyhow::Result<DynMessage>>;
 
 pub type EncoderFn =
-Box<dyn Fn(&dyn Message, &ActorSystem, &dyn MessageCodecRegistry) -> anyhow::Result<Vec<u8>>>;
+    Box<dyn Fn(&dyn Message, &ActorSystem, &dyn MessageCodecRegistry) -> anyhow::Result<Vec<u8>>>;
 
 pub trait MessageCodec: Sized {
     type M: Message;
@@ -50,26 +52,31 @@ pub trait MessageCodecRegistry: Debug + Send + Sync {
 
     fn decode(&self, bytes: &[u8], system: &ActorSystem) -> anyhow::Result<DynMessage>;
 
-    fn register_system(&mut self, signature: Signature, decoder: DecoderFn, encoder: EncoderFn);
+    fn register(&mut self, signature: Signature, decoder: DecoderFn, encoder: EncoderFn);
 }
 
-pub fn register_system<M>(registry: &mut dyn MessageCodecRegistry)
+pub fn register_message<M>(registry: &mut dyn MessageCodecRegistry)
 where
     M: Message + MessageCodec,
 {
-    registry.register_system(
+    registry.register(
         M::signature_sized(),
         Box::new(|bytes, system, registry| {
-            let message = M::decode(bytes, system, registry)?;
+            let provider = system.provider().clone();
+            let message = PROVIDER.sync_scope(provider, || {
+                M::decode(bytes, system, registry)
+                    .with_context(|| anyhow!("Decode message `{}` failed", M::signature_sized()))
+            })?;
             Ok(Box::new(message))
         }),
         Box::new(|message, system, registry| {
             let message = downcast_ref(message).ok_or(anyhow!(
-                "Downcast {} to {} failed",
+                "Downcast message `{}` to `{}` failed",
                 message.signature(),
                 M::signature_sized()
             ))?;
-            let bytes = M::encode(message, system, registry)?;
+            let bytes = M::encode(message, system, registry)
+                .with_context(|| anyhow!("Encode message `{}` failed", M::signature_sized()))?;
             Ok(bytes)
         }),
     );
@@ -156,19 +163,19 @@ impl MessageCodec for ActorSelectionMessage {
 }
 
 pub fn register_remote_system_message(registry: &mut dyn MessageCodecRegistry) {
-    register_system::<AddressTerminated>(registry);
-    register_system::<DeathWatchNotification>(registry);
-    register_system::<Identify>(registry);
-    register_system::<ActorIdentity>(registry);
-    register_system::<PoisonPill>(registry);
-    register_system::<Resume>(registry);
-    register_system::<Suspend>(registry);
-    register_system::<Terminate>(registry);
-    register_system::<Unwatch>(registry);
-    register_system::<Watch>(registry);
-    register_system::<ActorSelectionMessage>(registry);
-    register_system::<ArteryHeartbeat>(registry);
-    register_system::<ArteryHeartbeatRsp>(registry);
-    register_system::<Heartbeat>(registry);
-    register_system::<HeartbeatRsp>(registry);
+    register_message::<AddressTerminated>(registry);
+    register_message::<DeathWatchNotification>(registry);
+    register_message::<Identify>(registry);
+    register_message::<ActorIdentity>(registry);
+    register_message::<PoisonPill>(registry);
+    register_message::<Resume>(registry);
+    register_message::<Suspend>(registry);
+    register_message::<Terminate>(registry);
+    register_message::<Unwatch>(registry);
+    register_message::<Watch>(registry);
+    register_message::<ActorSelectionMessage>(registry);
+    register_message::<ArteryHeartbeat>(registry);
+    register_message::<ArteryHeartbeatRsp>(registry);
+    register_message::<Heartbeat>(registry);
+    register_message::<HeartbeatRsp>(registry);
 }

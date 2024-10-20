@@ -68,7 +68,7 @@ impl IgnoreActorRef {
 
     fn path() -> ActorPath {
         RootActorPath::new(
-            Address::new(Protocol::Akka, Self::fake_system_name(), None),
+            Address::new(Protocol::Tcp, Self::fake_system_name(), None),
             "/",
         )
         .child("ignore")

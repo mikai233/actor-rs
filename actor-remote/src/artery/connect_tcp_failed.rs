@@ -18,9 +18,9 @@ pub(super) struct ConnectFailed {
 impl MessageHandler<ArteryActor> for ConnectFailed {
     fn handle(
         actor: &mut ArteryActor,
-        _ctx: &mut <ArteryActor as Actor>::Context,
+        _: &mut <ArteryActor as Actor>::Context,
         message: Self,
-        _sender: Option<ActorRef>,
+        _: Option<ActorRef>,
         _: &Receive<ArteryActor>,
     ) -> anyhow::Result<Behavior<ArteryActor>> {
         actor.connections.remove(&message.addr);

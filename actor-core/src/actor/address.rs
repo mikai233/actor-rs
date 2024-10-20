@@ -9,14 +9,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum Protocol {
-    Akka,
+    Tcp,
 }
 
 impl Display for Protocol {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Protocol::Akka => {
-                write!(f, "akka")
+            Protocol::Tcp => {
+                write!(f, "tcp")
             }
         }
     }
@@ -27,7 +27,7 @@ impl FromStr for Protocol {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "akka" => Ok(Protocol::Akka),
+            "tcp" => Ok(Protocol::Tcp),
             _ => Err(anyhow::anyhow!("Unknown protocol: {}", s)),
         }
     }

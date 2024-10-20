@@ -58,7 +58,7 @@ impl LocalActorRefProvider {
         let mut actor_spawns = vec![];
         let (termination_tx, _) = channel(1);
         //TODO address
-        let root_path = RootActorPath::new(Address::new(Protocol::Akka, "test", None), "/");
+        let root_path = RootActorPath::new(Address::new(Protocol::Tcp, "test", None), "/");
         let termination_tx_clone = termination_tx.clone();
         let root_props = Props::new(move || Ok(RootGuardian::new(termination_tx_clone)));
         let mailbox = &actor_config.actor.mailbox["default_mailbox"];

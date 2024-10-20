@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
         tokio::time::sleep(Duration::from_secs(2)).await;
         let cluster = Cluster::get(&system2);
         let m = cluster.members();
-        cluster.leave(Address::new(Protocol::Akka, "mikai233", Some("127.0.0.1:12123".parse()?)));
+        cluster.leave(Address::new(Protocol::Tcp, "mikai233", Some("127.0.0.1:12123".parse()?)));
     }
     system2.await?;
     Ok(())

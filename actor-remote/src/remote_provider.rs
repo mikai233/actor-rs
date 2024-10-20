@@ -57,7 +57,7 @@ impl RemoteActorRefProvider {
         let remote_cfg = provider.config.get::<Remote>("akka.remote")?;
         let canonical = remote_cfg.artery.canonical;
         let transport = remote_cfg.artery.transport;
-        let address = Address::new(Protocol::Akka, name.clone(), Some(canonical));
+        let address = Address::new(Protocol::Tcp, name.clone(), Some(canonical));
         let (artery, artery_spawn) = RemoteActorRefProvider::spawn_artery(
             &provider,
             transport,
