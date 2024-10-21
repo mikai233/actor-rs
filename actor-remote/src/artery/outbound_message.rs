@@ -32,11 +32,7 @@ impl MessageHandler<ArteryActor> for OutboundMessage {
         sender: Option<ActorRef>,
         _: &Receive<ArteryActor>,
     ) -> anyhow::Result<Behavior<ArteryActor>> {
-        let Self {
-            message,
-            sender,
-            target,
-        } = message;
+        let target = &message.target;
         let target_addr = target
             .path()
             .address()
@@ -51,14 +47,14 @@ impl MessageHandler<ArteryActor> for OutboundMessage {
                 debug!(
                     "connection to `{}` not established, stash `{}` and start connect",
                     target_addr,
-                    message.signature()
+                    message.message.signature()
                 );
                 ctx.myself()
                     .cast_ns(ConnectTcp::with_infinite_retry(target_addr));
                 ArteryActor::buffer_message(
                     &mut actor.message_buffer,
                     target_addr,
-                    OutboundMessage::new(message, sender, target),
+                    message,
                     sender,
                     actor.advanced.outbound_message_buffer,
                 );
@@ -68,30 +64,30 @@ impl MessageHandler<ArteryActor> for OutboundMessage {
                 debug!(
                     "connection to `{}` is establishing, stash `{}` and wait it established",
                     target_addr,
-                    message.signature()
+                    message.message.signature()
                 );
                 ArteryActor::buffer_message(
                     &mut actor.message_buffer,
                     target_addr,
-                    OutboundMessage::new(message, sender, target),
+                    message,
                     sender,
                     actor.advanced.outbound_message_buffer,
                 );
             }
             ConnectionStatus::Connected(tx) => {
-                if let Some(error) = tx.try_send(message.envelope).err() {
+                if let Some(error) = tx.try_send(message).err() {
                     match error {
-                        TrySendError::Full(_) => {
+                        TrySendError::Full(msg) => {
                             warn!(
                                 "message `{}` to `{}` connection buffer full, current message dropped",
-                                message.signature(), target_addr
+                                msg.message.signature(), target_addr
                             );
                         }
-                        TrySendError::Closed(_) => {
+                        TrySendError::Closed(msg) => {
                             ctx.myself().cast_ns(Disconnect { addr: target_addr });
                             warn!(
                                 "message `{}` to `{}` connection closed",
-                                message.signature(),
+                                msg.message.signature(),
                                 target_addr
                             );
                         }

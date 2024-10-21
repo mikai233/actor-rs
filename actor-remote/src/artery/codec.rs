@@ -1,5 +1,3 @@
-use std::ops::{Deref, DerefMut};
-
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use tokio_util::bytes::{BufMut, BytesMut};
@@ -7,32 +5,8 @@ use tokio_util::codec::{Decoder, Encoder};
 
 use actor_core::ext::read_u32;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Packet {
-    pub body: Vec<u8>,
-}
-
-impl Packet {
-    pub fn new(body: Vec<u8>) -> Self {
-        Self {
-            body
-        }
-    }
-}
-
-impl Deref for Packet {
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.body
-    }
-}
-
-impl DerefMut for Packet {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.body
-    }
-}
+#[derive(Debug, Clone, Serialize, Deserialize, derive_more::Deref)]
+pub struct Packet(pub Vec<u8>);
 
 #[derive(Debug)]
 pub struct PacketCodec;
@@ -64,7 +38,7 @@ impl Decoder for PacketCodec {
             Ok(None)
         } else {
             let src = src.split_to(4 + body_len as usize);
-            Ok(Some(Packet::new(src[4..].to_vec())))
+            Ok(Some(Packet(src[4..].to_vec())))
         };
     }
 }

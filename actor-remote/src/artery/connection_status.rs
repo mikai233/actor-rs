@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use tokio::task::JoinHandle;
 
-use crate::artery::connection::ConnectionTx;
+use crate::artery::outbound_connection::ConnectionTx;
 
 #[derive(Debug)]
 pub(super) enum ConnectionStatus {

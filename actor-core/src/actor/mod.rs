@@ -12,7 +12,7 @@ use crate::message::kill::Kill;
 use crate::message::poison_pill::PoisonPill;
 use crate::message::resume::Resume;
 use crate::message::suspend::Suspend;
-use crate::message::task_finish::TaskFinish;
+use crate::message::async_task_finish::AsyncTaskFinish;
 use crate::message::terminate::Terminate;
 use crate::message::terminated::Terminated;
 use crate::message::unwatch::Unwatch;
@@ -88,7 +88,7 @@ pub(crate) fn is_auto_received_message(message: &DynMessage) -> bool {
         || name == Kill::signature_sized().name
         || name == ActorSelectionMessage::signature_sized().name
         || name == Identify::signature_sized().name
-        || name == TaskFinish::signature_sized().name
+        || name == AsyncTaskFinish::signature_sized().name
     {
         true
     } else {

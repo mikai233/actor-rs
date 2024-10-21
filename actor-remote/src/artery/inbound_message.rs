@@ -1,35 +1,39 @@
 use actor_core::actor::behavior::Behavior;
 use actor_core::actor::receive::Receive;
 use actor_core::actor::Actor;
-use actor_core::actor_ref::{ActorRef, PROVIDER};
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::ActorRef;
 use actor_core::message::handler::MessageHandler;
+use actor_core::message::DynMessage;
 use actor_core::Message;
 
 use crate::artery::ArteryActor;
-use crate::artery::message_packet::MessagePacket;
 
-#[derive(Debug, Message, derive_more::Display)]
-#[display("InboundMessage({_0})")]
-pub(super) struct InboundMessage(pub(super) MessagePacket);
+#[derive(Debug, Message, derive_more::Display, derive_more::Constructor)]
+#[display("InboundMessage {{ message: {message}, sender: {sender:?}, target: {target} }}")]
+pub(super) struct InboundMessage {
+    pub(super) message: DynMessage,
+    pub(super) sender: Option<String>,
+    pub(super) target: String,
+}
 
 impl MessageHandler<ArteryActor> for InboundMessage {
     fn handle(
         actor: &mut ArteryActor,
         ctx: &mut <ArteryActor as Actor>::Context,
         message: Self,
-        sender: Option<ActorRef>,
+        _: Option<ActorRef>,
         _: &Receive<ArteryActor>,
     ) -> anyhow::Result<Behavior<ArteryActor>> {
-        let MessagePacket {
-            msg: packet,
+        let Self {
+            message,
             sender,
             target,
-        } = message.0;
-        let sender = sender.map(|s| actor.resolve_actor_ref(s));
-        let target = actor.resolve_actor_ref(target);
-        let reg = &actor.registry;
-        let message = PROVIDER.sync_scope(actor.provider.clone(), || reg.decode(packet));
-        target.tell(message?, sender);
+        } = message;
+        let provider = ctx.system().provider();
+        let sender = sender.map(|s| actor.resolve_actor_ref(provider, s));
+        let target = actor.resolve_actor_ref(provider, target);
+        target.tell(message, sender);
         Ok(Behavior::same())
     }
 }

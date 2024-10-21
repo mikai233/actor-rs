@@ -3,9 +3,8 @@ use std::sync::Arc;
 
 use actor_core::actor::receive::Receive;
 use actor_core::actor::Actor;
-use actor_core::message::{DynMessage, Message};
+use actor_core::message::Message;
 use ahash::{HashMap, HashMapExt};
-use anyhow::anyhow;
 use futures::StreamExt;
 use quick_cache::unsync::Cache;
 use tokio::io::AsyncRead;
@@ -21,10 +20,10 @@ use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::message::message_buffer::MessageBufferMap;
 use actor_core::provider::ActorRefProvider;
 
+use crate::artery::accept_connection::AcceptConnection;
 use crate::artery::codec::PacketCodec;
 use crate::artery::connection_status::ConnectionStatus;
 use crate::artery::inbound_message::InboundMessage;
-use crate::artery::spawn_inbound::AcceptConnection;
 use crate::artery::transport_buffer_envelop::ArteryBufferEnvelope;
 use crate::codec::MessageCodecRegistry;
 use crate::config::advanced::Advanced;
@@ -32,18 +31,19 @@ use crate::config::artery::Transport;
 use crate::config::buffer_type::BufferType;
 use crate::remote_provider::RemoteActorRefProvider;
 
+pub mod accept_connection;
 pub mod codec;
 pub mod connect_tcp;
 pub mod connect_tcp_failed;
 pub mod connected;
-pub mod connection;
 pub mod connection_status;
 pub mod disconnect;
 pub mod disconnected;
+pub mod inbound_connection;
 pub mod inbound_message;
-pub mod outbound_message;
 pub mod message_packet;
-pub mod spawn_inbound;
+pub mod outbound_connection;
+pub mod outbound_message;
 pub mod transport_buffer_envelop;
 
 pub const ACTOR_REF_CACHE: usize = 10000;
@@ -55,7 +55,6 @@ pub struct ArteryActor {
     advanced: Advanced,
     connections: HashMap<SocketAddr, ConnectionStatus>,
     actor_ref_cache: Cache<String, ActorRef>,
-    provider: ActorRefProvider,
     registry: Arc<dyn MessageCodecRegistry>,
     message_buffer: MessageBufferMap<SocketAddr, ArteryBufferEnvelope>,
 }
@@ -88,7 +87,6 @@ impl ArteryActor {
             advanced,
             connections: HashMap::new(),
             actor_ref_cache: Cache::new(ACTOR_REF_CACHE),
-            provider,
             registry,
             message_buffer: Default::default(),
         };
@@ -102,7 +100,7 @@ impl ArteryActor {
         let mut framed = FramedRead::new(stream, PacketCodec);
         loop {
             match framed.next().await {
-                Some(Ok(packet)) => match decode_bytes::<Packet>(packet.body.as_slice()) {
+                Some(Ok(packet)) => match bincode::deserialize(&packet) {
                     Ok(packet) => {
                         actor.cast_ns(InboundMessage(packet));
                     }
@@ -122,10 +120,10 @@ impl ArteryActor {
         }
     }
 
-    fn resolve_actor_ref(&mut self, path: String) -> ActorRef {
+    fn resolve_actor_ref(&mut self, provider: &ActorRefProvider, path: String) -> ActorRef {
         match self.actor_ref_cache.get(&path) {
             None => {
-                let actor_ref = self.provider.resolve_actor_ref(&path);
+                let actor_ref = provider.resolve_actor_ref(&path);
                 self.actor_ref_cache.insert(path, actor_ref.clone());
                 actor_ref
             }
@@ -208,7 +206,7 @@ impl ArteryActor {
                 _ => {}
             }
         }
-        return false;
+        false
     }
 }
 

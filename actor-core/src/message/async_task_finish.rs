@@ -8,12 +8,12 @@ use tracing::{error, trace};
 use super::handler::MessageHandler;
 
 #[derive(Debug, Message, derive_more::Display)]
-#[display("TaskFinish {{ name: {name} }}")]
-pub(crate) struct TaskFinish {
+#[display("AsyncTaskFinish {{ name: {name} }}")]
+pub(crate) struct AsyncTaskFinish {
     pub(crate) name: String,
 }
 
-impl<A: Actor> MessageHandler<A> for TaskFinish {
+impl<A: Actor> MessageHandler<A> for AsyncTaskFinish {
     fn handle(
         _: &mut A,
         ctx: &mut <A as Actor>::Context,

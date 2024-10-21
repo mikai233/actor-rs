@@ -16,7 +16,7 @@ use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::local;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::failed::Failed;
-use crate::message::task_finish::TaskFinish;
+use crate::message::async_task_finish::AsyncTaskFinish;
 use crate::message::terminate::Terminate;
 use crate::message::terminated::Terminated;
 use crate::message::unwatch::Unwatch;
@@ -279,19 +279,7 @@ impl Context {
         F: Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        self.spawn_inner(name.into(), future, false)
-    }
-
-    pub fn spawn_async_blocking<F>(
-        &mut self,
-        name: impl Into<String>,
-        future: F,
-    ) -> anyhow::Result<JoinHandle<F::Output>>
-    where
-        F: Future + Send + 'static,
-        F::Output: Send + 'static,
-    {
-        self.spawn_inner(name.into(), future, true)
+        self.spawn_inner(name.into(), future)
     }
 
     #[cfg(feature = "tokio-tracing")]
@@ -299,7 +287,6 @@ impl Context {
         &mut self,
         name: String,
         future: F,
-        blocking: bool,
     ) -> anyhow::Result<JoinHandle<F::Output>>
     where
         F: Future + Send + 'static,
@@ -308,20 +295,13 @@ impl Context {
         let name = format!("{}_{}", name, self.task_id);
         self.task_id = self.task_id.wrapping_add(1);
         let myself = self.myself.clone();
+        let task_finish = AsyncTaskFinish { name: name.clone() };
         let task_builder = tokio::task::Builder::new().name(&name);
-        let handle = if !blocking {
-            task_builder.spawn(async move {
-                let output = future.await;
-                myself.cast_ns(TaskFinish { name: name.clone() });
-                output
-            })?
-        } else {
-            task_builder.spawn_blocking(async move {
-                let output = future.await;
-                myself.cast_ns(TaskFinish { name: name.clone() });
-                output
-            })?
-        };
+        let handle = task_builder.spawn(async move {
+            let output = future.await;
+            myself.cast_ns(task_finish);
+            output
+        })?;
         let abort_handle = handle.abort_handle();
         self.abort_handles.insert(name, abort_handle);
         Ok(handle)
@@ -340,19 +320,13 @@ impl Context {
         let name = format!("{}-{}", name, self.task_id);
         self.task_id = self.task_id.wrapping_add(1);
         let myself = self.myself.clone();
-        let handle = if !blocking {
-            tokio::task::spawn(async move {
-                let output = future.await;
-                myself.cast_ns(TaskFinish { name: name.clone() });
-                output
-            })?
-        } else {
-            tokio::task::spawn_blocking(async move {
-                let output = future.await;
-                myself.cast_ns(TaskFinish { name: name.clone() });
-                output
-            })?
-        };
+        //TODO remove this message
+        let task_finish = AsyncTaskFinish { name: name.clone() };
+        let handle = tokio::task::spawn(async move {
+            let output = future.await;
+            myself.cast_ns(task_finish);
+            output
+        });
         let abort_handle = handle.abort_handle();
         self.abort_handles.insert(name, abort_handle);
         Ok(handle)

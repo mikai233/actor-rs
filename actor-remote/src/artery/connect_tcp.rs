@@ -1,13 +1,10 @@
-use crate::artery::codec::PacketCodec;
 use crate::artery::connect_tcp_failed::ConnectFailed;
 use crate::artery::connected::Connected;
-use crate::artery::connection::Connection;
 use crate::artery::connection_status::ConnectionStatus;
 use crate::artery::ArteryActor;
 use actor_core::actor::behavior::Behavior;
 use actor_core::actor::receive::Receive;
 use actor_core::actor::Actor;
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::message::handler::MessageHandler;
 use actor_core::Message;
@@ -16,7 +13,6 @@ use std::iter::repeat_with;
 use std::net::SocketAddr;
 use std::time::Duration;
 use stubborn_io::{ReconnectOptions, StubbornTcpStream};
-use tokio_util::codec::FramedWrite;
 use tracing::{debug, error, warn};
 
 #[derive(Message)]
@@ -62,7 +58,6 @@ impl MessageHandler<ArteryActor> for ConnectTcp {
             return Ok(Behavior::same());
         }
         let myself = ctx.myself().clone();
-        let myself_addr = ctx.system().address().clone();
         let handle = ctx.spawn_async(format!("connect_tcp_{}", addr), async move {
             match StubbornTcpStream::connect_with_options(addr, opts).await {
                 //TODO 对于非集群内的地址，以及集群节点离开后，不能再一直尝试连接
@@ -74,11 +69,7 @@ impl MessageHandler<ArteryActor> for ConnectTcp {
                         );
                         return;
                     }
-                    let framed = FramedWrite::new(stream, PacketCodec);
-                    let (connection, tx) =
-                        Connection::new(addr, framed, myself.clone(), myself_addr);
-                    connection.start();
-                    myself.cast_ns(Connected { addr, tx });
+                    myself.cast_ns(Connected::new(stream, addr));
                 }
                 Err(e) => {
                     error!("connect to {} error {:?}, drop current connection", addr, e);

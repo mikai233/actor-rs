@@ -12,7 +12,7 @@ pub mod poison_pill;
 pub mod resume;
 pub mod stop_child;
 pub mod suspend;
-pub(crate) mod task_finish;
+pub(crate) mod async_task_finish;
 pub mod terminate;
 pub mod terminated;
 pub mod unwatch;
