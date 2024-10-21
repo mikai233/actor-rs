@@ -270,7 +270,7 @@ impl Context {
         }
     }
 
-    pub fn spawn_fut<F>(
+    pub fn spawn_async<F>(
         &mut self,
         name: impl Into<String>,
         future: F,
@@ -279,7 +279,19 @@ impl Context {
         F: Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        self.spawn_inner(name.into(), future)
+        self.spawn_inner(name.into(), future, false)
+    }
+
+    pub fn spawn_async_blocking<F>(
+        &mut self,
+        name: impl Into<String>,
+        future: F,
+    ) -> anyhow::Result<JoinHandle<F::Output>>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        self.spawn_inner(name.into(), future, true)
     }
 
     #[cfg(feature = "tokio-tracing")]
@@ -287,20 +299,29 @@ impl Context {
         &mut self,
         name: String,
         future: F,
+        blocking: bool,
     ) -> anyhow::Result<JoinHandle<F::Output>>
     where
         F: Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        let name = format!("{}-{}", name, self.task_id);
+        let name = format!("{}_{}", name, self.task_id);
         self.task_id = self.task_id.wrapping_add(1);
         let myself = self.myself.clone();
-        let task_name = name.clone();
-        let handle = tokio::task::Builder::new().name(&name).spawn(async move {
-            let output = future.await;
-            myself.cast_ns(TaskFinish { name: task_name });
-            output
-        })?;
+        let task_builder = tokio::task::Builder::new().name(&name);
+        let handle = if !blocking {
+            task_builder.spawn(async move {
+                let output = future.await;
+                myself.cast_ns(TaskFinish { name: name.clone() });
+                output
+            })?
+        } else {
+            task_builder.spawn_blocking(async move {
+                let output = future.await;
+                myself.cast_ns(TaskFinish { name: name.clone() });
+                output
+            })?
+        };
         let abort_handle = handle.abort_handle();
         self.abort_handles.insert(name, abort_handle);
         Ok(handle)
@@ -319,12 +340,19 @@ impl Context {
         let name = format!("{}-{}", name, self.task_id);
         self.task_id = self.task_id.wrapping_add(1);
         let myself = self.myself.clone();
-        let task_name = name.clone();
-        let handle = tokio::spawn(async move {
-            let output = future.await;
-            myself.cast_ns(TaskFinish { name: task_name });
-            output
-        });
+        let handle = if !blocking {
+            tokio::task::spawn(async move {
+                let output = future.await;
+                myself.cast_ns(TaskFinish { name: name.clone() });
+                output
+            })?
+        } else {
+            tokio::task::spawn_blocking(async move {
+                let output = future.await;
+                myself.cast_ns(TaskFinish { name: name.clone() });
+                output
+            })?
+        };
         let abort_handle = handle.abort_handle();
         self.abort_handles.insert(name, abort_handle);
         Ok(handle)

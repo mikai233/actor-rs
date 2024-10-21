@@ -277,7 +277,6 @@ mod system_test {
     use crate::actor_ref::{ActorRef, ActorRefExt};
     use crate::ext::init_logger;
     use crate::message::handler::MessageHandler;
-    use crate::message::DynMessage;
     use crate::provider::local_provider::LocalActorRefProvider;
     use actor_derive::Message;
     use tracing::{info, Level};

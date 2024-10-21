@@ -11,7 +11,7 @@ use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use crate::artery::codec::{Packet, PacketCodec};
 use crate::artery::disconnect::Disconnect;
 use crate::artery::disconnected::Disconnected;
-use crate::artery::remote_packet::RemotePacket;
+use crate::artery::remote_packet::Packet;
 
 pub type ConnectionTx = tokio::sync::mpsc::Sender<RemoteEnvelope>;
 pub type ConnectionRx = tokio::sync::mpsc::Receiver<RemoteEnvelope>;
@@ -78,7 +78,7 @@ where
     }
 
     async fn send(&mut self, envelope: RemoteEnvelope) -> anyhow::Result<()> {
-        let packet: RemotePacket = envelope.into();
+        let packet: Packet = envelope.into();
         let bytes = encode_bytes(&packet)?;
         self.framed.send(Packet::new(bytes)).await?;
         Ok(())

@@ -40,7 +40,7 @@ impl Message for GetShardHome {
                 let strategy = actor.allocation_strategy.clone();
                 let myself = context.myself().clone();
                 let type_name = actor.type_name.clone();
-                context.spawn_fut("allocate_shard", async move {
+                context.spawn_async("allocate_shard", async move {
                     match strategy.allocate_shard(sender.clone(), shard.clone(), active_regions).await {
                         Ok(region) => {
                             myself.cast_ns(AllocateShardResult {

@@ -63,7 +63,7 @@ impl MessageHandler<ArteryActor> for ConnectTcp {
         }
         let myself = ctx.myself().clone();
         let myself_addr = ctx.system().address().clone();
-        let handle = ctx.spawn_fut(format!("connect_tcp_{}", addr), async move {
+        let handle = ctx.spawn_async(format!("connect_tcp_{}", addr), async move {
             match StubbornTcpStream::connect_with_options(addr, opts).await {
                 //TODO 对于非集群内的地址，以及集群节点离开后，不能再一直尝试连接
                 Ok(stream) => {

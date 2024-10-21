@@ -10,7 +10,7 @@ use crate::artery::ArteryActor;
 use crate::codec::{register_remote_system_message, MessageCodecRegistry};
 use crate::config::advanced::Advanced;
 use crate::config::artery::Transport;
-use crate::config::settings::Remote;
+use crate::config::remote::Remote;
 use crate::failure_detector::default_failure_detector_registry::DefaultFailureDetectorRegistry;
 use crate::failure_detector::phi_accrual_failure_detector::PhiAccrualFailureDetector;
 use crate::remote_actor_ref::RemoteActorRef;

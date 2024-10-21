@@ -35,7 +35,7 @@ impl Message for RebalanceTick {
                 .collect();
             let myself = context.myself().clone();
             let type_name = actor.type_name.clone();
-            context.spawn_fut("rebalance", async move {
+            context.spawn_async("rebalance", async move {
                 match strategy.rebalance(regions, rebalance_in_progress).await {
                     Ok(shards) => {
                         myself.cast_ns(RebalanceResult { shards });

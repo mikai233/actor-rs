@@ -5,12 +5,12 @@ use actor_core::actor_ref::{ActorRef, PROVIDER};
 use actor_core::message::handler::MessageHandler;
 use actor_core::Message;
 
-use crate::artery::remote_packet::RemotePacket;
 use crate::artery::ArteryActor;
+use crate::artery::message_packet::MessagePacket;
 
 #[derive(Debug, Message, derive_more::Display)]
 #[display("InboundMessage({_0})")]
-pub(super) struct InboundMessage(pub(super) RemotePacket);
+pub(super) struct InboundMessage(pub(super) MessagePacket);
 
 impl MessageHandler<ArteryActor> for InboundMessage {
     fn handle(
@@ -20,14 +20,14 @@ impl MessageHandler<ArteryActor> for InboundMessage {
         sender: Option<ActorRef>,
         _: &Receive<ArteryActor>,
     ) -> anyhow::Result<Behavior<ArteryActor>> {
-        let RemotePacket {
-            packet,
+        let MessagePacket {
+            msg: packet,
             sender,
             target,
         } = message.0;
         let sender = sender.map(|s| actor.resolve_actor_ref(s));
         let target = actor.resolve_actor_ref(target);
-        let reg = &actor.registration;
+        let reg = &actor.registry;
         let message = PROVIDER.sync_scope(actor.provider.clone(), || reg.decode(packet));
         target.tell(message?, sender);
         Ok(Behavior::same())

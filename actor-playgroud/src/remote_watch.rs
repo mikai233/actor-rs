@@ -26,7 +26,7 @@ use actor_remote::config::buffer_type::BufferType;
 use actor_remote::config::Remote;
 use actor_remote::config::transport::Transport;
 use actor_remote::remote_provider::RemoteActorRefProvider;
-use actor_remote::config::settings::Remote;
+use actor_remote::config::remote::Remote;
 
 #[derive(Debug)]
 struct RemoteActor {

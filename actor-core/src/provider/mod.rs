@@ -86,7 +86,7 @@ impl ActorRefProvider {
         self.0
             .as_provider(type_name::<P>())
             .and_then(|provider| provider.as_any().downcast_ref::<P>())
-            .ok_or(anyhow!("downcast to {} failed", type_name::<P>()))
+            .ok_or(anyhow!("Downcast to {} failed", type_name::<P>()))
     }
 }
 

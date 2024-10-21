@@ -24,9 +24,7 @@ use actor_core::provider::ActorRefProvider;
 use crate::artery::codec::PacketCodec;
 use crate::artery::connection_status::ConnectionStatus;
 use crate::artery::inbound_message::InboundMessage;
-use crate::artery::outbound_message::OutboundMessage;
-use crate::artery::remote_packet::RemotePacket;
-use crate::artery::spawn_inbound::SpawnInbound;
+use crate::artery::spawn_inbound::AcceptConnection;
 use crate::artery::transport_buffer_envelop::ArteryBufferEnvelope;
 use crate::codec::MessageCodecRegistry;
 use crate::config::advanced::Advanced;
@@ -44,7 +42,7 @@ pub mod disconnect;
 pub mod disconnected;
 pub mod inbound_message;
 pub mod outbound_message;
-pub mod remote_packet;
+pub mod message_packet;
 pub mod spawn_inbound;
 pub mod transport_buffer_envelop;
 
@@ -58,7 +56,7 @@ pub struct ArteryActor {
     connections: HashMap<SocketAddr, ConnectionStatus>,
     actor_ref_cache: Cache<String, ActorRef>,
     provider: ActorRefProvider,
-    registration: Arc<dyn MessageCodecRegistry>,
+    registry: Arc<dyn MessageCodecRegistry>,
     message_buffer: MessageBufferMap<SocketAddr, ArteryBufferEnvelope>,
 }
 
@@ -82,11 +80,8 @@ impl ArteryActor {
         socket_addr: SocketAddr,
         advanced: Advanced,
     ) -> anyhow::Result<Self> {
-        let provider = system.provider_full();
-        let remote_provider = provider
-            .downcast_ref::<RemoteActorRefProvider>()
-            .ok_or(anyhow!("RemoteActorRefProvider not found"))?;
-        let registration = (*remote_provider.registry).clone();
+        let remote_provider = system.provider.downcast_ref::<RemoteActorRefProvider>()?;
+        let registry = remote_provider.registry.clone();
         let actor = Self {
             transport,
             socket_addr,
@@ -94,7 +89,7 @@ impl ArteryActor {
             connections: HashMap::new(),
             actor_ref_cache: Cache::new(ACTOR_REF_CACHE),
             provider,
-            registration,
+            registry,
             message_buffer: Default::default(),
         };
         Ok(actor)
@@ -107,7 +102,7 @@ impl ArteryActor {
         let mut framed = FramedRead::new(stream, PacketCodec);
         loop {
             match framed.next().await {
-                Some(Ok(packet)) => match decode_bytes::<RemotePacket>(packet.body.as_slice()) {
+                Some(Ok(packet)) => match decode_bytes::<Packet>(packet.body.as_slice()) {
                     Ok(packet) => {
                         actor.cast_ns(InboundMessage(packet));
                     }
@@ -180,21 +175,13 @@ impl ArteryActor {
         let context = ctx.context();
         let myself = context.myself().clone();
         let system = context.system().clone();
-        ctx.spawn_fut(format!("tcp_listener_{}", addr), async move {
+        ctx.spawn_async(format!("tcp_listener_{}", addr), async move {
             info!("start bind tcp addr {}", addr);
             match TcpListener::bind(addr).await {
                 Ok(tcp_listener) => loop {
                     match tcp_listener.accept().await {
                         Ok((stream, peer_addr)) => {
-                            let actor = myself.clone();
-                            let connection_fut = async move {
-                                ArteryActor::accept_inbound_connection(stream, peer_addr, actor)
-                                    .await;
-                            };
-                            myself.cast_ns(SpawnInbound {
-                                peer_addr,
-                                fut: Box::pin(connection_fut),
-                            });
+                            myself.cast_ns(AcceptConnection::new(stream, peer_addr));
                         }
                         Err(error) => {
                             warn!("{} accept connection error {:?}", addr, error);
@@ -247,7 +234,7 @@ mod tests {
     use actor_core::{Message, MessageCodec};
 
     use crate::config::buffer_type::BufferType;
-    use crate::config::settings::Remote;
+    use crate::config::remote::Remote;
     use crate::remote_provider::RemoteActorRefProvider;
 
     #[derive(Debug)]
@@ -275,7 +262,7 @@ mod tests {
         ) -> anyhow::Result<Behavior<PingPongActor>> {
             let context = ctx.context_mut();
             let myself = context.myself().clone();
-            context.spawn_fut("pong", async move {
+            context.spawn_async("pong", async move {
                 if let Some(sender) = sender {
                     sender.cast(Pong, Some(myself));
                 }
