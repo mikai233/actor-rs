@@ -1,24 +1,23 @@
 use std::any::type_name;
 use std::fmt::Debug;
-use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+use actor_core::provider::provider::ActorSpawn;
 use ahash::{HashMap, HashSet};
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use actor_core::actor::actor_system::{ActorSystem, WeakSystem};
+use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
 use actor_core::actor::extension::Extension;
-use actor_core::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
+use actor_core::actor::props::Props;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
-use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::provider::local_provider::LocalActorRefProvider;
 use actor_core::provider::TActorRefProvider;
-use actor_core::{AsAny, DynMessage};
+use actor_core::AsAny;
 
 use crate::cluster_core_daemon::leave::Leave;
 use crate::cluster_daemon::add_on_member_removed_listener::AddOnMemberRemovedListener;
@@ -35,30 +34,19 @@ use crate::cluster_state::ClusterState;
 use crate::member::{Member, MemberStatus};
 use crate::unique_address::UniqueAddress;
 
-#[derive(Clone, Debug, AsAny)]
-pub struct Cluster {
-    inner: Arc<Inner>,
-}
+#[derive(Clone, Debug, AsAny, derive_more::Deref)]
+pub struct Cluster(Arc<ClusterInner>);
 
 #[derive(Debug)]
-pub struct Inner {
+pub struct ClusterInner {
     pub settings: ClusterSettings,
-    pub system: WeakSystem,
     pub self_unique_address: UniqueAddress,
     roles: HashSet<String>,
     pub cluster_daemons: ActorRef,
     cluster_core: RwLock<Option<ActorRef>>,
     state: ClusterState,
     is_terminated: AtomicBool,
-    cluster_daemons_spawn: Mutex<Option<ActorDeferredSpawn>>,
-}
-
-impl Deref for Cluster {
-    type Target = Inner;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
+    cluster_daemons_spawn: Mutex<Option<ActorSpawn>>,
 }
 
 impl Extension for Cluster {
@@ -107,8 +95,7 @@ impl Cluster {
             roles.clone(),
             0,
         ));
-        let inner = Inner {
-            system: system.downgrade(),
+        let inner = ClusterInner {
             self_unique_address,
             roles,
             cluster_daemons,
@@ -116,10 +103,9 @@ impl Cluster {
             state,
             is_terminated: AtomicBool::new(false),
             cluster_daemons_spawn: Mutex::new(Some(cluster_daemons_deferred)),
+            settings: todo!(),
         };
-        Ok(Self {
-            inner: Arc::new(inner),
-        })
+        Ok(Self(inner.into()))
     }
 
     pub fn get(system: &ActorSystem) -> Self {

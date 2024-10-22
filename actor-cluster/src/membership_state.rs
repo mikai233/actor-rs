@@ -8,7 +8,6 @@ use rand::seq::SliceRandom;
 use rand::{random, thread_rng};
 
 use actor_core::ext::maybe_ref::MaybeRef;
-use actor_core::ext::option_ext::OptionExt;
 use actor_core::{btree_set, hashset};
 
 use crate::cluster_settings::ClusterSettings;
@@ -163,7 +162,10 @@ impl MembershipState {
         )
     }
 
-    pub(crate) fn is_reachable_excluding_downed_observers(&self, to_address: &UniqueAddress) -> bool {
+    pub(crate) fn is_reachable_excluding_downed_observers(
+        &self,
+        to_address: &UniqueAddress,
+    ) -> bool {
         if !self.latest_gossip.has_member(to_address) {
             false
         } else {
@@ -336,7 +338,8 @@ impl MembershipState {
         })
     }
 
-    pub(crate) fn convergence_skip_unreachable_with_member_status() -> &'static HashSet<MemberStatus> {
+    pub(crate) fn convergence_skip_unreachable_with_member_status() -> &'static HashSet<MemberStatus>
+    {
         static CONVERGENCE_SKIP_UNREACHABLE_WITH_MEMBER_STATUS: OnceLock<HashSet<MemberStatus>> =
             OnceLock::new();
         CONVERGENCE_SKIP_UNREACHABLE_WITH_MEMBER_STATUS.get_or_init(|| {
@@ -519,7 +522,8 @@ impl GossipTargetSelector {
     }
 
     pub(crate) fn prefer_nodes_with_different_view(&self, state: &MembershipState) -> bool {
-        random::<f64>() < self.adjusted_gossip_different_view_probability(state.latest_gossip.members.len())
+        random::<f64>()
+            < self.adjusted_gossip_different_view_probability(state.latest_gossip.members.len())
     }
 
     pub(crate) fn dcs_in_random_order<'a>(&self, mut dcs: Vec<&'a str>) -> Vec<&'a str> {

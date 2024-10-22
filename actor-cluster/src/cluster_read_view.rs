@@ -3,15 +3,13 @@ use crate::cluster_event::{ClusterDomainEvent, CurrentClusterState, CurrentInter
 use crate::member::Member;
 use crate::reachability::Reachability;
 use actor_core::actor::address::Address;
-use actor_core::actor::context::{Context, ActorContext};
+use actor_core::actor::context::Context;
+use actor_core::actor::Actor;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::{Actor, DynMessage};
 use arc_swap::ArcSwap;
-use async_trait::async_trait;
-use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct State {
     pub(crate) cluster_state: CurrentClusterState,
     pub(crate) reachability: Reachability,
@@ -24,7 +22,6 @@ pub(crate) struct ClusterReadView {
     pub(crate) cluster: Cluster,
     state: ArcSwap<State>,
     pub(crate) self_address: Address,
-
 }
 
 #[derive(Debug)]
@@ -34,15 +31,16 @@ impl EventBusListener {
     fn self_removed(&self) {}
 }
 
-#[async_trait]
 impl Actor for EventBusListener {
-    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
-        let cluster = Cluster::get(context.system());
-        cluster.subscribe::<dyn ClusterDomainEvent>(context.myself().clone());
-        todo!()
+    type Context = Context;
+
+    fn started(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
+        let cluster = Cluster::get(ctx.system());
+        cluster.subscribe::<dyn ClusterDomainEvent>(ctx.myself().clone());
+        Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
-        Self::handle_message(self, context, message).await
+    fn receive(&self) -> actor_core::actor::receive::Receive<Self> {
+        todo!()
     }
 }

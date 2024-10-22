@@ -29,7 +29,7 @@ pub(crate) trait Sealed {}
 
 impl<T> Sealed for T where T: ClusterDomainEvent {}
 
-pub trait ClusterDomainEvent: Sealed {
+pub trait ClusterDomainEvent: Send + 'static + Sealed {
     fn name(&self) -> &'static str;
 }
 
@@ -577,17 +577,19 @@ pub(crate) struct ClusterDomainEventPublisher {
 }
 
 impl Actor for ClusterDomainEventPublisher {
+    type Context = Context;
+
     fn receive(&self) -> Receive<Self> {
         todo!()
     }
 }
 
 impl ClusterDomainEventPublisher {
-    fn event_stream<'a>(&self, context: &'a Context<Self>) -> &'a EventStream {
+    fn event_stream<'a>(&self, context: &'a Context) -> &'a EventStream {
         &context.system().event_stream
     }
 
-    fn publish<E: Clone>(&self, context: &Context<Self>, event: E) {
+    fn publish<E: Clone>(&self, context: &Context, event: E) {
         self.event_stream(context).publish(event);
     }
 }

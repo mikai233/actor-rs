@@ -1,17 +1,15 @@
 use std::any::type_name;
 
-use async_trait::async_trait;
+use actor_core::Message;
 use tracing::debug;
 
-use actor_core::{CodecMessage, DynMessage, Message};
 use actor_core::actor::context::Context;
-use actor_core::EmptyCodec;
 use actor_core::message::terminated::Terminated;
 
 use crate::cluster_core_daemon::ClusterCoreDaemon;
 use crate::cluster_core_supervisor::ClusterCoreSupervisor;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message)]
 pub(super) struct CoreDaemonTerminated(pub(super) Terminated);
 
 impl CoreDaemonTerminated {
@@ -24,8 +22,16 @@ impl CoreDaemonTerminated {
 impl Message for CoreDaemonTerminated {
     type A = ClusterCoreSupervisor;
 
-    async fn handle(self: Box<Self>, _context: &mut Context, _actor: &mut Self::A) -> anyhow::Result<()> {
-        debug!("{} {} terminated", type_name::<ClusterCoreDaemon>(), self.0.actor);
+    async fn handle(
+        self: Box<Self>,
+        _context: &mut Context,
+        _actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
+        debug!(
+            "{} {} terminated",
+            type_name::<ClusterCoreDaemon>(),
+            self.0.actor
+        );
         Ok(())
     }
 }

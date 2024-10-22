@@ -18,8 +18,8 @@ use crate::codec::MessageCodecRegistry;
 use super::codec::Packet;
 use super::outbound_message::OutboundMessage;
 
-pub type ConnectionTx = tokio::sync::mpsc::Sender<OutboundMessage>;
-pub type ConnectionRx = tokio::sync::mpsc::Receiver<OutboundMessage>;
+pub(crate) type ConnectionTx = tokio::sync::mpsc::Sender<OutboundMessage>;
+pub(crate) type ConnectionRx = tokio::sync::mpsc::Receiver<OutboundMessage>;
 
 #[derive(Debug)]
 pub(super) struct OutboundConnection<T: AsyncWrite + Unpin + Send + 'static> {
@@ -35,7 +35,7 @@ impl<T> OutboundConnection<T>
 where
     T: AsyncWrite + Unpin + Send + 'static,
 {
-    pub fn new(
+    pub(crate) fn new(
         peer_addr: SocketAddr,
         framed: FramedWrite<T, PacketCodec>,
         artery: ActorRef,
@@ -53,7 +53,8 @@ where
         };
         (myself, tx)
     }
-    pub async fn receive_loop(mut self) {
+
+    pub(crate) async fn receive_loop(mut self) {
         loop {
             match self.rx.recv().await {
                 None => {

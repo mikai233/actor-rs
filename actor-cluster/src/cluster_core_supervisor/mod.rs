@@ -1,20 +1,19 @@
+use actor_core::actor::Actor;
 use anyhow::Error;
-use async_trait::async_trait;
 
-use actor_core::{Actor, DynMessage};
-use actor_core::actor::context::{Context, ActorContext};
+use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::directive::Directive;
 use actor_core::actor::props::Props;
-use actor_core::actor_ref::{ActorRef, ActorRefSystemExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::ActorRef;
 use actor_core::message::poison_pill::PoisonPill;
 
 use crate::cluster::Cluster;
 use crate::cluster_core_daemon::ClusterCoreDaemon;
 use crate::cluster_core_supervisor::core_daemon_terminated::CoreDaemonTerminated;
 
-pub(crate) mod get_cluster_core_ref;
 mod core_daemon_terminated;
+pub(crate) mod get_cluster_core_ref;
 
 #[derive(Debug)]
 pub(crate) struct ClusterCoreSupervisor {
@@ -42,20 +41,27 @@ impl ClusterCoreSupervisor {
     }
 }
 
-#[async_trait]
 impl Actor for ClusterCoreSupervisor {
-    async fn stopped(&mut self, _context: &mut Context) -> anyhow::Result<()> {
+    type Context = Context;
+    fn stopped(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
         self.cluster.shutdown()?;
         Ok(())
     }
 
-    fn on_child_failure(&mut self, context: &mut Context, child: &ActorRef, error: &Error) -> Directive {
+    fn on_child_failure(
+        &mut self,
+        context: &mut Self::Context,
+        child: &ActorRef,
+        error: &anyhow::Error,
+    ) -> Directive {
         //TODO check panic error
-        context.myself().cast_system(PoisonPill, ActorRef::no_sender());
+        context
+            .myself()
+            .cast_system(PoisonPill, ActorRef::no_sender());
         Directive::Stop
     }
 
-    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
-        Self::handle_message(self, context, message).await
+    fn receive(&self) -> actor_core::actor::receive::Receive<Self> {
+        todo!()
     }
 }

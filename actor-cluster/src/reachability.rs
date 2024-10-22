@@ -2,13 +2,12 @@ use std::cmp::max;
 use std::fmt::{Display, Formatter};
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
-use bincode::{Decode, Encode};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::unique_address::UniqueAddress;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct Reachability {
     pub(crate) records: Vec<Record>,
     pub(crate) versions: HashMap<UniqueAddress, i64>,
@@ -182,7 +181,10 @@ impl Reachability {
         Reachability::new(records, new_versions)
     }
 
-    pub(crate) fn remove<'a>(&self, nodes: impl IntoIterator<Item=&'a UniqueAddress>) -> Reachability {
+    pub(crate) fn remove<'a>(
+        &self,
+        nodes: impl IntoIterator<Item = &'a UniqueAddress>,
+    ) -> Reachability {
         let nodes_set = nodes.into_iter().collect::<HashSet<_>>();
         let new_records = self
             .records
@@ -261,7 +263,10 @@ impl Reachability {
         &self.cache.all_unreachable_or_terminated
     }
 
-    pub(crate) fn all_unreachable_from(&self, observer: &UniqueAddress) -> Option<HashSet<&UniqueAddress>> {
+    pub(crate) fn all_unreachable_from(
+        &self,
+        observer: &UniqueAddress,
+    ) -> Option<HashSet<&UniqueAddress>> {
         self.observer_rows(observer).map(|rows| {
             rows.values()
                 .filter(|r| matches!(r.status, ReachabilityStatus::Unreachable))
@@ -270,7 +275,9 @@ impl Reachability {
         })
     }
 
-    pub(crate) fn observers_grouped_by_unreachable(&self) -> HashMap<&UniqueAddress, HashSet<&UniqueAddress>> {
+    pub(crate) fn observers_grouped_by_unreachable(
+        &self,
+    ) -> HashMap<&UniqueAddress, HashSet<&UniqueAddress>> {
         let mut observers_grouped_by_unreachable = HashMap::new();
         for (subject, records_for_subject) in
             self.records.iter().group_by(|r| &r.subject).into_iter()
@@ -329,7 +336,7 @@ impl Display for Reachability {
     }
 }
 
-#[derive(Debug, Hash, Clone, Eq, PartialEq, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Hash, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Record {
     pub(crate) observer: UniqueAddress,
     pub(crate) subject: UniqueAddress,
@@ -353,7 +360,7 @@ impl Record {
     }
 }
 
-#[derive(Debug, Hash, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Hash, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 enum ReachabilityStatus {
     Reachable,
     Unreachable,
@@ -429,8 +436,8 @@ mod test {
 
     use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 
-    use actor_core::{hashmap, hashset};
     use actor_core::actor::address::{Address, Protocol};
+    use actor_core::{hashmap, hashset};
 
     use crate::reachability::{Reachability, ReachabilityStatus, Record};
     use crate::unique_address::UniqueAddress;
@@ -1020,22 +1027,10 @@ mod test {
             .unreachable(&node_b, &node_e)
             .remove(vec![&node_a, &node_b]);
 
-        assert_eq!(
-            r.status(&node_b, &node_a),
-            ReachabilityStatus::Reachable
-        );
-        assert_eq!(
-            r.status(&node_c, &node_d),
-            ReachabilityStatus::Unreachable
-        );
-        assert_eq!(
-            r.status(&node_b, &node_c),
-            ReachabilityStatus::Reachable
-        );
-        assert_eq!(
-            r.status(&node_b, &node_e),
-            ReachabilityStatus::Reachable
-        );
+        assert_eq!(r.status(&node_b, &node_a), ReachabilityStatus::Reachable);
+        assert_eq!(r.status(&node_c, &node_d), ReachabilityStatus::Unreachable);
+        assert_eq!(r.status(&node_b, &node_c), ReachabilityStatus::Reachable);
+        assert_eq!(r.status(&node_b, &node_e), ReachabilityStatus::Reachable);
     }
 
     #[test]

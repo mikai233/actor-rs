@@ -6,7 +6,6 @@ use std::sync::OnceLock;
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::ensure;
-use bincode::{Decode, Encode};
 use imstr::ImString;
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +17,7 @@ use crate::cluster_settings::ClusterSettings;
 use crate::membership_state::MembershipState;
 use crate::unique_address::UniqueAddress;
 
-#[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Member {
     pub unique_address: UniqueAddress,
     pub(crate) up_number: i32,
@@ -268,9 +267,7 @@ impl Ord for Member {
     }
 }
 
-#[derive(
-    Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Encode, Decode, Serialize, Deserialize,
-)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum MemberStatus {
     Joining,
@@ -363,7 +360,7 @@ impl Display for MemberStatus {
     }
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Encode, Decode, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct MemberByAgeOrdering(pub Member);
 
 impl Deref for MemberByAgeOrdering {
@@ -439,7 +436,7 @@ impl<'a> Ord for MemberByAgeOrderingRef<'a> {
     }
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Encode, Decode, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct MemberByLeaderStatusOrdering(pub Member);
 
 impl Deref for MemberByLeaderStatusOrdering {

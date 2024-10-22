@@ -7,15 +7,13 @@ use tokio::sync::broadcast::Receiver;
 
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
-use actor_core::actor::props::{DeferredSpawn, FuncDeferredSpawn, Props};
+use actor_core::actor::props::Props;
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_ref::local_ref::LocalActorRef;
 use actor_core::actor_ref::ActorRef;
-use actor_core::provider::builder::{Provider, ProviderBuilder};
 use actor_core::provider::local_provider::LocalActorRefProvider;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::AsAny;
-use actor_remote::codec::MessageRegistry;
 use actor_remote::remote_provider::RemoteActorRefProvider;
 
 use crate::cluster::Cluster;
@@ -31,7 +29,11 @@ pub struct ClusterActorRefProvider {
 }
 
 impl ClusterActorRefProvider {
-    pub fn new(system: ActorSystem, config: &Config, mut registry: MessageRegistry) -> anyhow::Result<Provider<Self>> {
+    pub fn new(
+        system: ActorSystem,
+        config: &Config,
+        mut registry: MessageRegistry,
+    ) -> anyhow::Result<Provider<Self>> {
         let settings = Settings::new(config)?;
         Self::register_system_message(&mut registry);
         let mut provider = RemoteActorRefProvider::new(system, config, registry)?;
@@ -133,7 +135,11 @@ impl TActorRefProvider for ClusterActorRefProvider {
 }
 
 impl ProviderBuilder<Self> for ClusterActorRefProvider {
-    fn build(system: ActorSystem, config: Config, registry: MessageRegistry) -> anyhow::Result<Provider<Self>> {
+    fn build(
+        system: ActorSystem,
+        config: Config,
+        registry: MessageRegistry,
+    ) -> anyhow::Result<Provider<Self>> {
         let config = Config::builder()
             .add_source(File::from_str(actor_core::REFERENCE, FileFormat::Toml))
             .add_source(File::from_str(actor_remote::REFERENCE, FileFormat::Toml))

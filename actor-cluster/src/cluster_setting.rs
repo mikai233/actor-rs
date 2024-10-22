@@ -1,7 +1,5 @@
 use std::fmt::Debug;
 
-use actor_remote::codec::MessageRegistry;
-
 use crate::config::ClusterConfig;
 
 #[derive(Debug, Clone)]

@@ -2,7 +2,6 @@ use ahash::HashSet;
 use serde::{Deserialize, Serialize};
 
 use actor_core::AsAny;
-use actor_core::config::Config;
 
 use crate::config::settings::Settings;
 
@@ -14,7 +13,4 @@ pub struct ClusterConfig {
     pub roles: HashSet<String>,
 }
 
-impl Config for ClusterConfig {}
-
-impl ClusterConfig {
-}
+impl ClusterConfig {}

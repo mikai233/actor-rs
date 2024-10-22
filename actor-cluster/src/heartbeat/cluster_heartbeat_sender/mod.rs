@@ -1,11 +1,10 @@
 use std::time::Duration;
 
+use actor_core::actor::Actor;
 use ahash::HashSet;
-use async_trait::async_trait;
 use tracing::trace;
 
-use actor_core::{Actor, CodecMessage, DynMessage};
-use actor_core::actor::context::{Context, ActorContext};
+use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
@@ -18,8 +17,8 @@ use crate::member::Member;
 use crate::unique_address::UniqueAddress;
 
 mod cluster_event;
-mod heartbeat_tick;
 pub(crate) mod heartbeat_rsp;
+mod heartbeat_tick;
 
 #[derive(Debug)]
 pub(crate) struct ClusterHeartbeatSender {
@@ -28,35 +27,37 @@ pub(crate) struct ClusterHeartbeatSender {
     key: Option<ScheduleKey>,
 }
 
-#[async_trait]
 impl Actor for ClusterHeartbeatSender {
-    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
-        trace!("{} started", context.myself());
-        Cluster::get(context.system()).subscribe(
-            context.myself().clone(),
-            |event| { ClusterEventWrap(event).into_dyn() },
-        )?;
-        let myself = context.myself().clone();
-        let key = context.system().scheduler.schedule_with_fixed_delay(
+    type Context = Context;
+
+    fn started(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
+        trace!("{} started", ctx.myself());
+        Cluster::get(ctx.system()).subscribe(ctx.myself().clone(), |event| {
+            ClusterEventWrap(event).into_dyn()
+        })?;
+        let myself = ctx.myself().clone();
+        let key = ctx.system().scheduler.schedule_with_fixed_delay(
             None,
             Duration::from_secs(5),
-            move || { myself.cast_ns(HeartbeatTick); },
+            move || {
+                myself.cast_ns(HeartbeatTick);
+            },
         );
         self.key = Some(key);
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut Context) -> anyhow::Result<()> {
-        trace!("{} stopped", context.myself());
+    fn stopped(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
+        trace!("{} stopped", ctx.myself());
         if let Some(key) = self.key.take() {
             key.cancel();
         }
-        Cluster::get(context.system()).unsubscribe_cluster_event(context.myself())?;
+        Cluster::get(ctx.system()).unsubscribe_cluster_event(ctx.myself())?;
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
-        Self::handle_message(self, context, message).await
+    fn receive(&self) -> actor_core::actor::receive::Receive<Self> {
+        todo!()
     }
 }
 

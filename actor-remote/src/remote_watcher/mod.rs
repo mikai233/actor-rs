@@ -159,7 +159,7 @@ impl RemoteWatcher {
         self.watch_node(watchee.clone());
         //可能是Watcher不同但是Watchee是相同的，这种情况会watch多次
         if ctx.is_watching(&watchee).not() {
-            ctx.watch(&watchee);
+            ctx.watch(&watchee)?;
         }
         Ok(())
     }

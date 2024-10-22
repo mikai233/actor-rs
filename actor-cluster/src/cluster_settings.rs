@@ -1,9 +1,7 @@
 use std::time::Duration;
 
-use actor_core::util::de_config::de_maybe_off_config;
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::{anyhow, ensure};
-use bincode::{Decode, Encode};
 use config::Config;
 use imstr::ImString;
 use serde::{Deserialize, Serialize};
@@ -11,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use actor_core::actor::address::{ActorPathExtractor, Address};
 use actor_core::util::version::Version;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClusterSettings {
     pub failure_detector_implementation_class: ImString,
     pub heartbeat_interval: Duration,
@@ -187,9 +185,7 @@ impl ClusterSettings {
             .remove("downing-provider-class-name")
             .ok_or(anyhow!("downing-provider-class-name is not found"))?
             .into_string()?;
-        if downing_provider_class_name.is_empty() {
-            
-        }
+        if downing_provider_class_name.is_empty() {}
         let quarantine_removed_node_after: Duration = cc
             .remove("quarantine-removed-node-after")
             .ok_or(anyhow!("quarantine-removed-node-after is not found"))?
@@ -320,7 +316,7 @@ impl ClusterSettings {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrossDcFailureDetectorSettings {
     pub implementation_class: String,
     pub heartbeat_interval: Duration,

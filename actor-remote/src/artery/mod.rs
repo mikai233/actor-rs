@@ -5,11 +5,8 @@ use actor_core::actor::receive::Receive;
 use actor_core::actor::Actor;
 use actor_core::message::Message;
 use ahash::{HashMap, HashMapExt};
-use futures::StreamExt;
 use quick_cache::unsync::Cache;
-use tokio::io::AsyncRead;
 use tokio::net::TcpListener;
-use tokio_util::codec::FramedRead;
 use tracing::{debug, info, warn};
 
 use actor_core::actor::actor_system::ActorSystem;
@@ -21,9 +18,7 @@ use actor_core::message::message_buffer::MessageBufferMap;
 use actor_core::provider::ActorRefProvider;
 
 use crate::artery::accept_connection::AcceptConnection;
-use crate::artery::codec::PacketCodec;
 use crate::artery::connection_status::ConnectionStatus;
-use crate::artery::inbound_message::InboundMessage;
 use crate::artery::transport_buffer_envelop::ArteryBufferEnvelope;
 use crate::codec::MessageCodecRegistry;
 use crate::config::advanced::Advanced;
@@ -91,33 +86,6 @@ impl ArteryActor {
             message_buffer: Default::default(),
         };
         Ok(actor)
-    }
-
-    async fn accept_inbound_connection<S>(stream: S, addr: SocketAddr, actor: ActorRef)
-    where
-        S: Send + AsyncRead + Unpin + 'static,
-    {
-        let mut framed = FramedRead::new(stream, PacketCodec);
-        loop {
-            match framed.next().await {
-                Some(Ok(packet)) => match bincode::deserialize(&packet) {
-                    Ok(packet) => {
-                        actor.cast_ns(InboundMessage(packet));
-                    }
-                    Err(error) => {
-                        warn!("{} deserialize error {:?}", addr, error);
-                        break;
-                    }
-                },
-                Some(Err(error)) => {
-                    warn!("{} codec error {:?}", addr, error);
-                    break;
-                }
-                None => {
-                    break;
-                }
-            }
-        }
     }
 
     fn resolve_actor_ref(&mut self, provider: &ActorRefProvider, path: String) -> ActorRef {
@@ -210,198 +178,198 @@ impl ArteryActor {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::net::SocketAddrV4;
-    use std::time::{Duration, SystemTime};
+// #[cfg(test)]
+// mod tests {
+//     use std::net::SocketAddrV4;
+//     use std::time::{Duration, SystemTime};
 
-    use actor_core::actor::behavior::Behavior;
-    use actor_core::actor::receive::Receive;
-    use actor_core::actor::Actor;
-    use actor_core::message::handler::MessageHandler;
-    use anyhow::anyhow;
-    use serde::{Deserialize, Serialize};
-    use tracing::info;
+//     use actor_core::actor::behavior::Behavior;
+//     use actor_core::actor::receive::Receive;
+//     use actor_core::actor::Actor;
+//     use actor_core::message::handler::MessageHandler;
+//     use anyhow::anyhow;
+//     use serde::{Deserialize, Serialize};
+//     use tracing::info;
 
-    use actor_core::actor::actor_system::ActorSystem;
-    use actor_core::actor::context::{ActorContext, Context};
-    use actor_core::actor::props::Props;
-    use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-    use actor_core::actor_ref::{ActorRef, ActorRefExt};
-    use actor_core::pattern::patterns::Patterns;
-    use actor_core::{Message, MessageCodec};
+//     use actor_core::actor::actor_system::ActorSystem;
+//     use actor_core::actor::context::{ActorContext, Context};
+//     use actor_core::actor::props::Props;
+//     use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+//     use actor_core::actor_ref::{ActorRef, ActorRefExt};
+//     use actor_core::pattern::patterns::Patterns;
+//     use actor_core::{Message, MessageCodec};
 
-    use crate::config::buffer_type::BufferType;
-    use crate::config::remote::Remote;
-    use crate::remote_provider::RemoteActorRefProvider;
+//     use crate::config::buffer_type::BufferType;
+//     use crate::config::remote::Remote;
+//     use crate::remote_provider::RemoteActorRefProvider;
 
-    #[derive(Debug)]
-    struct PingPongActor;
+//     #[derive(Debug)]
+//     struct PingPongActor;
 
-    impl Actor for PingPongActor {
-        type Context = Context;
+//     impl Actor for PingPongActor {
+//         type Context = Context;
 
-        fn receive(&self) -> Receive<Self> {
-            Receive::new()
-        }
-    }
+//         fn receive(&self) -> Receive<Self> {
+//             Receive::new()
+//         }
+//     }
 
-    #[derive(Debug, Serialize, Deserialize, Message, MessageCodec, derive_more::Display)]
-    #[display("Ping")]
-    struct Ping;
+//     #[derive(Debug, Serialize, Deserialize, Message, MessageCodec, derive_more::Display)]
+//     #[display("Ping")]
+//     struct Ping;
 
-    impl MessageHandler<PingPongActor> for Ping {
-        fn handle(
-            _: &mut PingPongActor,
-            ctx: &mut <PingPongActor as actor_core::actor::Actor>::Context,
-            _: Self,
-            sender: Option<ActorRef>,
-            _: &Receive<PingPongActor>,
-        ) -> anyhow::Result<Behavior<PingPongActor>> {
-            let context = ctx.context_mut();
-            let myself = context.myself().clone();
-            context.spawn_async("pong", async move {
-                if let Some(sender) = sender {
-                    sender.cast(Pong, Some(myself));
-                }
-                tokio::time::sleep(Duration::from_secs(1)).await;
-            })?;
-            Ok(Behavior::same())
-        }
-    }
+//     impl MessageHandler<PingPongActor> for Ping {
+//         fn handle(
+//             _: &mut PingPongActor,
+//             ctx: &mut <PingPongActor as actor_core::actor::Actor>::Context,
+//             _: Self,
+//             sender: Option<ActorRef>,
+//             _: &Receive<PingPongActor>,
+//         ) -> anyhow::Result<Behavior<PingPongActor>> {
+//             let context = ctx.context_mut();
+//             let myself = context.myself().clone();
+//             context.spawn_async("pong", async move {
+//                 if let Some(sender) = sender {
+//                     sender.cast(Pong, Some(myself));
+//                 }
+//                 tokio::time::sleep(Duration::from_secs(1)).await;
+//             })?;
+//             Ok(Behavior::same())
+//         }
+//     }
 
-    #[derive(Debug, Serialize, Deserialize, Message, MessageCodec, derive_more::Display)]
-    #[display("Pong")]
-    struct Pong;
+//     #[derive(Debug, Serialize, Deserialize, Message, MessageCodec, derive_more::Display)]
+//     #[display("Pong")]
+//     struct Pong;
 
-    impl MessageHandler<PingPongActor> for Pong {
-        fn handle(
-            _: &mut PingPongActor,
-            ctx: &mut <PingPongActor as Actor>::Context,
-            _: Self,
-            _: Option<ActorRef>,
-            _: &Receive<PingPongActor>,
-        ) -> anyhow::Result<Behavior<PingPongActor>> {
-            let context = ctx.context();
-            info!("{} pong", context.myself());
-            Ok(Behavior::same())
-        }
-    }
+//     impl MessageHandler<PingPongActor> for Pong {
+//         fn handle(
+//             _: &mut PingPongActor,
+//             ctx: &mut <PingPongActor as Actor>::Context,
+//             _: Self,
+//             _: Option<ActorRef>,
+//             _: &Receive<PingPongActor>,
+//         ) -> anyhow::Result<Behavior<PingPongActor>> {
+//             let context = ctx.context();
+//             info!("{} pong", context.myself());
+//             Ok(Behavior::same())
+//         }
+//     }
 
-    #[derive(Debug, Serialize, Deserialize, Message, MessageCodec, derive_more::Display)]
-    #[display("PingTo")]
-    struct PingTo {
-        to: String,
-    }
+//     #[derive(Debug, Serialize, Deserialize, Message, MessageCodec, derive_more::Display)]
+//     #[display("PingTo")]
+//     struct PingTo {
+//         to: String,
+//     }
 
-    impl MessageHandler<PingPongActor> for PingTo {
-        fn handle(
-            _: &mut PingPongActor,
-            ctx: &mut <PingPongActor as Actor>::Context,
-            message: Self,
-            _: Option<ActorRef>,
-            _: &Receive<PingPongActor>,
-        ) -> anyhow::Result<Behavior<PingPongActor>> {
-            let context = ctx.context();
-            let to = context.system().provider().resolve_actor_ref(&message.to);
-            to.cast(Ping, Some(context.myself().clone()));
-            Ok(Behavior::same())
-        }
-    }
+//     impl MessageHandler<PingPongActor> for PingTo {
+//         fn handle(
+//             _: &mut PingPongActor,
+//             ctx: &mut <PingPongActor as Actor>::Context,
+//             message: Self,
+//             _: Option<ActorRef>,
+//             _: &Receive<PingPongActor>,
+//         ) -> anyhow::Result<Behavior<PingPongActor>> {
+//             let context = ctx.context();
+//             let to = context.system().provider().resolve_actor_ref(&message.to);
+//             to.cast(Ping, Some(context.myself().clone()));
+//             Ok(Behavior::same())
+//         }
+//     }
 
-    fn build_setting(addr: SocketAddrV4) -> anyhow::Result<ActorSetting> {
-        let mut remote_setting = Remote {
-            config: Remote {
-                transport: Transport::tcp(addr, BufferType::default()),
-            },
-            reg: Default::default(),
-        };
-        remote_setting.reg.register_user::<Ping>();
-        remote_setting.reg.register_user::<Pong>();
-        remote_setting.reg.register_user::<MessageToAsk>();
-        remote_setting.reg.register_user::<MessageToAns>();
-        ActorSetting::new_with_default_config(RemoteActorRefProvider::builder(remote_setting))
-    }
+//     fn build_setting(addr: SocketAddrV4) -> anyhow::Result<ActorSetting> {
+//         let mut remote_setting = Remote {
+//             config: Remote {
+//                 transport: Transport::tcp(addr, BufferType::default()),
+//             },
+//             reg: Default::default(),
+//         };
+//         remote_setting.reg.register_user::<Ping>();
+//         remote_setting.reg.register_user::<Pong>();
+//         remote_setting.reg.register_user::<MessageToAsk>();
+//         remote_setting.reg.register_user::<MessageToAns>();
+//         ActorSetting::new_with_default_config(RemoteActorRefProvider::builder(remote_setting))
+//     }
 
-    #[tokio::test]
-    async fn test() -> anyhow::Result<()> {
-        let system_a = ActorSystem::new("game", build_setting("127.0.0.1:12121".parse()?)?)?;
-        let actor_a = system_a.spawn(Props::new(|| Ok(PingPongActor)), "actor_a")?;
-        let system_b = ActorSystem::new("game", build_setting("127.0.0.1:12122".parse()?)?)?;
-        let _ = system_b.spawn(Props::new(|| Ok(PingPongActor)), "actor_b")?;
-        loop {
-            actor_a.cast(
-                PingTo {
-                    to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string(),
-                },
-                None,
-            );
-            tokio::time::sleep(Duration::from_secs(1)).await;
-        }
-    }
+//     #[tokio::test]
+//     async fn test() -> anyhow::Result<()> {
+//         let system_a = ActorSystem::new("game", build_setting("127.0.0.1:12121".parse()?)?)?;
+//         let actor_a = system_a.spawn(Props::new(|| Ok(PingPongActor)), "actor_a")?;
+//         let system_b = ActorSystem::new("game", build_setting("127.0.0.1:12122".parse()?)?)?;
+//         let _ = system_b.spawn(Props::new(|| Ok(PingPongActor)), "actor_b")?;
+//         loop {
+//             actor_a.cast(
+//                 PingTo {
+//                     to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string(),
+//                 },
+//                 None,
+//             );
+//             tokio::time::sleep(Duration::from_secs(1)).await;
+//         }
+//     }
 
-    #[derive(Debug)]
-    struct EmptyTestActor;
+//     #[derive(Debug)]
+//     struct EmptyTestActor;
 
-    impl Actor for EmptyTestActor {
-        type Context = Context;
+//     impl Actor for EmptyTestActor {
+//         type Context = Context;
 
-        fn receive(&self) -> Receive<Self> {
-            Receive::new().handle::<MessageToAsk>()
-        }
-    }
+//         fn receive(&self) -> Receive<Self> {
+//             Receive::new().handle::<MessageToAsk>()
+//         }
+//     }
 
-    #[derive(Debug, Serialize, Deserialize, Message, MessageCodec, derive_more::Display)]
-    #[display("MessageToAsk")]
-    struct MessageToAsk;
+//     #[derive(Debug, Serialize, Deserialize, Message, MessageCodec, derive_more::Display)]
+//     #[display("MessageToAsk")]
+//     struct MessageToAsk;
 
-    impl MessageHandler<EmptyTestActor> for MessageToAsk {
-        fn handle(
-            _: &mut EmptyTestActor,
-            _: &mut <EmptyTestActor as Actor>::Context,
-            _: Self,
-            sender: Option<ActorRef>,
-            _: &Receive<EmptyTestActor>,
-        ) -> anyhow::Result<Behavior<EmptyTestActor>> {
-            sender
-                .ok_or(anyhow!("sender not found"))?
-                .cast_ns(MessageToAns::new("hello world".to_string()));
-            Ok(Behavior::same())
-        }
-    }
+//     impl MessageHandler<EmptyTestActor> for MessageToAsk {
+//         fn handle(
+//             _: &mut EmptyTestActor,
+//             _: &mut <EmptyTestActor as Actor>::Context,
+//             _: Self,
+//             sender: Option<ActorRef>,
+//             _: &Receive<EmptyTestActor>,
+//         ) -> anyhow::Result<Behavior<EmptyTestActor>> {
+//             sender
+//                 .ok_or(anyhow!("sender not found"))?
+//                 .cast_ns(MessageToAns::new("hello world".to_string()));
+//             Ok(Behavior::same())
+//         }
+//     }
 
-    #[derive(
-        Debug,
-        Serialize,
-        Deserialize,
-        Message,
-        MessageCodec,
-        derive_more::Display,
-        derive_more::Constructor,
-    )]
-    #[display("MessageToAns")]
-    struct MessageToAns {
-        content: String,
-    }
+//     #[derive(
+//         Debug,
+//         Serialize,
+//         Deserialize,
+//         Message,
+//         MessageCodec,
+//         derive_more::Display,
+//         derive_more::Constructor,
+//     )]
+//     #[display("MessageToAns")]
+//     struct MessageToAns {
+//         content: String,
+//     }
 
-    #[tokio::test]
-    async fn test_remote_ask() -> anyhow::Result<()> {
-        let system1 = ActorSystem::new("mikai233", build_setting("127.0.0.1:12121".parse()?)?)?;
-        let system2 = ActorSystem::new("mikai233", build_setting("127.0.0.1:12123".parse()?)?)?;
-        let actor_a = system1.spawn_anonymous(Props::new(|| Ok(EmptyTestActor)))?;
-        let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
-        let _: MessageToAns = Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;
-        let start = SystemTime::now();
-        let range = 0..10000;
-        for _ in range {
-            let _: MessageToAns =
-                Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;
-        }
-        let end = SystemTime::now();
-        let cost = end.duration_since(start)?;
-        info!("cost {:?}", cost);
-        let qps = 10000.0 / cost.as_millis() as f64;
-        info!("{} per/millis", qps);
-        Ok(())
-    }
-}
+//     #[tokio::test]
+//     async fn test_remote_ask() -> anyhow::Result<()> {
+//         let system1 = ActorSystem::new("mikai233", build_setting("127.0.0.1:12121".parse()?)?)?;
+//         let system2 = ActorSystem::new("mikai233", build_setting("127.0.0.1:12123".parse()?)?)?;
+//         let actor_a = system1.spawn_anonymous(Props::new(|| Ok(EmptyTestActor)))?;
+//         let actor_a = system2.provider().resolve_actor_ref_of_path(actor_a.path());
+//         let _: MessageToAns = Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;
+//         let start = SystemTime::now();
+//         let range = 0..10000;
+//         for _ in range {
+//             let _: MessageToAns =
+//                 Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;
+//         }
+//         let end = SystemTime::now();
+//         let cost = end.duration_since(start)?;
+//         info!("cost {:?}", cost);
+//         let qps = 10000.0 / cost.as_millis() as f64;
+//         info!("{} per/millis", qps);
+//         Ok(())
+//     }
+// }

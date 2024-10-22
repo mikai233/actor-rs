@@ -1,9 +1,11 @@
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::message::handler::MessageHandler;
 use tracing::info;
 
-use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor_ref::ActorRefExt;
-use actor_core::ext::option_ext::OptionExt;
+use actor_core::actor::context::ActorContext;
 use actor_core::Message;
 
 use crate::cluster_core_daemon::ClusterCoreDaemon;
@@ -21,15 +23,16 @@ impl MessageHandler<ClusterCoreDaemon> for ExitingCompletedReq {
         sender: Option<ActorRef>,
         _: &Receive<ClusterCoreDaemon>,
     ) -> anyhow::Result<Behavior<ClusterCoreDaemon>> {
-        let sender = context.sender().into_result()?;
         info!("Exiting completed");
         actor.exiting_tasks_in_progress = false;
         let mut self_member = actor.cluster.self_member().clone();
         self_member.status = MemberStatus::Removed;
-        actor.update_member_to_etcd(&self_member).await?;
-        sender.cast_orphan_ns(ExitingCompletedResp);
-        actor.cluster.shutdown()?;
-        todo!()
+        if let Some(sender) = sender {
+            actor.update_member_to_etcd(&self_member).await?;
+            sender.cast_ns(ExitingCompletedResp);
+            actor.cluster.shutdown()?;
+        }
+        Ok(Behavior::same())
     }
 }
 

@@ -1,8 +1,7 @@
-use async_trait::async_trait;
-
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::Context;
+use actor_core::actor::Actor;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::actor_ref::ActorRef;
 
 use crate::cluster::Cluster;
 use crate::coordinated_shutdown_leave::cluster_event::ClusterEventWrap;
@@ -20,10 +19,7 @@ pub(crate) struct CoordinatedShutdownLeave {
 impl CoordinatedShutdownLeave {
     pub(crate) fn new(context: &mut Context, reply_to: ActorRef) -> Self {
         let cluster = Cluster::get(context.system()).clone();
-        Self {
-            cluster,
-            reply_to,
-        }
+        Self { cluster, reply_to }
     }
 
     fn done(&self, context: &mut Context) {
@@ -32,23 +28,23 @@ impl CoordinatedShutdownLeave {
     }
 }
 
-#[async_trait]
 impl Actor for CoordinatedShutdownLeave {
-    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
-        self.cluster.subscribe(
-            context.myself().clone(),
-            |event| { ClusterEventWrap(event).into_dyn() },
-        )?;
+    type Context = Context;
+
+    fn started(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
+        self.cluster.subscribe(ctx.myself().clone(), |event| {
+            ClusterEventWrap(event).into_dyn()
+        })?;
         self.cluster.leave(self.cluster.self_address().clone());
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut Context) -> anyhow::Result<()> {
-        self.cluster.unsubscribe_cluster_event(context.myself())?;
+    fn stopped(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
+        self.cluster.unsubscribe_cluster_event(ctx.myself())?;
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
-        Self::handle_message(self, context, message).await
+    fn receive(&self) -> actor_core::actor::receive::Receive<Self> {
+        todo!()
     }
 }

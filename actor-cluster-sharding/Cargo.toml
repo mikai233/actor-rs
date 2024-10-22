@@ -24,3 +24,9 @@ imstr = { workspace = true, features = ["serde"] }
 itertools = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 config = { workspace = true }
+derive_more = { workspace = true, features = [
+    "display",
+    "deref",
+    "deref_mut",
+    "constructor",
+] }

@@ -1,24 +1,30 @@
 use std::ops::Not;
 
-use async_trait::async_trait;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
+use actor_core::Message;
 use tracing::info;
 
-use actor_core::actor::context::Context;
 use actor_core::actor::coordinated_shutdown::{ClusterLeavingReason, CoordinatedShutdown};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::EmptyCodec;
-use actor_core::Message;
 
 use crate::cluster_core_daemon::ClusterCoreDaemon;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("SelfLeaving")]
 pub(crate) struct SelfLeaving;
 
-#[async_trait]
-impl Message for SelfLeaving {
-    type A = ClusterCoreDaemon;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
+impl MessageHandler<ClusterCoreDaemon> for SelfLeaving {
+    fn handle(
+        actor: &mut ClusterCoreDaemon,
+        ctx: &mut <ClusterCoreDaemon as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<ClusterCoreDaemon>,
+    ) -> anyhow::Result<Behavior<ClusterCoreDaemon>> {
         if !actor.exiting_tasks_in_progress {
             actor.exiting_tasks_in_progress = true;
             let coord_shutdown = CoordinatedShutdown::get(context.system());
@@ -30,6 +36,6 @@ impl Message for SelfLeaving {
                 coord_shutdown.run(ClusterLeavingReason).await;
             });
         }
-        Ok(())
+        Ok(Behavior::same())
     }
 }
