@@ -7,7 +7,7 @@ use actor_core::message::handler::MessageHandler;
 use actor_core::Message;
 use tracing::trace;
 
-use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::context::ActorContext;
 use actor_core::actor::props::Props;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
@@ -35,14 +35,14 @@ impl MessageHandler<ClusterDaemon> for AddOnMemberRemovedListener {
         sender: Option<ActorRef>,
         _: &Receive<ClusterDaemon>,
     ) -> anyhow::Result<Behavior<ClusterDaemon>> {
-     let listener = context.spawn_anonymous(Props::new_with_ctx(|ctx| {
+        let listener = ctx.spawn_anonymous(Props::new_with_ctx(|ctx| {
             Ok(OnMemberStatusChangedListener::new(
                 ctx,
                 MemberStatus::Removed,
             ))
         }))?;
-        listener.cast_ns(AddStatusCallback(self.0));
-        trace!("{} add callback on member removed", context.myself());
-    Ok(Behavior::same())
+        listener.cast_ns(AddStatusCallback(message.0));
+        trace!("{} add callback on member removed", ctx.myself());
+        Ok(Behavior::same())
     }
 }

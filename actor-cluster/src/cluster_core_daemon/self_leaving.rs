@@ -8,7 +8,7 @@ use actor_core::message::handler::MessageHandler;
 use actor_core::Message;
 use tracing::info;
 
-use actor_core::actor::coordinated_shutdown::{ClusterLeavingReason, CoordinatedShutdown};
+use actor_core::actor::coordinated_shutdown::CoordinatedShutdown;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 
 use crate::cluster_core_daemon::ClusterCoreDaemon;
@@ -27,14 +27,14 @@ impl MessageHandler<ClusterCoreDaemon> for SelfLeaving {
     ) -> anyhow::Result<Behavior<ClusterCoreDaemon>> {
         if !actor.exiting_tasks_in_progress {
             actor.exiting_tasks_in_progress = true;
-            let coord_shutdown = CoordinatedShutdown::get(context.system());
+            let coord_shutdown = CoordinatedShutdown::get(ctx.system());
             if coord_shutdown.run_started().not() {
                 info!("Exiting, starting coordinated shutdown");
             }
-            let _ = actor.self_exiting.send(()).await;
-            tokio::spawn(async move {
-                coord_shutdown.run(ClusterLeavingReason).await;
-            });
+            // let _ = actor.self_exiting.send(()).await;
+            // tokio::spawn(async move {
+            // coord_shutdown.run(ClusterLeavingReason).await;
+            // });
         }
         Ok(Behavior::same())
     }

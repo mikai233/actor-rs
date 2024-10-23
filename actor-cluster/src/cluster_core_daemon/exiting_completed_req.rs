@@ -28,7 +28,7 @@ impl MessageHandler<ClusterCoreDaemon> for ExitingCompletedReq {
         let mut self_member = actor.cluster.self_member().clone();
         self_member.status = MemberStatus::Removed;
         if let Some(sender) = sender {
-            actor.update_member_to_etcd(&self_member).await?;
+            // actor.update_member_to_etcd(&self_member).await?;
             sender.cast_ns(ExitingCompletedResp);
             actor.cluster.shutdown()?;
         }

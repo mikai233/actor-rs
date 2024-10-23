@@ -1,31 +1,38 @@
-use async_trait::async_trait;
-
-use actor_core::{CodecMessage, Message};
-use actor_core::{EmptyCodec, OrphanEmptyCodec};
-use actor_core::actor::context::{Context, ContextExt};
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
 use actor_core::actor_ref::ActorRef;
-use actor_core::ext::option_ext::OptionExt;
+use actor_core::message::handler::MessageHandler;
+use actor_core::Message;
+use anyhow::anyhow;
 
+use crate::cluster_core_supervisor::get_cluster_core_ref::GetClusterCoreRef;
 use crate::cluster_daemon::ClusterDaemon;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("GetClusterCoreRefReq")]
 pub(crate) struct GetClusterCoreRefReq;
 
-#[async_trait]
-impl Message for GetClusterCoreRefReq {
-    type A = ClusterDaemon;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
+impl MessageHandler<ClusterDaemon> for GetClusterCoreRefReq {
+    fn handle(
+        actor: &mut ClusterDaemon,
+        ctx: &mut <ClusterDaemon as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<ClusterDaemon>,
+    ) -> anyhow::Result<Behavior<ClusterDaemon>> {
         if actor.core_supervisor.is_none() {
-            actor.create_children(context)?;
+            actor.create_children(ctx)?;
         }
-        actor.core_supervisor.foreach(|core_supervisor| {
-            let msg = crate::cluster_core_supervisor::get_cluster_core_ref::GetClusterCoreRef;
-            context.forward(core_supervisor, msg.into_dyn());
-        });
-        Ok(())
+        let core_supervisor = actor
+            .core_supervisor
+            .as_ref()
+            .ok_or(anyhow!("core_supervisor is None"))?;
+        core_supervisor.tell(GetClusterCoreRef, sender);
+        Ok(Behavior::same())
     }
 }
 
-#[derive(Debug, OrphanEmptyCodec)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("GetClusterCoreRefResp({_0})")]
 pub(crate) struct GetClusterCoreRefResp(pub(crate) ActorRef);

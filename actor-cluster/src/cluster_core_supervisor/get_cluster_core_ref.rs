@@ -1,5 +1,7 @@
 use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
 use actor_core::actor::Actor;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::message::handler::MessageHandler;
 use actor_core::Message;
 
@@ -19,11 +21,12 @@ impl MessageHandler<ClusterCoreSupervisor> for GetClusterCoreRef {
         _: &Receive<ClusterCoreSupervisor>,
     ) -> anyhow::Result<Behavior<ClusterCoreSupervisor>> {
         let core_daemon = match &actor.core_daemon {
-            None => actor.create_children(context)?,
+            None => actor.create_children(ctx)?,
             Some(core_daemon) => core_daemon.clone(),
         };
-        let sender = context.sender().into_result()?;
-        sender.cast_orphan_ns(GetClusterCoreRefResp(core_daemon));
+        if let Some(sender) = sender {
+            sender.cast_ns(GetClusterCoreRefResp(core_daemon));
+        }
         Ok(Behavior::same())
     }
 }

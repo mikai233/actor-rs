@@ -1,19 +1,16 @@
-use std::any::type_name;
 use std::collections::hash_map::Entry;
 use std::fmt::{Display, Formatter};
-use std::ops::{Add, AddAssign, Not, Sub};
-use std::time::{Duration, Instant};
+use std::ops::{Add, Not, Sub};
+use std::time::Instant;
 
+use actor_core::actor::receive::Receive;
 use actor_core::actor::Actor;
 use ahash::{HashMap, HashSet};
-use anyhow::{anyhow, Context as _};
-use async_trait::async_trait;
-use bincode::{Decode, Encode};
+use anyhow::Context as _;
 use imstr::ImString;
 use parking_lot::RwLockWriteGuard;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::{channel, Sender};
-use tracing::{debug, error};
 
 use actor_core::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use actor_core::actor::address::Address;
@@ -25,24 +22,17 @@ use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
-use actor_core::ext::option_ext::OptionExt;
-use actor_core::pattern::patterns::PatternsExt;
 use actor_core::util::version::Version;
 use actor_remote::artery::disconnect::Disconnect;
 
 use crate::cluster::Cluster;
-use crate::cluster_core_daemon::exiting_completed_req::{
-    ExitingCompletedReq, ExitingCompletedResp,
-};
-use crate::cluster_core_daemon::self_leaving::SelfLeaving;
-use crate::cluster_event::MemberEvent;
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::gossip::Gossip;
 use crate::heartbeat::cluster_heartbeat_sender::ClusterHeartbeatSender;
 use crate::member::{Member, MemberStatus};
 use crate::membership_state::{GossipTargetSelector, MembershipState};
 use crate::unique_address::UniqueAddress;
-use crate::vector_clock::{Node, VectorClock};
+use crate::vector_clock::Node;
 
 mod exiting_completed_req;
 pub(crate) mod leave;
@@ -109,20 +99,20 @@ impl ClusterCoreDaemon {
                 if !(cluster.is_terminated()
                     || cluster.self_member().status == MemberStatus::Removed)
                 {
-                    if let Some(error) = myself
-                        .ask::<_, ExitingCompletedResp>(
-                            ExitingCompletedReq,
-                            phase_cluster_exiting_done_timeout,
-                        )
-                        .await
-                        .err()
-                    {
-                        debug!(
-                            "ask {} error {:?}",
-                            type_name::<ExitingCompletedResp>(),
-                            error
-                        );
-                    }
+                    // if let Some(error) = myself
+                    //     .ask::<_, ExitingCompletedResp>(
+                    //         ExitingCompletedReq,
+                    //         phase_cluster_exiting_done_timeout,
+                    //     )
+                    //     .await
+                    //     .err()
+                    // {
+                    //     debug!(
+                    //         "ask {} error {:?}",
+                    //         type_name::<ExitingCompletedResp>(),
+                    //         error
+                    //     );
+                    // }
                 }
             },
         )?;
@@ -141,10 +131,10 @@ impl ClusterCoreDaemon {
             self_dc: "".to_string(),
             vclock_node: Node::new(Gossip::vclock_name(cluster.self_unique_address())),
             gossip_target_selector: (),
-            membership_state: MembershipState {},
+            membership_state: todo!("MembershipState::new()"),
             is_currently_leader: false,
             stats_enabled: false,
-            gossip_stats: GossipStats {},
+            gossip_stats: todo!("GossipStats::default()"),
             seed_nodes: vec![],
             seed_node_process: None,
             seed_node_process_counter: 0,
@@ -219,7 +209,8 @@ impl Actor for ClusterCoreDaemon {
     }
 
     fn stopped(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
-        let _ = self.self_exiting.send(()).await;
+        // let _ = self.self_exiting.send(()).await;
+        todo!("ClusterCoreDaemon::stopped");
         Ok(())
     }
 
@@ -228,7 +219,7 @@ impl Actor for ClusterCoreDaemon {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Copy, Clone, Hash, Serialize, Deserialize)]
 pub(crate) struct GossipStats {
     pub(crate) received_gossip_count: i64,
     pub(crate) merge_count: i64,
@@ -308,7 +299,7 @@ impl Display for GossipStats {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, Serialize, Deserialize, Encode, Decode)]
+#[derive(Debug, Copy, Clone, Hash, Serialize, Deserialize)]
 pub(crate) struct VectorClockStats {
     pub(crate) version_size: i32,
     pub(crate) seen_latest: i32,
