@@ -23,7 +23,7 @@ impl Message for ShardRegionTerminated {
     type A = ShardRegion;
 
     async fn handle(self: Box<Self>, _context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        let shard_region = self.0.actor;
+        let shard_region = self.0.actor_ref;
         if actor.regions.contains_key(&shard_region) {
             if let Some(shards) = actor.regions.remove(&shard_region) {
                 for shard in &shards {

@@ -7,12 +7,13 @@ use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use tokio::sync::broadcast::Receiver;
 
 use crate::artery::ArteryActor;
-use crate::codec::{register_remote_system_message, MessageCodecRegistry};
+use crate::codec::MessageCodecRegistry;
 use crate::config::advanced::Advanced;
 use crate::config::artery::Transport;
 use crate::config::remote::Remote;
 use crate::failure_detector::default_failure_detector_registry::DefaultFailureDetectorRegistry;
 use crate::failure_detector::phi_accrual_failure_detector::PhiAccrualFailureDetector;
+use crate::register_remote_system_message;
 use crate::remote_actor_ref::RemoteActorRef;
 use crate::remote_watcher::RemoteWatcher;
 use actor_core::actor::actor_system::ActorSystem;

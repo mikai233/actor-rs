@@ -44,6 +44,7 @@ dependencies = [
  "derive_more",
  "dyn-clone",
  "enum_dispatch",
+ "futures",
  "imstr",
  "itertools",
  "serde",

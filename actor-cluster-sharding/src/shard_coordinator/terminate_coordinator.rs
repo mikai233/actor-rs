@@ -1,21 +1,26 @@
-use async_trait::async_trait;
-use bincode::{Decode, Encode};
-
-use actor_core::actor::context::Context;
-use actor_core::CMessageCodec;
-use actor_core::Message;
-
 use crate::shard_coordinator::ShardCoordinator;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
+use actor_core::{Message, MessageCodec};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Encode, Decode, CMessageCodec)]
+#[derive(Debug, Clone, Serialize, Deserialize, Message, MessageCodec, derive_more::Display)]
+#[cloneable]
+#[display("TerminateCoordinator")]
 pub(crate) struct TerminateCoordinator;
 
-#[async_trait]
-impl Message for TerminateCoordinator {
-    type A = ShardCoordinator;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.terminate(context);
-        Ok(())
+impl MessageHandler<ShardCoordinator> for TerminateCoordinator {
+    fn handle(
+        actor: &mut ShardCoordinator,
+        ctx: &mut <ShardCoordinator as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<ShardCoordinator>,
+    ) -> anyhow::Result<Behavior<ShardCoordinator>> {
+        actor.terminate(ctx);
+        todo!()
     }
 }

@@ -25,7 +25,7 @@ impl Message for EntityTerminated {
     type A = Shard;
 
     async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        let entity = self.0.actor;
+        let entity = self.0.actor_ref;
         match actor.entities.entity_id(&entity) {
             None => {
                 warn!("{}: Unexpected entity terminated: {}", actor.type_name, entity);

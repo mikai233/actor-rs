@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use actor_core::actor::Actor;
 use imstr::ImString;
 use tracing::trace;
 
@@ -10,7 +11,6 @@ use actor_core::actor::props::PropsBuilder;
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRef;
-use actor_core::{Actor, DynMessage};
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
@@ -44,14 +44,14 @@ impl ClusterShardingGuardian {
 
     fn start_coordinator_if_needed(
         &self,
-        context: &mut Context,
+        ctx: &mut <Self as Actor>::Context,
         type_name: ImString,
         allocation_strategy: Box<dyn ShardAllocationStrategy>,
         settings: Arc<ClusterShardingSettings>,
     ) -> anyhow::Result<()> {
         let mgr_name = Self::coordinator_singleton_manager_name(&type_name);
-        if settings.should_host_coordinator(&Cluster::get(context.system()))
-            && context.child(&mgr_name).is_none()
+        if settings.should_host_coordinator(&Cluster::get(ctx.system()))
+            && ctx.child(&mgr_name).is_none()
         {
             let mut singleton_settings = settings.coordinator_singleton_settings.clone();
             singleton_settings.singleton_name = "singleton".to_string();
@@ -62,7 +62,7 @@ impl ClusterShardingGuardian {
                 let allocation_strategy = allocation_strategy.clone();
                 ShardCoordinator::new(ctx, type_name, settings, allocation_strategy)
             });
-            context.spawn(
+            ctx.spawn(
                 ClusterSingletonManager::props(
                     coordinator_props,
                     DynMessage::user(TerminateCoordinator),
@@ -75,14 +75,15 @@ impl ClusterShardingGuardian {
     }
 }
 
-#[async_trait]
 impl Actor for ClusterShardingGuardian {
-    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
-        trace!("{} started", context.myself());
+    type Context = Context;
+
+    fn started(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
+        trace!("{} started", ctx.myself());
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
-        Self::handle_message(self, context, message).await
+    fn receive(&self) -> actor_core::actor::receive::Receive<Self> {
+        todo!()
     }
 }

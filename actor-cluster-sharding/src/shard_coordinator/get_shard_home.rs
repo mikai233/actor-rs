@@ -1,47 +1,65 @@
 use std::any::type_name;
 use std::ops::Not;
 
-use ahash::HashMap;
-use anyhow::Context as _;
-use async_trait::async_trait;
-use bincode::{Decode, Encode};
-use itertools::Itertools;
-use tracing::error;
-
-use actor_core::actor::context::{Context, ActorContext};
-use actor_core::actor_ref::ActorRefExt;
-use actor_core::ext::option_ext::OptionExt;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::receive::Receive;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::message::handler::MessageHandler;
 use actor_core::Message;
 use actor_core::MessageCodec;
+use ahash::HashMap;
+use anyhow::anyhow;
+use itertools::Itertools;
+use serde::{Deserialize, Serialize};
+use tracing::error;
 
 use crate::shard_coordinator::allocate_shard_result::AllocateShardResult;
 use crate::shard_coordinator::ShardCoordinator;
 use crate::shard_region::{ImShardId, ShardId};
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Encode, Decode, MessageCodec)]
+#[derive(
+    Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize, Message, MessageCodec,
+)]
 pub(crate) struct GetShardHome {
     pub(crate) shard: ShardId,
 }
 
-#[async_trait]
-impl Message for GetShardHome {
-    type A = ShardCoordinator;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        let sender = context.sender().into_result().context(type_name::<GetShardHome>())?.clone();
-        let shard: ImShardId = self.shard.into();
-        if !actor.handle_get_shard_home(context, sender.clone(), shard.clone()) {
-            let active_regions: HashMap<_, _> = actor.state.regions.iter().filter(|(region, _)| {
-                actor.graceful_shutdown_in_progress.contains(region).not() && actor.region_termination_in_progress.contains(region).not()
-            }).map(|(region, shards)| {
-                (region.clone(), shards.iter().map(|shard| { shard.clone() }).collect_vec())
-            }).collect();
+impl MessageHandler<ShardCoordinator> for GetShardHome {
+    fn handle(
+        actor: &mut ShardCoordinator,
+        ctx: &mut ShardCoordinator::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<ShardCoordinator>,
+    ) -> anyhow::Result<Behavior<ShardCoordinator>> {
+        let sender = sender.ok_or(anyhow!("Sender is none"))?;
+        let shard: ImShardId = message.shard.into();
+        if !actor.handle_get_shard_home(ctx, sender.clone(), shard.clone()) {
+            let active_regions: HashMap<_, _> = actor
+                .state
+                .regions
+                .iter()
+                .filter(|(region, _)| {
+                    actor.graceful_shutdown_in_progress.contains(region).not()
+                        && actor.region_termination_in_progress.contains(region).not()
+                })
+                .map(|(region, shards)| {
+                    (
+                        region.clone(),
+                        shards.iter().map(|shard| shard.clone()).collect_vec(),
+                    )
+                })
+                .collect();
             if active_regions.is_empty().not() {
                 let strategy = actor.allocation_strategy.clone();
-                let myself = context.myself().clone();
+                let myself = ctx.myself().clone();
                 let type_name = actor.type_name.clone();
-                context.spawn_async("allocate_shard", async move {
-                    match strategy.allocate_shard(sender.clone(), shard.clone(), active_regions).await {
+                ctx.spawn_async("allocate_shard", async move {
+                    match strategy
+                        .allocate_shard(sender.clone(), shard.clone(), active_regions)
+                        .await
+                    {
                         Ok(region) => {
                             myself.cast_ns(AllocateShardResult {
                                 shard,
@@ -50,7 +68,10 @@ impl Message for GetShardHome {
                             });
                         }
                         Err(error) => {
-                            error!("{}: Shard [{}] allocation failed. {:?}", type_name, shard, error);
+                            error!(
+                                "{}: Shard [{}] allocation failed. {:?}",
+                                type_name, shard, error
+                            );
                             myself.cast_ns(AllocateShardResult {
                                 shard,
                                 shard_region: None,
@@ -61,6 +82,6 @@ impl Message for GetShardHome {
                 })?;
             }
         }
-        Ok(())
+        Ok(Behavior::same())
     }
 }

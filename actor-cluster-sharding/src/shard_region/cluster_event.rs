@@ -15,7 +15,11 @@ pub(super) struct ClusterEventWrap(pub(super) MemberEvent);
 impl Message for ClusterEventWrap {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, _context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        _context: &mut Context,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         match self.0 {
             MemberEvent::MemberUp(member) => {
                 Self::update_member(actor, member);

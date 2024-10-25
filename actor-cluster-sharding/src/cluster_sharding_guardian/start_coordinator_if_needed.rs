@@ -1,30 +1,38 @@
 use std::sync::Arc;
 
-use async_trait::async_trait;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::Actor;
+use actor_core::message::handler::MessageHandler;
 use imstr::ImString;
 
 use actor_core::actor::context::Context;
-use actor_core::EmptyCodec;
 use actor_core::Message;
 
 use crate::cluster_sharding_guardian::ClusterShardingGuardian;
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message)]
 pub(crate) struct StartCoordinatorIfNeeded {
     pub(crate) type_name: ImString,
     pub(crate) settings: Arc<ClusterShardingSettings>,
     pub(crate) allocation_strategy: Box<dyn ShardAllocationStrategy>,
 }
 
-#[async_trait]
-impl Message for StartCoordinatorIfNeeded {
-    type A = ClusterShardingGuardian;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        let Self { type_name, settings, allocation_strategy } = *self;
+impl MessageHandler<ClusterShardingGuardian> for StartCoordinatorIfNeeded {
+    fn handle(
+        actor: &mut ClusterShardingGuardian,
+        ctx: &mut <ClusterShardingGuardian as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<ClusterShardingGuardian>,
+    ) -> anyhow::Result<Behavior<ClusterShardingGuardian>> {
+        let Self {
+            type_name,
+            settings,
+            allocation_strategy,
+        } = message;
         actor.start_coordinator_if_needed(context, type_name, allocation_strategy, settings)?;
-        Ok(())
+        Ok(Behavior::same())
     }
 }

@@ -195,7 +195,7 @@ impl Context {
                 });
             if !matches!(self.state, ActorState::Terminating) {
                 let terminated = Terminated {
-                    actor: actor.clone(),
+                    actor_ref: actor.clone(),
                     existence_confirmed,
                     address_terminated,
                 };

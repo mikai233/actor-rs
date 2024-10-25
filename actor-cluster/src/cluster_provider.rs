@@ -1,6 +1,9 @@
 use std::any::type_name;
 use std::fmt::Debug;
 
+use actor_core::provider::provider::{ActorSpawn, Provider};
+use actor_remote::codec::MessageCodecRegistry;
+use actor_remote::register_remote_system_message;
 use ahash::HashSet;
 use config::{Config, File, FileFormat};
 use tokio::sync::broadcast::Receiver;
@@ -10,7 +13,7 @@ use actor_core::actor::address::Address;
 use actor_core::actor::props::Props;
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_ref::local_ref::LocalActorRef;
-use actor_core::actor_ref::ActorRef;
+use actor_core::actor_ref::{ActorRef, TActorRef};
 use actor_core::provider::local_provider::LocalActorRefProvider;
 use actor_core::provider::{ActorRefProvider, TActorRefProvider};
 use actor_core::AsAny;
@@ -29,34 +32,29 @@ pub struct ClusterActorRefProvider {
 }
 
 impl ClusterActorRefProvider {
-    pub fn new(
+    pub fn new<R>(
         system: ActorSystem,
         config: &Config,
-        mut registry: MessageRegistry,
-    ) -> anyhow::Result<Provider<Self>> {
+        mut registry: R,
+    ) -> anyhow::Result<Provider<Self>>
+    where
+        R: MessageCodecRegistry,
+    {
         let settings = Settings::new(config)?;
-        Self::register_system_message(&mut registry);
-        let mut provider = RemoteActorRefProvider::new(system, config, registry)?;
+        register_remote_system_message(&mut registry);
+        let Provider {
+            name,
+            provider,
+            spawns,
+        } = RemoteActorRefProvider::new(system, config, registry)?;
         let cluster = Self {
             settings,
             remote: provider.provider,
             roles: Default::default(),
         };
-        Self::register_extension(&mut provider.spawns);
+        let cluster = Cluster::new(system)?;
+        system.register_extension(cluster)?;
         Ok(Provider::new(cluster, provider.spawns))
-    }
-
-    fn register_extension(spawns: &mut Vec<Box<dyn DeferredSpawn>>) {
-        let s = FuncDeferredSpawn::new(|system| {
-            system.register_extension(|system| Cluster::new(system))?;
-            Ok(())
-        });
-        spawns.push(Box::new(s));
-    }
-
-    fn register_system_message(reg: &mut MessageRegistry) {
-        reg.register_system::<Heartbeat>();
-        reg.register_system::<HeartbeatRsp>();
     }
 }
 
@@ -101,19 +99,24 @@ impl TActorRefProvider for ClusterActorRefProvider {
         self.remote.unregister_temp_actor(path)
     }
 
-    fn spawn_actor(&self, props: Props, supervisor: &ActorRef) -> anyhow::Result<ActorRef> {
-        self.remote.spawn_actor(props, supervisor)
+    fn spawn_actor(
+        &self,
+        props: Props,
+        supervisor: &ActorRef,
+        system: ActorSystem,
+    ) -> anyhow::Result<ActorRef> {
+        self.remote.spawn_actor(props, supervisor, system)
     }
 
     fn resolve_actor_ref_of_path(&self, path: &ActorPath) -> ActorRef {
         self.remote.resolve_actor_ref_of_path(path)
     }
 
-    fn dead_letters(&self) -> &ActorRef {
+    fn dead_letters(&self) -> &dyn TActorRef {
         self.remote.dead_letters()
     }
 
-    fn ignore_ref(&self) -> &ActorRef {
+    fn ignore_ref(&self) -> &dyn TActorRef {
         self.remote.ignore_ref()
     }
 
@@ -132,21 +135,9 @@ impl TActorRefProvider for ClusterActorRefProvider {
             None
         }
     }
-}
 
-impl ProviderBuilder<Self> for ClusterActorRefProvider {
-    fn build(
-        system: ActorSystem,
-        config: Config,
-        registry: MessageRegistry,
-    ) -> anyhow::Result<Provider<Self>> {
-        let config = Config::builder()
-            .add_source(File::from_str(actor_core::REFERENCE, FileFormat::Toml))
-            .add_source(File::from_str(actor_remote::REFERENCE, FileFormat::Toml))
-            .add_source(File::from_str(crate::REFERENCE, FileFormat::Toml))
-            .add_source(config)
-            .build()?;
-        Self::new(system, &config, registry)
+    fn config(&self) -> &config::Config {
+        &self.remote.local.config
     }
 }
 

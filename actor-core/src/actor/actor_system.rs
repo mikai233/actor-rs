@@ -50,7 +50,11 @@ impl ActorSystem {
     where
         P: TActorRefProvider + 'static,
     {
-        let Provider { provider, spawns, name } = provider;
+        let Provider {
+            provider,
+            spawns,
+            name,
+        } = provider;
         let scheduler = scheduler();
         let (signal_tx, mut signal_rx) = channel(1);
         let inner = ActorSystemInner {
@@ -72,8 +76,10 @@ impl ActorSystem {
             spawn.spawn(system.clone())?;
         }
 
-        system.register_extension(|_| Ok(AddressTerminatedTopic::new()))?;
-        system.register_extension(CoordinatedShutdown::new)?;
+        let topic = AddressTerminatedTopic::new();
+        system.register_extension(topic)?;
+        let shutdown = CoordinatedShutdown::new(system.clone())?;
+        system.register_extension(shutdown)?;
         let signal = async move {
             match signal_rx.recv().await {
                 None => Err(anyhow!("signal tx closed")),
@@ -148,12 +154,10 @@ impl ActorSystem {
             .attach_child_deferred(props, name, None, mailbox_cfg)
     }
 
-    pub fn register_extension<E, F>(&self, ext_fn: F) -> anyhow::Result<()>
+    pub fn register_extension<E>(&self, extension: E) -> anyhow::Result<()>
     where
         E: Extension,
-        F: Fn(ActorSystem) -> anyhow::Result<E>,
     {
-        let extension = ext_fn(self.clone())?;
         self.extension.register(extension)?;
         Ok(())
     }
@@ -288,11 +292,10 @@ mod system_test {
         type Context = Context;
 
         fn receive(&self) -> Receive<Self> {
-            Receive::new()
-                .any(|x, x1, m, option, x2| {
-                    info!("received message {}", m.signature());
-                    Ok(Behavior::same())
-                })
+            Receive::new().any(|x, x1, m, option, x2| {
+                info!("received message {}", m.signature());
+                Ok(Behavior::same())
+            })
         }
     }
 
@@ -306,7 +309,8 @@ mod system_test {
             ctx: &mut <MyActor as Actor>::Context,
             message: Self,
             sender: Option<ActorRef>,
-            _: &Receive<MyActor>) -> anyhow::Result<Behavior<MyActor>> {
+            _: &Receive<MyActor>,
+        ) -> anyhow::Result<Behavior<MyActor>> {
             info!("Got a message: {}", message);
             Ok(Behavior::same())
         }

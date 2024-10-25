@@ -5,6 +5,7 @@ use std::time::Duration;
 use ahash::{HashMap, HashSet, HashSetExt};
 use anyhow::anyhow;
 use async_trait::async_trait;
+use futures::future::BoxFuture;
 
 use actor_cluster::cluster::Cluster;
 use actor_cluster::cluster_state::ClusterState;
@@ -51,14 +52,13 @@ impl ClusterShardAllocation for LeastShardAllocationStrategy {
     }
 }
 
-#[async_trait]
 impl ShardAllocationStrategy for LeastShardAllocationStrategy {
-    async fn allocate_shard(
+    fn allocate_shard(
         &self,
         _requester: ActorRef,
         _shard_id: ImShardId,
         current_shard_allocations: HashMap<ActorRef, Vec<ImShardId>>,
-    ) -> anyhow::Result<ActorRef> {
+    ) -> BoxFuture<'static, anyhow::Result<ActorRef>> {
         let mut region_entries: Vec<RegionEntry>;
         const MAX_LOOP: usize = 100;
         let mut current_loop = 0;
@@ -78,11 +78,11 @@ impl ShardAllocationStrategy for LeastShardAllocationStrategy {
         Ok(region)
     }
 
-    async fn rebalance(
+    fn rebalance(
         &self,
         current_shard_allocations: HashMap<ActorRef, Vec<ImShardId>>,
         rebalance_in_progress: Vec<ImShardId>,
-    ) -> anyhow::Result<HashSet<ImShardId>> {
+    ) -> BoxFuture<'static, anyhow::Result<HashSet<ImShardId>>> {
         let limit = |number_of_shards: usize| {
             max(1, min((self.relative_limit * number_of_shards as f64) as usize, self.absolute_limit as usize))
         };

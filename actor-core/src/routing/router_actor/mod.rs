@@ -101,7 +101,7 @@ impl Actor for RouterActor {
                 Ok(Behavior::same())
             })
             .is::<Terminated>(|actor: &mut RouterActor, ctx, message, _, _| {
-                actor.remove_routee(ctx, ActorRefRoutee(message.actor).into());
+                actor.remove_routee(ctx, ActorRefRoutee(message.actor_ref).into());
                 Ok(Behavior::same())
             })
             .any(|actor, _, message, sender, _| {

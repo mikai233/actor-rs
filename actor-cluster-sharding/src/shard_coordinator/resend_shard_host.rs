@@ -1,29 +1,32 @@
-use async_trait::async_trait;
-
-use actor_core::actor::context::Context;
-use actor_core::actor_ref::ActorRef;
-use actor_core::EmptyCodec;
-use actor_core::Message;
-
 use crate::shard_coordinator::ShardCoordinator;
 use crate::shard_region::ImShardId;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
+use actor_core::Message;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("ResendShardHost {{ shard: {shard}, region: {region} }}")]
 pub(super) struct ResendShardHost {
     pub(super) shard: ImShardId,
     pub(super) region: ActorRef,
 }
 
-#[async_trait]
-impl Message for ResendShardHost {
-    type A = ShardCoordinator;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        if let Some(region) = actor.state.shards.get(&self.shard) {
-            if region == &self.region {
-                actor.send_host_shard_msg(context, self.shard, self.region);
+impl MessageHandler<ShardCoordinator> for ResendShardHost {
+    fn handle(
+        actor: &mut ShardCoordinator,
+        ctx: &mut <ShardCoordinator as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<ShardCoordinator>,
+    ) -> anyhow::Result<Behavior<ShardCoordinator>> {
+        if let Some(region) = actor.state.shards.get(&message.shard) {
+            if region == &message.region {
+                actor.send_host_shard_msg(ctx, message.shard, message.region);
             }
         }
-        Ok(())
+        Ok(Behavior::same())
     }
 }

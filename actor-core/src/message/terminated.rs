@@ -11,7 +11,7 @@ use super::handler::MessageHandler;
 #[cloneable]
 pub struct Terminated {
     #[deref]
-    pub actor: ActorRef,
+    pub actor_ref: ActorRef,
     pub existence_confirmed: bool,
     pub address_terminated: bool,
 }
@@ -19,7 +19,7 @@ pub struct Terminated {
 impl Terminated {
     pub fn new(watchee: ActorRef) -> Self {
         Self {
-            actor: watchee,
+            actor_ref: watchee,
             existence_confirmed: true,
             address_terminated: false,
         }
@@ -31,7 +31,7 @@ impl Display for Terminated {
         write!(
             f,
             "Terminated {{actor: {}, existence_confirmed: {}, address_terminated: {} }}",
-            self.actor, self.existence_confirmed, self.address_terminated,
+            self.actor_ref, self.existence_confirmed, self.address_terminated,
         )
     }
 }
@@ -45,7 +45,7 @@ impl<A: Actor> MessageHandler<A> for Terminated {
         receive: &Receive<A>,
     ) -> anyhow::Result<Behavior<A>> {
         let context = ctx.context_mut();
-        if let Some(optional_message) = context.terminated_queue.remove(&message.actor) {
+        if let Some(optional_message) = context.terminated_queue.remove(&message.actor_ref) {
             match optional_message {
                 Some(custom_termination) => {
                     actor.around_receive(receive, ctx, custom_termination, sender)

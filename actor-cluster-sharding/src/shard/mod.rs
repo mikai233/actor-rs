@@ -4,20 +4,18 @@ use std::ops::Not;
 use std::sync::Arc;
 
 use anyhow::Context as _;
-use async_trait::async_trait;
 use imstr::ImString;
 use tracing::debug;
 
 use actor_cluster::cluster::Cluster;
-use actor_core::{Actor, CodecMessage, DynMessage};
-use actor_core::actor::context::{Context, ActorContext};
+use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::dead_letter_listener::Dropped;
 use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor::scheduler::ScheduleKey;
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::ext::option_ext::OptionExt;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::message::message_buffer::MessageBufferMap;
+use actor_core::message::DynMessage;
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::message_extractor::{MessageExtractor, ShardEnvelope};
@@ -26,8 +24,8 @@ use crate::shard::entities::Entities;
 use crate::shard::entity_state::EntityState;
 use crate::shard::entity_terminated::EntityTerminated;
 use crate::shard::shard_buffer_envelope::ShardBufferEnvelope;
-use crate::shard_region::{ImEntityId, ImShardId};
 use crate::shard_region::shard_initialized::ShardInitialized;
+use crate::shard_region::{ImEntityId, ImShardId};
 
 mod cluster_event;
 pub mod passivate;

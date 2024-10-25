@@ -1,24 +1,39 @@
-use ahash::HashSet;
-use async_trait::async_trait;
-
-use actor_core::actor::context::Context;
-use actor_core::EmptyCodec;
-use actor_core::Message;
-
 use crate::shard_coordinator::ShardCoordinator;
 use crate::shard_region::ImShardId;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
+use actor_core::Message;
+use ahash::HashSet;
+use itertools::Itertools;
+use std::fmt::{Display, Formatter};
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message)]
 pub(super) struct RebalanceResult {
     pub(super) shards: HashSet<ImShardId>,
 }
 
-#[async_trait]
-impl Message for RebalanceResult {
-    type A = ShardCoordinator;
+impl Display for RebalanceResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "RebalanceResult {{ shards: {} }}",
+            self.shards.iter().join(", ")
+        )
+    }
+}
 
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.continue_rebalance(context, self.shards)?;
-        Ok(())
+impl MessageHandler<ShardCoordinator> for RebalanceResult {
+    fn handle(
+        actor: &mut ShardCoordinator,
+        ctx: &mut <ShardCoordinator as Actor>::Context,
+        message: Self,
+        _: Option<ActorRef>,
+        _: &Receive<ShardCoordinator>,
+    ) -> anyhow::Result<Behavior<ShardCoordinator>> {
+        actor.continue_rebalance(ctx, message.shards)?;
+        Ok(Behavior::same())
     }
 }

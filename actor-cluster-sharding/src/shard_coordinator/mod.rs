@@ -1,63 +1,59 @@
-use std::collections::BTreeSet;
 use std::collections::hash_map::Entry;
+use std::collections::BTreeSet;
 use std::ops::Not;
 use std::sync::Arc;
 use std::time::Duration;
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
-use async_trait::async_trait;
 use imstr::ImString;
 use itertools::Itertools;
 use tracing::{debug, error, info};
-
-use actor_cluster::cluster::Cluster;
-use actor_cluster::etcd_actor::keep_alive::KeepAlive;
-use actor_cluster::etcd_client::PutOptions;
-use actor_core::{Actor, CodecMessage, DynMessage};
-use actor_core::actor::context::{Context, ActorContext};
-use actor_core::actor::props::Props;
-use actor_core::actor::timers::{ScheduleKey, Timers};
-use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::{ActorRef, ActorRefExt, PROVIDER};
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::ext::{decode_bytes, encode_bytes};
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
 use crate::shard_coordinator::coordinator_state::CoordinatorState;
 use crate::shard_coordinator::get_shard_home::GetShardHome;
 use crate::shard_coordinator::rebalance_tick::RebalanceTick;
-use crate::shard_coordinator::rebalance_worker::RebalanceWorker;
 use crate::shard_coordinator::rebalance_worker::shard_region_terminated::ShardRegionTerminated;
+use crate::shard_coordinator::rebalance_worker::RebalanceWorker;
 use crate::shard_coordinator::resend_shard_host::ResendShardHost;
 use crate::shard_coordinator::state::{BinState, State};
 use crate::shard_coordinator::state_update::ShardState;
 use crate::shard_coordinator::update_failed::UpdateFailed;
-use crate::shard_region::{ImShardId, ShardId};
 use crate::shard_region::host_shard::HostShard;
 use crate::shard_region::shard_home::ShardHome;
 use crate::shard_region::shard_homes::ShardHomes;
+use crate::shard_region::{ImShardId, ShardId};
+use actor_cluster::cluster::Cluster;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::props::Props;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::timers::{ScheduleKey, Timers};
+use actor_core::actor::Actor;
+use actor_core::actor_path::TActorPath;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::{ActorRef, ActorRefExt, PROVIDER};
+use actor_core::message::terminated::Terminated;
 
+mod allocate_shard_result;
+mod coordinator_state;
 pub(crate) mod get_shard_home;
-pub(crate) mod terminate_coordinator;
+pub(crate) mod graceful_shutdown_req;
+mod rebalance_done;
+mod rebalance_result;
+mod rebalance_tick;
+pub(crate) mod rebalance_worker;
+pub(crate) mod region_stopped;
 pub(crate) mod register;
 pub(crate) mod register_proxy;
+mod resend_shard_host;
 pub(crate) mod shard_started;
-pub(crate) mod rebalance_worker;
-mod rebalance_done;
 mod state;
-pub(crate) mod graceful_shutdown_req;
-mod rebalance_tick;
-mod rebalance_result;
+mod state_update;
 mod stop_shard_timeout;
 mod stop_shards;
-mod shard_region_terminated;
-mod state_update;
-mod coordinator_state;
-mod shard_region_proxy_terminated;
-mod resend_shard_host;
-mod allocate_shard_result;
-pub(crate) mod region_stopped;
+pub(crate) mod terminate_coordinator;
 mod update_failed;
 
 const SHARD_COORDINATOR_RETRY_DELAY: Duration = Duration::from_secs(3);
@@ -92,18 +88,18 @@ pub struct ShardCoordinator {
 
 impl ShardCoordinator {
     pub(crate) fn new(
-        context: &mut Context,
+        ctx: &mut <Self as Actor>::Context,
         type_name: ImString,
         settings: Arc<ClusterShardingSettings>,
         allocation_strategy: Box<dyn ShardAllocationStrategy>,
     ) -> anyhow::Result<Self> {
-        let cluster = Cluster::get(context.system()).clone();
-        let timers = Timers::new(context)?;
+        let cluster = Cluster::get(ctx.system()).clone();
+        let timers = Timers::new(ctx)?;
         let coordinator = Self {
             type_name,
             settings,
             allocation_strategy,
-            ignore_ref: context.system().provider().ignore_ref().clone(),
+            ignore_ref: dyn_clone::clone_box(ctx.system().provider().ignore_ref()).into(),
             cluster,
             timers,
             min_members: 1,
@@ -127,14 +123,15 @@ impl ShardCoordinator {
     }
 }
 
-#[async_trait]
 impl Actor for ShardCoordinator {
-    async fn started(&mut self, context: &mut Context) -> anyhow::Result<()> {
+    type Context = Context;
+
+    fn started(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
         self.timers.start_timer_with_fixed_delay(
             None,
             self.settings.rebalance_interval,
             RebalanceTick,
-            context.myself().clone(),
+            ctx.myself().clone(),
         );
         let mut client = self.cluster.etcd_client();
         let lease_id = loop {
@@ -167,16 +164,17 @@ impl Actor for ShardCoordinator {
             }
         };
         if let Some(kv) = kvs.first() {
-            PROVIDER.sync_scope(self.cluster.system()?.provider_full(), || {
-                match decode_bytes::<BinState>(kv.value()) {
+            PROVIDER.sync_scope(
+                self.cluster.system()?.provider_full(),
+                || match decode_bytes::<BinState>(kv.value()) {
                     Ok(state) => {
                         self.state = state.into();
                     }
                     Err(error) => {
                         error!("ShardCoordinator decode state error {:?}", error);
                     }
-                }
-            })
+                },
+            )
         }
         self.update(context, None).await;
         //TODO 从etcd获取持久化状态
@@ -184,18 +182,34 @@ impl Actor for ShardCoordinator {
         Ok(())
     }
 
-    async fn stopped(&mut self, context: &mut Context) -> anyhow::Result<()> {
-        debug!("{}: ShardCoordinator {} stopped", self.type_name, context.myself());
+    fn stopped(&mut self, ctx: &mut Self::Context) -> anyhow::Result<()> {
+        debug!(
+            "{}: ShardCoordinator {} stopped",
+            self.type_name,
+            ctx.myself()
+        );
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
-        Self::handle_message(self, context, message).await
+    fn receive(&self) -> Receive<Self> {
+        Receive::new()
+            .is::<Terminated>(|actor: &mut ShardCoordinator, ctx, t, sender, _| {
+                if actor.state.regions.contains_key(&t.actor_ref) {
+                    actor.region_terminated(ctx, t.actor_ref);
+                } else if self.state.region_proxies.contains(&t.actor_ref) {
+                    actor.region_proxy_terminated(ctx, t.actor_ref);
+                }
+                Ok(Behavior::same())
+            })
     }
 }
 
 impl ShardCoordinator {
-    fn clear_rebalance_in_progress(&mut self, context: &mut Context, shard: ShardId) {
+    fn clear_rebalance_in_progress(
+        &mut self,
+        context: &mut <Self as Actor>::Context,
+        shard: ShardId,
+    ) {
         if let Some(pending_get_shard_home) = self.rebalance_in_progress.remove(shard.as_str()) {
             let msg = GetShardHome { shard };
             let myself = context.myself();
@@ -205,9 +219,10 @@ impl ShardCoordinator {
         }
     }
 
-    fn is_member(&self, context: &mut Context, region: &ActorRef) -> bool {
+    fn is_member(&self, context: &mut <Self as Actor>::Context, region: &ActorRef) -> bool {
         let region_address = region.path().address();
-        region_address == context.myself().path().address() || self.cluster.state().is_member_up(region_address)
+        region_address == context.myself().path().address()
+            || self.cluster.state().is_member_up(region_address)
     }
 
     fn inform_about_current_shards(&self, region: &ActorRef) {
@@ -216,21 +231,26 @@ impl ShardCoordinator {
             debug!(
                 "{}: Informing [{}] about (up to) [{}] shards in batches of [{}]",
                 self.type_name,
-                region, 
-                self.state.shards.len(), 
+                region,
+                self.state.shards.len(),
                 BATCH_SIZE,
             );
-            self.state.regions.iter()
+            self.state
+                .regions
+                .iter()
                 .flat_map(|(region_ref, shards)| {
-                    shards.iter()
-                        .filter(|shard| { self.rebalance_in_progress.contains_key(shard.as_str()) })
-                        .map(|shard| { (region_ref.clone(), shard) })
-                }).chunks(BATCH_SIZE)
+                    shards
+                        .iter()
+                        .filter(|shard| self.rebalance_in_progress.contains_key(shard.as_str()))
+                        .map(|shard| (region_ref.clone(), shard))
+                })
+                .chunks(BATCH_SIZE)
                 .into_iter()
                 .take(10)
                 .for_each(|regions| {
-                    let shards_sub_map = regions.into_iter()
-                        .fold(HashMap::<ActorRef, Vec<ShardId>>::new(), |mut map, (region_ref, shard_id)| {
+                    let shards_sub_map = regions.into_iter().fold(
+                        HashMap::<ActorRef, Vec<ShardId>>::new(),
+                        |mut map, (region_ref, shard_id)| {
                             match map.entry(region_ref) {
                                 Entry::Occupied(mut o) => {
                                     o.get_mut().push(shard_id.clone().into());
@@ -240,15 +260,18 @@ impl ShardCoordinator {
                                 }
                             }
                             map
-                        });
-                    region.cast_ns(ShardHomes { homes: shards_sub_map });
+                        },
+                    );
+                    region.cast_ns(ShardHomes {
+                        homes: shards_sub_map,
+                    });
                 });
         }
     }
 
     fn shutdown_shards(
         &mut self,
-        context: &mut Context,
+        context: &mut <Self as Actor>::Context,
         shutting_down_region: ActorRef,
         shards: HashSet<ImShardId>,
     ) -> anyhow::Result<()> {
@@ -268,25 +291,33 @@ impl ShardCoordinator {
         Ok(())
     }
 
-    fn continue_rebalance(&mut self, context: &mut Context, shards: HashSet<ImShardId>) -> anyhow::Result<()> {
+    fn continue_rebalance(
+        &mut self,
+        context: &mut <Self as Actor>::Context,
+        shards: HashSet<ImShardId>,
+    ) -> anyhow::Result<()> {
         if shards.is_empty().not() || self.rebalance_in_progress.is_empty().not() {
             let shards_str = shards.iter().join(", ");
             let rebalance_str = self.rebalance_in_progress.keys().join(", ");
             info!(
                 "{}: Starting rebalance for shards [{}]. Current shards rebalancing: [{}]",
-                self.type_name,
-                shards_str,
-                rebalance_str,
+                self.type_name, shards_str, rebalance_str,
             );
         }
         for shard in shards {
             if !self.rebalance_in_progress.contains_key(&shard) {
                 match self.state.shards.get(&shard) {
                     None => {
-                        debug!("{}: Rebalance of non-existing shard [{}] is ignored", self.type_name, shard);
+                        debug!(
+                            "{}: Rebalance of non-existing shard [{}] is ignored",
+                            self.type_name, shard
+                        );
                     }
                     Some(rebalance_from_region) => {
-                        debug!("{}: Rebalance shard [{}] from [{}]", self.type_name, shard, rebalance_from_region);
+                        debug!(
+                            "{}: Rebalance shard [{}] from [{}]",
+                            self.type_name, shard, rebalance_from_region
+                        );
                         self.start_shard_rebalance_if_needed(
                             context,
                             shard,
@@ -303,7 +334,7 @@ impl ShardCoordinator {
 
     fn start_shard_rebalance_if_needed(
         &mut self,
-        context: &mut Context,
+        context: &mut <Self as Actor>::Context,
         shard: ImShardId,
         from: ActorRef,
         handoff_timeout: Duration,
@@ -311,22 +342,25 @@ impl ShardCoordinator {
     ) -> anyhow::Result<()> {
         if let Entry::Vacant(v) = self.rebalance_in_progress.entry(shard.clone()) {
             v.insert(HashSet::new());
-            let regions = self.state.regions.keys().map(|region| region.clone()).collect::<HashSet<_>>();
+            let regions = self
+                .state
+                .regions
+                .keys()
+                .map(|region| region.clone())
+                .collect::<HashSet<_>>();
             let regions = regions
                 .union(&self.state.region_proxies)
                 .into_iter()
                 .map(|region| region.clone())
                 .collect::<HashSet<_>>();
-            let worker = context.spawn_anonymous(
-                Self::rebalance_worker_props(
-                    self.type_name.clone(),
-                    shard,
-                    from,
-                    handoff_timeout,
-                    regions,
-                    is_rebalance,
-                ),
-            )?;
+            let worker = context.spawn_anonymous(Self::rebalance_worker_props(
+                self.type_name.clone(),
+                shard,
+                from,
+                handoff_timeout,
+                regions,
+                is_rebalance,
+            ))?;
             self.rebalance_workers.insert(worker);
         }
         Ok(())
@@ -353,7 +387,7 @@ impl ShardCoordinator {
         })
     }
 
-    fn terminate(&mut self, context: &mut Context) {
+    fn terminate(&mut self, context: &mut <Self as Actor>::Context) {
         //TODO
         if self.region_termination_in_progress.is_empty() {
             debug!("{}: Received termination message.", self.type_name);
@@ -367,9 +401,15 @@ impl ShardCoordinator {
         context.stop(context.myself());
     }
 
-    async fn region_terminated(&mut self, context: &mut Context, region: ActorRef) {
+    fn region_terminated(
+        &mut self,
+        context: &mut <Self as Actor>::Context,
+        region: ActorRef,
+    ) {
         for worker in &self.rebalance_workers {
-            worker.cast_ns(ShardRegionTerminated { region: region.clone() });
+            worker.cast_ns(ShardRegionTerminated {
+                region: region.clone(),
+            });
         }
         if let Some(shards) = self.state.regions.get(&region) {
             let gracefully = if self.graceful_shutdown_in_progress.contains(&region) {
@@ -377,15 +417,26 @@ impl ShardCoordinator {
             } else {
                 ""
             };
-            debug!("{}: ShardRegion terminated{}: [{}]", self.type_name, gracefully, region);
+            debug!(
+                "{}: ShardRegion terminated{}: [{}]",
+                self.type_name, gracefully, region
+            );
             self.region_termination_in_progress.insert(region.clone());
             for shard in shards {
                 context.myself().cast(
-                    GetShardHome { shard: shard.clone().into() },
+                    GetShardHome {
+                        shard: shard.clone().into(),
+                    },
                     Some(self.ignore_ref.clone()),
                 );
             }
-            self.update_state(context, ShardState::ShardRegionTerminated { region: region.clone() }).await;
+            self.update_state(
+                context,
+                ShardState::ShardRegionTerminated {
+                    region: region.clone(),
+                },
+            )
+                .await;
             self.graceful_shutdown_in_progress.remove(&region);
             self.region_termination_in_progress.remove(&region);
             self.alive_regions.remove(&region);
@@ -393,21 +444,36 @@ impl ShardCoordinator {
         }
     }
 
-    async fn region_proxy_terminated(&mut self, context: &mut Context, proxy: ActorRef) {
+    fn region_proxy_terminated(
+        &mut self,
+        context: &mut <Self as Actor>::Context,
+        proxy: ActorRef,
+    ) {
         for worker in &self.rebalance_workers {
-            worker.cast_ns(ShardRegionTerminated { region: proxy.clone() });
+            worker.cast_ns(ShardRegionTerminated {
+                region: proxy.clone(),
+            });
         }
         if self.state.region_proxies.contains(&proxy) {
-            debug!("{}: ShardRegion proxy terminated: [{}]", self.type_name, proxy);
-            self.update_state(context, ShardState::ShardRegionProxyTerminated { region_proxy: proxy }).await;
+            debug!(
+                "{}: ShardRegion proxy terminated: [{}]",
+                self.type_name, proxy
+            );
+            self.update_state(
+                context,
+                ShardState::ShardRegionProxyTerminated {
+                    region_proxy: proxy,
+                },
+            )
+                .await;
         }
     }
 
-    async fn update_state(&mut self, context: &mut Context, state: ShardState) {
+    async fn update_state(&mut self, context: &mut <Self as Actor>::Context, state: ShardState) {
         self.update(context, Some(state)).await;
     }
 
-    async fn update(&mut self, context: &mut Context, state: Option<ShardState>) {
+    fn update(&mut self, context: &mut <Self as Actor>::Context, state: Option<ShardState>) {
         if let Some(state) = state {
             self.state.updated(state);
         }
@@ -418,20 +484,45 @@ impl ShardCoordinator {
             Ok(bytes) => {
                 let mut client = self.cluster.etcd_client();
                 let put_opts = PutOptions::new().with_lease(self.state_lease_id);
-                if let Some(error) = client.put(self.persistent_key(), bytes, Some(put_opts)).await.err() {
+                if let Some(error) = client
+                    .put(self.persistent_key(), bytes, Some(put_opts))
+                    .await
+                    .err()
+                {
                     error!("put ShardCoordinator state to etcd error {:?}", error);
-                    self.timers.start_single_timer(SHARD_COORDINATOR_RETRY_DELAY, UpdateFailed, context.myself().clone());
+                    self.timers.start_single_timer(
+                        SHARD_COORDINATOR_RETRY_DELAY,
+                        UpdateFailed,
+                        context.myself().clone(),
+                    );
                 }
             }
             Err(error) => {
-                error!("ShardCoordinator state {} serialize error {:?}", self.state, error);
-                self.timers.start_single_timer(SHARD_COORDINATOR_RETRY_DELAY, UpdateFailed, context.myself().clone());
+                error!(
+                    "ShardCoordinator state {} serialize error {:?}",
+                    self.state, error
+                );
+                self.timers.start_single_timer(
+                    SHARD_COORDINATOR_RETRY_DELAY,
+                    UpdateFailed,
+                    context.myself().clone(),
+                );
             }
         }
     }
 
-    fn send_host_shard_msg(&mut self, context: &mut Context, shard: ImShardId, region: ActorRef) {
-        region.cast(HostShard { shard: shard.clone().into() }, Some(context.myself().clone()));
+    fn send_host_shard_msg(
+        &mut self,
+        context: &mut <Self as Actor>::Context,
+        shard: ImShardId,
+        region: ActorRef,
+    ) {
+        region.cast(
+            HostShard {
+                shard: shard.clone().into(),
+            },
+            Some(context.myself().clone()),
+        );
         let resend_shard_host = ResendShardHost {
             shard: shard.clone(),
             region,
@@ -444,7 +535,12 @@ impl ShardCoordinator {
         self.un_acked_host_shards.insert(shard, key);
     }
 
-    fn handle_get_shard_home(&mut self, context: &mut Context, sender: ActorRef, shard: ImShardId) -> bool {
+    fn handle_get_shard_home(
+        &mut self,
+        context: &mut <Self as Actor>::Context,
+        sender: ActorRef,
+        shard: ImShardId,
+    ) -> bool {
         if self.rebalance_in_progress.contains_key(&shard) {
             self.defer_get_shard_home_request(shard, sender);
             self.unstash_one_get_shard_home_request(context);
@@ -459,18 +555,22 @@ impl ShardCoordinator {
             true
         } else {
             match self.state.shards.get(&shard) {
-                None => {
-                    false
-                }
+                None => false,
                 Some(shard_region_ref) => {
-                    if self.region_termination_in_progress.contains(&shard_region_ref) {
+                    if self
+                        .region_termination_in_progress
+                        .contains(&shard_region_ref)
+                    {
                         debug!(
                             "{}: GetShardHome [{}] request ignored, due to region [{}] termination in progress",
                             self.type_name,
                             shard, shard_region_ref,
                         );
                     } else {
-                        sender.cast_ns(ShardHome { shard: shard.into(), shard_region: shard_region_ref.clone() });
+                        sender.cast_ns(ShardHome {
+                            shard: shard.into(),
+                            shard_region: shard_region_ref.clone(),
+                        });
                     }
                     self.unstash_one_get_shard_home_request(context);
                     true
@@ -519,25 +619,45 @@ impl ShardCoordinator {
         self.get_shard_home_requests.insert((sender, request));
     }
 
-    fn unstash_one_get_shard_home_request(&mut self, context: &mut Context) {
+    fn unstash_one_get_shard_home_request(&mut self, context: &mut <Self as Actor>::Context) {
         if let Some((sender, request)) = self.get_shard_home_requests.pop_first() {
-            context.myself().tell(request.into_dyn(), Some(sender));
+            context.myself().tell(Box::new(request), Some(sender));
         }
     }
 
-    async fn continue_get_shard_home(&mut self, context: &mut Context, shard: ImShardId, region: ActorRef, get_shard_home_sender: ActorRef) {
+    async fn continue_get_shard_home(
+        &mut self,
+        context: &mut <Self as Actor>::Context,
+        shard: ImShardId,
+        region: ActorRef,
+        get_shard_home_sender: ActorRef,
+    ) {
         if self.rebalance_in_progress.contains_key(&shard) {
             self.defer_get_shard_home_request(shard, get_shard_home_sender);
         } else {
             match self.state.shards.get(&shard) {
                 None => {
-                    if self.state.regions.contains_key(&region) &&
-                        !self.graceful_shutdown_in_progress.contains(&region) &&
-                        !self.region_termination_in_progress.contains(&region) {
-                        self.update_state(context, ShardState::ShardHomeAllocated { shard: shard.clone(), region: region.clone() }).await;
-                        debug!("{}: Shard [{}] allocated at [{}]", self.type_name, shard, region);
+                    if self.state.regions.contains_key(&region)
+                        && !self.graceful_shutdown_in_progress.contains(&region)
+                        && !self.region_termination_in_progress.contains(&region)
+                    {
+                        self.update_state(
+                            context,
+                            ShardState::ShardHomeAllocated {
+                                shard: shard.clone(),
+                                region: region.clone(),
+                            },
+                        )
+                            .await;
+                        debug!(
+                            "{}: Shard [{}] allocated at [{}]",
+                            self.type_name, shard, region
+                        );
                         self.send_host_shard_msg(context, shard.clone(), region.clone());
-                        get_shard_home_sender.cast_ns(ShardHome { shard: shard.into(), shard_region: region });
+                        get_shard_home_sender.cast_ns(ShardHome {
+                            shard: shard.into(),
+                            shard_region: region,
+                        });
                     } else {
                         debug!(
                             "{}: Allocated region [{}] for shard [{}] is not (any longer) one of the registered regions: {:?}",
@@ -549,7 +669,10 @@ impl ShardCoordinator {
                     }
                 }
                 Some(region) => {
-                    get_shard_home_sender.cast_ns(ShardHome { shard: shard.into(), shard_region: region.clone() });
+                    get_shard_home_sender.cast_ns(ShardHome {
+                        shard: shard.into(),
+                        shard_region: region.clone(),
+                    });
                 }
             }
         }
@@ -557,6 +680,9 @@ impl ShardCoordinator {
 
     fn persistent_key(&self) -> String {
         let name = &self.cluster.system().unwrap().name;
-        format!("actor/{}/cluster/shard_coordinator/{}/state", name, self.type_name)
+        format!(
+            "actor/{}/cluster/shard_coordinator/{}/state",
+            name, self.type_name
+        )
     }
 }

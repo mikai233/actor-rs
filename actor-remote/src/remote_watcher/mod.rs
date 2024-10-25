@@ -105,7 +105,7 @@ impl Actor for RemoteWatcher {
             .handle::<UnwatchRemote>()
             .handle::<WatchRemote>()
             .is::<Terminated>(|actor, _, msg, _, _| {
-                actor.terminated(msg.actor, msg.existence_confirmed, msg.address_terminated);
+                actor.terminated(msg.actor_ref, msg.existence_confirmed, msg.address_terminated);
                 Ok(Behavior::same())
             })
     }

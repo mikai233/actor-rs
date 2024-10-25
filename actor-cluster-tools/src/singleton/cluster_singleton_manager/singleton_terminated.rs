@@ -22,7 +22,7 @@ impl Message for SingletonTerminated {
     type A = ClusterSingletonManager;
 
     async fn handle(self: Box<Self>, _context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        let singleton = self.0.actor;
+        let singleton = self.0.actor_ref;
         debug!("singleton manager watch singleton actor {} terminated", singleton);
         actor.singleton = None;
         if let Some(notifier) = actor.singleton_shutdown_notifier.take() {

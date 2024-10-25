@@ -1,15 +1,14 @@
 use std::fmt::{Display, Formatter};
 
-use ahash::{HashMap, HashSet, HashSetExt};
-use bincode::{Decode, Encode};
-use itertools::Itertools;
-
 use actor_core::actor_ref::ActorRef;
+use ahash::{HashMap, HashSet, HashSetExt};
+use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 
 use crate::shard_coordinator::state_update::ShardState;
 use crate::shard_region::ImShardId;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub(super) struct State {
     pub(super) shards: HashMap<ImShardId, ActorRef>,
     pub(super) regions: HashMap<ActorRef, HashSet<ImShardId>>,

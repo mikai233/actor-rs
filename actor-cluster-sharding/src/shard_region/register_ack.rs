@@ -1,32 +1,35 @@
 use std::ops::Not;
 
-use async_trait::async_trait;
-use bincode::{Decode, Encode};
-
-use actor_core::actor::context::{Context, ActorContext};
-use actor_core::actor_ref::ActorRef;
-use actor_core::Message;
-use actor_core::MessageCodec;
-
 use crate::shard_region::coordinator_terminated::CoordinatorTerminated;
 use crate::shard_region::ShardRegion;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::context::ActorContext;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
+use actor_core::{Message, MessageCodec};
 
-#[derive(Debug, Encode, Decode, MessageCodec)]
+#[derive(Debug, Message, MessageCodec, derive_more::Display, derive_more::Constructor)]
+#[display("RegisterAck {{ coordinator: {coordinator} }}")]
 pub(crate) struct RegisterAck {
     pub(crate) coordinator: ActorRef,
 }
 
-#[async_trait]
-impl Message for RegisterAck {
-    type A = ShardRegion;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        if context.is_watching(&self.coordinator).not() {
+impl MessageHandler<ShardRegion> for RegisterAck {
+    fn handle(
+        actor: &mut ShardRegion,
+        ctx: &mut <ShardRegion as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<ShardRegion>,
+    ) -> anyhow::Result<Behavior<ShardRegion>> {
+        if ctx.is_watching(&actor.coordinator).not() {
             context.watch_with(self.coordinator.clone(), CoordinatorTerminated::new)?;
         }
-        actor.coordinator = Some(self.coordinator);
+        actor.coordinator = Some(ctx.coordinator);
         actor.finish_registration();
-        actor.try_request_shard_buffer_homes(context);
-        Ok(())
+        actor.try_request_shard_buffer_homes(ctx);
+        Ok(Behavior::same())
     }
 }

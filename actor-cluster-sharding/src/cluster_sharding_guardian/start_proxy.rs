@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use imstr::ImString;
 
 use actor_core::actor::context::{ActorContext, Context};

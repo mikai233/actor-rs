@@ -1,19 +1,24 @@
-use async_trait::async_trait;
-
-use actor_core::{EmptyCodec, Message};
-use actor_core::actor::context::Context;
-
 use crate::shard_coordinator::ShardCoordinator;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
+use actor_core::Message;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("UpdateFailed")]
 pub(super) struct UpdateFailed;
 
-#[async_trait]
-impl Message for UpdateFailed {
-    type A = ShardCoordinator;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.update(context, None).await;
-        Ok(())
+impl MessageHandler<ShardCoordinator> for UpdateFailed {
+    fn handle(
+        actor: &mut ShardCoordinator,
+        ctx: &mut <ShardCoordinator as Actor>::Context,
+        _: Self,
+        _: Option<ActorRef>,
+        _: &Receive<ShardCoordinator>,
+    ) -> anyhow::Result<Behavior<ShardCoordinator>> {
+        actor.update(ctx, None);
+        Ok(Behavior::same())
     }
 }

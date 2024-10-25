@@ -114,7 +114,7 @@ impl TimersActor {
         _: Option<ActorRef>,
         _: &Receive<Self>,
     ) -> anyhow::Result<Behavior<Self>> {
-        let watchee = message.actor;
+        let watchee = message.actor_ref;
         if let Some(indices) = actor.watching_receivers.remove(&watchee) {
             for index in &indices {
                 if let Some(key) = actor.index.remove(&index) {
@@ -546,8 +546,8 @@ pub struct Timers {
 }
 
 impl Timers {
-    pub fn new(context: &mut Context) -> anyhow::Result<Self> {
-        let scheduler_actor = context.spawn(
+    pub fn new(ctx: &mut Context) -> anyhow::Result<Self> {
+        let scheduler_actor = ctx.spawn(
             Props::new_with_ctx(move |context: &mut Context| {
                 Ok(TimersActor::new(context.myself.clone()))
             }),

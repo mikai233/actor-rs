@@ -1,24 +1,21 @@
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use imstr::ImString;
 
-use actor_core::{DynMessage, Message};
-use actor_core::actor::context::{Context, ActorContext};
-use actor_core::actor::props::PropsBuilder;
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::actor_ref::ActorRefExt;
-use actor_core::EmptyCodec;
-use actor_core::ext::option_ext::OptionExt;
-
-use crate::cluster_sharding_guardian::ClusterShardingGuardian;
 use crate::cluster_sharding_guardian::started::Started;
+use crate::cluster_sharding_guardian::ClusterShardingGuardian;
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::message_extractor::MessageExtractor;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
 use crate::shard_region::{ImEntityId, ShardRegion};
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::props::PropsBuilder;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::ActorRefExt;
+use actor_core::message::DynMessage;
+use actor_core::Message;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message)]
 pub(crate) struct Start {
     pub(crate) type_name: ImString,
     pub(crate) entity_props: PropsBuilder<ImEntityId>,

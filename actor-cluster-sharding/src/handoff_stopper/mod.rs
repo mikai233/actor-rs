@@ -1,21 +1,22 @@
 use std::time::Duration;
 
-use ahash::HashSet;
-use async_trait::async_trait;
-use imstr::ImString;
-
-use actor_core::{Actor, DynMessage};
-use actor_core::actor::context::{Context, ActorContext};
-use actor_core::actor::props::Props;
-use actor_core::actor::timers::{ScheduleKey, Timers};
-use actor_core::actor_ref::ActorRef;
-
-use crate::handoff_stopper::entity_terminated::EntityTerminated;
 use crate::handoff_stopper::stop_timeout::StopTimeout;
 use crate::handoff_stopper::stop_timeout_warning::StopTimeoutWarning;
+use crate::shard_coordinator::rebalance_worker::shard_stopped::ShardStopped;
 use crate::shard_region::ImShardId;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::props::Props;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::timers::{ScheduleKey, Timers};
+use actor_core::actor::Actor;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::message::terminated::Terminated;
+use actor_core::message::DynMessage;
+use ahash::HashSet;
+use imstr::ImString;
 
-mod entity_terminated;
 mod stop_timeout_warning;
 mod stop_timeout;
 
@@ -49,7 +50,7 @@ impl HandoffStopper {
     }
 
     fn new(
-        context: &mut Context,
+        ctx: &mut <Self as Actor>::Context,
         type_name: ImString,
         shard: ImShardId,
         replay_to: ActorRef,
@@ -58,19 +59,19 @@ impl HandoffStopper {
         handoff_timeout: Duration,
     ) -> anyhow::Result<Self> {
         let entity_handoff_timeout = (handoff_timeout - STOP_TIMEOUT_WARNING_AFTER).max(Duration::from_secs(1));
-        let timers = Timers::new(context)?;
+        let timers = Timers::new(ctx)?;
         let stop_timeout_warning_key = timers.start_single_timer(
             STOP_TIMEOUT_WARNING_AFTER,
             StopTimeoutWarning,
-            context.myself().clone(),
+            ctx.myself().clone(),
         );
         let stop_timeout_key = timers.start_single_timer(
             entity_handoff_timeout,
             StopTimeout,
-            context.myself().clone(),
+            ctx.myself().clone(),
         );
         for entity in &entities {
-            context.watch_with(entity.clone(), EntityTerminated::new)?;
+            ctx.watch(entity)?;
             entity.tell(stop_message.dyn_clone()?, ActorRef::no_sender());
         }
         let stopper = Self {
@@ -88,9 +89,18 @@ impl HandoffStopper {
     }
 }
 
-#[async_trait]
 impl Actor for HandoffStopper {
-    async fn on_recv(&mut self, context: &mut Context, message: DynMessage) -> anyhow::Result<()> {
-        Self::handle_message(self, context, message).await
+    type Context = Context;
+
+    fn receive(&self) -> Receive<Self> {
+        Receive::new()
+            .is::<Terminated>(|actor, ctx, msg, sender, _| {
+                actor.remaining_entities.remove(&msg.actor_ref);
+                if actor.remaining_entities.is_empty() {
+                    actor.replay_to.cast_ns(ShardStopped::new(actor.shard.clone().into()));
+                    ctx.stop(ctx.myself());
+                }
+                Ok(Behavior::same())
+            })
     }
 }

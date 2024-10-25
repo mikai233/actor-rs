@@ -1,24 +1,22 @@
-use async_trait::async_trait;
+use crate::shard_coordinator::rebalance_worker::RebalanceWorker;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::context::Context;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
+use actor_core::Message;
 use tracing::debug;
 
-use actor_core::actor::context::Context;
-use actor_core::actor_ref::ActorRef;
-use actor_core::EmptyCodec;
-use actor_core::Message;
-
-use crate::shard_coordinator::rebalance_worker::RebalanceWorker;
-
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message, derive_more::Display, derive_more::Constructor)]
+#[display("ShardRegionTerminated {{ region: {region} }}")]
 pub(crate) struct ShardRegionTerminated {
     pub(crate) region: ActorRef,
 }
 
-#[async_trait]
-impl Message for ShardRegionTerminated {
-    type A = RebalanceWorker;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        let region = self.region;
+impl MessageHandler<RebalanceWorker> for ShardRegionTerminated {
+    fn handle(actor: &mut RebalanceWorker, ctx: &mut <RebalanceWorker as Actor>::Context, message: Self, sender: Option<ActorRef>, _: &Receive<RebalanceWorker>) -> anyhow::Result<Behavior<RebalanceWorker>> {
+        let region = message.region;
         if !actor.stopping_shard {
             if actor.remaining.contains(&region) {
                 debug!(
@@ -27,7 +25,7 @@ impl Message for ShardRegionTerminated {
                     region,
                     actor.shard,
                 );
-                actor.acked(context, &region);
+                actor.acked(ctx, &region);
             }
         } else if actor.shard_region_from == region {
             debug!(
@@ -36,8 +34,8 @@ impl Message for ShardRegionTerminated {
                 region,
                 actor.shard,
             );
-            actor.done(context, true);
+            actor.done(ctx, true);
         }
-        Ok(())
+        Ok(Behavior::same())
     }
 }
