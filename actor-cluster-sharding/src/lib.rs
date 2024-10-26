@@ -1,4 +1,5 @@
-use actor_remote::codec::MessageRegistry;
+use actor_remote::codec::{register_message, MessageCodecRegistry, MessageRegistry};
+use message_extractor::ShardEnvelope;
 
 use crate::shard::Shard;
 use crate::shard_coordinator::get_shard_home::GetShardHome;
@@ -32,24 +33,21 @@ pub mod shard_allocation_strategy;
 pub mod shard_coordinator;
 pub mod shard_region;
 
-pub type ShardEnvelope = message_extractor::ShardEnvelope<ShardRegion>;
-
-pub fn register_sharding(reg: &mut MessageRegistry) {
-    reg.register_system::<GetShardHome>();
-    reg.register_system::<GracefulShutdownReq>();
-    reg.register_system::<RegionStopped>();
-    reg.register_system::<Register>();
-    reg.register_system::<RegisterProxy>();
-    reg.register_system::<ShardStarted>();
-    reg.register_system::<ShardStopped>();
-    reg.register_system::<TerminateCoordinator>();
-    reg.register_system::<BeginHandoff>();
-    reg.register_system::<BeginHandoffAck>();
-    reg.register_system::<Handoff>();
-    reg.register_system::<HostShard>();
-    reg.register_system::<RegisterAck>();
-    reg.register_system::<ShardHome>();
-    reg.register_system::<ShardHomes>();
-    reg.register_system::<message_extractor::ShardEnvelope<ShardRegion>>();
-    reg.register_system::<message_extractor::ShardEnvelope<Shard>>();
+pub fn register_cluster_sharding_message(registry: &mut dyn MessageCodecRegistry) {
+    register_message::<GetShardHome>(registry);
+    register_message::<GracefulShutdownReq>(registry);
+    register_message::<RegionStopped>(registry);
+    register_message::<Register>(registry);
+    register_message::<RegisterProxy>(registry);
+    register_message::<ShardStarted>(registry);
+    register_message::<ShardStopped>(registry);
+    register_message::<TerminateCoordinator>(registry);
+    register_message::<BeginHandoff>(registry);
+    register_message::<BeginHandoffAck>(registry);
+    register_message::<Handoff>(registry);
+    register_message::<HostShard>(registry);
+    register_message::<RegisterAck>(registry);
+    register_message::<ShardHome>(registry);
+    register_message::<ShardHomes>(registry);
+    register_message::<ShardEnvelope>(registry);
 }

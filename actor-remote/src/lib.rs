@@ -28,7 +28,7 @@ pub mod remote_actor_ref;
 pub mod remote_provider;
 mod remote_watcher;
 
-pub fn register_remote_system_message(registry: &mut dyn MessageCodecRegistry) {
+pub fn register_remote_message(registry: &mut dyn MessageCodecRegistry) {
     register_message::<AddressTerminated>(registry);
     register_message::<DeathWatchNotification>(registry);
     register_message::<Identify>(registry);

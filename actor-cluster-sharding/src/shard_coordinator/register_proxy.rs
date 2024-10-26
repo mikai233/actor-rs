@@ -26,6 +26,7 @@ use crate::shard_region::register_ack::RegisterAck;
     derive_more::Constructor,
 )]
 #[display("RegisterProxy {{ shard_region_proxy: {shard_region_proxy} }}")]
+#[cloneable]
 pub(crate) struct RegisterProxy {
     pub(crate) shard_region_proxy: ActorRef,
 }

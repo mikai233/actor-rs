@@ -17,6 +17,7 @@ use actor_core::{Message, MessageCodec};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message, MessageCodec, derive_more::Display)]
 #[display("Register {{ shard_region: {shard_region} }}")]
+#[cloneable]
 pub(crate) struct Register {
     pub(crate) shard_region: ActorRef,
 }

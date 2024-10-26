@@ -1,25 +1,40 @@
-use async_trait::async_trait;
-use bincode::{Decode, Encode};
-use tracing::trace;
-
-use actor_core::actor::context::{Context, ActorContext};
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::context::ActorContext;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
 use actor_core::Message;
 use actor_core::MessageCodec;
+use serde::{Deserialize, Serialize};
+use tracing::trace;
 
 use crate::heartbeat::cluster_heartbeat_sender::ClusterHeartbeatSender;
 use crate::unique_address::UniqueAddress;
 
-#[derive(Debug, Encode, Decode, MessageCodec)]
+#[derive(
+    Debug,
+    Serialize,
+    Deserialize,
+    Message,
+    MessageCodec,
+    derive_more::Display,
+    derive_more::Constructor,
+)]
+#[display("HeartbeatRsp {{ from: {from} }}")]
 pub(crate) struct HeartbeatRsp {
     pub(crate) from: UniqueAddress,
 }
 
-#[async_trait]
-impl Message for HeartbeatRsp {
-    type A = ClusterHeartbeatSender;
-
-    async fn handle(self: Box<Self>, context: &mut Context, _actor: &mut Self::A) -> anyhow::Result<()> {
-        trace!("{} recv HeartbeatRsp from {}", context.myself(), self.from);
-        Ok(())
+impl MessageHandler<ClusterHeartbeatSender> for HeartbeatRsp {
+    fn handle(
+        _: &mut ClusterHeartbeatSender,
+        ctx: &mut <ClusterHeartbeatSender as Actor>::Context,
+        message: Self,
+        _: Option<ActorRef>,
+        _: &Receive<ClusterHeartbeatSender>,
+    ) -> anyhow::Result<Behavior<ClusterHeartbeatSender>> {
+        trace!("{} recv HeartbeatRsp from {}", ctx.myself(), message.from);
+        Ok(Behavior::same())
     }
 }

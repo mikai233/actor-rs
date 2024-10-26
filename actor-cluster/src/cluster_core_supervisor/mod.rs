@@ -1,17 +1,19 @@
-use actor_core::actor::Actor;
-use anyhow::Error;
-
+use crate::cluster::Cluster;
+use crate::cluster_core_daemon::ClusterCoreDaemon;
+use crate::cluster_core_supervisor::get_cluster_core_ref::GetClusterCoreRef;
+use actor_core::actor::behavior::Behavior;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::directive::Directive;
 use actor_core::actor::props::Props;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::message::poison_pill::PoisonPill;
+use actor_core::message::terminated::Terminated;
+use std::any::type_name;
+use tracing::debug;
 
-use crate::cluster::Cluster;
-use crate::cluster_core_daemon::ClusterCoreDaemon;
-
-mod core_daemon_terminated;
 pub(crate) mod get_cluster_core_ref;
 
 #[derive(Debug)]
@@ -36,7 +38,7 @@ impl ClusterCoreSupervisor {
             "daemon",
         )?;
         ctx.watch(&core_daemon)?;
-        self.core_daemon = Some(core_daemon);
+        self.core_daemon = Some(core_daemon.clone());
         Ok(core_daemon)
     }
 }
@@ -59,7 +61,12 @@ impl Actor for ClusterCoreSupervisor {
         Directive::Stop
     }
 
-    fn receive(&self) -> actor_core::actor::receive::Receive<Self> {
-        todo!()
+    fn receive(&self) -> Receive<Self> {
+        Receive::new()
+            .handle::<GetClusterCoreRef>()
+            .is::<Terminated>(|actor, ctx, t, _, _| {
+                debug!( "{} {} terminated", type_name::<ClusterCoreDaemon>(), t.actor_ref);
+                Ok(Behavior::same())
+            })
     }
 }

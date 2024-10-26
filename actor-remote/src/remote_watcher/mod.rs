@@ -246,7 +246,7 @@ impl RemoteWatcher {
         uid: i64,
         sender: Option<ActorRef>,
     ) -> anyhow::Result<()> {
-        let sender = sender.ok_or(anyhow!("receive_heartbeat_rsp sender is none"))?;
+        let sender = sender.ok_or(anyhow!("receive_heartbeat_rsp Sender is None"))?;
         let from = sender.path().address();
         if self.failure_detector.is_monitoring(from) {
             debug!("Received heartbeat rsp from [{}]", from);

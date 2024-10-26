@@ -1,13 +1,17 @@
-use async_trait::async_trait;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
+use actor_core::message::{DynMessage, Message};
 use tracing::warn;
 
-use actor_core::{CodecMessage, DynMessage, Message};
-use actor_core::actor::context::{Context, ActorContext};
-use actor_core::EmptyCodec;
-
 use crate::shard::Shard;
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::Message;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("Passivate {{ stop_message: {stop_message} }}")]
 pub struct Passivate {
     pub stop_message: DynMessage,
 }
@@ -15,27 +19,34 @@ pub struct Passivate {
 impl Passivate {
     pub fn new<M>(stop_message: M) -> Self
     where
-        M: CodecMessage,
+        M: Message,
     {
-        Self { stop_message: stop_message.into_dyn() }
+        Self {
+            stop_message: Box::new(stop_message),
+        }
     }
 }
 
-#[async_trait]
-impl Message for Passivate {
-    type A = Shard;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        match context.sender() {
+impl MessageHandler<Shard> for Passivate {
+    fn handle(
+        actor: &mut Shard,
+        ctx: &mut <Shard as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<Shard>,
+    ) -> anyhow::Result<Behavior<Shard>> {
+        match sender {
             None => {
-                let name = self.stop_message.name();
                 let type_name = &actor.type_name;
-                warn!("Ignore Passivate:{} message for {} because Passivate sender is none", name, type_name);
+                warn!(
+                    "Ignore Passivate:{} message for {} because Passivate Sender is None",
+                    message, type_name
+                );
             }
             Some(entity) => {
-                actor.passivate(entity, self.stop_message)?;
+                actor.passivate(&entity, message.stop_message)?;
             }
         }
-        Ok(())
+        Ok(Behavior::same())
     }
 }

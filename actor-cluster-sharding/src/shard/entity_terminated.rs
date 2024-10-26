@@ -1,31 +1,23 @@
 use std::ops::Not;
 
-use async_trait::async_trait;
-use tracing::{debug, warn};
-
-use actor_core::{CodecMessage, DynMessage, Message};
-use actor_core::actor::context::Context;
-use actor_core::EmptyCodec;
-use actor_core::message::terminated::Terminated;
-
 use crate::shard::entity_state::EntityState;
 use crate::shard::Shard;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
+use actor_core::message::terminated::Terminated;
+use actor_core::Message;
+use tracing::{debug, warn};
 
-#[derive(Debug, EmptyCodec)]
-pub(super) struct EntityTerminated(pub(super) Terminated);
+#[derive(Debug, Message, derive_more::Display)]
+#[display("EntityTerminated({_0})")]
+pub(super) struct EntityTerminated(pub(super) ActorRef);
 
-impl EntityTerminated {
-    pub(super) fn new(terminated: Terminated) -> DynMessage {
-        Self(terminated).into_dyn()
-    }
-}
-
-#[async_trait]
-impl Message for EntityTerminated {
-    type A = Shard;
-
-    async fn handle(self: Box<Self>, context: &mut Context, actor: &mut Self::A) -> anyhow::Result<()> {
-        let entity = self.0.actor_ref;
+impl MessageHandler<Shard> for EntityTerminated {
+    fn handle(actor: &mut Shard, ctx: &mut <Shard as Actor>::Context, message: Self, _: Option<ActorRef>, _: &Receive<Shard>) -> anyhow::Result<Behavior<Shard>> {
+        let entity = message.0;
         match actor.entities.entity_id(&entity) {
             None => {
                 warn!("{}: Unexpected entity terminated: {}", actor.type_name, entity);
@@ -45,8 +37,8 @@ impl Message for EntityTerminated {
                             if messages.is_empty().not() {
                                 debug!("{}: [{}] terminated after passivating, buffered messages found, restarting", actor.type_name, entity_id);
                                 actor.entities.remove_entity(&entity_id);
-                                actor.get_or_create_entity(context, &entity_id)?;
-                                actor.send_message_buffer(context, &entity_id)?;
+                                actor.get_or_create_entity(ctx, &entity_id)?;
+                                actor.send_message_buffer(ctx, &entity_id)?;
                             } else {
                                 debug!("{}: [{}] terminated after passivating", actor.type_name, entity_id);
                                 actor.entities.remove_entity(&entity_id);
@@ -62,6 +54,6 @@ impl Message for EntityTerminated {
                 }
             }
         }
-        Ok(())
+        Ok(Behavior::same())
     }
 }

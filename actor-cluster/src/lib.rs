@@ -29,7 +29,7 @@ mod reachability;
 pub mod unique_address;
 mod vector_clock;
 
-pub fn register_remote_system_message(registry: &mut dyn MessageCodecRegistry) {
+pub fn register_cluster_message(registry: &mut dyn MessageCodecRegistry) {
     register_message::<Heartbeat>(registry);
     register_message::<HeartbeatRsp>(registry);
 }

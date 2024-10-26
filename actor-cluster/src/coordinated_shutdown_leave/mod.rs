@@ -1,7 +1,8 @@
 use actor_core::actor::context::Context;
+use actor_core::actor::receive::Receive;
 use actor_core::actor::Actor;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::actor_ref::ActorRef;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 
 use crate::cluster::Cluster;
 use crate::coordinated_shutdown_leave::cluster_event::ClusterEventWrap;
@@ -17,13 +18,13 @@ pub(crate) struct CoordinatedShutdownLeave {
 }
 
 impl CoordinatedShutdownLeave {
-    pub(crate) fn new(context: &mut Context, reply_to: ActorRef) -> Self {
+    pub(crate) fn new(context: &mut <Self as Actor>::Context, reply_to: ActorRef) -> Self {
         let cluster = Cluster::get(context.system()).clone();
         Self { cluster, reply_to }
     }
 
-    fn done(&self, context: &mut Context) {
-        self.reply_to.cast_orphan_ns(LeaveResp);
+    fn done(&self, context: &mut <Self as Actor>::Context) {
+        self.reply_to.cast_ns(LeaveResp);
         context.stop(context.myself());
     }
 }
@@ -44,7 +45,7 @@ impl Actor for CoordinatedShutdownLeave {
         Ok(())
     }
 
-    fn receive(&self) -> actor_core::actor::receive::Receive<Self> {
+    fn receive(&self) -> Receive<Self> {
         todo!()
     }
 }

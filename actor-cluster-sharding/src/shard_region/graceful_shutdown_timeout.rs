@@ -1,36 +1,39 @@
-use async_trait::async_trait;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
+use actor_core::Message;
 use itertools::Itertools;
 use tracing::warn;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::EmptyCodec;
-use actor_core::Message;
 
 use crate::shard_region::ShardRegion;
 
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("GracefulShutdownTimeout")]
 pub(super) struct GracefulShutdownTimeout;
 
-#[async_trait]
-impl Message for GracefulShutdownTimeout {
-    type A = ShardRegion;
-
-    async fn handle(
-        self: Box<Self>,
-        context: &mut Context,
-        actor: &mut Self::A,
-    ) -> anyhow::Result<()> {
+impl MessageHandler<ShardRegion> for GracefulShutdownTimeout {
+    fn handle(
+        actor: &mut ShardRegion,
+        ctx: &mut <ShardRegion as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<ShardRegion>,
+    ) -> anyhow::Result<Behavior<ShardRegion>> {
         let shards = actor.shards.keys().join(", ");
         let buffer_size = actor.shard_buffers.total_size();
         warn!(
             "{}: Graceful shutdown of shard region {} timed out, region will be stopped. Remaining shards [{}], remaining buffered messages [{}]",
             actor.type_name,
-            context.myself(),
+            ctx.myself(),
             shards,
             buffer_size,
         );
-        context.stop(context.myself());
-        Ok(())
+        ctx.stop(ctx.myself());
+        Ok(Behavior::same())
     }
 }

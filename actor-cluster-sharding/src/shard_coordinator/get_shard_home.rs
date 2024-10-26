@@ -33,7 +33,7 @@ impl MessageHandler<ShardCoordinator> for GetShardHome {
         sender: Option<ActorRef>,
         _: &Receive<ShardCoordinator>,
     ) -> anyhow::Result<Behavior<ShardCoordinator>> {
-        let sender = sender.ok_or(anyhow!("Sender is none"))?;
+        let sender = sender.ok_or(anyhow!("Sender is None"))?;
         let shard: ImShardId = message.shard.into();
         if !actor.handle_get_shard_home(ctx, sender.clone(), shard.clone()) {
             let active_regions: HashMap<_, _> = actor

@@ -47,7 +47,7 @@ impl MessageHandler<ShardCoordinator> for StopShards {
             let (running_shards, already_stopped_shards): (Vec<_>, Vec<_>) = shard_ids
                 .iter()
                 .partition(|shard_id| actor.state.shards.contains_key(*shard_id));
-            let sender = sender.ok_or(anyhow!("Sender is none"))?;
+            let sender = sender.ok_or(anyhow!("Sender is None"))?;
             for shard_id in already_stopped_shards {
                 sender.cast_ns(ShardStopped {
                     shard: shard_id.clone().into(),

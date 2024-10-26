@@ -29,7 +29,7 @@ impl MessageHandler<ShardCoordinator> for RebalanceDone {
         sender: Option<ActorRef>,
         _: &Receive<ShardCoordinator>,
     ) -> anyhow::Result<Behavior<ShardCoordinator>> {
-        let sender = sender.ok_or(anyhow!("Sender is none"))?;
+        let sender = sender.ok_or(anyhow!("Sender is None"))?;
         actor.rebalance_workers.remove(&sender);
         if message.ok {
             debug!(

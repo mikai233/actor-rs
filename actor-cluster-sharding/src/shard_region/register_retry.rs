@@ -1,4 +1,9 @@
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::ActorRef;
 use actor_core::message::handler::MessageHandler;
+use actor_core::Message;
 
 use crate::shard_region::ShardRegion;
 
@@ -11,27 +16,14 @@ impl MessageHandler<ShardRegion> for RegisterRetry {
     fn handle(
         actor: &mut ShardRegion,
         ctx: &mut <ShardRegion as Actor>::Context,
-        message: Self,
-        sender: Option<ActorRef>,
+        _: Self,
+        _: Option<ActorRef>,
         _: &Receive<ShardRegion>,
     ) -> anyhow::Result<Behavior<ShardRegion>> {
-        todo!()
-    }
-}
-
-#[async_trait]
-impl Message for RegisterRetry {
-    type A = ShardRegion;
-
-    async fn handle(
-        self: Box<Self>,
-        context: &mut Context,
-        actor: &mut Self::A,
-    ) -> anyhow::Result<()> {
         if actor.coordinator.is_none() {
-            actor.register(context)?;
-            actor.scheduler_next_registration(context);
+            actor.register(ctx)?;
+            actor.scheduler_next_registration(ctx);
         }
-        Ok(())
+        Ok(Behavior::same())
     }
 }

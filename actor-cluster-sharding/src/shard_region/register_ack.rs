@@ -1,6 +1,5 @@
 use std::ops::Not;
 
-use crate::shard_region::coordinator_terminated::CoordinatorTerminated;
 use crate::shard_region::ShardRegion;
 use actor_core::actor::behavior::Behavior;
 use actor_core::actor::context::ActorContext;
@@ -21,13 +20,13 @@ impl MessageHandler<ShardRegion> for RegisterAck {
         actor: &mut ShardRegion,
         ctx: &mut <ShardRegion as Actor>::Context,
         message: Self,
-        sender: Option<ActorRef>,
+        _: Option<ActorRef>,
         _: &Receive<ShardRegion>,
     ) -> anyhow::Result<Behavior<ShardRegion>> {
-        if ctx.is_watching(&actor.coordinator).not() {
-            context.watch_with(self.coordinator.clone(), CoordinatorTerminated::new)?;
+        if ctx.is_watching(&message.coordinator).not() {
+            ctx.watch(&message.coordinator)?;
         }
-        actor.coordinator = Some(ctx.coordinator);
+        actor.coordinator = Some(message.coordinator);
         actor.finish_registration();
         actor.try_request_shard_buffer_homes(ctx);
         Ok(Behavior::same())

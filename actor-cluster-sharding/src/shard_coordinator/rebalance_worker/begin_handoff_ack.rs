@@ -32,7 +32,7 @@ pub(crate) struct BeginHandoffAck {
 impl MessageHandler<RebalanceWorker> for BeginHandoffAck {
     fn handle(actor: &mut RebalanceWorker, ctx: &mut <RebalanceWorker as Actor>::Context, message: Self, sender: Option<ActorRef>, _: &Receive<RebalanceWorker>) -> anyhow::Result<Behavior<RebalanceWorker>> {
         let shard = message.shard;
-        let sender = sender.ok_or(anyhow!("Sender is none"))?;
+        let sender = sender.ok_or(anyhow!("Sender is None"))?;
         if actor.shard == shard {
             debug!("{}: BeginHandOffAck for shard [{}] received from [{}].", actor.type_name, actor.shard, sender);
             actor.acked(ctx, &sender);

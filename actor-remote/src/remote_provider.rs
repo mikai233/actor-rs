@@ -13,7 +13,7 @@ use crate::config::artery::Transport;
 use crate::config::remote::Remote;
 use crate::failure_detector::default_failure_detector_registry::DefaultFailureDetectorRegistry;
 use crate::failure_detector::phi_accrual_failure_detector::PhiAccrualFailureDetector;
-use crate::register_remote_system_message;
+use crate::register_remote_message;
 use crate::remote_actor_ref::RemoteActorRef;
 use crate::remote_watcher::RemoteWatcher;
 use actor_core::actor::actor_system::ActorSystem;
@@ -54,7 +54,7 @@ impl RemoteActorRefProvider {
             provider,
             mut spawns,
         } = LocalActorRefProvider::new(name, config)?;
-        register_remote_system_message(&mut registry);
+        register_remote_message(&mut registry);
         let remote_cfg = provider.config.get::<Remote>("akka.remote")?;
         let canonical = remote_cfg.artery.canonical;
         let transport = remote_cfg.artery.transport;

@@ -3,7 +3,7 @@ use std::net::SocketAddrV4;
 use actor_cluster::cluster_provider::ClusterActorRefProvider;
 use actor_cluster::cluster_setting::ClusterSetting;
 use actor_cluster::config::ClusterConfig;
-use actor_cluster_sharding::register_sharding;
+use actor_cluster_sharding::register_cluster_sharding_message;
 use actor_core::config::actor_setting::ActorSetting;
 use actor_core::config::ConfigBuilder;
 use actor_core::ext::etcd_client::EtcdClient;
@@ -49,7 +49,7 @@ pub fn actor_sharding_setting(addr: SocketAddrV4, client: impl Into<EtcdClient>)
     let mut config = ClusterConfig::builder().build()?;
     config.remote.transport = Transport::tcp(addr, BufferType::default());
     let mut reg = MessageRegistry::new();
-    register_sharding(&mut reg);
+    register_cluster_sharding_message(&mut reg);
     reg.register_user::<Init>();
     reg.register_user::<Hello>();
     let cluster_setting = ClusterSetting { config, reg, client };
