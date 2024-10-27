@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 use actor_cluster_sharding::message_extractor::MessageExtractor;
@@ -8,6 +9,12 @@ pub const SHARD_MOD: usize = 10000;
 
 #[derive(Debug, Clone)]
 pub struct PlayerMessageExtractor;
+
+impl Display for PlayerMessageExtractor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<PlayerMessageExtractor>())
+    }
+}
 
 impl MessageExtractor for PlayerMessageExtractor {
     fn entity_id(&self, message: &ShardEnvelope) -> EntityId {

@@ -10,7 +10,7 @@ use crate::shard_region::{EntityId, ShardId};
 use actor_remote::codec::{MessageCodec, MessageCodecRegistry};
 use serde::{Deserialize, Serialize};
 
-pub trait MessageExtractor: Send + Sync + DynClone + Debug {
+pub trait MessageExtractor: Send + Sync + DynClone + Debug + Display {
     fn entity_id(&self, message: &ShardEnvelope) -> EntityId;
 
     fn shard_id(&self, message: &ShardEnvelope) -> ShardId;

@@ -1,7 +1,6 @@
-use actor_remote::codec::{register_message, MessageCodecRegistry, MessageRegistry};
+use actor_remote::codec::{register_message, MessageCodecRegistry};
 use message_extractor::ShardEnvelope;
 
-use crate::shard::Shard;
 use crate::shard_coordinator::get_shard_home::GetShardHome;
 use crate::shard_coordinator::graceful_shutdown_req::GracefulShutdownReq;
 use crate::shard_coordinator::rebalance_worker::begin_handoff_ack::BeginHandoffAck;
@@ -17,7 +16,6 @@ use crate::shard_region::host_shard::HostShard;
 use crate::shard_region::register_ack::RegisterAck;
 use crate::shard_region::shard_home::ShardHome;
 use crate::shard_region::shard_homes::ShardHomes;
-use crate::shard_region::ShardRegion;
 
 pub const CLUSTER_SHARDING_CONFIG: &'static str = include_str!("../cluster-sharding.toml");
 

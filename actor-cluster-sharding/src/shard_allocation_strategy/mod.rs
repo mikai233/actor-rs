@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
 use actor_core::actor_ref::ActorRef;
 use ahash::{HashMap, HashSet};
@@ -10,7 +10,7 @@ use crate::shard_region::ImShardId;
 pub mod cluster_shard_allocation;
 pub mod least_shard_allocation_strategy;
 
-pub trait ShardAllocationStrategy: Send + Sync + Debug + DynClone {
+pub trait ShardAllocationStrategy: Send + Sync + Debug + DynClone + Display {
     fn allocate_shard(
         &self,
         requester: ActorRef,

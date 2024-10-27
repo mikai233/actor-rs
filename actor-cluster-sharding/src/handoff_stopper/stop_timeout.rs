@@ -1,15 +1,30 @@
-use async_trait::async_trait;
+use crate::handoff_stopper::HandoffStopper;
+use actor_core::actor::behavior::Behavior;
+use actor_core::actor::context::Context;
+use actor_core::actor::receive::Receive;
+use actor_core::actor::Actor;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::ActorRef;
+use actor_core::message::handler::MessageHandler;
+use actor_core::message::Message;
+use actor_core::Message;
 use tracing::warn;
 
-use actor_core::actor::context::Context;
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::EmptyCodec;
-use actor_core::Message;
-
-use crate::handoff_stopper::HandoffStopper;
-
-#[derive(Debug, EmptyCodec)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("StopTimeout")]
 pub(super) struct StopTimeout;
+
+impl MessageHandler<HandoffStopper> for StopTimeout {
+    fn handle(
+        actor: &mut HandoffStopper,
+        ctx: &mut <HandoffStopper as Actor>::Context,
+        message: Self,
+        sender: Option<ActorRef>,
+        _: &Receive<HandoffStopper>,
+    ) -> anyhow::Result<Behavior<HandoffStopper>> {
+        todo!()
+    }
+}
 
 #[async_trait]
 impl Message for StopTimeout {

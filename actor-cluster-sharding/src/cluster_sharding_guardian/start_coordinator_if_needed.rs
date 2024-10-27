@@ -5,14 +5,17 @@ use actor_core::actor::Actor;
 use actor_core::message::handler::MessageHandler;
 use imstr::ImString;
 
-use actor_core::actor::context::Context;
+use actor_core::actor::receive::Receive;
+use actor_core::actor_ref::ActorRef;
 use actor_core::Message;
 
 use crate::cluster_sharding_guardian::ClusterShardingGuardian;
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
 
-#[derive(Debug, Message)]
+#[derive(Debug, Message, derive_more::Display)]
+#[display("StartCoordinatorIfNeeded {{ type_name: {type_name}, settings: {settings}, allocation_strategy: {allocation_strategy} }}"
+)]
 pub(crate) struct StartCoordinatorIfNeeded {
     pub(crate) type_name: ImString,
     pub(crate) settings: Arc<ClusterShardingSettings>,
@@ -24,7 +27,7 @@ impl MessageHandler<ClusterShardingGuardian> for StartCoordinatorIfNeeded {
         actor: &mut ClusterShardingGuardian,
         ctx: &mut <ClusterShardingGuardian as Actor>::Context,
         message: Self,
-        sender: Option<ActorRef>,
+        _: Option<ActorRef>,
         _: &Receive<ClusterShardingGuardian>,
     ) -> anyhow::Result<Behavior<ClusterShardingGuardian>> {
         let Self {
@@ -32,7 +35,7 @@ impl MessageHandler<ClusterShardingGuardian> for StartCoordinatorIfNeeded {
             settings,
             allocation_strategy,
         } = message;
-        actor.start_coordinator_if_needed(context, type_name, allocation_strategy, settings)?;
+        actor.start_coordinator_if_needed(ctx, type_name, allocation_strategy, settings)?;
         Ok(Behavior::same())
     }
 }

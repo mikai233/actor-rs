@@ -109,13 +109,13 @@ impl ClusterSharding {
                         allocation_strategy: Box::new(allocation_strategy),
                         handoff_stop_message: handoff_message,
                     };
-                    let started: Started = tokio::task::block_in_place(|| {
+                    let started = tokio::task::block_in_place(|| {
                         tokio::runtime::Handle::current().block_on(async {
                             self.guardian
-                                .ask(start, ASK_TIMEOUT, system.provider())
-                                .await?
+                                .ask::<_, Started>(start, ASK_TIMEOUT, system.provider())
+                                .await
                         })
-                    });
+                    })?;
                     let shard_region = started.shard_region;
                     v.insert(shard_region.clone());
                     Ok(shard_region)

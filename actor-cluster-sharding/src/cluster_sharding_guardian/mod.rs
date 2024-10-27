@@ -4,18 +4,21 @@ use actor_core::actor::Actor;
 use imstr::ImString;
 use tracing::trace;
 
-use actor_cluster::cluster::Cluster;
-use actor_cluster_tools::singleton::cluster_singleton_manager::ClusterSingletonManager;
-use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor::props::PropsBuilder;
-use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::actor_ref::ActorRef;
-
+use crate::cluster_sharding_guardian::start::Start;
+use crate::cluster_sharding_guardian::start_coordinator_if_needed::StartCoordinatorIfNeeded;
+use crate::cluster_sharding_guardian::start_proxy::StartProxy;
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
 use crate::shard_coordinator::terminate_coordinator::TerminateCoordinator;
 use crate::shard_coordinator::ShardCoordinator;
+use actor_cluster::cluster::Cluster;
+use actor_cluster_tools::singleton::cluster_singleton_manager::ClusterSingletonManager;
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::props::PropsBuilder;
+use actor_core::actor::receive::Receive;
+use actor_core::actor_path::TActorPath;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::ActorRef;
 
 pub(crate) mod start;
 pub(crate) mod start_coordinator_if_needed;
@@ -83,7 +86,10 @@ impl Actor for ClusterShardingGuardian {
         Ok(())
     }
 
-    fn receive(&self) -> actor_core::actor::receive::Receive<Self> {
-        todo!()
+    fn receive(&self) -> Receive<Self> {
+        Receive::new()
+            .handle::<Start>()
+            .handle::<StartCoordinatorIfNeeded>()
+            .handle::<StartProxy>()
     }
 }

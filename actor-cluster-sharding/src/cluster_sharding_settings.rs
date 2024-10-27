@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use typed_builder::TypedBuilder;
 
 use actor_cluster::cluster::Cluster;
 use actor_cluster_tools::singleton::cluster_singleton_manager::ClusterSingletonManagerSettings;
@@ -8,7 +7,7 @@ use actor_core::actor::actor_system::ActorSystem;
 
 use crate::config::ClusterShardingConfig;
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone)]
 pub struct ClusterShardingSettings {
     pub role: Option<String>,
     pub shard_region_query_timeout: Duration,

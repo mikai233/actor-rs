@@ -1,4 +1,5 @@
 use std::cmp::{max, min};
+use std::fmt::{Display, Formatter};
 use std::ops::Not;
 use std::time::Duration;
 
@@ -49,6 +50,12 @@ impl ClusterShardAllocation for LeastShardAllocationStrategy {
 
     fn self_member(&self) -> Member {
         self.cluster.self_member().clone()
+    }
+}
+
+impl Display for LeastShardAllocationStrategy {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<LeastShardAllocationStrategy>())
     }
 }
 
