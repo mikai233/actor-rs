@@ -27,21 +27,42 @@ pub(crate) struct GetShardHome {
 impl Message for GetShardHome {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let sender = context.sender().into_result().context(type_name::<GetShardHome>())?.clone();
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
+        let sender = context
+            .sender()
+            .into_result()
+            .context(type_name::<GetShardHome>())?
+            .clone();
         let shard: ImShardId = self.shard.into();
         if !actor.handle_get_shard_home(context, sender.clone(), shard.clone()) {
-            let active_regions: HashMap<_, _> = actor.state.regions.iter().filter(|(region, _)| {
-                actor.graceful_shutdown_in_progress.contains(region).not() && actor.region_termination_in_progress.contains(region).not()
-            }).map(|(region, shards)| {
-                (region.clone(), shards.iter().map(|shard| { shard.clone() }).collect_vec())
-            }).collect();
+            let active_regions: HashMap<_, _> = actor
+                .state
+                .regions
+                .iter()
+                .filter(|(region, _)| {
+                    actor.graceful_shutdown_in_progress.contains(region).not()
+                        && actor.region_termination_in_progress.contains(region).not()
+                })
+                .map(|(region, shards)| {
+                    (
+                        region.clone(),
+                        shards.iter().cloned().collect_vec(),
+                    )
+                })
+                .collect();
             if active_regions.is_empty().not() {
                 let strategy = actor.allocation_strategy.clone();
                 let myself = context.myself().clone();
                 let type_name = actor.type_name.clone();
                 context.spawn_fut("allocate_shard", async move {
-                    match strategy.allocate_shard(sender.clone(), shard.clone(), active_regions).await {
+                    match strategy
+                        .allocate_shard(sender.clone(), shard.clone(), active_regions)
+                        .await
+                    {
                         Ok(region) => {
                             myself.cast_ns(AllocateShardResult {
                                 shard,
@@ -50,7 +71,10 @@ impl Message for GetShardHome {
                             });
                         }
                         Err(error) => {
-                            error!("{}: Shard [{}] allocation failed. {:?}", type_name, shard, error);
+                            error!(
+                                "{}: Shard [{}] allocation failed. {:?}",
+                                type_name, shard, error
+                            );
                             myself.cast_ns(AllocateShardResult {
                                 shard,
                                 shard_region: None,

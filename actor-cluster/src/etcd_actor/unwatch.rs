@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 use tracing::debug;
 
-use actor_core::{DynMessage, Message};
-use actor_core::{EmptyCodec, OrphanEmptyCodec};
 use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::ActorRef;
 use actor_core::ext::option_ext::OptionExt;
+use actor_core::{DynMessage, Message};
+use actor_core::{EmptyCodec, OrphanEmptyCodec};
 
 use crate::etcd_actor::EtcdActor;
 
@@ -19,7 +19,11 @@ pub struct Unwatch {
 impl Message for Unwatch {
     type A = EtcdActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         match self.applicant.as_ref() {
             None => {
                 debug!("unwatch {}", self.id);

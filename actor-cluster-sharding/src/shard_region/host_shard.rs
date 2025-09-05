@@ -24,15 +24,23 @@ pub(crate) struct HostShard {
 impl Message for HostShard {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let type_name = &actor.type_name;
         let shard: ImShardId = self.shard.into();
         if actor.graceful_shutdown_in_progress {
-            debug!("{type_name}: Ignoring Host Shard request for [{shard}] as region is shutting down");
+            debug!(
+                "{type_name}: Ignoring Host Shard request for [{shard}] as region is shutting down"
+            );
             actor.send_graceful_shutdown_to_coordinator_if_in_progress(context)?;
         } else {
             debug!("{type_name}: Host Shard [{shard}]");
-            actor.region_by_shard.insert(shard.clone(), context.myself().clone());
+            actor
+                .region_by_shard
+                .insert(shard.clone(), context.myself().clone());
             match actor.regions.entry(context.myself().clone()) {
                 Entry::Occupied(mut o) => {
                     o.get_mut().insert(shard.clone());
@@ -44,10 +52,13 @@ impl Message for HostShard {
                 }
             }
             actor.get_shard(context, shard.clone())?;
-            context.sender()
+            context
+                .sender()
                 .into_result()
-                .context(std::any::type_name::<HostShard>())
-                ?.cast_ns(ShardStarted { shard: shard.into() });
+                .context(std::any::type_name::<HostShard>())?
+                .cast_ns(ShardStarted {
+                    shard: shard.into(),
+                });
         }
         Ok(())
     }

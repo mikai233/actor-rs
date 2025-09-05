@@ -6,30 +6,30 @@ use std::iter::Peekable;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use bincode::{Decode, Encode, impl_borrow_decode};
 use bincode::de::Decoder;
 use bincode::enc::Encoder;
 use bincode::error::{DecodeError, EncodeError};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use bincode::{impl_borrow_decode, Decode, Encode};
 use serde::de::{Error, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::task_local;
 
-use crate::{DynMessage, Message, OrphanMessage, SystemMessage};
 use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::ext::as_any::AsAny;
 use crate::provider::ActorRefProvider;
+use crate::{DynMessage, Message, OrphanMessage, SystemMessage};
 
-pub(crate) mod virtual_path_container;
-pub mod local_ref;
-pub(crate) mod empty_local_ref;
-pub(crate) mod dead_letter_ref;
-pub(crate) mod function_ref;
-pub mod deferred_ref;
 pub mod actor_ref_factory;
+pub(crate) mod dead_letter_ref;
+pub mod deferred_ref;
+pub(crate) mod empty_local_ref;
+pub(crate) mod function_ref;
 pub(crate) mod ignore_ref;
+pub mod local_ref;
+pub(crate) mod virtual_path_container;
 
 task_local! {
     pub static PROVIDER: Arc<ActorRefProvider>;
@@ -46,7 +46,7 @@ pub trait TActorRef: Debug + Send + Sync + Any + AsAny {
 
     fn parent(&self) -> Option<&ActorRef>;
 
-    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef>;
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef>;
 
     fn resume(&self) {}
 
@@ -56,19 +56,31 @@ pub trait TActorRef: Debug + Send + Sync + Any + AsAny {
 impl<T: ?Sized> ActorRefExt for T where T: TActorRef {}
 
 pub trait ActorRefExt: TActorRef {
-    fn cast<M>(&self, message: M, sender: Option<ActorRef>) where M: Message {
+    fn cast<M>(&self, message: M, sender: Option<ActorRef>)
+    where
+        M: Message,
+    {
         self.tell(DynMessage::user(message), sender);
     }
 
-    fn cast_ns<M>(&self, message: M) where M: Message {
+    fn cast_ns<M>(&self, message: M)
+    where
+        M: Message,
+    {
         self.tell(DynMessage::user(message), ActorRef::no_sender());
     }
 
-    fn cast_orphan<M>(&self, message: M, sender: Option<ActorRef>) where M: OrphanMessage {
+    fn cast_orphan<M>(&self, message: M, sender: Option<ActorRef>)
+    where
+        M: OrphanMessage,
+    {
         self.tell(DynMessage::orphan(message), sender);
     }
 
-    fn cast_orphan_ns<M>(&self, message: M) where M: OrphanMessage {
+    fn cast_orphan_ns<M>(&self, message: M)
+    where
+        M: OrphanMessage,
+    {
         self.tell(DynMessage::orphan(message), ActorRef::no_sender());
     }
 }
@@ -76,7 +88,10 @@ pub trait ActorRefExt: TActorRef {
 impl<T: ?Sized> ActorRefSystemExt for T where T: TActorRef {}
 
 pub trait ActorRefSystemExt: TActorRef {
-    fn cast_system<M>(&self, message: M, sender: Option<ActorRef>) where M: SystemMessage {
+    fn cast_system<M>(&self, message: M, sender: Option<ActorRef>)
+    where
+        M: SystemMessage,
+    {
         self.tell(DynMessage::system(message), sender);
     }
 }
@@ -87,9 +102,12 @@ pub struct ActorRef {
 }
 
 impl ActorRef {
-    pub fn new<R>(actor_ref: R) -> Self where R: TActorRef {
+    pub fn new<R>(actor_ref: R) -> Self
+    where
+        R: TActorRef,
+    {
         Self {
-            inner: Arc::new(actor_ref)
+            inner: Arc::new(actor_ref),
         }
     }
 }
@@ -165,12 +183,14 @@ impl Encode for ActorRef {
     }
 }
 
-impl Decode for ActorRef {
+impl<Context> Decode<Context> for ActorRef {
     fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
         let path: String = Decode::decode(decoder)?;
-        let actor_ref = PROVIDER.try_with(|provider| {
-            provider.resolve_actor_ref(&path)
-        }).map_err(|_| DecodeError::Other("task local value PROVIDER not set in current decode scope"))?;
+        let actor_ref = PROVIDER
+            .try_with(|provider| provider.resolve_actor_ref(&path))
+            .map_err(|_| {
+                DecodeError::Other("task local value PROVIDER not set in current decode scope")
+            })?;
         Ok(actor_ref)
     }
 }
@@ -186,44 +206,56 @@ impl<'de> Visitor<'de> for ActorVisitor {
         write!(formatter, "serialization format actor path")
     }
 
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E> where E: Error {
-        let actor_ref = PROVIDER.try_with(|provider| {
-            provider.resolve_actor_ref(v)
-        }).map_err(|_| Error::custom("task local value PROVIDER not set in current decode scope"))?;
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        let actor_ref = PROVIDER
+            .try_with(|provider| provider.resolve_actor_ref(v))
+            .map_err(|_| {
+                Error::custom("task local value PROVIDER not set in current decode scope")
+            })?;
         Ok(actor_ref)
     }
 
-    fn visit_string<E>(self, v: String) -> Result<Self::Value, E> where E: Error {
-        let actor_ref = PROVIDER.try_with(|provider| {
-            provider.resolve_actor_ref(&v)
-        }).map_err(|_| Error::custom("task local value PROVIDER not set in current decode scope"))?;
+    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        let actor_ref = PROVIDER
+            .try_with(|provider| provider.resolve_actor_ref(&v))
+            .map_err(|_| {
+                Error::custom("task local value PROVIDER not set in current decode scope")
+            })?;
         Ok(actor_ref)
     }
 }
 
 impl Serialize for ActorRef {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let path = self.path().to_serialization_format();
         serializer.serialize_str(&path)
     }
 }
 
 impl<'de> Deserialize<'de> for ActorRef {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         deserializer.deserialize_str(ActorVisitor)
     }
 }
 
 pub(crate) fn get_child_default(
     actor_ref: impl Into<ActorRef>,
-    names: &mut Peekable<&mut dyn Iterator<Item=&str>>,
+    names: &mut Peekable<&mut dyn Iterator<Item = &str>>,
 ) -> Option<ActorRef> {
     match names.next() {
-        None => {
-            Some(actor_ref.into())
-        }
-        Some(_) => {
-            None
-        }
+        None => Some(actor_ref.into()),
+        Some(_) => None,
     }
 }

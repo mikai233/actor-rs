@@ -22,8 +22,16 @@ pub(crate) struct StartCoordinatorIfNeeded {
 impl Message for StartCoordinatorIfNeeded {
     type A = ClusterShardingGuardian;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let Self { type_name, settings, allocation_strategy } = *self;
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
+        let Self {
+            type_name,
+            settings,
+            allocation_strategy,
+        } = *self;
         actor.start_coordinator_if_needed(context, type_name, allocation_strategy, settings)?;
         Ok(())
     }

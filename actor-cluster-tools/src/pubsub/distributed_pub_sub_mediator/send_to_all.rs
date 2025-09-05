@@ -3,8 +3,8 @@ use std::any::type_name;
 use anyhow::ensure;
 use async_trait::async_trait;
 
-use actor_core::{CodecMessage, DynMessage, EmptyCodec, Message};
 use actor_core::actor::context::ActorContext;
+use actor_core::{CodecMessage, DynMessage, EmptyCodec, Message};
 
 use crate::pubsub::distributed_pub_sub_mediator::DistributedPubSubMediator;
 
@@ -19,14 +19,25 @@ pub struct SendToAll {
 impl Message for SendToAll {
     type A = DistributedPubSubMediator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         todo!()
     }
 }
 
 impl SendToAll {
-    pub fn new<M>(path: String, msg: M) -> anyhow::Result<Self> where M: CodecMessage + Clone {
-        ensure!(M::decoder().is_some(), "{} must have a decoder", type_name::<M>());
+    pub fn new<M>(path: String, msg: M) -> anyhow::Result<Self>
+    where
+        M: CodecMessage + Clone,
+    {
+        ensure!(
+            M::decoder().is_some(),
+            "{} must have a decoder",
+            type_name::<M>()
+        );
         let send_to_all = Self {
             path,
             msg: msg.into_dyn(),

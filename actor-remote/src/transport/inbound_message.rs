@@ -17,7 +17,11 @@ pub(super) struct InboundMessage {
 impl Message for InboundMessage {
     type A = TransportActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        _context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let RemotePacket {
             packet,
             sender,
@@ -26,9 +30,7 @@ impl Message for InboundMessage {
         let sender = sender.map(|s| actor.resolve_actor_ref(s));
         let target = actor.resolve_actor_ref(target);
         let reg = &actor.registration;
-        let message = PROVIDER.sync_scope(actor.provider.clone(), || {
-            reg.decode(packet)
-        });
+        let message = PROVIDER.sync_scope(actor.provider.clone(), || reg.decode(packet));
         target.tell(message?, sender);
         Ok(())
     }

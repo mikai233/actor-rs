@@ -17,9 +17,12 @@ pub struct PoolRouterConfig {
 }
 
 impl PoolRouterConfig {
-    pub fn new<P>(pool: P) -> Self where P: Pool + 'static {
+    pub fn new<P>(pool: P) -> Self
+    where
+        P: Pool + 'static,
+    {
         Self {
-            pool: Box::new(pool)
+            pool: Box::new(pool),
         }
     }
 }

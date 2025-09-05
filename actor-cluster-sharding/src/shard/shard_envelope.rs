@@ -2,11 +2,11 @@ use std::any::Any;
 
 use async_trait::async_trait;
 
-use actor_core::{CodecMessage, DynMessage, Message};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::ext::{decode_bytes, encode_bytes};
 use actor_core::message::message_registry::MessageRegistry;
 use actor_core::message::MessageDecoder;
+use actor_core::{CodecMessage, DynMessage, Message};
 
 use crate::message_extractor::{CodecShardEnvelope, ShardEnvelope};
 use crate::shard::Shard;
@@ -16,7 +16,11 @@ use crate::shard_region::ShardRegion;
 impl Message for ShardEnvelope<Shard> {
     type A = Shard;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         actor.deliver_message(context, *self, context.sender().cloned())
     }
 }
@@ -34,12 +38,16 @@ impl CodecMessage for ShardEnvelope<Shard> {
         self
     }
 
-    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+    fn decoder() -> Option<Box<dyn MessageDecoder>>
+    where
+        Self: Sized,
+    {
         #[derive(Clone)]
         struct D;
         impl MessageDecoder for D {
             fn decode(&self, bytes: &[u8], reg: &MessageRegistry) -> anyhow::Result<DynMessage> {
-                let CodecShardEnvelope { entity_id, packet } = decode_bytes::<CodecShardEnvelope>(bytes)?;
+                let CodecShardEnvelope { entity_id, packet } =
+                    decode_bytes::<CodecShardEnvelope>(bytes)?;
                 let message = reg.decode(packet)?;
                 let message = ShardEnvelope::<Shard> {
                     entity_id,
@@ -54,12 +62,11 @@ impl CodecMessage for ShardEnvelope<Shard> {
     }
 
     fn encode(self: Box<Self>, reg: &MessageRegistry) -> anyhow::Result<Vec<u8>> {
-        let ShardEnvelope { entity_id, message, .. } = *self;
+        let ShardEnvelope {
+            entity_id, message, ..
+        } = *self;
         let packet = reg.encode_boxed(message)?;
-        let message = CodecShardEnvelope {
-            entity_id,
-            packet,
-        };
+        let message = CodecShardEnvelope { entity_id, packet };
         encode_bytes(&message)
     }
 
@@ -83,7 +90,9 @@ impl CodecMessage for ShardEnvelope<Shard> {
 
 impl ShardEnvelope<Shard> {
     pub(crate) fn into_shard_region_envelope(self) -> ShardEnvelope<ShardRegion> {
-        let Self { entity_id, message, .. } = self;
+        let Self {
+            entity_id, message, ..
+        } = self;
         ShardEnvelope::<ShardRegion> {
             entity_id,
             message,

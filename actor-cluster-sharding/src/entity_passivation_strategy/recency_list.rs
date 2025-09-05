@@ -6,13 +6,19 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use itertools::Itertools;
 
-pub struct RecencyList<V> where V: Eq + Hash + Clone {
+pub struct RecencyList<V>
+where
+    V: Eq + Hash + Clone,
+{
     recency: VecDeque<Node<V>>,
     // front->less recent back->more recent
     lookup_node: HashMap<V, Node<V>>,
 }
 
-impl<V> RecencyList<V> where V: Eq + Hash + Clone {
+impl<V> RecencyList<V>
+where
+    V: Eq + Hash + Clone,
+{
     pub fn new() -> Self {
         Self {
             recency: Default::default(),
@@ -58,11 +64,11 @@ impl<V> RecencyList<V> where V: Eq + Hash + Clone {
         self.recency.back()
     }
 
-    pub fn least_to_most_recent(&self) -> impl Iterator<Item=&Node<V>> {
+    pub fn least_to_most_recent(&self) -> impl Iterator<Item = &Node<V>> {
         self.recency.iter()
     }
 
-    pub fn most_to_least_recent(&self) -> impl Iterator<Item=&Node<V>> {
+    pub fn most_to_least_recent(&self) -> impl Iterator<Item = &Node<V>> {
         self.recency.iter().rev()
     }
 
@@ -90,9 +96,7 @@ impl<V> RecencyList<V> where V: Eq + Hash + Clone {
                 None => {
                     break;
                 }
-                Some(node) => {
-                    nodes.push(node)
-                }
+                Some(node) => nodes.push(node),
             }
         }
         nodes
@@ -100,9 +104,10 @@ impl<V> RecencyList<V> where V: Eq + Hash + Clone {
 
     pub fn remove_least_recent_outside(&mut self, duration: Duration) -> Vec<V> {
         let min = Self::current_millis() - duration.as_millis();
-        let nodes = self.recency.iter()
-            .filter(|n| n.timestamp < min)
-            .map(|n| n.clone())
+        let nodes = self
+            .recency
+            .iter()
+            .filter(|n| n.timestamp < min).cloned()
             .collect_vec();
         for node in &nodes {
             self.remove(&node.value);
@@ -112,10 +117,11 @@ impl<V> RecencyList<V> where V: Eq + Hash + Clone {
 
     pub fn remove_most_recent_within(&mut self, duration: Duration) -> Vec<V> {
         let max = Self::current_millis() - duration.as_millis();
-        let nodes = self.recency.iter()
+        let nodes = self
+            .recency
+            .iter()
             .rev()
-            .filter(|n| n.timestamp > max)
-            .map(|n| n.clone())
+            .filter(|n| n.timestamp > max).cloned()
             .collect_vec();
         for node in &nodes {
             self.remove(&node.value);
@@ -125,32 +131,35 @@ impl<V> RecencyList<V> where V: Eq + Hash + Clone {
 
     fn remove_node(&mut self, value: &V) -> Option<V> {
         match self.lookup_node.remove(value) {
-            None => {
-                None
-            }
+            None => None,
             Some(node) => {
-                self.recency.retain(|n| {
-                    &node != n
-                });
+                self.recency.retain(|n| &node != n);
                 Some(node.value)
             }
         }
     }
 
     fn current_millis() -> u128 {
-        SystemTime::now().duration_since(UNIX_EPOCH)
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
             .expect("system time before Unix epoch")
             .as_millis()
     }
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
-pub struct Node<V> where V: Eq + Hash + Clone {
+pub struct Node<V>
+where
+    V: Eq + Hash + Clone,
+{
     value: V,
     timestamp: u128,
 }
 
-impl<V> Debug for Node<V> where V: Debug + Eq + Hash + Clone {
+impl<V> Debug for Node<V>
+where
+    V: Debug + Eq + Hash + Clone,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let ty = type_name::<V>();
         f.debug_struct(&format!("Node<{ty}>"))
@@ -217,7 +226,10 @@ mod tests {
         assert!(v.is_empty());
     }
 
-    fn value<V>(list: &RecencyList<V>) -> Vec<V> where V: Eq + Hash + Clone {
+    fn value<V>(list: &RecencyList<V>) -> Vec<V>
+    where
+        V: Eq + Hash + Clone,
+    {
         list.recency.iter().map(|n| n.value.clone()).collect()
     }
 }

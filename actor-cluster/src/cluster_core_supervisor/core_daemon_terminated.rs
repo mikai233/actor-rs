@@ -3,10 +3,10 @@ use std::any::type_name;
 use async_trait::async_trait;
 use tracing::debug;
 
-use actor_core::{CodecMessage, DynMessage, Message};
 use actor_core::actor::context::ActorContext;
-use actor_core::EmptyCodec;
 use actor_core::message::terminated::Terminated;
+use actor_core::EmptyCodec;
+use actor_core::{CodecMessage, DynMessage, Message};
 
 use crate::cluster_core_daemon::ClusterCoreDaemon;
 use crate::cluster_core_supervisor::ClusterCoreSupervisor;
@@ -24,8 +24,16 @@ impl CoreDaemonTerminated {
 impl Message for CoreDaemonTerminated {
     type A = ClusterCoreSupervisor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
-        debug!("{} {} terminated", type_name::<ClusterCoreDaemon>(), self.0.actor);
+    async fn handle(
+        self: Box<Self>,
+        _context: &mut ActorContext,
+        _actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
+        debug!(
+            "{} {} terminated",
+            type_name::<ClusterCoreDaemon>(),
+            self.0.actor
+        );
         Ok(())
     }
 }

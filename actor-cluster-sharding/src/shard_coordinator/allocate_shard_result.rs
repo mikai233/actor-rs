@@ -20,14 +20,27 @@ pub(super) struct AllocateShardResult {
 impl Message for AllocateShardResult {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let Self { shard, shard_region, get_shard_home_sender } = *self;
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
+        let Self {
+            shard,
+            shard_region,
+            get_shard_home_sender,
+        } = *self;
         match shard_region {
             None => {
-                debug!("{}: Shard [{}] allocation failed. It will be retried.", actor.type_name, shard)
+                debug!(
+                    "{}: Shard [{}] allocation failed. It will be retried.",
+                    actor.type_name, shard
+                )
             }
             Some(shard_region) => {
-                actor.continue_get_shard_home(context, shard, shard_region, get_shard_home_sender).await;
+                actor
+                    .continue_get_shard_home(context, shard, shard_region, get_shard_home_sender)
+                    .await;
             }
         }
         Ok(())

@@ -4,9 +4,9 @@ use tracing::{debug, error};
 
 use actor_derive::SystemCodec;
 
-use crate::{Actor, SystemMessage};
 use crate::actor::context::ActorContext;
 use crate::actor_ref::ActorRef;
+use crate::{Actor, SystemMessage};
 
 #[derive(Debug, Encode, Decode, SystemCodec)]
 pub struct Watch {
@@ -16,7 +16,11 @@ pub struct Watch {
 
 #[async_trait]
 impl SystemMessage for Watch {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        _actor: &mut dyn Actor,
+    ) -> anyhow::Result<()> {
         let Watch { watchee, watcher } = *self;
         let watchee_self = watchee == context.myself;
         let watcher_self = watcher == context.myself;
@@ -30,7 +34,10 @@ impl SystemMessage for Watch {
                 debug!("watcher {} already added for {}", watcher, context.myself);
             }
         } else {
-            error!("illegal Watch({},{}) for {}", watchee, watcher, context.myself);
+            error!(
+                "illegal Watch({},{}) for {}",
+                watchee, watcher, context.myself
+            );
         }
         Ok(())
     }

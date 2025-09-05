@@ -10,21 +10,21 @@ use tracing::warn;
 
 use actor_derive::AsAny;
 
-use crate::{DynMessage, MessageType};
 use crate::actor::actor_selection::{ActorSelection, ActorSelectionMessage};
 use crate::actor::actor_system::WeakActorSystem;
 use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::actor::props::{ActorDeferredSpawn, Props};
-use crate::actor_path::ActorPath;
 use crate::actor_path::child_actor_path::ChildActorPath;
+use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
 use crate::cell::actor_cell::ActorCell;
-use crate::cell::Cell;
 use crate::cell::envelope::Envelope;
+use crate::cell::Cell;
 use crate::ext::{check_name, random_actor_name};
 use crate::message::poison_pill::PoisonPill;
 use crate::message::resume::Resume;
 use crate::message::suspend::Suspend;
+use crate::{DynMessage, MessageType};
 
 #[derive(Clone, AsAny)]
 pub struct LocalActorRef {
@@ -106,8 +106,11 @@ impl TActorRef for LocalActorRef {
         self.cell.parent()
     }
 
-    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
-        fn rec(actor: ActorRef, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {
+        fn rec(
+            actor: ActorRef,
+            names: &mut Peekable<&mut dyn Iterator<Item = &str>>,
+        ) -> Option<ActorRef> {
             match actor.local() {
                 None => actor.get_child(names),
                 Some(l) => {
@@ -116,17 +119,15 @@ impl TActorRef for LocalActorRef {
                         None => {
                             return Some(actor);
                         }
-                        Some(name) => {
-                            match name {
-                                ".." => l.parent().cloned(),
-                                "" => Some(actor),
-                                _ => { l.get_single_child(name) }
-                            }
-                        }
+                        Some(name) => match name {
+                            ".." => l.parent().cloned(),
+                            "" => Some(actor),
+                            _ => l.get_single_child(name),
+                        },
                     };
                     match next {
                         None => None,
-                        Some(next) => { rec(next, names) }
+                        Some(next) => rec(next, names),
                     }
                 }
             }
@@ -154,22 +155,25 @@ impl Cell for LocalActorRef {
 
     fn get_single_child(&self, name: &str) -> Option<ActorRef> {
         match self.cell.get_single_child(name) {
-            None => {
-                self.cell.get_function_ref(name).map(|r| r.into())
-            }
-            Some(child) => { Some(child) }
+            None => self.cell.get_function_ref(name).map(|r| r.into()),
+            Some(child) => Some(child),
         }
     }
 }
 
-impl Into<ActorRef> for LocalActorRef {
-    fn into(self) -> ActorRef {
-        ActorRef::new(self)
+impl From<LocalActorRef> for ActorRef {
+    fn from(val: LocalActorRef) -> Self {
+        ActorRef::new(val)
     }
 }
 
 impl LocalActorRef {
-    pub(crate) fn new(system: WeakActorSystem, path: ActorPath, sender: MailboxSender, cell: ActorCell) -> Self {
+    pub(crate) fn new(
+        system: WeakActorSystem,
+        path: ActorPath,
+        sender: MailboxSender,
+        cell: ActorCell,
+    ) -> Self {
         Self {
             inner: Arc::new(Inner {
                 system,
@@ -238,11 +242,7 @@ impl LocalActorRef {
         uid: Option<i32>,
     ) -> anyhow::Result<(ActorRef, ActorDeferredSpawn)> {
         let (child_ref, mailbox) = self.make_child(&props, name, uid)?;
-        let deferred_spawn = ActorDeferredSpawn::new(
-            child_ref.clone(),
-            mailbox,
-            props.spawner,
-        );
+        let deferred_spawn = ActorDeferredSpawn::new(child_ref.clone(), mailbox, props.spawner);
         Ok((child_ref, deferred_spawn))
     }
 
@@ -272,7 +272,9 @@ impl LocalActorRef {
             sender,
             cell: ActorCell::new(Some(self.clone().into())),
         };
-        let child_ref = LocalActorRef { inner: inner.into() };
+        let child_ref = LocalActorRef {
+            inner: inner.into(),
+        };
         self.cell.insert_child(name, child_ref.clone());
         Ok((child_ref.into(), mailbox))
     }

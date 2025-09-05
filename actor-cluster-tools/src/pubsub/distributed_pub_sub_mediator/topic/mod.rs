@@ -1,2 +1,2 @@
-mod topic;
 mod group;
+mod topic;

@@ -17,7 +17,11 @@ pub(crate) struct ShardStarted {
 impl Message for ShardStarted {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        _context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         if let Some(key) = actor.un_acked_host_shards.remove(self.shard.as_str()) {
             key.cancel();
         }

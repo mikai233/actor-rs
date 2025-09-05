@@ -40,7 +40,10 @@ impl ClusterEvent {
         Self::MemberRemoved(member)
     }
 
-    pub fn current_cluster_state(members: HashMap<UniqueAddress, Member>, self_member: Member) -> Self {
+    pub fn current_cluster_state(
+        members: HashMap<UniqueAddress, Member>,
+        self_member: Member,
+    ) -> Self {
         Self::CurrentClusterState {
             members,
             self_member,

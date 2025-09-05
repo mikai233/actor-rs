@@ -22,14 +22,28 @@ pub(crate) struct BeginHandoffAck {
 impl Message for BeginHandoffAck {
     type A = RebalanceWorker;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let shard = self.shard;
-        let sender = context.sender().into_result().context(type_name::<BeginHandoffAck>())?.clone();
+        let sender = context
+            .sender()
+            .into_result()
+            .context(type_name::<BeginHandoffAck>())?
+            .clone();
         if actor.shard == shard {
-            debug!("{}: BeginHandOffAck for shard [{}] received from [{}].", actor.type_name, actor.shard, sender);
+            debug!(
+                "{}: BeginHandOffAck for shard [{}] received from [{}].",
+                actor.type_name, actor.shard, sender
+            );
             actor.acked(context, &sender);
         } else {
-            debug!("{}: Ignore unknown BeginHandOffAck for shard [{}] received from [{}].", actor.type_name, actor.shard, sender);
+            debug!(
+                "{}: Ignore unknown BeginHandOffAck for shard [{}] received from [{}].",
+                actor.type_name, actor.shard, sender
+            );
         }
         Ok(())
     }

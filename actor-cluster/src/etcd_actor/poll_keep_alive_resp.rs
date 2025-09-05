@@ -3,8 +3,8 @@ use std::sync::Arc;
 use std::task::Poll;
 
 use async_trait::async_trait;
-use futures::StreamExt;
 use futures::task::ArcWake;
+use futures::StreamExt;
 
 use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
@@ -20,7 +20,11 @@ pub(super) struct PollKeepAliveResp;
 impl Message for PollKeepAliveResp {
     type A = EtcdActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        _context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let mut cx = futures::task::Context::from_waker(&actor.keep_alive_resp_waker);
         let mut failed = vec![];
         for (id, lease) in &mut actor.lease {

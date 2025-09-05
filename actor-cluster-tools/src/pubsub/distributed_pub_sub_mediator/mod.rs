@@ -1,18 +1,18 @@
 use async_trait::async_trait;
 use tracing::trace;
 
-use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::{Actor, DynMessage};
 
-pub mod subscribe;
-pub mod unsubscribe;
+pub mod count;
+pub mod get_topics;
+mod per_grouping_buffer;
 pub mod publish;
 pub mod send;
 pub mod send_to_all;
-pub mod get_topics;
-pub mod count;
+pub mod subscribe;
 mod topic;
-mod per_grouping_buffer;
+pub mod unsubscribe;
 
 #[derive(Debug)]
 pub struct DistributedPubSubMediator {
@@ -27,7 +27,11 @@ impl Actor for DistributedPubSubMediator {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

@@ -15,7 +15,11 @@ pub(super) struct Retry;
 impl Message for Retry {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         if actor.shard_buffers.is_empty().not() {
             actor.retry_count += 1;
         }

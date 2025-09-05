@@ -18,19 +18,19 @@ use crate::shard_region::shard_home::ShardHome;
 use crate::shard_region::shard_homes::ShardHomes;
 use crate::shard_region::ShardRegion;
 
-pub const CLUSTER_SHARDING_CONFIG: &'static str = include_str!("../cluster-sharding.toml");
+pub const CLUSTER_SHARDING_CONFIG: &str = include_str!("../cluster-sharding.toml");
 
-pub mod shard_region;
 pub mod cluster_sharding;
 mod cluster_sharding_guardian;
-pub mod config;
-pub mod shard_coordinator;
 pub mod cluster_sharding_settings;
-pub mod message_extractor;
-pub mod shard;
+pub mod config;
 mod entity_passivation_strategy;
 mod handoff_stopper;
+pub mod message_extractor;
+pub mod shard;
 pub mod shard_allocation_strategy;
+pub mod shard_coordinator;
+pub mod shard_region;
 
 pub type ShardEnvelope = message_extractor::ShardEnvelope<ShardRegion>;
 

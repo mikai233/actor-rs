@@ -20,9 +20,16 @@ pub(crate) struct AddOnMemberRemovedListener(pub(crate) Box<dyn FnOnce() + Send>
 impl Message for AddOnMemberRemovedListener {
     type A = ClusterDaemon;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        _actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let listener = context.spawn_anonymous(Props::new_with_ctx(|ctx| {
-            Ok(OnMemberStatusChangedListener::new(ctx, MemberStatus::Removed))
+            Ok(OnMemberStatusChangedListener::new(
+                ctx,
+                MemberStatus::Removed,
+            ))
         }))?;
         listener.cast_ns(AddStatusCallback(self.0));
         trace!("{} add callback on member removed", context.myself());

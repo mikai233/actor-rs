@@ -1,12 +1,12 @@
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
-use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
 
 use crate::actor::address::Address;
-use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_path::root_actor_path::RootActorPath;
+use crate::actor_path::{ActorPath, TActorPath};
 
 #[derive(Debug, Clone)]
 pub struct ChildActorPath {
@@ -99,7 +99,12 @@ impl TActorPath for ChildActorPath {
     }
 
     fn to_string_with_address(&self, address: &Address) -> String {
-        let path = self.elements().iter().map(|e| e.as_str()).collect::<Vec<_>>().join("/");
+        let path = self
+            .elements()
+            .iter()
+            .map(|e| e.as_str())
+            .collect::<Vec<_>>()
+            .join("/");
         format!("{}/{}", address, path)
     }
 
@@ -127,7 +132,12 @@ impl ChildActorPath {
             name
         );
         Self {
-            inner: Arc::new(Inner { parent, name, uid, cached_hash: AtomicU64::default() }),
+            inner: Arc::new(Inner {
+                parent,
+                name,
+                uid,
+                cached_hash: AtomicU64::default(),
+            }),
         }
     }
 

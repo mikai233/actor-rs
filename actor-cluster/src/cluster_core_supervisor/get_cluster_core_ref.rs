@@ -2,8 +2,8 @@ use async_trait::async_trait;
 
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;
-use actor_core::EmptyCodec;
 use actor_core::ext::option_ext::OptionExt;
+use actor_core::EmptyCodec;
 use actor_core::Message;
 
 use crate::cluster_core_supervisor::ClusterCoreSupervisor;
@@ -16,14 +16,14 @@ pub(crate) struct GetClusterCoreRef;
 impl Message for GetClusterCoreRef {
     type A = ClusterCoreSupervisor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let core_daemon = match &actor.core_daemon {
-            None => {
-                actor.create_children(context)?
-            }
-            Some(core_daemon) => {
-                core_daemon.clone()
-            }
+            None => actor.create_children(context)?,
+            Some(core_daemon) => core_daemon.clone(),
         };
         let sender = context.sender().into_result()?;
         sender.cast_orphan_ns(GetClusterCoreRefResp(core_daemon));

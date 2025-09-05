@@ -7,17 +7,7 @@ use serde::{Deserialize, Serialize};
 use actor_core::actor::address::Address;
 
 #[derive(
-    Debug,
-    Clone,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Hash,
-    Encode,
-    Decode,
-    Serialize,
-    Deserialize
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Encode, Decode, Serialize, Deserialize,
 )]
 pub struct UniqueAddress {
     pub address: Address,
@@ -34,7 +24,8 @@ impl UniqueAddress {
     }
 
     pub fn socket_addr_with_uid(&self) -> Option<String> {
-        self.socket_addr().map(|addr| format!("{}/{}", addr, self.uid))
+        self.socket_addr()
+            .map(|addr| format!("{}/{}", addr, self.uid))
     }
 }
 

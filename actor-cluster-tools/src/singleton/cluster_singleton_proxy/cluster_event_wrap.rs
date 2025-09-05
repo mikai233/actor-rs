@@ -18,7 +18,11 @@ pub(super) struct ClusterEventWrap(pub(super) ClusterEvent);
 impl Message for ClusterEventWrap {
     type A = ClusterSingletonProxy;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         match self.0 {
             ClusterEvent::MemberUp(m) => {
                 debug!("member up {}", m);
@@ -42,7 +46,7 @@ impl Message for ClusterEventWrap {
             ClusterEvent::CurrentClusterState { members, .. } => {
                 let host_members = members
                     .into_iter()
-                    .filter(|(_, m)| { m.status == MemberStatus::Up && actor.matching_role(m) })
+                    .filter(|(_, m)| m.status == MemberStatus::Up && actor.matching_role(m))
                     .collect::<HashMap<_, _>>();
                 actor.host_singleton_members.extend(host_members);
                 actor.identify_singleton(context);

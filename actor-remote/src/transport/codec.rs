@@ -14,9 +14,7 @@ pub struct Packet {
 
 impl Packet {
     pub fn new(body: Vec<u8>) -> Self {
-        Self {
-            body
-        }
+        Self { body }
     }
 }
 
@@ -59,12 +57,12 @@ impl Decoder for PacketCodec {
             return Ok(None);
         }
         let body_len = read_u32(src, 0);
-        return if body_len > (buf_len - 4) as u32 {
+        if body_len > (buf_len - 4) as u32 {
             src.reserve(body_len as usize);
             Ok(None)
         } else {
             let src = src.split_to(4 + body_len as usize);
             Ok(Some(Packet::new(src[4..].to_vec())))
-        };
+        }
     }
 }

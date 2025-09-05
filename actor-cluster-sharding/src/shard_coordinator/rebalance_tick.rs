@@ -19,19 +19,28 @@ pub(super) struct RebalanceTick;
 impl Message for RebalanceTick {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         if actor.state.regions.is_empty().not() && actor.preparing_for_shutdown.not() {
             let strategy = actor.allocation_strategy.clone();
-            let regions = actor.state.regions
+            let regions = actor
+                .state
+                .regions
                 .clone()
                 .into_iter()
                 .map(|(region, shards)| {
-                    (region, shards.iter().map(|shard| { shard.clone() }).collect_vec())
+                    (
+                        region,
+                        shards.iter().cloned().collect_vec(),
+                    )
                 })
                 .collect();
-            let rebalance_in_progress = actor.rebalance_in_progress
-                .keys()
-                .map(|shard| { shard.clone() })
+            let rebalance_in_progress = actor
+                .rebalance_in_progress
+                .keys().cloned()
                 .collect();
             let myself = context.myself().clone();
             let type_name = actor.type_name.clone();
@@ -42,7 +51,9 @@ impl Message for RebalanceTick {
                     }
                     Err(error) => {
                         debug!("{}: Rebalance error: {:?}", type_name, error);
-                        myself.cast_ns(RebalanceResult { shards: Default::default() });
+                        myself.cast_ns(RebalanceResult {
+                            shards: Default::default(),
+                        });
                     }
                 }
             })?;

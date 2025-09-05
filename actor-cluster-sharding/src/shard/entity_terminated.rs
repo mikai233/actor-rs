@@ -3,10 +3,10 @@ use std::ops::Not;
 use async_trait::async_trait;
 use tracing::{debug, warn};
 
-use actor_core::{CodecMessage, DynMessage, Message};
 use actor_core::actor::context::ActorContext;
-use actor_core::EmptyCodec;
 use actor_core::message::terminated::Terminated;
+use actor_core::EmptyCodec;
+use actor_core::{CodecMessage, DynMessage, Message};
 
 use crate::shard::entity_state::EntityState;
 use crate::shard::Shard;
@@ -24,11 +24,18 @@ impl EntityTerminated {
 impl Message for EntityTerminated {
     type A = Shard;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let entity = self.0.actor;
         match actor.entities.entity_id(&entity) {
             None => {
-                warn!("{}: Unexpected entity terminated: {}", actor.type_name, entity);
+                warn!(
+                    "{}: Unexpected entity terminated: {}",
+                    actor.type_name, entity
+                );
             }
             Some(entity_id) => {
                 // TODO passivationStrategy
@@ -48,11 +55,17 @@ impl Message for EntityTerminated {
                                 actor.get_or_create_entity(context, &entity_id)?;
                                 actor.send_message_buffer(context, &entity_id)?;
                             } else {
-                                debug!("{}: [{}] terminated after passivating", actor.type_name, entity_id);
+                                debug!(
+                                    "{}: [{}] terminated after passivating",
+                                    actor.type_name, entity_id
+                                );
                                 actor.entities.remove_entity(&entity_id);
                             }
                         } else {
-                            debug!("{}: [{}] terminated after passivating", actor.type_name, entity_id);
+                            debug!(
+                                "{}: [{}] terminated after passivating",
+                                actor.type_name, entity_id
+                            );
                             actor.entities.remove_entity(&entity_id);
                         }
                     }

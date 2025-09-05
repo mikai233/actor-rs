@@ -39,20 +39,21 @@ impl Entities {
     }
 
     pub(super) fn add_entity(&mut self, entity_id: ImEntityId, entity: ActorRef) {
-        self.entities.insert(entity_id.clone(), EntityState::Active(entity_id.clone(), entity.clone()));
+        self.entities.insert(
+            entity_id.clone(),
+            EntityState::Active(entity_id.clone(), entity.clone()),
+        );
         self.by_ref.insert(entity, entity_id);
     }
 
     pub(super) fn entity(&self, entity_id: &str) -> Option<&ActorRef> {
         match self.entities.get(entity_id) {
             None => None,
-            Some(state) => {
-                match state {
-                    EntityState::Active(_, entity) => Some(entity),
-                    EntityState::Passivation(_, entity) => Some(entity),
-                    _ => None,
-                }
-            }
+            Some(state) => match state {
+                EntityState::Active(_, entity) => Some(entity),
+                EntityState::Passivation(_, entity) => Some(entity),
+                _ => None,
+            },
         }
     }
 
@@ -70,15 +71,20 @@ impl Entities {
     pub(super) fn entity_passivating(&mut self, entity_id: ImEntityId) -> anyhow::Result<()> {
         debug!("[{}] passivating", entity_id);
         match self.entities.remove(&entity_id) {
-            None => {
-                Err(anyhow!("no entity found with entity id {}", entity_id))
-            }
+            None => Err(anyhow!("no entity found with entity id {}", entity_id)),
             Some(state) => {
                 if let EntityState::Active(entity_id, entity) = state {
-                    self.entities.insert(entity_id.clone(), EntityState::Passivation(entity_id, entity));
+                    self.entities.insert(
+                        entity_id.clone(),
+                        EntityState::Passivation(entity_id, entity),
+                    );
                     Ok(())
                 } else {
-                    Err(anyhow!("entity {} not in active state {}", entity_id, state))
+                    Err(anyhow!(
+                        "entity {} not in active state {}",
+                        entity_id,
+                        state
+                    ))
                 }
             }
         }

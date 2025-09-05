@@ -3,12 +3,12 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::{debug, warn};
 
-use actor_core::{CodecMessage, Message};
 use actor_core::actor::context::{ActorContext, Context, ContextExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::MessageCodec;
+use actor_core::{CodecMessage, Message};
 
 use crate::shard_coordinator::rebalance_worker::shard_stopped::ShardStopped;
 use crate::shard_region::ShardRegion;
@@ -22,7 +22,11 @@ pub(crate) struct Handoff {
 impl Message for Handoff {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let type_name = &actor.type_name;
         let shard_id = self.shard.into();
         debug!("{type_name}: Handoff shard [{shard_id}]");
@@ -39,14 +43,23 @@ impl Message for Handoff {
         }
         match actor.shards.get(&shard_id) {
             None => {
-                context.sender()
+                context
+                    .sender()
                     .into_result()
-                    .context(std::any::type_name::<Handoff>())
-                    ?.cast_ns(ShardStopped { shard: shard_id.into() });
+                    .context(std::any::type_name::<Handoff>())?
+                    .cast_ns(ShardStopped {
+                        shard: shard_id.into(),
+                    });
             }
             Some(shard) => {
                 actor.handing_off.insert(shard.clone());
-                context.forward(shard, crate::shard::handoff::Handoff { shard: shard_id.into() }.into_dyn());
+                context.forward(
+                    shard,
+                    crate::shard::handoff::Handoff {
+                        shard: shard_id.into(),
+                    }
+                    .into_dyn(),
+                );
             }
         }
         Ok(())

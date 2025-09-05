@@ -7,9 +7,9 @@ use actor_derive::AsAny;
 
 use crate::actor::actor_system::WeakActorSystem;
 use crate::actor::address::Address;
-use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_path::root_actor_path::RootActorPath;
-use crate::actor_ref::{ActorRef, get_child_default, TActorRef};
+use crate::actor_path::{ActorPath, TActorPath};
+use crate::actor_ref::{get_child_default, ActorRef, TActorRef};
 use crate::DynMessage;
 
 #[derive(Clone, AsAny)]
@@ -56,14 +56,14 @@ impl TActorRef for IgnoreActorRef {
         None
     }
 
-    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {
         get_child_default(self.clone(), names)
     }
 }
 
-impl Into<ActorRef> for IgnoreActorRef {
-    fn into(self) -> ActorRef {
-        ActorRef::new(self)
+impl From<IgnoreActorRef> for ActorRef {
+    fn from(val: IgnoreActorRef) -> Self {
+        ActorRef::new(val)
     }
 }
 
@@ -82,7 +82,6 @@ impl IgnoreActorRef {
     fn path() -> ActorPath {
         RootActorPath::new(Address::new("tcp", Self::fake_system_name(), None), "/")
             .child("ignore")
-            .into()
     }
 
     fn is_ignore_ref_path_str(&self, other_path: &str) -> bool {

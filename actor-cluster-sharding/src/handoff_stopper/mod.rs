@@ -4,11 +4,11 @@ use ahash::HashSet;
 use async_trait::async_trait;
 use imstr::ImString;
 
-use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor::timers::{ScheduleKey, Timers};
 use actor_core::actor_ref::ActorRef;
+use actor_core::{Actor, DynMessage};
 
 use crate::handoff_stopper::entity_terminated::EntityTerminated;
 use crate::handoff_stopper::stop_timeout::StopTimeout;
@@ -16,8 +16,8 @@ use crate::handoff_stopper::stop_timeout_warning::StopTimeoutWarning;
 use crate::shard_region::ImShardId;
 
 mod entity_terminated;
-mod stop_timeout_warning;
 mod stop_timeout;
+mod stop_timeout_warning;
 
 const STOP_TIMEOUT_WARNING_AFTER: Duration = Duration::from_secs(5);
 
@@ -44,7 +44,15 @@ impl HandoffStopper {
         handoff_timeout: Duration,
     ) -> Props {
         Props::new_with_ctx(move |context| {
-            Self::new(context, type_name, shard, replay_to, entities, stop_message, handoff_timeout)
+            Self::new(
+                context,
+                type_name,
+                shard,
+                replay_to,
+                entities,
+                stop_message,
+                handoff_timeout,
+            )
         })
     }
 
@@ -57,7 +65,8 @@ impl HandoffStopper {
         stop_message: DynMessage,
         handoff_timeout: Duration,
     ) -> anyhow::Result<Self> {
-        let entity_handoff_timeout = (handoff_timeout - STOP_TIMEOUT_WARNING_AFTER).max(Duration::from_secs(1));
+        let entity_handoff_timeout =
+            (handoff_timeout - STOP_TIMEOUT_WARNING_AFTER).max(Duration::from_secs(1));
         let timers = Timers::new(context)?;
         let stop_timeout_warning_key = timers.start_single_timer(
             STOP_TIMEOUT_WARNING_AFTER,
@@ -90,7 +99,11 @@ impl HandoffStopper {
 
 #[async_trait]
 impl Actor for HandoffStopper {
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

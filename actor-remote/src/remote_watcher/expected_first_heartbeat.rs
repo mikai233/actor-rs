@@ -17,9 +17,15 @@ pub(super) struct ExpectedFirstHeartbeat {
 impl Message for ExpectedFirstHeartbeat {
     type A = RemoteWatcher;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let address = self.from;
-        if actor.watchee_by_nodes.contains_key(&address) && !actor.failure_detector.is_monitoring(&address) {
+        if actor.watchee_by_nodes.contains_key(&address)
+            && !actor.failure_detector.is_monitoring(&address)
+        {
             debug!("Trigger extra expected heartbeat from [{}]", address);
             actor.failure_detector.heartbeat(address);
         }

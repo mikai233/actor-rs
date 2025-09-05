@@ -1,12 +1,12 @@
-pub(crate) const REMOTE_CONFIG: &'static str = include_str!("../remote.toml");
+pub(crate) const REMOTE_CONFIG: &str = include_str!("../remote.toml");
 
-pub mod remote_provider;
-pub mod transport;
-pub mod remote_actor_ref;
-pub mod remote_setting;
 pub mod config;
-mod remote_watcher;
 mod failure_detector;
+pub mod remote_actor_ref;
+pub mod remote_provider;
+pub mod remote_setting;
+mod remote_watcher;
+pub mod transport;
 
 #[cfg(test)]
 mod test {

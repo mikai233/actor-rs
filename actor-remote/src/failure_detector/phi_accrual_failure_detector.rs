@@ -55,8 +55,14 @@ pub struct PhiAccrualFailureDetector {
 
 impl PhiAccrualFailureDetector {
     fn check_valid(&self) {
-        assert!(self.threshold > 0.0, "failure-detector.threshold must be > 0");
-        assert!(self.max_sample_size > 0, "failure-detector.max-sample-size must be > 0");
+        assert!(
+            self.threshold > 0.0,
+            "failure-detector.threshold must be > 0"
+        );
+        assert!(
+            self.max_sample_size > 0,
+            "failure-detector.max-sample-size must be > 0"
+        );
     }
 
     pub fn new(
@@ -84,7 +90,10 @@ impl PhiAccrualFailureDetector {
         detector
     }
 
-    fn first_heartbeat(first_heartbeat_estimate: Duration, max_sample_size: i32) -> HeartbeatHistory {
+    fn first_heartbeat(
+        first_heartbeat_estimate: Duration,
+        max_sample_size: i32,
+    ) -> HeartbeatHistory {
         let mean = first_heartbeat_estimate.as_millis();
         let std_deviation = mean / 4;
         HeartbeatHistory::new(max_sample_size)
@@ -94,15 +103,17 @@ impl PhiAccrualFailureDetector {
 
     fn calc_phi(&self, timestamp: i64) -> f64 {
         match self.state.timestamp {
-            None => {
-                0.0
-            }
+            None => 0.0,
             Some(old_timestamp) => {
                 let time_diff = timestamp - old_timestamp;
                 let history = &self.state.history;
                 let mean = history.mean();
                 let std_deviation = self.ensure_valid_std_deviation(history.std_deviation());
-                Self::phi(time_diff as f64, mean + self.acceptable_heartbeat_pause_millis() as f64, std_deviation)
+                Self::phi(
+                    time_diff as f64,
+                    mean + self.acceptable_heartbeat_pause_millis() as f64,
+                    std_deviation,
+                )
             }
         }
     }
@@ -133,7 +144,10 @@ impl PhiAccrualFailureDetector {
     }
 
     fn millis() -> i64 {
-        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64
     }
 
     fn is_available(&self, timestamp: i64) -> bool {
@@ -161,9 +175,14 @@ impl FailureDetector for PhiAccrualFailureDetector {
             Some(latest_timestamp) => {
                 let interval = timestamp - latest_timestamp;
                 if self.is_available(timestamp) {
-                    if interval >= (self.acceptable_heartbeat_pause_millis() / 3 * 2) && self.event_stream.is_some() {
+                    if interval >= (self.acceptable_heartbeat_pause_millis() / 3 * 2)
+                        && self.event_stream.is_some()
+                    {
                         //TODO
-                        warn!("heartbeat interval is growing too large for address {}: {} millis", "empty", interval);
+                        warn!(
+                            "heartbeat interval is growing too large for address {}: {} millis",
+                            "empty", interval
+                        );
                     }
                     let new_history = self.state.history.add_interval(interval);
                     self.state.history = new_history;
@@ -184,9 +203,21 @@ struct HeartbeatHistory {
 
 impl HeartbeatHistory {
     fn check_valid(&self) {
-        assert!(self.max_sample_size < 1, "max_sample_size must be >= 1, got {}", self.max_sample_size);
-        assert!(self.interval_sum < 0, "interval_sum must be >= 0, got {}", self.interval_sum);
-        assert!(self.squared_interval_sum < 0, "squared_interval_sum must be >= 0, got {}", self.squared_interval_sum);
+        assert!(
+            self.max_sample_size < 1,
+            "max_sample_size must be >= 1, got {}",
+            self.max_sample_size
+        );
+        assert!(
+            self.interval_sum < 0,
+            "interval_sum must be >= 0, got {}",
+            self.interval_sum
+        );
+        assert!(
+            self.squared_interval_sum < 0,
+            "squared_interval_sum must be >= 0, got {}",
+            self.squared_interval_sum
+        );
     }
 
     fn new(max_sample_size: i32) -> Self {

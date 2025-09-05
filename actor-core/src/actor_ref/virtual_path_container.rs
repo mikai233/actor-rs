@@ -4,17 +4,17 @@ use std::iter::Peekable;
 use std::ops::{Deref, Not};
 use std::sync::Arc;
 
-use dashmap::DashMap;
 use dashmap::mapref::one::Ref;
+use dashmap::DashMap;
 
 use actor_derive::AsAny;
 
-use crate::{DynMessage, MessageType};
 use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, ActorRefSystemExt, TActorRef};
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::terminate::Terminate;
+use crate::{DynMessage, MessageType};
 
 #[derive(Clone, AsAny)]
 pub struct VirtualPathContainer {
@@ -57,8 +57,8 @@ impl TActorRef for VirtualPathContainer {
     }
 
     fn tell(&self, message: DynMessage, _sender: Option<ActorRef>) {
-        if matches!(message.ty, MessageType::System) {
-            if message.name == type_name::<Terminate>() {
+        if matches!(message.ty, MessageType::System)
+            && message.name == type_name::<Terminate>() {
                 let notification = DeathWatchNotification {
                     actor: self.clone().into(),
                     existence_confirmed: true,
@@ -66,7 +66,6 @@ impl TActorRef for VirtualPathContainer {
                 };
                 self.parent.cast_system(notification, ActorRef::no_sender());
             }
-        }
     }
 
     fn stop(&self) {}
@@ -75,22 +74,16 @@ impl TActorRef for VirtualPathContainer {
         Some(&self.parent)
     }
 
-    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {
         match names.next() {
-            None => {
-                Some(self.clone().into())
-            }
+            None => Some(self.clone().into()),
             Some(name) => {
                 if name.is_empty() {
                     Some(self.clone().into())
                 } else {
                     match self.children.get(name) {
-                        None => {
-                            None
-                        }
-                        Some(child) => {
-                            child.value().get_child(names)
-                        }
+                        None => None,
+                        Some(child) => child.value().get_child(names),
                     }
                 }
             }
@@ -98,9 +91,9 @@ impl TActorRef for VirtualPathContainer {
     }
 }
 
-impl Into<ActorRef> for VirtualPathContainer {
-    fn into(self) -> ActorRef {
-        ActorRef::new(self)
+impl From<VirtualPathContainer> for ActorRef {
+    fn from(val: VirtualPathContainer) -> Self {
+        ActorRef::new(val)
     }
 }
 
@@ -126,11 +119,15 @@ impl VirtualPathContainer {
         self.children.remove(name)
     }
 
-    pub(crate) fn remove_child_ref(&self, name: &String, child: &ActorRef) -> Option<(String, ActorRef)> {
-        self.children.remove_if(name, |_, c| { c == child })
+    pub(crate) fn remove_child_ref(
+        &self,
+        name: &String,
+        child: &ActorRef,
+    ) -> Option<(String, ActorRef)> {
+        self.children.remove_if(name, |_, c| c == child)
     }
 
-    pub(crate) fn get_child(&self, name: &String) -> Option<Ref<String, ActorRef, ahash::RandomState>> {
+    pub(crate) fn get_child(&self, name: &String) -> Option<Ref<String, ActorRef>> {
         self.children.get(name)
     }
 

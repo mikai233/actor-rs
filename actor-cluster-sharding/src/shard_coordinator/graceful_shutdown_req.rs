@@ -20,15 +20,27 @@ pub(crate) struct GracefulShutdownReq {
 impl Message for GracefulShutdownReq {
     type A = ShardCoordinator;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let region = self.shard_region;
         if actor.graceful_shutdown_in_progress.contains(&region).not() {
             match actor.state.regions.get(&region) {
                 None => {
-                    debug!("{}: Unknown region requested graceful shutdown [{}]", actor.type_name, region);
+                    debug!(
+                        "{}: Unknown region requested graceful shutdown [{}]",
+                        actor.type_name, region
+                    );
                 }
                 Some(shards) => {
-                    debug!("{}: Graceful shutdown of region [{}] with [{}] shards", actor.type_name, region, shards.len());
+                    debug!(
+                        "{}: Graceful shutdown of region [{}] with [{}] shards",
+                        actor.type_name,
+                        region,
+                        shards.len()
+                    );
                     actor.graceful_shutdown_in_progress.insert(region.clone());
                     actor.shutdown_shards(context, region, shards.clone())?;
                 }

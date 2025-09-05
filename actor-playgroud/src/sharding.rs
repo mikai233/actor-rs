@@ -32,14 +32,17 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let Args { system_name, addr, etcd, start_entity } = Args::try_parse()?;
+    let Args {
+        system_name,
+        addr,
+        etcd,
+        start_entity,
+    } = Args::try_parse()?;
     init_logger_with_filter("debug,actor=debug,actor_core::actor::scheduler=info,actor_remote::remote_watcher=info,h2=info,tower=info,hyper=info");
     let client = Client::connect([etcd.to_string()], None).await?;
     let setting = actor_sharding_setting(addr, client)?;
     let system = ActorSystem::new(system_name, setting)?;
-    system.register_extension(|system| {
-        ClusterSharding::new_with_default_config(system)
-    })?;
+    system.register_extension(ClusterSharding::new_with_default_config)?;
     let builder = player_actor_builder();
     let settings = ClusterShardingSettings::create(&system);
     let strategy = LeastShardAllocationStrategy::new(&system, 1, 1.0);
@@ -51,7 +54,8 @@ async fn main() -> anyhow::Result<()> {
             PlayerMessageExtractor,
             strategy,
             HandoffPlayer,
-        ).await?;
+        )
+        .await?;
     let handle = if start_entity {
         let handle = tokio::spawn(async move {
             let mut index = 1;
@@ -65,10 +69,7 @@ async fn main() -> anyhow::Result<()> {
                     for _ in 0..1048576 {
                         data.push(random());
                     }
-                    let hello = Hello {
-                        index,
-                        data,
-                    };
+                    let hello = Hello { index, data };
                     player_shard_region.cast_ns(ShardEnvelope::new(id.to_string(), hello));
                     tokio::time::sleep(Duration::from_millis(200)).await;
                     index += 1;

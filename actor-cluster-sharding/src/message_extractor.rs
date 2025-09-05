@@ -5,8 +5,8 @@ use std::marker::PhantomData;
 use bincode::{Decode, Encode};
 use dyn_clone::DynClone;
 
-use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::message::message_registry::IDPacket;
+use actor_core::{Actor, CodecMessage, DynMessage};
 
 use crate::shard_region::{EntityId, ShardId};
 
@@ -23,14 +23,23 @@ pub trait MessageExtractor: Send + Sync + DynClone + Debug {
 dyn_clone::clone_trait_object!(MessageExtractor);
 
 #[derive(Debug)]
-pub struct ShardEnvelope<A> where A: Actor {
+pub struct ShardEnvelope<A>
+where
+    A: Actor,
+{
     pub entity_id: EntityId,
     pub message: DynMessage,
     pub(crate) _phantom: PhantomData<A>,
 }
 
-impl<A> ShardEnvelope<A> where A: Actor {
-    pub fn new<M>(entity_id: impl Into<EntityId>, message: M) -> Self where M: CodecMessage {
+impl<A> ShardEnvelope<A>
+where
+    A: Actor,
+{
+    pub fn new<M>(entity_id: impl Into<EntityId>, message: M) -> Self
+    where
+        M: CodecMessage,
+    {
         let id = entity_id.into();
         Self {
             entity_id: id,
@@ -40,10 +49,19 @@ impl<A> ShardEnvelope<A> where A: Actor {
     }
 }
 
-impl<A> Display for ShardEnvelope<A> where A: Actor {
+impl<A> Display for ShardEnvelope<A>
+where
+    A: Actor,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let actor_name = type_name::<A>();
-        write!(f, "ShardEnvelope<{}> {{ entity_id: {}, message: {} }}", actor_name, self.entity_id, self.message.name())
+        write!(
+            f,
+            "ShardEnvelope<{}> {{ entity_id: {}, message: {} }}",
+            actor_name,
+            self.entity_id,
+            self.message.name()
+        )
     }
 }
 

@@ -21,7 +21,10 @@ impl ClusterState {
     }
 
     pub fn is_member_up(&self, address: &Address) -> bool {
-        self.members.read().iter().any(|(addr, _)| { address == &addr.address })
+        self.members
+            .read()
+            .iter()
+            .any(|(addr, _)| address == &addr.address)
     }
 
     pub fn members(&self) -> RwLockReadGuard<HashMap<UniqueAddress, Member>> {

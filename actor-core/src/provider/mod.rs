@@ -1,5 +1,5 @@
-use std::any::Any;
 use std::any::type_name;
+use std::any::Any;
 use std::fmt::Debug;
 use std::ops::Deref;
 
@@ -9,12 +9,12 @@ use crate::actor::address::Address;
 use crate::actor::props::Props;
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
-use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
+use crate::actor_ref::ActorRef;
 use crate::ext::as_any::AsAny;
 
-pub mod local_actor_ref_provider;
 pub mod empty_actor_ref_provider;
+pub mod local_actor_ref_provider;
 
 pub trait TActorRefProvider: Send + Sync + Any + AsAny + Debug {
     fn root_guardian(&self) -> &LocalActorRef;
@@ -75,23 +75,33 @@ impl Deref for ActorRefProvider {
 }
 
 impl ActorRefProvider {
-    pub fn new<P>(provider: P) -> Self where P: TActorRefProvider {
+    pub fn new<P>(provider: P) -> Self
+    where
+        P: TActorRefProvider,
+    {
         Self {
             inner: Box::new(provider),
         }
     }
 }
 
-pub fn downcast_provider<P>(provider: &ActorRefProvider) -> &P where P: TActorRefProvider {
+pub fn downcast_provider<P>(provider: &ActorRefProvider) -> &P
+where
+    P: TActorRefProvider,
+{
     let provider_name = type_name::<P>();
-    provider.as_provider(provider_name)
-        .expect(&format!("{} not found", provider_name))
+    provider
+        .as_provider(provider_name)
+        .unwrap_or_else(|| panic!("{} not found", provider_name))
         .as_any()
         .downcast_ref::<P>()
-        .expect(&format!("cannot downcast provider to {}", provider_name))
+        .unwrap_or_else(|| panic!("cannot downcast provider to {}", provider_name))
 }
 
-fn cast_self_to_dyn<'a, P>(name: &str, provider: &'a P) -> Option<&'a dyn TActorRefProvider> where P: TActorRefProvider {
+fn cast_self_to_dyn<'a, P>(name: &str, provider: &'a P) -> Option<&'a dyn TActorRefProvider>
+where
+    P: TActorRefProvider,
+{
     if name == type_name::<P>() {
         Some(provider)
     } else {

@@ -1,6 +1,6 @@
 use std::ops::{Deref, Sub};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use ahash::{HashMap, HashMapExt};
@@ -43,7 +43,11 @@ struct FixedRate {
 
 impl Schedule {
     fn once(index: u64, delay: Duration, block: Box<dyn FnOnce() + Send>) -> Self {
-        Schedule::Once(Once { index, delay, block })
+        Schedule::Once(Once {
+            index,
+            delay,
+            block,
+        })
     }
 
     fn fixed_delay(
@@ -52,7 +56,12 @@ impl Schedule {
         interval: Duration,
         block: Box<dyn Fn() + Send>,
     ) -> Self {
-        Schedule::FixedDelay(FixedDelay { index, initial_delay, interval, block })
+        Schedule::FixedDelay(FixedDelay {
+            index,
+            initial_delay,
+            interval,
+            block,
+        })
     }
 
     fn fixed_rate(
@@ -62,7 +71,13 @@ impl Schedule {
         actual_delay: Duration,
         block: Box<dyn Fn() + Send>,
     ) -> Self {
-        Schedule::FixedRate(FixedRate { index, initial_delay, interval, actual_delay, block })
+        Schedule::FixedRate(FixedRate {
+            index,
+            initial_delay,
+            interval,
+            actual_delay,
+            block,
+        })
     }
 
     fn cancel(index: u64) -> Self {
@@ -83,7 +98,11 @@ struct Scheduler {
 impl Scheduler {
     fn run(self) {
         tokio::spawn(async move {
-            let Scheduler { mut rx, mut queue, mut index } = self;
+            let Scheduler {
+                mut rx,
+                mut queue,
+                mut index,
+            } = self;
             loop {
                 select! {
                     Some(schedule) = rx.recv() => {
@@ -100,7 +119,11 @@ impl Scheduler {
         });
     }
 
-    fn handle_schedule(schedule: Schedule, queue: &mut DelayQueue<Schedule>, index_map: &mut HashMap<u64, Key>) {
+    fn handle_schedule(
+        schedule: Schedule,
+        queue: &mut DelayQueue<Schedule>,
+        index_map: &mut HashMap<u64, Key>,
+    ) {
         match schedule {
             Schedule::Once(once) => {
                 Self::on_once_schedule(once, queue, index_map);
@@ -120,27 +143,47 @@ impl Scheduler {
         }
     }
 
-    fn on_once_schedule(once: Once, queue: &mut DelayQueue<Schedule>, index_map: &mut HashMap<u64, Key>) {
+    fn on_once_schedule(
+        once: Once,
+        queue: &mut DelayQueue<Schedule>,
+        index_map: &mut HashMap<u64, Key>,
+    ) {
         let index = once.index;
         let timeout = once.delay;
         let key = queue.insert(Schedule::Once(once), timeout);
-        trace!("schedule once with index {}  after {:?}", index,  timeout);
+        trace!("schedule once with index {}  after {:?}", index, timeout);
         index_map.insert(index, key);
     }
 
-    fn on_fixed_delay_schedule(fixed_delay: FixedDelay, queue: &mut DelayQueue<Schedule>, index_map: &mut HashMap<u64, Key>) {
+    fn on_fixed_delay_schedule(
+        fixed_delay: FixedDelay,
+        queue: &mut DelayQueue<Schedule>,
+        index_map: &mut HashMap<u64, Key>,
+    ) {
         let index = fixed_delay.index;
         let timeout = fixed_delay.initial_delay.unwrap_or(fixed_delay.interval);
         let key = queue.insert(Schedule::FixedDelay(fixed_delay), timeout);
-        trace!("schedule fixed delay with index {} after {:?}", index,  timeout);
+        trace!(
+            "schedule fixed delay with index {} after {:?}",
+            index,
+            timeout
+        );
         index_map.insert(index, key);
     }
 
-    fn on_fixed_rate_schedule(fixed_rate: FixedRate, queue: &mut DelayQueue<Schedule>, index_map: &mut HashMap<u64, Key>) {
+    fn on_fixed_rate_schedule(
+        fixed_rate: FixedRate,
+        queue: &mut DelayQueue<Schedule>,
+        index_map: &mut HashMap<u64, Key>,
+    ) {
         let index = fixed_rate.index;
         let timeout = fixed_rate.initial_delay.unwrap_or(fixed_rate.interval);
         let key = queue.insert(Schedule::FixedRate(fixed_rate), timeout);
-        trace!("schedule fixed rate with index {} after {:?}", index,  timeout);
+        trace!(
+            "schedule fixed rate with index {} after {:?}",
+            index,
+            timeout
+        );
         index_map.insert(index, key);
     }
 
@@ -149,16 +192,14 @@ impl Scheduler {
             None => {
                 warn!("cancel a not exists schedule {}", index);
             }
-            Some(key) => {
-                match queue.try_remove(&key) {
-                    None => {
-                        warn!("{} already executed, cancel failed", index);
-                    }
-                    Some(_) => {
-                        debug!("{} cancel success", index);
-                    }
+            Some(key) => match queue.try_remove(&key) {
+                None => {
+                    warn!("{} already executed, cancel failed", index);
                 }
-            }
+                Some(_) => {
+                    debug!("{} cancel success", index);
+                }
+            },
         }
     }
 
@@ -167,7 +208,11 @@ impl Scheduler {
         index_map.clear();
     }
 
-    fn handle_expired(expired: Expired<Schedule>, queue: &mut DelayQueue<Schedule>, index_map: &mut HashMap<u64, Key>) {
+    fn handle_expired(
+        expired: Expired<Schedule>,
+        queue: &mut DelayQueue<Schedule>,
+        index_map: &mut HashMap<u64, Key>,
+    ) {
         let deadline = expired.deadline();
         let schedule = expired.into_inner();
         match schedule {
@@ -185,16 +230,33 @@ impl Scheduler {
     }
 
     fn handle_once_expired(once: Once, index_map: &mut HashMap<u64, Key>) {
-        let Once { index, delay, block } = once;
+        let Once {
+            index,
+            delay,
+            block,
+        } = once;
         trace!("execute once expired task {} after {:?}", index, delay);
         index_map.remove(&index);
         block();
     }
 
-    fn handle_fixed_delay_expired(fixed_delay: FixedDelay, queue: &mut DelayQueue<Schedule>, index_map: &mut HashMap<u64, Key>) {
-        let FixedDelay { index, initial_delay, interval, block } = fixed_delay;
+    fn handle_fixed_delay_expired(
+        fixed_delay: FixedDelay,
+        queue: &mut DelayQueue<Schedule>,
+        index_map: &mut HashMap<u64, Key>,
+    ) {
+        let FixedDelay {
+            index,
+            initial_delay,
+            interval,
+            block,
+        } = fixed_delay;
         let current_delay = initial_delay.unwrap_or(interval);
-        trace!("execute fixed delay expired task {} after {:?}", index, current_delay);
+        trace!(
+            "execute fixed delay expired task {} after {:?}",
+            index,
+            current_delay
+        );
         block();
         let next_schedule = Schedule::fixed_delay(index, None, interval, block);
         let next_key = queue.insert(next_schedule, interval);
@@ -212,10 +274,15 @@ impl Scheduler {
             initial_delay,
             interval,
             actual_delay,
-            block
+            block,
         } = fixed_rate;
         let current_delay = initial_delay.unwrap_or(interval);
-        trace!("execute fixed rate expired task {} after {:?} with actual delay {:?}", index, current_delay, actual_delay);
+        trace!(
+            "execute fixed rate expired task {} after {:?} with actual delay {:?}",
+            index,
+            current_delay,
+            actual_delay
+        );
         block();
         let next_actual_delay = interval.sub(deadline.elapsed());
         let next_schedule = Schedule::fixed_rate(index, None, interval, next_actual_delay, block);
@@ -274,7 +341,10 @@ impl SchedulerSender {
         }
     }
 
-    pub fn schedule_once<F>(&self, delay: Duration, block: F) -> ScheduleKey where F: FnOnce() + Send + 'static {
+    pub fn schedule_once<F>(&self, delay: Duration, block: F) -> ScheduleKey
+    where
+        F: FnOnce() + Send + 'static,
+    {
         let index = self.next_index();
         let schedule = Schedule::once(index, delay, Box::new(block));
         if self.sender.send(schedule).is_err() {
@@ -289,7 +359,8 @@ impl SchedulerSender {
         interval: Duration,
         block: F,
     ) -> ScheduleKey
-        where F: Fn() + Send + 'static,
+    where
+        F: Fn() + Send + 'static,
     {
         let index = self.next_index();
         let schedule = Schedule::fixed_delay(index, initial_delay, interval, Box::new(block));
@@ -305,7 +376,8 @@ impl SchedulerSender {
         interval: Duration,
         block: F,
     ) -> ScheduleKey
-        where F: Fn() + Send + 'static
+    where
+        F: Fn() + Send + 'static,
     {
         let index = self.next_index();
         let schedule = Schedule::fixed_rate(
@@ -336,15 +408,13 @@ pub fn scheduler() -> SchedulerSender {
         index: HashMap::new(),
     };
     scheduler.run();
-    let sender = SchedulerSender {
-        inner: Arc::new(
-            Inner {
-                index: AtomicU64::new(0),
-                sender: tx,
-            }
-        )
-    };
-    sender
+    
+    SchedulerSender {
+        inner: Arc::new(Inner {
+            index: AtomicU64::new(0),
+            sender: tx,
+        }),
+    }
 }
 
 #[cfg(test)]
@@ -377,9 +447,12 @@ mod tests {
             Duration::from_secs(1),
             move || {
                 let _ = tx.try_send(());
-            });
+            },
+        );
         for _ in 0..3 {
-            assert!(tokio::time::timeout(Duration::from_secs(2050), rx.recv()).await?.is_some());
+            assert!(tokio::time::timeout(Duration::from_secs(2050), rx.recv())
+                .await?
+                .is_some());
         }
         key.cancel();
         assert!(rx.recv().await.is_none());

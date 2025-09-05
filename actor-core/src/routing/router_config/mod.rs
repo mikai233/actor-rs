@@ -7,8 +7,8 @@ use crate::routing::router_config::group::GroupRouterConfig;
 use crate::routing::router_config::pool::PoolRouterConfig;
 use crate::routing::routing_logic::RoutingLogic;
 
-pub mod pool;
 pub mod group;
+pub mod pool;
 
 #[enum_dispatch(RouterConfig)]
 pub trait TRouterConfig: Send {
@@ -28,14 +28,8 @@ pub enum RouterConfig {
 impl Debug for RouterConfig {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
-            RouterConfig::PoolRouterConfig(_) => {
-                f.debug_struct("PoolRouterConfig")
-                    .finish()
-            }
-            RouterConfig::GroupRouterConfig(_) => {
-                f.debug_struct("GroupRouterConfig")
-                    .finish()
-            }
+            RouterConfig::PoolRouterConfig(_) => f.debug_struct("PoolRouterConfig").finish(),
+            RouterConfig::GroupRouterConfig(_) => f.debug_struct("GroupRouterConfig").finish(),
         }
     }
 }

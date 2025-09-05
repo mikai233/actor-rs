@@ -1,15 +1,15 @@
 use std::time::Duration;
 
 use ahash::HashMap;
-use config::{File, FileFormat, Source};
 use config::builder::DefaultState;
+use config::{File, FileFormat, Source};
 use serde::{Deserialize, Serialize};
 
 use actor_derive::AsAny;
 
 use crate::actor::coordinated_shutdown::Phase;
-use crate::config::{Config, ConfigBuilder};
 use crate::config::mailbox::Mailbox;
+use crate::config::{Config, ConfigBuilder};
 use crate::CORE_CONFIG;
 
 #[derive(Debug, Clone, Serialize, Deserialize, AsAny)]
@@ -35,12 +35,19 @@ pub struct CoreConfigBuilder {
 impl ConfigBuilder for CoreConfigBuilder {
     type C = CoreConfig;
 
-    fn add_source<T>(self, source: T) -> anyhow::Result<Self> where T: Source + Send + Sync + 'static {
-        Ok(Self { builder: self.builder.add_source(source) })
+    fn add_source<T>(self, source: T) -> anyhow::Result<Self>
+    where
+        T: Source + Send + Sync + 'static,
+    {
+        Ok(Self {
+            builder: self.builder.add_source(source),
+        })
     }
 
     fn build(self) -> anyhow::Result<Self::C> {
-        let builder = self.builder.add_source(File::from_str(CORE_CONFIG, FileFormat::Toml));
+        let builder = self
+            .builder
+            .add_source(File::from_str(CORE_CONFIG, FileFormat::Toml));
         let core_config = builder.build()?.try_deserialize::<Self::C>()?;
         Ok(core_config)
     }

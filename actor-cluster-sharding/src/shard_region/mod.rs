@@ -14,20 +14,22 @@ use tracing::{debug, info, warn};
 use actor_cluster::cluster::Cluster;
 use actor_cluster::member::{Member, MemberStatus};
 use actor_cluster::unique_address::UniqueAddress;
-use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use actor_core::actor::context::{ActorContext, Context, ContextExt};
-use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION};
+use actor_core::actor::coordinated_shutdown::{
+    CoordinatedShutdown, PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION,
+};
 use actor_core::actor::dead_letter_listener::DeadMessage;
 use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor::timers::{ScheduleKey, Timers};
 use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_buffer::{BufferEnvelope, MessageBufferMap};
 use actor_core::message::poison_pill::PoisonPill;
+use actor_core::{Actor, CodecMessage, DynMessage};
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::message_extractor::{MessageExtractor, ShardEnvelope};
@@ -46,24 +48,24 @@ use crate::shard_region::shard_region_buffer_envelope::ShardRegionBufferEnvelope
 use crate::shard_region::shard_region_terminated::ShardRegionTerminated;
 use crate::shard_region::shard_terminated::ShardTerminated;
 
-mod shard_region_buffer_envelope;
-mod shard_terminated;
-pub(crate) mod handoff;
-mod register_retry;
-mod retry;
-mod cluster_event;
-mod shard_envelope;
-pub(crate) mod host_shard;
-pub(crate) mod shard_home;
-mod shard_region_terminated;
-pub(crate) mod shard_homes;
-pub(crate) mod register_ack;
-mod coordinator_terminated;
 pub(crate) mod begin_handoff;
-pub(crate) mod shard_initialized;
+mod cluster_event;
+mod coordinator_terminated;
 mod deliver_target;
 mod graceful_shutdown;
 mod graceful_shutdown_timeout;
+pub(crate) mod handoff;
+pub(crate) mod host_shard;
+pub(crate) mod register_ack;
+mod register_retry;
+mod retry;
+mod shard_envelope;
+pub(crate) mod shard_home;
+pub(crate) mod shard_homes;
+pub(crate) mod shard_initialized;
+mod shard_region_buffer_envelope;
+mod shard_region_terminated;
+mod shard_terminated;
 
 pub type ShardId = String;
 
@@ -116,15 +118,20 @@ impl ShardRegion {
         let (graceful_shutdown_progress_tx, mut graceful_shutdown_progress_rx) = channel(1);
         let graceful_shutdown_progress_tx_clone = graceful_shutdown_progress_tx.clone();
         let myself = context.myself().clone();
-        CoordinatedShutdown::get(context.system())
-            .add_task(context.system(), PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION, "region_shutdown", async move {
-                if cluster.is_terminated() || cluster.self_member().status == MemberStatus::Removed {
+        CoordinatedShutdown::get(context.system()).add_task(
+            context.system(),
+            PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION,
+            "region_shutdown",
+            async move {
+                if cluster.is_terminated() || cluster.self_member().status == MemberStatus::Removed
+                {
                     let _ = graceful_shutdown_progress_tx_clone.send(()).await;
                 } else {
                     myself.cast_ns(GracefulShutdown);
                     graceful_shutdown_progress_rx.recv().await;
                 }
-            })?;
+            },
+        )?;
         let cluster = Cluster::get(context.system()).clone();
         let myself = Self {
             type_name,
@@ -163,7 +170,11 @@ impl ShardRegion {
         extractor: Box<dyn MessageExtractor>,
         handoff_stop_message: DynMessage,
     ) -> Props {
-        debug_assert!(handoff_stop_message.cloneable(), "message {} is not cloneable", handoff_stop_message.name());
+        debug_assert!(
+            handoff_stop_message.cloneable(),
+            "message {} is not cloneable",
+            handoff_stop_message.name()
+        );
         Props::new_with_ctx(move |context| {
             Self::new(
                 context,
@@ -210,15 +221,14 @@ impl ShardRegion {
         }
         if self.shard_buffers.is_empty().not() && self.retry_count >= 5 {
             if actor_selections.is_empty().not() {
-                let all_up_members = self.members.values().
-                    filter(|m| matches!(m.status, MemberStatus::Up))
+                let all_up_members = self
+                    .members
+                    .values()
+                    .filter(|m| matches!(m.status, MemberStatus::Up))
                     .join(", ");
                 let buffer_size = self.shard_buffers.total_size();
                 let type_name = &self.type_name;
-                let selections_str = actor_selections
-                    .iter()
-                    .map(|s| s.to_string())
-                    .join(", ");
+                let selections_str = actor_selections.iter().map(|s| s.to_string()).join(", ");
                 if buffer_size > 0 {
                     warn!(
                         "{}: Trying to register to coordinator at [{}], but no acknowledgement. Total [{}] buffered messages. All up members {}",
@@ -244,9 +254,15 @@ impl ShardRegion {
                 };
                 let buffer_size = self.shard_buffers.total_size();
                 if buffer_size > 0 {
-                    warn!("{}: No coordinator found to register. {} Total [{}] buffered messages.", self.type_name, possible_reason, buffer_size);
+                    warn!(
+                        "{}: No coordinator found to register. {} Total [{}] buffered messages.",
+                        self.type_name, possible_reason, buffer_size
+                    );
                 } else {
-                    debug!("{}: No coordinator found to register. {} No buffered messages yet.", self.type_name, possible_reason);
+                    debug!(
+                        "{}: No coordinator found to register. {} No buffered messages yet.",
+                        self.type_name, possible_reason
+                    );
                 }
             }
         }
@@ -271,7 +287,10 @@ impl ShardRegion {
         }
     }
 
-    fn coordinator_selection(&self, context: &mut ActorContext) -> anyhow::Result<Vec<ActorSelection>> {
+    fn coordinator_selection(
+        &self,
+        context: &mut ActorContext,
+    ) -> anyhow::Result<Vec<ActorSelection>> {
         let mut selections = vec![];
         for member in self.members.values() {
             if matches!(member.status, MemberStatus::Up) {
@@ -287,13 +306,21 @@ impl ShardRegion {
     fn registration_message(&self, context: &mut ActorContext) -> DynMessage {
         let myself = context.myself().clone();
         if self.entity_props.is_some() {
-            DynMessage::user(Register { shard_region: myself })
+            DynMessage::user(Register {
+                shard_region: myself,
+            })
         } else {
-            DynMessage::user(RegisterProxy { shard_region_proxy: myself })
+            DynMessage::user(RegisterProxy {
+                shard_region_proxy: myself,
+            })
         }
     }
 
-    fn deliver_message(&mut self, context: &mut ActorContext, envelope: ShardEnvelope<ShardRegion>) -> anyhow::Result<()> {
+    fn deliver_message(
+        &mut self,
+        context: &mut ActorContext,
+        envelope: ShardEnvelope<ShardRegion>,
+    ) -> anyhow::Result<()> {
         let shard_id = self.extractor.shard_id(&envelope);
         let type_name = &self.type_name;
         match self.region_by_shard.get_key_value(shard_id.as_str()) {
@@ -301,15 +328,27 @@ impl ShardRegion {
                 if !self.shard_buffers.contains_key(shard_id.as_str()) {
                     match &self.coordinator {
                         None => {
-                            debug!("{type_name}: Request shard [{shard_id}] home, Coordinator [None]");
+                            debug!(
+                                "{type_name}: Request shard [{shard_id}] home, Coordinator [None]"
+                            );
                         }
                         Some(coordinator) => {
                             debug!("{type_name}: Request shard [{shard_id}] home, Coordinator [{coordinator}]");
-                            coordinator.cast(GetShardHome { shard: shard_id.clone() }, Some(context.myself().clone()));
+                            coordinator.cast(
+                                GetShardHome {
+                                    shard: shard_id.clone(),
+                                },
+                                Some(context.myself().clone()),
+                            );
                         }
                     }
                 }
-                self.buffer_message(context, shard_id.into(), envelope, context.sender().cloned());
+                self.buffer_message(
+                    context,
+                    shard_id.into(),
+                    envelope,
+                    context.sender().cloned(),
+                );
             }
             Some((shard_id, shard_region_ref)) if shard_region_ref == context.myself() => {
                 let shard_id = shard_id.clone();
@@ -319,7 +358,12 @@ impl ShardRegion {
                     }
                     Some(shard) => {
                         if self.shard_buffers.contains_key(shard_id.as_str()) {
-                            self.buffer_message(context, shard_id.clone(), envelope, context.sender().cloned());
+                            self.buffer_message(
+                                context,
+                                shard_id.clone(),
+                                envelope,
+                                context.sender().cloned(),
+                            );
                             self.deliver_buffered_messages(&shard_id, DeliverTarget::Shard(&shard));
                         } else {
                             context.forward(&shard, envelope.into_shard_envelope().into_dyn());
@@ -347,7 +391,10 @@ impl ShardRegion {
         let type_name = &self.type_name;
         if total_buf_size >= buffer_size {
             warn!("{type_name}: Buffer is full, dropping message for shard [{shard_id}]");
-            context.system().dead_letters().cast_ns(DeadMessage(msg.into_dyn()));
+            context
+                .system()
+                .dead_letters()
+                .cast_ns(DeadMessage(msg.into_dyn()));
         } else {
             let envelop = ShardRegionBufferEnvelope {
                 message: msg,
@@ -357,7 +404,8 @@ impl ShardRegion {
             let total = total_buf_size + 1;
             if total % (buffer_size / 10) == 0 {
                 let cap = 100.0 * total as f64 / buffer_size as f64;
-                let log_msg = format!("{type_name}: ShardRegion is using [{cap} %] of its buffer capacity.");
+                let log_msg =
+                    format!("{type_name}: ShardRegion is using [{cap} %] of its buffer capacity.");
                 if total <= buffer_size / 2 {
                     info!(log_msg);
                 } else {
@@ -372,7 +420,9 @@ impl ShardRegion {
             if let Some(buffers) = self.shard_buffers.remove(shard_id) {
                 let type_name = &self.type_name;
                 let buf_size = buffers.len();
-                debug!("{type_name}: Deliver [{buf_size}] buffered messages for shard [{shard_id}]");
+                debug!(
+                    "{type_name}: Deliver [{buf_size}] buffered messages for shard [{shard_id}]"
+                );
                 for envelope in buffers {
                     let (msg, sender) = envelope.into_inner();
                     match target {
@@ -389,37 +439,41 @@ impl ShardRegion {
         self.retry_count = 0;
     }
 
-    fn get_shard(&mut self, context: &mut ActorContext, id: ImShardId) -> anyhow::Result<Option<ActorRef>> {
+    fn get_shard(
+        &mut self,
+        context: &mut ActorContext,
+        id: ImShardId,
+    ) -> anyhow::Result<Option<ActorRef>> {
         if self.starting_shards.contains(&id) {
             Ok(None)
+        } else if let Some(shard) = self.shards.get(&id) {
+            Ok(Some(shard.clone()))
         } else {
-            if let Some(shard) = self.shards.get(&id) {
-                Ok(Some(shard.clone()))
-            } else {
-                match &self.entity_props {
-                    None => {
-                        panic!("Shard must not be allocated to a proxy only ShardRegion");
-                    }
-                    Some(props_builder) if self.shards_by_ref.values().find(|r| **r == id).is_none() => {
-                        debug!("{}: Starting shard [{}] in region", self.type_name, id);
-                        let shard_props = Shard::props(
-                            self.type_name.clone(),
-                            id.clone(),
-                            props_builder.clone(),
-                            self.settings.clone(),
-                            self.extractor.clone(),
-                            self.handoff_stop_message.dyn_clone()?,
-                        );
-                        let shard = context.spawn(shard_props, id.deref())?;
-                        context.watch(shard.clone(), ShardTerminated::new)?;
-                        self.shards_by_ref.insert(shard.clone(), id.clone());
-                        self.shards.insert(id.clone(), shard.clone());
-                        self.starting_shards.insert(id);
-                        //TODO passivation strategy
-                        Ok(None)
-                    }
-                    Some(_) => Ok(None)
+            match &self.entity_props {
+                None => {
+                    panic!("Shard must not be allocated to a proxy only ShardRegion");
                 }
+                Some(props_builder)
+                    if !self.shards_by_ref.values().any(|r| *r == id) =>
+                {
+                    debug!("{}: Starting shard [{}] in region", self.type_name, id);
+                    let shard_props = Shard::props(
+                        self.type_name.clone(),
+                        id.clone(),
+                        props_builder.clone(),
+                        self.settings.clone(),
+                        self.extractor.clone(),
+                        self.handoff_stop_message.dyn_clone()?,
+                    );
+                    let shard = context.spawn(shard_props, id.deref())?;
+                    context.watch(shard.clone(), ShardTerminated::new)?;
+                    self.shards_by_ref.insert(shard.clone(), id.clone());
+                    self.shards.insert(id.clone(), shard.clone());
+                    self.starting_shards.insert(id);
+                    //TODO passivation strategy
+                    Ok(None)
+                }
+                Some(_) => Ok(None),
             }
         }
     }
@@ -453,26 +507,49 @@ impl ShardRegion {
         });
     }
 
-    fn send_graceful_shutdown_to_coordinator_if_in_progress(&self, context: &mut ActorContext) -> anyhow::Result<()> {
+    fn send_graceful_shutdown_to_coordinator_if_in_progress(
+        &self,
+        context: &mut ActorContext,
+    ) -> anyhow::Result<()> {
         if self.graceful_shutdown_in_progress {
             let actor_selections = self.coordinator_selection(context)?;
-            let selection_str = actor_selections.iter().map(|selection| selection.to_string()).join(", ");
-            debug!("{}: Sending graceful shutdown to {}", self.type_name, selection_str);
+            let selection_str = actor_selections
+                .iter()
+                .map(|selection| selection.to_string())
+                .join(", ");
+            debug!(
+                "{}: Sending graceful shutdown to {}",
+                self.type_name, selection_str
+            );
             for selection in actor_selections {
-                selection.tell(GracefulShutdownReq { shard_region: context.myself().clone() }.into_dyn(), ActorRef::no_sender());
+                selection.tell(
+                    GracefulShutdownReq {
+                        shard_region: context.myself().clone(),
+                    }
+                    .into_dyn(),
+                    ActorRef::no_sender(),
+                );
             }
         }
         Ok(())
     }
 
     fn try_complete_graceful_shutdown_if_in_progress(&self, context: &mut ActorContext) {
-        if self.graceful_shutdown_in_progress && self.shards.is_empty() && self.shard_buffers.is_empty() {
+        if self.graceful_shutdown_in_progress
+            && self.shards.is_empty()
+            && self.shard_buffers.is_empty()
+        {
             debug!("{}: Completed graceful shutdown of region.", self.type_name);
             context.stop(context.myself());
         }
     }
 
-    fn receive_shard_home(&mut self, context: &mut ActorContext, shard: ImShardId, shard_region_ref: ActorRef) -> anyhow::Result<()> {
+    fn receive_shard_home(
+        &mut self,
+        context: &mut ActorContext,
+        shard: ImShardId,
+        shard_region_ref: ActorRef,
+    ) -> anyhow::Result<()> {
         let type_name = &self.type_name;
         debug!("{type_name}: Shard [{shard}] located at [{shard_region_ref}]");
         if let Some(r) = self.region_by_shard.get(&shard) {
@@ -480,7 +557,8 @@ impl ShardRegion {
                 return Err(anyhow!("{type_name}: Unexpected change of shard [{shard}] from self to [{shard_region_ref}]"));
             }
         }
-        self.region_by_shard.insert(shard.clone(), shard_region_ref.clone());
+        self.region_by_shard
+            .insert(shard.clone(), shard_region_ref.clone());
         match self.regions.entry(shard_region_ref.clone()) {
             Entry::Occupied(mut o) => {
                 o.get_mut().insert(shard.clone());
@@ -491,11 +569,10 @@ impl ShardRegion {
                 v.insert(shards);
             }
         }
-        if &shard_region_ref != context.myself() {
-            if context.is_watching(&shard_region_ref).not() {
+        if &shard_region_ref != context.myself()
+            && context.is_watching(&shard_region_ref).not() {
                 context.watch(shard_region_ref.clone(), ShardRegionTerminated::new)?;
             }
-        }
         if &shard_region_ref == context.myself() {
             self.get_shard(context, shard.clone())?.foreach(|region| {
                 self.deliver_buffered_messages(&shard, DeliverTarget::ShardRegion(region));
@@ -510,10 +587,10 @@ impl ShardRegion {
 #[async_trait]
 impl Actor for ShardRegion {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        self.cluster.subscribe_cluster_event(
-            context.myself().clone(),
-            |event| { ClusterEventWrap(event).into_dyn() },
-        )?;
+        self.cluster
+            .subscribe_cluster_event(context.myself().clone(), |event| {
+                ClusterEventWrap(event).into_dyn()
+            })?;
         self.timers.start_timer_with_fixed_delay(
             None,
             self.settings.retry_interval,
@@ -528,13 +605,19 @@ impl Actor for ShardRegion {
         debug!("{}: Region {} stopped", self.type_name, context.myself());
         self.cluster.unsubscribe_cluster_event(context.myself())?;
         self.coordinator.foreach(|coordinator| {
-            coordinator.cast_ns(RegionStopped { shard_region: context.myself().clone() });
+            coordinator.cast_ns(RegionStopped {
+                shard_region: context.myself().clone(),
+            });
         });
         let _ = self.graceful_shutdown_progress.send(()).await;
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

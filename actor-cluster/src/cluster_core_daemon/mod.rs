@@ -11,23 +11,27 @@ use parking_lot::RwLockWriteGuard;
 use tokio::sync::mpsc::{channel, Sender};
 use tracing::{debug, error};
 
-use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use actor_core::actor::address::Address;
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_EXITING, PHASE_CLUSTER_EXITING_DONE};
+use actor_core::actor::coordinated_shutdown::{
+    CoordinatedShutdown, PHASE_CLUSTER_EXITING, PHASE_CLUSTER_EXITING_DONE,
+};
 use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::provider::downcast_provider;
+use actor_core::{Actor, DynMessage};
 use actor_remote::transport::disconnect::Disconnect;
 
 use crate::cluster::Cluster;
-use crate::cluster_core_daemon::exiting_completed_req::{ExitingCompletedReq, ExitingCompletedResp};
+use crate::cluster_core_daemon::exiting_completed_req::{
+    ExitingCompletedReq, ExitingCompletedResp,
+};
 use crate::cluster_core_daemon::member_keep_alive_failed::MemberKeepAliveFailed;
 use crate::cluster_core_daemon::member_watch_resp::MemberWatchResp;
 use crate::cluster_core_daemon::self_leaving::SelfLeaving;
@@ -42,9 +46,9 @@ use crate::unique_address::UniqueAddress;
 mod exiting_completed_req;
 pub(crate) mod leave;
 mod member_keep_alive_failed;
-pub mod self_removed;
-mod self_leaving;
 mod member_watch_resp;
+mod self_leaving;
+pub mod self_removed;
 mod watch_failed;
 
 #[derive(Debug)]
@@ -65,27 +69,52 @@ impl ClusterCoreDaemon {
     pub(crate) fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
         let (self_exiting_tx, mut self_exiting_rx) = channel(1);
         let members_watch_adapter = context.adapter(|m| DynMessage::user(MemberWatchResp(m)));
-        let keep_alive_adapter = context.adapter(|m| DynMessage::user(MemberKeepAliveFailed(Some(m))));
+        let keep_alive_adapter =
+            context.adapter(|m| DynMessage::user(MemberKeepAliveFailed(Some(m))));
         let coord_shutdown = CoordinatedShutdown::get(context.system());
         let cluster_ext = Cluster::get(context.system()).clone();
         let cluster = cluster_ext.clone();
-        coord_shutdown.add_task(context.system(), PHASE_CLUSTER_EXITING, "wait-exiting", async move {
-            if cluster.members().is_empty().not() {
-                self_exiting_rx.recv().await;
-            }
-        })?;
+        coord_shutdown.add_task(
+            context.system(),
+            PHASE_CLUSTER_EXITING,
+            "wait-exiting",
+            async move {
+                if cluster.members().is_empty().not() {
+                    self_exiting_rx.recv().await;
+                }
+            },
+        )?;
         let myself = context.myself().clone();
         let cluster = cluster_ext.clone();
-        let phase_cluster_exiting_done_timeout = CoordinatedShutdown::timeout(context.system(), PHASE_CLUSTER_EXITING_DONE)
-            .into_result()
-            .context(format!("phase {} not found", PHASE_CLUSTER_EXITING_DONE))?;
-        coord_shutdown.add_task(context.system(), PHASE_CLUSTER_EXITING_DONE, "exiting-completed", async move {
-            if !(cluster.is_terminated() || cluster.self_member().status == MemberStatus::Removed) {
-                if let Some(error) = myself.ask::<_, ExitingCompletedResp>(ExitingCompletedReq, phase_cluster_exiting_done_timeout).await.err() {
-                    debug!("ask {} error {:?}", type_name::<ExitingCompletedResp>(), error);
+        let phase_cluster_exiting_done_timeout =
+            CoordinatedShutdown::timeout(context.system(), PHASE_CLUSTER_EXITING_DONE)
+                .into_result()
+                .context(format!("phase {} not found", PHASE_CLUSTER_EXITING_DONE))?;
+        coord_shutdown.add_task(
+            context.system(),
+            PHASE_CLUSTER_EXITING_DONE,
+            "exiting-completed",
+            async move {
+                if !(cluster.is_terminated()
+                    || cluster.self_member().status == MemberStatus::Removed)
+                {
+                    if let Some(error) = myself
+                        .ask::<_, ExitingCompletedResp>(
+                            ExitingCompletedReq,
+                            phase_cluster_exiting_done_timeout,
+                        )
+                        .await
+                        .err()
+                    {
+                        debug!(
+                            "ask {} error {:?}",
+                            type_name::<ExitingCompletedResp>(),
+                            error
+                        );
+                    }
                 }
-            }
-        })?;
+            },
+        )?;
         let cluster = Cluster::get(context.system()).clone();
         let provider = context.system().provider();
         let cluster_provider = downcast_provider::<ClusterActorRefProvider>(&provider);
@@ -109,7 +138,10 @@ impl ClusterCoreDaemon {
         Ok(daemon)
     }
 
-    fn cluster_core(context: &mut ActorContext, address: Address) -> anyhow::Result<ActorSelection> {
+    fn cluster_core(
+        context: &mut ActorContext,
+        address: Address,
+    ) -> anyhow::Result<ActorSelection> {
         let path = RootActorPath::new(address, "/")
             .child("system")
             .child("cluster")
@@ -147,10 +179,10 @@ impl ClusterCoreDaemon {
 
     async fn get_all_members(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let lease_path = self.lease_path();
-        let resp = self.client.get(
-            lease_path,
-            Some(GetOptions::new().with_prefix()),
-        ).await?;
+        let resp = self
+            .client
+            .get(lease_path, Some(GetOptions::new().with_prefix()))
+            .await?;
         for kv in resp.kvs() {
             self.update_local_member_status(context, kv)?;
         }
@@ -177,7 +209,12 @@ impl ClusterCoreDaemon {
                     lease_id,
                 );
                 if let Some(error) = self.update_member_to_etcd(&member).await.err() {
-                    error!("{} update self member error {:?}, retry after {:?}", context.myself(), error, RETRY);
+                    error!(
+                        "{} update self member error {:?}, retry after {:?}",
+                        context.myself(),
+                        error,
+                        RETRY
+                    );
                     let myself = context.myself().clone();
                     context.system().scheduler.schedule_once(RETRY, move || {
                         myself.cast_ns(MemberKeepAliveFailed(None));
@@ -185,7 +222,12 @@ impl ClusterCoreDaemon {
                 }
             }
             Err(error) => {
-                error!("{} lease error {:?}, retry after {:?}", context.myself(), error, RETRY);
+                error!(
+                    "{} lease error {:?}, retry after {:?}",
+                    context.myself(),
+                    error,
+                    RETRY
+                );
                 let myself = context.myself().clone();
                 context.system().scheduler.schedule_once(RETRY, move || {
                     myself.cast_ns(MemberKeepAliveFailed(None));
@@ -194,10 +236,15 @@ impl ClusterCoreDaemon {
         }
     }
 
-    fn update_local_member_status(&mut self, context: &mut ActorContext, kv: &KeyValue) -> anyhow::Result<()> {
+    fn update_local_member_status(
+        &mut self,
+        context: &mut ActorContext,
+        kv: &KeyValue,
+    ) -> anyhow::Result<()> {
         let stream = &context.system().event_stream;
         let member = serde_json::from_slice::<Member>(kv.value())?;
-        self.key_addr.insert(kv.key_str()?.to_string(), member.addr.clone());
+        self.key_addr
+            .insert(kv.key_str()?.to_string(), member.addr.clone());
         debug!("{} update member {}", context.myself(), member);
         if member.addr == self.self_addr {
             *self.cluster.self_member_write() = member.clone();
@@ -233,7 +280,10 @@ impl ClusterCoreDaemon {
         Ok(())
     }
 
-    fn update_member(member: Member, mut members: RwLockWriteGuard<HashMap<UniqueAddress, Member>>) -> bool {
+    fn update_member(
+        member: Member,
+        mut members: RwLockWriteGuard<HashMap<UniqueAddress, Member>>,
+    ) -> bool {
         match members.entry(member.addr.clone()) {
             Entry::Occupied(mut o) => {
                 if &member != o.get() {
@@ -263,7 +313,10 @@ impl ClusterCoreDaemon {
 #[async_trait]
 impl Actor for ClusterCoreDaemon {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        context.spawn(ClusterHeartbeatSender::props(), ClusterHeartbeatSender::name())?;
+        context.spawn(
+            ClusterHeartbeatSender::props(),
+            ClusterHeartbeatSender::name(),
+        )?;
         self.watch_cluster_members();
         Ok(())
     }
@@ -271,12 +324,20 @@ impl Actor for ClusterCoreDaemon {
     async fn stopped(&mut self, _context: &mut ActorContext) -> anyhow::Result<()> {
         let _ = self.self_exiting.send(()).await;
         let lease_path = self.lease_path();
-        let key = format!("{}/{}", lease_path, self.self_addr.socket_addr_with_uid().into_result()?);
+        let key = format!(
+            "{}/{}",
+            lease_path,
+            self.self_addr.socket_addr_with_uid().into_result()?
+        );
         self.client.delete(key, None).await?;
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

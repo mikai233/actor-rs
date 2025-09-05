@@ -1,8 +1,8 @@
 use std::ops::Deref;
 
 use crate::actor_ref::ActorRef;
-use crate::DynMessage;
 use crate::routing::routee::TRoutee;
+use crate::DynMessage;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ActorRefRoutee(pub ActorRef);

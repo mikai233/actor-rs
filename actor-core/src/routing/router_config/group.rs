@@ -17,9 +17,12 @@ pub struct GroupRouterConfig {
 }
 
 impl GroupRouterConfig {
-    pub fn new<G>(group: G) -> Self where G: Group + 'static {
+    pub fn new<G>(group: G) -> Self
+    where
+        G: Group + 'static,
+    {
         Self {
-            group: Box::new(group)
+            group: Box::new(group),
         }
     }
 }

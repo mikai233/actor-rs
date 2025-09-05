@@ -15,9 +15,15 @@ pub(crate) struct Leave(pub(crate) Address);
 impl Message for Leave {
     type A = ClusterCoreDaemon;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        _context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let member = {
-            actor.cluster.members()
+            actor
+                .cluster
+                .members()
                 .iter()
                 .find(|(_, m)| m.addr.address == self.0)
                 .map(|(_, m)| m)

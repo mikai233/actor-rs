@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use crate::entity_passivation_strategy::{PassivateEntities, TEntityPassivationStrategy};
 use crate::entity_passivation_strategy::recency_list::RecencyList;
+use crate::entity_passivation_strategy::{PassivateEntities, TEntityPassivationStrategy};
 use crate::shard_region::ImEntityId;
 
 #[derive(Debug)]
@@ -39,6 +39,7 @@ impl TEntityPassivationStrategy for IdleEntityPassivationStrategy {
     }
 
     fn interval_passed(&mut self) -> PassivateEntities {
-        self.recency_list.remove_least_recent_outside(self.idle_check.timeout)
+        self.recency_list
+            .remove_least_recent_outside(self.idle_check.timeout)
     }
 }

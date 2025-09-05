@@ -16,11 +16,19 @@ pub(super) struct ShutdownSingleton(pub(super) Sender<()>);
 impl Message for ShutdownSingleton {
     type A = ClusterSingletonManager;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        _context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         if let Some(singleton) = &actor.singleton {
             actor.singleton_shutdown_notifier = Some(self.0);
             let termination = actor.termination_message.dyn_clone()?;
-            debug!("send termination message {} to singleton {}", termination.name(), singleton);
+            debug!(
+                "send termination message {} to singleton {}",
+                termination.name(),
+                singleton
+            );
             singleton.tell(termination, ActorRef::no_sender());
         } else {
             let _ = self.0.send(());

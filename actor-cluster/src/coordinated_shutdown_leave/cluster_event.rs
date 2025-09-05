@@ -15,7 +15,11 @@ pub(super) struct ClusterEventWrap(pub(super) ClusterEvent);
 impl Message for ClusterEventWrap {
     type A = CoordinatedShutdownLeave;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         match self.0 {
             ClusterEvent::MemberLeaving(m) => {
                 if actor.cluster.self_unique_address() == &m.addr {
@@ -28,9 +32,13 @@ impl Message for ClusterEventWrap {
                 }
             }
             ClusterEvent::CurrentClusterState { members, .. } => {
-                let removed = members.into_values().find(|m| {
-                    &m.addr == actor.cluster.self_unique_address() && m.status == MemberStatus::Removed
-                }).is_some();
+                let removed = members
+                    .into_values()
+                    .find(|m| {
+                        &m.addr == actor.cluster.self_unique_address()
+                            && m.status == MemberStatus::Removed
+                    })
+                    .is_some();
                 if removed {
                     actor.done(context);
                 }

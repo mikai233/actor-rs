@@ -3,7 +3,6 @@ use std::ops::Not;
 use async_trait::async_trait;
 use tracing::debug;
 
-use actor_core::{CodecMessage, Message};
 use actor_core::actor::actor_selection::ActorSelectionPath;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_path::root_actor_path::RootActorPath;
@@ -11,6 +10,7 @@ use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::EmptyCodec;
+use actor_core::{CodecMessage, Message};
 
 use crate::remote_watcher::artery_heartbeat::ArteryHeartbeat;
 use crate::remote_watcher::expected_first_heartbeat::ExpectedFirstHeartbeat;
@@ -23,7 +23,11 @@ pub(super) struct HeartbeatTick;
 impl Message for HeartbeatTick {
     type A = RemoteWatcher;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let watching_nodes = actor.watchee_by_nodes.keys();
         for addr in watching_nodes {
             if actor.unreachable.contains(addr).not() {
@@ -31,12 +35,13 @@ impl Message for HeartbeatTick {
             } else {
                 debug!("Sending first Heartbeat to [{}]", addr);
                 let myself = context.myself().clone();
-                let msg = ExpectedFirstHeartbeat {
-                    from: addr.clone(),
-                };
-                context.system().scheduler.schedule_once(actor.heartbeat_expected_response_after, move || {
-                    myself.cast_ns(msg);
-                });
+                let msg = ExpectedFirstHeartbeat { from: addr.clone() };
+                context.system().scheduler.schedule_once(
+                    actor.heartbeat_expected_response_after,
+                    move || {
+                        myself.cast_ns(msg);
+                    },
+                );
             }
             let elements = context.myself().path().elements();
             let elements_str = elements.iter().map(|e| e.as_str());

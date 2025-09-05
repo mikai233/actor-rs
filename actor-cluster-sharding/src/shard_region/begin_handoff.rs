@@ -25,7 +25,11 @@ pub(crate) struct BeginHandoff {
 impl Message for BeginHandoff {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         debug!("{}: BeginHandOff shard [{}]", actor.type_name, self.shard);
         if actor.preparing_for_shutdown.not() {
             if let Some(region_ref) = actor.region_by_shard.remove(self.shard.as_str()) {
@@ -37,12 +41,19 @@ impl Message for BeginHandoff {
                     }
                 }
             }
-            context.sender()
+            context
+                .sender()
                 .into_result()
-                .context(type_name::<BeginHandoff>())
-                ?.cast(BeginHandoffAck { shard: self.shard }, Some(context.myself().clone()));
+                .context(type_name::<BeginHandoff>())?
+                .cast(
+                    BeginHandoffAck { shard: self.shard },
+                    Some(context.myself().clone()),
+                );
         } else {
-            debug!("{}: Ignoring begin handoff of shard [{}] as preparing to shutdown", actor.type_name, self.shard);
+            debug!(
+                "{}: Ignoring begin handoff of shard [{}] as preparing to shutdown",
+                actor.type_name, self.shard
+            );
         }
         Ok(())
     }

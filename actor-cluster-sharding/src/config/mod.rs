@@ -1,15 +1,15 @@
 use std::time::Duration;
 
-use config::{File, FileFormat, Source};
 use config::builder::DefaultState;
+use config::{File, FileFormat, Source};
 use serde::{Deserialize, Serialize};
 
 use actor_cluster_tools::config::singleton_config::SingletonConfig;
-use actor_core::AsAny;
 use actor_core::config::{Config, ConfigBuilder};
+use actor_core::AsAny;
 
-use crate::CLUSTER_SHARDING_CONFIG;
 use crate::config::passivation::Passivation;
+use crate::CLUSTER_SHARDING_CONFIG;
 
 pub mod passivation;
 
@@ -27,7 +27,6 @@ pub struct ClusterShardingConfig {
     pub shard_region_query_timeout: Duration,
     pub coordinator_singleton: SingletonConfig,
     pub coordinator_singleton_role_override: bool,
-
     // pub min_nr_or_members: usize,
 }
 
@@ -47,12 +46,19 @@ pub struct ClusterShardingConfigBuilder {
 impl ConfigBuilder for ClusterShardingConfigBuilder {
     type C = ClusterShardingConfig;
 
-    fn add_source<T>(self, source: T) -> anyhow::Result<Self> where T: Source + Send + Sync + 'static {
-        Ok(Self { builder: self.builder.add_source(source) })
+    fn add_source<T>(self, source: T) -> anyhow::Result<Self>
+    where
+        T: Source + Send + Sync + 'static,
+    {
+        Ok(Self {
+            builder: self.builder.add_source(source),
+        })
     }
 
     fn build(self) -> anyhow::Result<Self::C> {
-        let builder = self.builder.add_source(File::from_str(CLUSTER_SHARDING_CONFIG, FileFormat::Toml));
+        let builder = self
+            .builder
+            .add_source(File::from_str(CLUSTER_SHARDING_CONFIG, FileFormat::Toml));
         let cluster_sharding_config = builder.build()?.try_deserialize::<Self::C>()?;
         Ok(cluster_sharding_config)
     }

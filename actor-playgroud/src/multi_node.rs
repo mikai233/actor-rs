@@ -31,10 +31,13 @@ struct Args {
     num: u16,
 }
 
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let Args { system_name, etcd, num } = Args::try_parse()?;
+    let Args {
+        system_name,
+        etcd,
+        num,
+    } = Args::try_parse()?;
     init_logger_with_filter("debug,actor=debug,actor_core::actor::scheduler=info,actor_remote::remote_watcher=info,h2=info,tower=info,hyper=info");
     let client = Client::connect([etcd.to_string()], None).await?;
     let mut systems = vec![];
@@ -49,20 +52,20 @@ async fn main() -> anyhow::Result<()> {
         let addr = SocketAddrV4::from_str(&format!("127.0.0.1:{}", port))?;
         let setting = actor_sharding_setting(addr, client)?;
         let system = ActorSystem::new(system_name, setting)?;
-        system.register_extension(|system| {
-            ClusterSharding::new_with_default_config(system)
-        })?;
+        system.register_extension(ClusterSharding::new_with_default_config)?;
         let builder = player_actor_builder();
         let settings = ClusterShardingSettings::create(&system);
         let strategy = LeastShardAllocationStrategy::new(&system, 1, 1.0);
-        let player_shard_region = ClusterSharding::get(&system).start(
-            "player",
-            builder,
-            settings.into(),
-            PlayerMessageExtractor,
-            strategy,
-            HandoffPlayer,
-        ).await?;
+        let player_shard_region = ClusterSharding::get(&system)
+            .start(
+                "player",
+                builder,
+                settings.into(),
+                PlayerMessageExtractor,
+                strategy,
+                HandoffPlayer,
+            )
+            .await?;
         let players = players.clone();
         tokio::spawn(async move {
             let mut index = 0;
@@ -72,7 +75,10 @@ async fn main() -> anyhow::Result<()> {
             tokio::time::sleep(Duration::from_millis(100)).await;
             loop {
                 for player_id in &players {
-                    let hello = Hello { index, data: vec![] };
+                    let hello = Hello {
+                        index,
+                        data: vec![],
+                    };
                     player_shard_region.cast_ns(ShardEnvelope::new(player_id.to_string(), hello));
                     index += 1;
                     tokio::time::sleep(Duration::from_millis(500)).await;

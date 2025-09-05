@@ -11,19 +11,18 @@ use arc_swap::Guard;
 use tokio::task::{AbortHandle, JoinHandle};
 use tracing::{debug, error, warn};
 
-use crate::{Actor, CodecMessage, DynMessage, Message};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::props::Props;
 use crate::actor::state::ActorState;
 use crate::actor::watching::Watching;
-use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_path::child_actor_path::ChildActorPath;
-use crate::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt};
+use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::function_ref::{FunctionRef, Inner};
 use crate::actor_ref::local_ref::LocalActorRef;
-use crate::cell::Cell;
+use crate::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt};
 use crate::cell::envelope::Envelope;
+use crate::cell::Cell;
 use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::ext::option_ext::OptionExt;
 use crate::ext::random_name;
@@ -36,6 +35,7 @@ use crate::message::terminated::Terminated;
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
 use crate::provider::ActorRefProvider;
+use crate::{Actor, CodecMessage, DynMessage, Message};
 
 pub trait Context: ActorRefFactory {
     fn myself(&self) -> &ActorRef;
@@ -49,17 +49,16 @@ pub trait Context: ActorRefFactory {
     fn parent(&self) -> Option<&ActorRef>;
 
     fn watch<F>(&mut self, watchee: ActorRef, termination: F) -> anyhow::Result<()>
-        where
-            F: FnOnce(Terminated) -> DynMessage + Send + 'static;
+    where
+        F: FnOnce(Terminated) -> DynMessage + Send + 'static;
 
     fn unwatch(&mut self, subject: &ActorRef);
 
     fn is_watching(&self, subject: &ActorRef) -> bool;
 
     fn adapter<T>(&mut self, func: impl Fn(T) -> DynMessage + Send + Sync + 'static) -> ActorRef
-        where
-            T: CodecMessage,
-    ;
+    where
+        T: CodecMessage;
 }
 
 impl<T: ?Sized> ContextExt for T where T: Context {}
@@ -112,7 +111,10 @@ impl ActorRefFactory for ActorContext {
                 self.myself
             ));
         }
-        self.myself.local().unwrap().attach_child(props, Some(name.into()), None)
+        self.myself
+            .local()
+            .unwrap()
+            .attach_child(props, Some(name.into()), None)
     }
 
     fn spawn_anonymous(&self, props: Props) -> anyhow::Result<ActorRef> {
@@ -141,12 +143,21 @@ impl Context for ActorContext {
 
     fn children(&self) -> Vec<ActorRef> {
         let myself = self.myself().local().unwrap();
-        myself.underlying().children().iter().map(|c| c.value().clone()).collect()
+        myself
+            .underlying()
+            .children()
+            .iter()
+            .map(|c| c.value().clone())
+            .collect()
     }
 
     fn child(&self, name: &str) -> Option<ActorRef> {
         let myself = self.myself().local().unwrap();
-        myself.underlying().children().get(name).map(|c| c.value().clone())
+        myself
+            .underlying()
+            .children()
+            .get(name)
+            .map(|c| c.value().clone())
     }
 
     fn parent(&self) -> Option<&ActorRef> {
@@ -154,8 +165,8 @@ impl Context for ActorContext {
     }
 
     fn watch<F>(&mut self, watchee: ActorRef, termination: F) -> anyhow::Result<()>
-        where
-            F: FnOnce(Terminated) -> DynMessage + Send + 'static
+    where
+        F: FnOnce(Terminated) -> DynMessage + Send + 'static,
     {
         if &watchee != self.myself() {
             match self.watching.get(&watchee) {
@@ -170,7 +181,10 @@ impl Context for ActorContext {
                     });
                 }
                 Some(_) => {
-                    return Err(anyhow!("duplicate watch {}, you should unwatch it first.", watchee));
+                    return Err(anyhow!(
+                        "duplicate watch {}, you should unwatch it first.",
+                        watchee
+                    ));
                 }
             }
         } else {
@@ -197,23 +211,27 @@ impl Context for ActorContext {
 
     //TODO adapter 应该优化为按消息类型维护一个map
     fn adapter<T>(&mut self, func: impl Fn(T) -> DynMessage + Send + Sync + 'static) -> ActorRef
-        where
-            T: CodecMessage,
+    where
+        T: CodecMessage,
     {
         let myself = self.myself.clone();
-        self.add_function_ref(move |message, sender| {
-            let name = message.name();
-            let message = message.into_inner();
-            let adapter_name = type_name::<T>();
-            match message.into_any().downcast::<T>() {
-                Ok(message) => {
-                    myself.tell(func(*message), sender);
+        self.add_function_ref(
+            move |message, sender| {
+                let name = message.name();
+                let message = message.into_inner();
+                let adapter_name = type_name::<T>();
+                match message.into_any().downcast::<T>() {
+                    Ok(message) => {
+                        myself.tell(func(*message), sender);
+                    }
+                    Err(_) => {
+                        error!("message {} cannot downcast to {}", name, adapter_name);
+                    }
                 }
-                Err(_) => {
-                    error!("message {} cannot downcast to {}", name, adapter_name);
-                }
-            }
-        }, None).into()
+            },
+            None,
+        )
+        .into()
     }
 }
 
@@ -233,7 +251,10 @@ impl ActorContext {
         }
     }
 
-    pub fn stash<M>(&mut self, message: M) where M: Message {
+    pub fn stash<M>(&mut self, message: M)
+    where
+        M: Message,
+    {
         self.stash_dyn(DynMessage::user(message));
     }
 
@@ -244,7 +265,10 @@ impl ActorContext {
             if self.stash.len() > stash_capacity {
                 if let Some(oldest) = self.stash.pop_front() {
                     let name = oldest.name();
-                    warn!("stash buffer reach max size {}, drop oldest message {}", stash_capacity, name);
+                    warn!(
+                        "stash buffer reach max size {}, drop oldest message {}",
+                        stash_capacity, name
+                    );
                 }
             }
         }
@@ -257,7 +281,7 @@ impl ActorContext {
             self.myself.tell(message, sender);
             return true;
         }
-        return false;
+        false
     }
 
     pub fn unstash_all(&mut self) -> bool {
@@ -269,7 +293,7 @@ impl ActorContext {
             let sender = envelope.sender;
             self.myself.tell(message, sender);
         }
-        return true;
+        true
     }
 
     pub(crate) fn terminate(&mut self) {
@@ -321,7 +345,14 @@ impl ActorContext {
                 self.myself.tell(termination(terminated), None);
             }
         }
-        if self.myself.local().unwrap().children().get(actor.path().name()).is_some() {
+        if self
+            .myself
+            .local()
+            .unwrap()
+            .children()
+            .get(actor.path().name())
+            .is_some()
+        {
             self.handle_child_terminated(actor);
         }
     }
@@ -335,21 +366,25 @@ impl ActorContext {
     }
 
     fn tell_watchers_we_died(&mut self) {
-        let (local_watchers, remote_watchers): (Vec<_>, Vec<_>) = self.watched_by
+        let (local_watchers, remote_watchers): (Vec<_>, Vec<_>) = self
+            .watched_by
             .iter()
-            .partition(|w| { &self.system().address() == w.path().address() });
-        remote_watchers.iter().chain(&local_watchers).for_each(|watcher| {
-            if self.myself.parent().map(|p| &p != watcher).unwrap_or(true) {
-                let myself = self.myself.clone();
-                debug!("{} tell watcher {} we died", myself, watcher);
-                let notification = DeathWatchNotification {
-                    actor: myself,
-                    existence_confirmed: true,
-                    address_terminated: false,
-                };
-                watcher.cast_system(notification, ActorRef::no_sender());
-            }
-        });
+            .partition(|w| &self.system().address() == w.path().address());
+        remote_watchers
+            .iter()
+            .chain(&local_watchers)
+            .for_each(|watcher| {
+                if self.myself.parent().map(|p| &p != watcher).unwrap_or(true) {
+                    let myself = self.myself.clone();
+                    debug!("{} tell watcher {} we died", myself, watcher);
+                    let notification = DeathWatchNotification {
+                        actor: myself,
+                        existence_confirmed: true,
+                        address_terminated: false,
+                    };
+                    watcher.cast_system(notification, ActorRef::no_sender());
+                }
+            });
         self.maintain_address_terminated_subscription(None, |ctx| {
             ctx.watched_by.clear();
         });
@@ -365,42 +400,51 @@ impl ActorContext {
         });
     }
 
-    pub fn spawn_fut<F>(&mut self, name: impl Into<String>, future: F) -> anyhow::Result<JoinHandle<F::Output>>
-        where
-            F: Future + Send + 'static,
-            F::Output: Send + 'static,
+    pub fn spawn_fut<F>(
+        &mut self,
+        name: impl Into<String>,
+        future: F,
+    ) -> anyhow::Result<JoinHandle<F::Output>>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
     {
         self.spawn_inner(name.into(), future)
     }
 
-
     #[cfg(feature = "tokio-tracing")]
-    pub(crate) fn spawn_inner<F>(&mut self, name: String, future: F) -> anyhow::Result<JoinHandle<F::Output>>
-        where
-            F: Future + Send + 'static,
-            F::Output: Send + 'static,
+    pub(crate) fn spawn_inner<F>(
+        &mut self,
+        name: String,
+        future: F,
+    ) -> anyhow::Result<JoinHandle<F::Output>>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
     {
         let name = format!("{}-{}", name, self.task_id);
         self.task_id = self.task_id.wrapping_add(1);
         let myself = self.myself.clone();
         let task_name = name.clone();
-        let handle = tokio::task::Builder::new()
-            .name(&name)
-            .spawn(async move {
-                let output = future.await;
-                myself.cast_system(TaskFinish { name: task_name }, ActorRef::no_sender());
-                output
-            })?;
+        let handle = tokio::task::Builder::new().name(&name).spawn(async move {
+            let output = future.await;
+            myself.cast_system(TaskFinish { name: task_name }, ActorRef::no_sender());
+            output
+        })?;
         let abort_handle = handle.abort_handle();
         self.abort_handles.insert(name, abort_handle);
         Ok(handle)
     }
 
     #[cfg(not(feature = "tokio-tracing"))]
-    pub(crate) fn spawn_inner<F>(&mut self, name: String, future: F) -> anyhow::Result<JoinHandle<F::Output>>
-        where
-            F: Future + Send + 'static,
-            F::Output: Send + 'static,
+    pub(crate) fn spawn_inner<F>(
+        &mut self,
+        name: String,
+        future: F,
+    ) -> anyhow::Result<JoinHandle<F::Output>>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
     {
         let name = format!("{}-{}", name, self.task_id);
         self.task_id = self.task_id.wrapping_add(1);
@@ -417,12 +461,12 @@ impl ActorContext {
     }
 
     pub(crate) fn add_function_ref<F>(&self, func: F, name: Option<String>) -> FunctionRef
-        where
-            F: Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static
+    where
+        F: Fn(DynMessage, Option<ActorRef>) + Send + Sync + 'static,
     {
         let mut n = random_name("$$".to_string());
         if let Some(name) = name {
-            n.push_str(&*format!("-{}", name));
+            n.push_str(&format!("-{}", name));
         }
         let child_path = ChildActorPath::new(self.myself.path().clone(), n, ActorPath::new_uid());
         let name = child_path.name().clone();
@@ -434,25 +478,40 @@ impl ActorContext {
         let function_ref = FunctionRef {
             inner: inner.into(),
         };
-        self.myself.local().unwrap().underlying().add_function_ref(name, function_ref.clone());
+        self.myself
+            .local()
+            .unwrap()
+            .underlying()
+            .add_function_ref(name, function_ref.clone());
         function_ref
     }
 
     pub(crate) fn remove_function_ref(&self, name: &str) -> bool {
-        self.myself.local().unwrap().underlying().remove_function_ref(name).is_some()
+        self.myself
+            .local()
+            .unwrap()
+            .underlying()
+            .remove_function_ref(name)
+            .is_some()
     }
 
     pub fn execute<F, A>(&self, f: F)
-        where
-            F: FnOnce(&mut ActorContext, &mut A) -> anyhow::Result<()> + Send + 'static,
-            A: Actor {
+    where
+        F: FnOnce(&mut ActorContext, &mut A) -> anyhow::Result<()> + Send + 'static,
+        A: Actor,
+    {
         let execute = Execute {
             closure: Box::new(f),
         };
         self.myself.cast_ns(execute);
     }
 
-    pub(crate) fn handle_invoke_failure(&mut self, child: ActorRef, name: &str, error: anyhow::Error) {
+    pub(crate) fn handle_invoke_failure(
+        &mut self,
+        child: ActorRef,
+        name: &str,
+        error: anyhow::Error,
+    ) {
         error!("{} handle message error {:?}", name, error);
         self.state = ActorState::Suspend;
         for child in self.children() {
@@ -463,21 +522,28 @@ impl ActorContext {
         });
     }
 
-    pub(crate) fn maintain_address_terminated_subscription<F, T>(&mut self, change: Option<&ActorRef>, block: F) -> T
-        where
-            F: FnOnce(&mut Self) -> T
+    pub(crate) fn maintain_address_terminated_subscription<F, T>(
+        &mut self,
+        change: Option<&ActorRef>,
+        block: F,
+    ) -> T
+    where
+        F: FnOnce(&mut Self) -> T,
     {
         fn is_non_local(system: &ActorSystem, actor: Option<&ActorRef>) -> bool {
             match actor {
                 None => true,
-                Some(actor) => {
-                    actor.path().address() != &system.address()
-                }
+                Some(actor) => actor.path().address() != &system.address(),
             }
         }
         fn has_non_local_address(ctx: &ActorContext) -> bool {
-            ctx.watching.keys().any(|w| { is_non_local(ctx.system(), Some(w)) })
-                || ctx.watched_by.iter().any(|w| { is_non_local(ctx.system(), Some(w)) })
+            ctx.watching
+                .keys()
+                .any(|w| is_non_local(ctx.system(), Some(w)))
+                || ctx
+                    .watched_by
+                    .iter()
+                    .any(|w| is_non_local(ctx.system(), Some(w)))
         }
         if is_non_local(self.system(), change) {
             let had = has_non_local_address(self);

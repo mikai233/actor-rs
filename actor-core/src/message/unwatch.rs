@@ -4,9 +4,9 @@ use tracing::{debug, error};
 
 use actor_derive::SystemCodec;
 
-use crate::{Actor, SystemMessage};
 use crate::actor::context::{ActorContext, Context};
 use crate::actor_ref::ActorRef;
+use crate::{Actor, SystemMessage};
 
 #[derive(Debug, Encode, Decode, SystemCodec)]
 pub struct Unwatch {
@@ -16,7 +16,11 @@ pub struct Unwatch {
 
 #[async_trait]
 impl SystemMessage for Unwatch {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut dyn Actor) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        _actor: &mut dyn Actor,
+    ) -> anyhow::Result<()> {
         let Unwatch { watchee, watcher } = *self;
         let watchee_self = watchee == context.myself;
         let watcher_self = watcher == context.myself;
@@ -30,7 +34,10 @@ impl SystemMessage for Unwatch {
         } else if !watchee_self && watcher_self {
             context.unwatch(&watchee);
         } else {
-            error!("illegal Unwatch({},{}) for {}", watchee, watcher, context.myself);
+            error!(
+                "illegal Unwatch({},{}) for {}",
+                watchee, watcher, context.myself
+            );
         }
         Ok(())
     }

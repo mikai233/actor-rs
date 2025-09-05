@@ -11,16 +11,16 @@ use crate::actor::props::{ActorDeferredSpawn, DeferredSpawn, Props};
 use crate::actor::root_guardian::RootGuardian;
 use crate::actor::system_guardian::SystemGuardian;
 use crate::actor::user_guardian::UserGuardian;
-use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_path::root_actor_path::RootActorPath;
-use crate::actor_ref::{ActorRef, TActorRef};
+use crate::actor_path::{ActorPath, TActorPath};
 use crate::actor_ref::dead_letter_ref::DeadLetterActorRef;
 use crate::actor_ref::ignore_ref::IgnoreActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::virtual_path_container::VirtualPathContainer;
+use crate::actor_ref::{ActorRef, TActorRef};
 use crate::cell::actor_cell::ActorCell;
 use crate::ext::base64;
-use crate::provider::{ActorRefProvider, cast_self_to_dyn, TActorRefProvider};
+use crate::provider::{cast_self_to_dyn, ActorRefProvider, TActorRefProvider};
 
 #[derive(Debug, AsAny)]
 pub struct LocalActorRefProvider {
@@ -38,18 +38,19 @@ pub struct LocalActorRefProvider {
 }
 
 impl LocalActorRefProvider {
-    pub fn new(system: ActorSystem, address: Option<Address>) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
+    pub fn new(
+        system: ActorSystem,
+        address: Option<Address>,
+    ) -> anyhow::Result<(Self, Vec<Box<dyn DeferredSpawn>>)> {
         let mut spawns: Vec<Box<dyn DeferredSpawn>> = vec![];
         let address = match address {
-            None => {
-                Address::new("tcp", system.name.clone(), None)
-            }
-            Some(address) => address
+            None => Address::new("tcp", system.name.clone(), None),
+            Some(address) => address,
         };
         let (termination_tx, _) = channel(1);
         let root_path = RootActorPath::new(address, "/");
         let termination_tx_c = termination_tx.clone();
-        let root_props = Props::new(move || { Ok(RootGuardian::new(termination_tx_c)) });
+        let root_props = Props::new(move || Ok(RootGuardian::new(termination_tx_c)));
         let (sender, mailbox) = root_props.mailbox(&system)?;
         let root_guardian = LocalActorRef::new(
             system.downgrade(),
@@ -57,32 +58,27 @@ impl LocalActorRefProvider {
             sender,
             ActorCell::new(None),
         );
-        spawns.push(
-            Box::new(
-                ActorDeferredSpawn::new(
-                    root_guardian.clone().into(),
-                    mailbox,
-                    root_props.spawner,
-                ),
-            ),
-        );
-        let (system_guardian, deferred) = root_guardian
-            .attach_child_deferred_start(
-                Props::new(|| Ok(SystemGuardian)),
-                Some("system".to_string()),
-                Some(ActorPath::undefined_uid()),
-            )?;
+        spawns.push(Box::new(ActorDeferredSpawn::new(
+            root_guardian.clone().into(),
+            mailbox,
+            root_props.spawner,
+        )));
+        let (system_guardian, deferred) = root_guardian.attach_child_deferred_start(
+            Props::new(|| Ok(SystemGuardian)),
+            Some("system".to_string()),
+            Some(ActorPath::undefined_uid()),
+        )?;
         spawns.push(Box::new(deferred));
         let system_guardian = system_guardian.local().unwrap();
-        let (user_guardian, deferred) = root_guardian
-            .attach_child_deferred_start(
-                Props::new(|| Ok(UserGuardian)),
-                Some("user".to_string()),
-                Some(ActorPath::undefined_uid()),
-            )?;
+        let (user_guardian, deferred) = root_guardian.attach_child_deferred_start(
+            Props::new(|| Ok(UserGuardian)),
+            Some("user".to_string()),
+            Some(ActorPath::undefined_uid()),
+        )?;
         spawns.push(Box::new(deferred));
         let user_guardian = user_guardian.local().unwrap();
-        let dead_letters = DeadLetterActorRef::new(system.downgrade(), root_path.child("dead_letters"));
+        let dead_letters =
+            DeadLetterActorRef::new(system.downgrade(), root_path.child("dead_letters"));
         let temp_node = root_path.child("temp");
         let temp_container = VirtualPathContainer::new(
             system.downgrade(),
@@ -105,10 +101,11 @@ impl LocalActorRefProvider {
         Ok((provider, spawns))
     }
 
-    pub fn builder(address: Option<Address>) -> impl Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> {
-        move |system: ActorSystem| {
-            Self::new(system, address.clone()).map(|t| { (t.0.into(), t.1) })
-        }
+    pub fn builder(
+        address: Option<Address>,
+    ) -> impl Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)>
+    {
+        move |system: ActorSystem| Self::new(system, address.clone()).map(|t| (t.0.into(), t.1))
     }
 }
 
@@ -147,7 +144,7 @@ impl TActorRefProvider for LocalActorRefProvider {
         if !prefix_is_none_or_empty {
             builder.push_str(prefix.unwrap().as_str());
         }
-        builder.push_str("$");
+        builder.push('$');
         let builder = base64(self.temp_number.fetch_add(1, Ordering::Relaxed), builder);
         self.temp_node.child(&builder)
     }
@@ -157,12 +154,21 @@ impl TActorRefProvider for LocalActorRefProvider {
     }
 
     fn register_temp_actor(&self, actor: ActorRef, path: &ActorPath) {
-        assert_eq!(path.parent(), self.temp_node, "cannot register_temp_actor() with anything not obtained from temp_path()");
-        self.temp_container.add_child(path.name().to_string(), actor);
+        assert_eq!(
+            path.parent(),
+            self.temp_node,
+            "cannot register_temp_actor() with anything not obtained from temp_path()"
+        );
+        self.temp_container
+            .add_child(path.name().to_string(), actor);
     }
 
     fn unregister_temp_actor(&self, path: &ActorPath) {
-        assert_eq!(path.parent(), self.temp_node, "cannot unregister_temp_actor() with anything not obtained from temp_path()");
+        assert_eq!(
+            path.parent(),
+            self.temp_node,
+            "cannot unregister_temp_actor() with anything not obtained from temp_path()"
+        );
         self.temp_container.remove_child(path.name());
     }
 
@@ -174,24 +180,24 @@ impl TActorRefProvider for LocalActorRefProvider {
         if path.address() == self.root_path().address() {
             //TODO opt
             let elements = path.elements();
-            let iter = &mut elements.iter().map(|e| e.as_str()) as &mut dyn Iterator<Item=&str>;
+            let iter = &mut elements.iter().map(|e| e.as_str()) as &mut dyn Iterator<Item = &str>;
             let mut iter = iter.peekable();
             match iter.peek() {
                 Some(peek) if *peek == "temp" => {
                     iter.next();
-                    TActorRef::get_child(&self.temp_container, &mut iter).unwrap_or_else(|| self.dead_letters().clone())
-                }
-                Some(peek) if *peek == "dead_letters" => {
-                    self.dead_letters.clone()
-                }
-                Some(peek) if self.extra_names.contains_key(&**peek) => {
-                    self.extra_names.get(&**peek).map(|r| r.value().clone()).unwrap_or_else(|| self.dead_letters().clone())
-                }
-                _ => {
-                    self.root_guardian()
-                        .get_child(&mut iter)
+                    TActorRef::get_child(&self.temp_container, &mut iter)
                         .unwrap_or_else(|| self.dead_letters().clone())
                 }
+                Some(peek) if *peek == "dead_letters" => self.dead_letters.clone(),
+                Some(peek) if self.extra_names.contains_key(&**peek) => self
+                    .extra_names
+                    .get(&**peek)
+                    .map(|r| r.value().clone())
+                    .unwrap_or_else(|| self.dead_letters().clone()),
+                _ => self
+                    .root_guardian()
+                    .get_child(&mut iter)
+                    .unwrap_or_else(|| self.dead_letters().clone()),
             }
         } else {
             self.dead_letters().clone()
@@ -215,9 +221,9 @@ impl TActorRefProvider for LocalActorRefProvider {
     }
 }
 
-impl Into<ActorRefProvider> for LocalActorRefProvider {
-    fn into(self) -> ActorRefProvider {
-        ActorRefProvider::new(self)
+impl From<LocalActorRefProvider> for ActorRefProvider {
+    fn from(val: LocalActorRefProvider) -> Self {
+        ActorRefProvider::new(val)
     }
 }
 

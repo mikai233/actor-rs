@@ -37,7 +37,10 @@ impl Debug for CircuitBreaker {
             .field("call_timeout", &self.call_timeout)
             .field("reset_timeout", &self.reset_timeout)
             .field("max_reset_timeout", &self.max_reset_timeout)
-            .field("exponential_backoff_factor", &self.exponential_backoff_factor)
+            .field(
+                "exponential_backoff_factor",
+                &self.exponential_backoff_factor,
+            )
             .field("random_factor", &self.random_factor)
             .field("current_reset_timeout", &self.current_reset_timeout)
             .finish_non_exhaustive()
@@ -54,11 +57,14 @@ impl CircuitBreaker {
         exponential_backoff_factor: f64,
         random_factor: f64,
         change_to_half_open: F,
-    ) -> anyhow::Result<Self> where F: Fn() + Send + Sync + 'static {
+    ) -> anyhow::Result<Self>
+    where
+        F: Fn() + Send + Sync + 'static,
+    {
         if exponential_backoff_factor < 1.0 {
             return Err(anyhow!("exponential_backoff_factor must be >= 1.0"));
         }
-        if random_factor < 0.0 || random_factor > 1.0 {
+        if !(0.0..=1.0).contains(&random_factor) {
             return Err(anyhow!("random_factor must be between 0.0 and 1.0"));
         }
         let myself = Self {
@@ -85,29 +91,17 @@ impl CircuitBreaker {
 
     fn transition_listeners(&self, state: State) -> &Vec<Box<dyn Fn() + Send>> {
         match state {
-            State::Closed { .. } => {
-                &self.on_close_listeners
-            }
-            State::HalfOpen => {
-                &self.on_half_open_listeners
-            }
-            State::Open { .. } => {
-                &self.on_open_listeners
-            }
+            State::Closed { .. } => &self.on_close_listeners,
+            State::HalfOpen => &self.on_half_open_listeners,
+            State::Open { .. } => &self.on_open_listeners,
         }
     }
 
     fn transition_listeners_mut(&mut self, state: State) -> &mut Vec<Box<dyn Fn() + Send>> {
         match state {
-            State::Closed { .. } => {
-                &mut self.on_close_listeners
-            }
-            State::HalfOpen => {
-                &mut self.on_half_open_listeners
-            }
-            State::Open { .. } => {
-                &mut self.on_open_listeners
-            }
+            State::Closed { .. } => &mut self.on_close_listeners,
+            State::HalfOpen => &mut self.on_half_open_listeners,
+            State::Open { .. } => &mut self.on_open_listeners,
         }
     }
 
@@ -141,7 +135,10 @@ impl CircuitBreaker {
         }
     }
 
-    async fn call_through<Fut, R>(&mut self, body: Fut) -> anyhow::Result<R> where Fut: Future<Output=anyhow::Result<R>> {
+    async fn call_through<Fut, R>(&mut self, body: Fut) -> anyhow::Result<R>
+    where
+        Fut: Future<Output = anyhow::Result<R>>,
+    {
         match tokio::time::timeout(self.call_timeout, body).await {
             Ok(Ok(result)) => {
                 self.notify_call_success_listeners();
@@ -161,22 +158,30 @@ impl CircuitBreaker {
         }
     }
 
-    async fn invoke<Fut, R>(&mut self, body: Fut) -> anyhow::Result<R> where Fut: Future<Output=anyhow::Result<R>> {
+    async fn invoke<Fut, R>(&mut self, body: Fut) -> anyhow::Result<R>
+    where
+        Fut: Future<Output = anyhow::Result<R>>,
+    {
         match self.state {
-            State::Closed { .. } => {
-                self.call_through(body).await
-            }
-            State::HalfOpen => {
-                self.call_through(body).await
-            }
-            State::Open { open_time, current_reset_timeout } => {
-                let duration_from_opened = SystemTime::now().duration_since(open_time)
+            State::Closed { .. } => self.call_through(body).await,
+            State::HalfOpen => self.call_through(body).await,
+            State::Open {
+                open_time,
+                current_reset_timeout,
+            } => {
+                let duration_from_opened = SystemTime::now()
+                    .duration_since(open_time)
                     .expect("open_time is later than now");
                 if duration_from_opened >= current_reset_timeout {
-                    Err(anyhow!("breaker is open, will change to half open immediately"))
+                    Err(anyhow!(
+                        "breaker is open, will change to half open immediately"
+                    ))
                 } else {
                     let remain = current_reset_timeout - duration_from_opened;
-                    Err(anyhow!("breaker is open, wll change to half open after {:?}", remain))
+                    Err(anyhow!(
+                        "breaker is open, wll change to half open after {:?}",
+                        remain
+                    ))
                 }
             }
         }
@@ -185,9 +190,7 @@ impl CircuitBreaker {
     fn call_succeeds(&mut self) {
         let state = self.state;
         match state {
-            State::Closed { .. } => {
-                self.state = State::Closed { failure_counter: 0 }
-            }
+            State::Closed { .. } => self.state = State::Closed { failure_counter: 0 },
             State::HalfOpen => {
                 self.transition(state, State::Closed { failure_counter: 0 });
             }
@@ -202,7 +205,7 @@ impl CircuitBreaker {
                 *failure_counter += 1;
                 if *failure_counter >= self.max_failures {
                     self.transition(
-                        self.state.clone(),
+                        self.state,
                         State::Open {
                             open_time: SystemTime::now(),
                             current_reset_timeout: self.reset_timeout,
@@ -212,7 +215,7 @@ impl CircuitBreaker {
             }
             State::HalfOpen => {
                 self.transition(
-                    self.state.clone(),
+                    self.state,
                     State::Open {
                         open_time: SystemTime::now(),
                         current_reset_timeout: self.reset_timeout,
@@ -238,12 +241,16 @@ impl CircuitBreaker {
                 self.current_reset_timeout = self.reset_timeout;
             }
             State::HalfOpen => {}
-            State::Open { open_time, current_reset_timeout } => {
+            State::Open {
+                open_time,
+                current_reset_timeout,
+            } => {
                 *open_time = SystemTime::now();
                 let change_to_half_open = self.change_to_half_open.clone();
-                self.scheduler.schedule_once(*current_reset_timeout, move || {
-                    change_to_half_open();
-                });
+                self.scheduler
+                    .schedule_once(*current_reset_timeout, move || {
+                        change_to_half_open();
+                    });
                 let rnd = 1.0 * random::<f64>() * self.random_factor;
                 let next_reset_timeout = (*current_reset_timeout)
                     .mul_f64(self.exponential_backoff_factor)
@@ -263,37 +270,58 @@ impl CircuitBreaker {
         self.call_fails();
     }
 
-    pub fn on_open<F>(&mut self, f: F) -> &mut Self where F: Fn() + Send + 'static {
+    pub fn on_open<F>(&mut self, f: F) -> &mut Self
+    where
+        F: Fn() + Send + 'static,
+    {
         self.on_open_listeners.push(Box::new(f));
         self
     }
 
-    pub fn on_half_open<F>(&mut self, f: F) -> &mut Self where F: Fn() + Send + 'static {
+    pub fn on_half_open<F>(&mut self, f: F) -> &mut Self
+    where
+        F: Fn() + Send + 'static,
+    {
         self.on_half_open_listeners.push(Box::new(f));
         self
     }
 
-    pub fn on_close<F>(&mut self, f: F) -> &mut Self where F: Fn() + Send + 'static {
+    pub fn on_close<F>(&mut self, f: F) -> &mut Self
+    where
+        F: Fn() + Send + 'static,
+    {
         self.on_close_listeners.push(Box::new(f));
         self
     }
 
-    pub fn call_failure<F>(&mut self, f: F) -> &mut Self where F: Fn(SystemTime) + Send + 'static {
+    pub fn call_failure<F>(&mut self, f: F) -> &mut Self
+    where
+        F: Fn(SystemTime) + Send + 'static,
+    {
         self.call_failure_listeners.push(Box::new(f));
         self
     }
 
-    pub fn call_timeout<F>(&mut self, f: F) -> &mut Self where F: Fn(SystemTime) + Send + 'static {
+    pub fn call_timeout<F>(&mut self, f: F) -> &mut Self
+    where
+        F: Fn(SystemTime) + Send + 'static,
+    {
         self.call_timeout_listeners.push(Box::new(f));
         self
     }
 
-    pub fn call_breaker_open<F>(&mut self, f: F) -> &mut Self where F: Fn() + Send + 'static {
+    pub fn call_breaker_open<F>(&mut self, f: F) -> &mut Self
+    where
+        F: Fn() + Send + 'static,
+    {
         self.call_breaker_open_listeners.push(Box::new(f));
         self
     }
 
-    pub fn call_success<F>(&mut self, f: F) -> &mut Self where F: Fn() + Send + 'static {
+    pub fn call_success<F>(&mut self, f: F) -> &mut Self
+    where
+        F: Fn() + Send + 'static,
+    {
         self.call_success_listeners.push(Box::new(f));
         self
     }
@@ -341,7 +369,6 @@ mod test {
 
     use actor_derive::EmptyCodec;
 
-    use crate::{Actor, DynMessage, Message};
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::Props;
@@ -349,6 +376,7 @@ mod test {
     use crate::actor_ref::ActorRefExt;
     use crate::config::actor_setting::ActorSetting;
     use crate::pattern::circuit_breaker::CircuitBreaker;
+    use crate::{Actor, DynMessage, Message};
 
     struct LogicActor {
         breaker: CircuitBreaker,
@@ -398,7 +426,11 @@ mod test {
             Ok(())
         }
 
-        async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        async fn on_recv(
+            &mut self,
+            context: &mut ActorContext,
+            message: DynMessage,
+        ) -> anyhow::Result<()> {
             Self::handle_message(self, context, message).await
         }
     }
@@ -410,7 +442,11 @@ mod test {
     impl Message for ChangeToHalfOpen {
         type A = LogicActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(
+            self: Box<Self>,
+            context: &mut ActorContext,
+            actor: &mut Self::A,
+        ) -> anyhow::Result<()> {
             actor.breaker.change_to_half_open();
             Ok(())
         }
@@ -423,12 +459,19 @@ mod test {
     impl Message for SuccessCall {
         type A = LogicActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(
+            self: Box<Self>,
+            context: &mut ActorContext,
+            actor: &mut Self::A,
+        ) -> anyhow::Result<()> {
             for _ in 0..self.0 {
-                let _ = actor.breaker.invoke(async {
-                    actor.counter += 1;
-                    Ok(())
-                }).await;
+                let _ = actor
+                    .breaker
+                    .invoke(async {
+                        actor.counter += 1;
+                        Ok(())
+                    })
+                    .await;
             }
             info!("after success call, counter is {}", actor.counter);
             Ok(())
@@ -442,11 +485,16 @@ mod test {
     impl Message for FailCall {
         type A = LogicActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(
+            self: Box<Self>,
+            context: &mut ActorContext,
+            actor: &mut Self::A,
+        ) -> anyhow::Result<()> {
             for _ in 0..self.0 {
-                let _ = actor.breaker.invoke::<_, ()>(async {
-                    Err(anyhow!("test error"))
-                }).await;
+                let _ = actor
+                    .breaker
+                    .invoke::<_, ()>(async { Err(anyhow!("test error")) })
+                    .await;
             }
             Ok(())
         }

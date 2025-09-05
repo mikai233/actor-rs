@@ -1,12 +1,12 @@
-use std::any::Any;
 use std::any::type_name;
+use std::any::Any;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use anyhow::anyhow;
 use config::Source;
-use dashmap::DashMap;
 use dashmap::mapref::one::MappedRef;
+use dashmap::DashMap;
 use dyn_clone::DynClone;
 
 use crate::ext::as_any::AsAny;
@@ -23,8 +23,8 @@ pub trait ConfigBuilder: Sized {
     type C: Config;
 
     fn add_source<T>(self, source: T) -> anyhow::Result<Self>
-        where
-            T: Source + Send + Sync + 'static;
+    where
+        T: Source + Send + Sync + 'static;
 
     fn build(self) -> anyhow::Result<Self::C>;
 }
@@ -35,7 +35,10 @@ pub struct ActorConfig {
 }
 
 impl ActorConfig {
-    pub fn add<C>(&self, config: C) -> anyhow::Result<()> where C: Config {
+    pub fn add<C>(&self, config: C) -> anyhow::Result<()>
+    where
+        C: Config,
+    {
         let name = type_name::<C>();
         if !self.configs.contains_key(name) {
             self.configs.insert(name, Box::new(config));
@@ -45,19 +48,15 @@ impl ActorConfig {
         Ok(())
     }
 
-    pub fn get<C>(&self) -> Option<MappedRef<&'static str, Box<dyn Config>, C>> where C: Config {
+    pub fn get<C>(&self) -> Option<MappedRef<&'static str, Box<dyn Config>, C>>
+    where
+        C: Config,
+    {
         let name = type_name::<C>();
-        let config = self.configs
-            .get(name)
-            .and_then(|e| {
-                let e = e.try_map::<_, C>(|e| {
-                    e.deref().as_any().downcast_ref::<C>()
-                });
-                match e {
-                    Ok(r) => Some(r),
-                    Err(_) => None,
-                }
-            });
+        let config = self.configs.get(name).and_then(|e| {
+            let e = e.try_map::<_, C>(|e| e.deref().as_any().downcast_ref::<C>());
+            e.ok()
+        });
         config
     }
 }

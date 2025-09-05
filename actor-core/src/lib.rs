@@ -1,5 +1,5 @@
-use std::any::Any;
 use std::any::type_name;
+use std::any::Any;
 use std::fmt::{Debug, Formatter};
 
 use anyhow::anyhow;
@@ -19,21 +19,21 @@ use crate::delegate::user::UserDelegate;
 use crate::message::message_registry::MessageRegistry;
 use crate::message::MessageDecoder;
 
-pub(crate) const CORE_CONFIG: &'static str = include_str!("../core.toml");
+pub(crate) const CORE_CONFIG: &str = include_str!("../core.toml");
 
-pub mod ext;
-mod cell;
-pub mod delegate;
-pub mod message;
-pub mod event;
-pub mod routing;
 pub mod actor;
-pub mod config;
-pub mod pattern;
 pub mod actor_path;
 pub mod actor_ref;
-pub mod provider;
 pub mod async_ref;
+mod cell;
+pub mod config;
+pub mod delegate;
+pub mod event;
+pub mod ext;
+pub mod message;
+pub mod pattern;
+pub mod provider;
+pub mod routing;
 
 #[async_trait]
 pub trait Actor: Send + Any {
@@ -48,20 +48,29 @@ pub trait Actor: Send + Any {
     }
 
     #[allow(unused_variables)]
-    fn on_child_failure(&mut self, context: &mut ActorContext, child: &ActorRef, error: &anyhow::Error) -> Directive {
+    fn on_child_failure(
+        &mut self,
+        context: &mut ActorContext,
+        child: &ActorRef,
+        error: &anyhow::Error,
+    ) -> Directive {
         Directive::Resume
     }
 
     #[allow(unused_variables)]
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()>;
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()>;
 
     async fn handle_message<A: Actor>(
         actor: &mut A,
         context: &mut ActorContext,
         message: DynMessage,
     ) -> anyhow::Result<()>
-        where
-            Self: Sized
+    where
+        Self: Sized,
     {
         match message.downcast_user_delegate::<A>() {
             Ok(message) => {
@@ -82,7 +91,9 @@ pub trait CodecMessage: Any + Send {
 
     fn into_codec(self: Box<Self>) -> Box<dyn CodecMessage>;
 
-    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized;
+    fn decoder() -> Option<Box<dyn MessageDecoder>>
+    where
+        Self: Sized;
 
     fn encode(self: Box<Self>, reg: &MessageRegistry) -> anyhow::Result<Vec<u8>>;
 
@@ -97,12 +108,20 @@ pub trait CodecMessage: Any + Send {
 pub trait Message: CodecMessage {
     type A: Actor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()>;
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()>;
 }
 
 #[async_trait]
 pub trait SystemMessage: CodecMessage {
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut dyn Actor) -> anyhow::Result<()>;
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut dyn Actor,
+    ) -> anyhow::Result<()>;
 }
 
 pub trait OrphanMessage: CodecMessage {}
@@ -146,7 +165,10 @@ impl DynMessage {
         self.message
     }
 
-    pub fn new<M>(name: &'static str, ty: MessageType, message: M) -> Self where M: CodecMessage {
+    pub fn new<M>(name: &'static str, ty: MessageType, message: M) -> Self
+    where
+        M: CodecMessage,
+    {
         DynMessage {
             name,
             ty,
@@ -167,34 +189,54 @@ impl DynMessage {
         self.message.cloneable()
     }
 
-    pub fn user<M>(message: M) -> Self where M: Message {
+    pub fn user<M>(message: M) -> Self
+    where
+        M: Message,
+    {
         let delegate = UserDelegate::new(message);
         DynMessage::new(delegate.name, MessageType::User, delegate)
     }
 
-    pub fn system<M>(message: M) -> Self where M: SystemMessage {
+    pub fn system<M>(message: M) -> Self
+    where
+        M: SystemMessage,
+    {
         let delegate = SystemDelegate::new(message);
         DynMessage::new(delegate.name, MessageType::System, delegate)
     }
 
-    pub fn orphan<M>(message: M) -> Self where M: OrphanMessage {
+    pub fn orphan<M>(message: M) -> Self
+    where
+        M: OrphanMessage,
+    {
         let name = type_name::<M>();
         DynMessage::new(name, MessageType::Orphan, message)
     }
 
     /// 判断[`DynMessage`]的实际消息类型，大部分消息都会包装一层代理层，用于downcast到具体的类型，因为Rust不允许从一个trait object
     /// downcast到另外一个trait object，所以要包装一层具体的类型，这里直接取[`DynMessage::name`]进行比较，这里存放的是原始的消息名称
-    pub fn is<M>(&self) -> bool where M: CodecMessage {
+    pub fn is<M>(&self) -> bool
+    where
+        M: CodecMessage,
+    {
         let name = type_name::<M>();
         self.name() == name
     }
 
-    pub fn downcast_user_delegate<A>(self) -> anyhow::Result<Box<UserDelegate<A>>> where A: Actor {
+    pub fn downcast_user_delegate<A>(self) -> anyhow::Result<Box<UserDelegate<A>>>
+    where
+        A: Actor,
+    {
         let Self { name, ty, message } = self;
         let message = message.into_any();
         let user_delegate = if matches!(ty, MessageType::User) {
-            message.downcast::<UserDelegate<A>>()
-                .map_err(|_| anyhow!("message {} cannot downcast to UserDelegate<{}>", name, type_name::<A>()))
+            message.downcast::<UserDelegate<A>>().map_err(|_| {
+                anyhow!(
+                    "message {} cannot downcast to UserDelegate<{}>",
+                    name,
+                    type_name::<A>()
+                )
+            })
         } else {
             Err(anyhow!("message {} is not a user message", name))
         };
@@ -205,15 +247,23 @@ impl DynMessage {
         let Self { name, ty, message } = self;
         let message = message.into_any();
         let system_delegate = if matches!(ty, MessageType::System) {
-            message.downcast::<SystemDelegate>()
-                .map_err(|_| anyhow!("message {} cannot downcast to {}", name, type_name::<SystemDelegate>()))
+            message.downcast::<SystemDelegate>().map_err(|_| {
+                anyhow!(
+                    "message {} cannot downcast to {}",
+                    name,
+                    type_name::<SystemDelegate>()
+                )
+            })
         } else {
             Err(anyhow!("message {} is not a user message", name))
         };
         system_delegate
     }
 
-    pub fn downcast_user_delegate_ref<A>(&self) -> Option<&UserDelegate<A>> where A: Actor {
+    pub fn downcast_user_delegate_ref<A>(&self) -> Option<&UserDelegate<A>>
+    where
+        A: Actor,
+    {
         let Self { ty, message, .. } = self;
         let message = message.as_any();
         if matches!(ty, MessageType::User) {
@@ -233,30 +283,54 @@ impl DynMessage {
         }
     }
 
-    pub fn downcast_user<A, M>(self) -> anyhow::Result<M> where A: Actor, M: Message {
+    pub fn downcast_user<A, M>(self) -> anyhow::Result<M>
+    where
+        A: Actor,
+        M: Message,
+    {
         let message: M = self.downcast_user_delegate::<A>().map(|d| d.downcast())??;
         Ok(message)
     }
 
-    pub fn downcast_user_ref<A, M>(&self) -> Option<&M> where A: Actor, M: Message {
-        self.downcast_user_delegate_ref::<A>().map(|d| d.downcast_ref()).unwrap_or_default()
+    pub fn downcast_user_ref<A, M>(&self) -> Option<&M>
+    where
+        A: Actor,
+        M: Message,
+    {
+        self.downcast_user_delegate_ref::<A>()
+            .map(|d| d.downcast_ref())
+            .unwrap_or_default()
     }
 
-    pub fn downcast_system<M>(self) -> anyhow::Result<M> where M: SystemMessage {
+    pub fn downcast_system<M>(self) -> anyhow::Result<M>
+    where
+        M: SystemMessage,
+    {
         let message: M = self.downcast_system_delegate().map(|d| d.downcast())??;
         Ok(message)
     }
 
-    pub fn downcast_system_ref<M>(&self) -> Option<&M> where M: SystemMessage {
-        self.downcast_system_delegate_ref().map(|d| d.downcast_ref()).unwrap_or_default()
+    pub fn downcast_system_ref<M>(&self) -> Option<&M>
+    where
+        M: SystemMessage,
+    {
+        self.downcast_system_delegate_ref()
+            .map(|d| d.downcast_ref())
+            .unwrap_or_default()
     }
 
-    pub fn downcast_orphan<M>(self) -> anyhow::Result<M> where M: OrphanMessage {
+    pub fn downcast_orphan<M>(self) -> anyhow::Result<M>
+    where
+        M: OrphanMessage,
+    {
         let Self { name, message, .. } = self;
         downcast_box_message(name, message.into_any())
     }
 
-    pub fn downcast_orphan_ref<M>(&self) -> Option<&M> where M: OrphanMessage {
+    pub fn downcast_orphan_ref<M>(&self) -> Option<&M>
+    where
+        M: OrphanMessage,
+    {
         let Self { message, .. } = self;
         message.as_any().downcast_ref()
     }
@@ -277,7 +351,11 @@ impl Actor for EmptyTestActor {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
@@ -292,14 +370,14 @@ mod actor_test {
 
     use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
-    use crate::{Actor, DynMessage, EmptyTestActor, Message};
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::Props;
-    use crate::actor_ref::{ActorRef, ActorRefExt};
     use crate::actor_ref::actor_ref_factory::ActorRefFactory;
+    use crate::actor_ref::{ActorRef, ActorRefExt};
     use crate::config::actor_setting::ActorSetting;
     use crate::ext::init_logger;
+    use crate::{Actor, DynMessage, EmptyTestActor, Message};
 
     #[ctor::ctor]
     fn init() {
@@ -320,7 +398,9 @@ mod actor_test {
                 for _ in 0..3 {
                     let n = self.depth - 1;
                     if n > 0 {
-                        context.spawn_anonymous(Props::new(move || Ok(DeathWatchActor { depth: n })))?;
+                        context.spawn_anonymous(Props::new(move || {
+                            Ok(DeathWatchActor { depth: n })
+                        }))?;
                     }
                 }
                 Ok(())
@@ -331,7 +411,11 @@ mod actor_test {
                 Ok(())
             }
 
-            async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+            async fn on_recv(
+                &mut self,
+                context: &mut ActorContext,
+                message: DynMessage,
+            ) -> anyhow::Result<()> {
                 Self::handle_message(self, context, message).await
             }
         }
@@ -443,7 +527,11 @@ mod actor_test {
         impl Message for LocalMessage {
             type A = EmptyTestActor;
 
-            async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+            async fn handle(
+                self: Box<Self>,
+                _context: &mut ActorContext,
+                _actor: &mut Self::A,
+            ) -> anyhow::Result<()> {
                 Ok(())
             }
         }
@@ -461,7 +549,11 @@ mod actor_test {
         impl Message for TestMessage {
             type A = AdapterActor;
 
-            async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+            async fn handle(
+                self: Box<Self>,
+                _context: &mut ActorContext,
+                _actor: &mut Self::A,
+            ) -> anyhow::Result<()> {
                 info!("get transform message");
                 Ok(())
             }
@@ -471,14 +563,17 @@ mod actor_test {
         #[async_trait]
         impl Actor for AdapterActor {
             async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-                let adapter = context.adapter::<TestOrphanMessage>(|_| {
-                    DynMessage::user(TestMessage)
-                });
+                let adapter =
+                    context.adapter::<TestOrphanMessage>(|_| DynMessage::user(TestMessage));
                 adapter.tell(DynMessage::orphan(TestOrphanMessage), ActorRef::no_sender());
                 Ok(())
             }
 
-            async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+            async fn on_recv(
+                &mut self,
+                context: &mut ActorContext,
+                message: DynMessage,
+            ) -> anyhow::Result<()> {
                 Self::handle_message(self, context, message).await
             }
         }
@@ -505,7 +600,11 @@ mod actor_test {
                 Ok(())
             }
 
-            async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+            async fn on_recv(
+                &mut self,
+                context: &mut ActorContext,
+                message: DynMessage,
+            ) -> anyhow::Result<()> {
                 Self::handle_message(self, context, message).await
             }
         }
@@ -517,7 +616,11 @@ mod actor_test {
         impl Message for TestMessage {
             type A = TestActor;
 
-            async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+            async fn handle(
+                self: Box<Self>,
+                context: &mut ActorContext,
+                actor: &mut Self::A,
+            ) -> anyhow::Result<()> {
                 tokio::time::sleep(Duration::from_secs(2)).await;
                 Err(anyhow!("should be cancelled"))
             }

@@ -16,7 +16,6 @@ pub(crate) enum EntityPassivationStrategy {
     DisabledEntityPassivationStrategy,
 }
 
-
 #[enum_dispatch(EntityPassivationStrategy)]
 pub(crate) trait TEntityPassivationStrategy {
     fn limit_updated(&mut self, new_limit: usize) -> PassivateEntities;

@@ -19,7 +19,12 @@ pub struct Member {
 }
 
 impl Member {
-    pub fn new(addr: UniqueAddress, status: MemberStatus, roles: HashSet<String>, lease: i64) -> Self {
+    pub fn new(
+        addr: UniqueAddress,
+        status: MemberStatus,
+        roles: HashSet<String>,
+        lease: i64,
+    ) -> Self {
         Self {
             addr,
             status,
@@ -50,23 +55,16 @@ impl Hash for Member {
 impl Display for Member {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let roles = self.roles.iter().join(", ");
-        write!(f, "Member {{addr: {}, status: {}, roles: {}, lease: {}}}", self.addr, self.status, roles, self.lease)
+        write!(
+            f,
+            "Member {{addr: {}, status: {}, roles: {}, lease: {}}}",
+            self.addr, self.status, roles, self.lease
+        )
     }
 }
 
 #[derive(
-    Debug,
-    Copy,
-    Clone,
-    Ord,
-    PartialOrd,
-    Eq,
-    PartialEq,
-    Hash,
-    Encode,
-    Decode,
-    Serialize,
-    Deserialize
+    Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Encode, Decode, Serialize, Deserialize,
 )]
 pub enum MemberStatus {
     Up,

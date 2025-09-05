@@ -4,9 +4,9 @@ use async_trait::async_trait;
 use tracing::info;
 
 use actor_core::actor::context::{ActorContext, Context};
+use actor_core::message::message_buffer::BufferEnvelope;
 use actor_core::EmptyCodec;
 use actor_core::Message;
-use actor_core::message::message_buffer::BufferEnvelope;
 
 use crate::transport::connection::ConnectionTx;
 use crate::transport::connection_status::ConnectionStatus;
@@ -22,8 +22,14 @@ pub(super) struct Connected {
 impl Message for Connected {
     type A = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        actor.connections.insert(self.addr, ConnectionStatus::Connected(self.tx));
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
+        actor
+            .connections
+            .insert(self.addr, ConnectionStatus::Connected(self.tx));
         info!("{} connected to {}", context.myself(), self.addr);
         if let Some(buffers) = actor.message_buffer.remove(&self.addr) {
             for envelope in buffers {

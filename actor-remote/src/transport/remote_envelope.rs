@@ -11,12 +11,12 @@ pub(crate) struct RemoteEnvelope {
     pub target: ActorRef,
 }
 
-impl Into<RemotePacket> for RemoteEnvelope {
-    fn into(self) -> RemotePacket {
+impl From<RemoteEnvelope> for RemotePacket {
+    fn from(val: RemoteEnvelope) -> Self {
         RemotePacket {
-            packet: self.packet,
-            sender: self.sender.map(|s| s.path().to_serialization_format()),
-            target: self.target.path().to_serialization_format(),
+            packet: val.packet,
+            sender: val.sender.map(|s| s.path().to_serialization_format()),
+            target: val.target.path().to_serialization_format(),
         }
     }
 }

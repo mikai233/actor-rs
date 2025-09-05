@@ -4,15 +4,17 @@ use std::time::Duration;
 use clap::Parser;
 use etcd_client::Client;
 
-use actor_cluster_tools::singleton::cluster_singleton_manager::{ClusterSingletonManager, ClusterSingletonManagerSettings};
+use actor_cluster_tools::singleton::cluster_singleton_manager::{
+    ClusterSingletonManager, ClusterSingletonManagerSettings,
+};
 use actor_cluster_tools::singleton::cluster_singleton_proxy::cluster_singleton_proxy_settings::ClusterSingletonProxySettings;
 use actor_cluster_tools::singleton::cluster_singleton_proxy::ClusterSingletonProxy;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::props::PropsBuilder;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
-use actor_core::DynMessage;
 use actor_core::ext::init_logger_with_filter;
+use actor_core::DynMessage;
 use actor_playgroud::common::build_cluster_setting;
 use actor_playgroud::common::greet::Greet;
 use actor_playgroud::common::singleton_actor::SingletonActor;
@@ -34,7 +36,13 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let Args { system_name, addr, etcd, name, proxy } = Args::parse();
+    let Args {
+        system_name,
+        addr,
+        etcd,
+        name,
+        proxy,
+    } = Args::parse();
     init_logger_with_filter("actor=debug,actor-core::scheduler=info");
     let client = Client::connect([etcd.to_string()], None).await?;
     let setting = build_cluster_setting(addr, client)?;
@@ -56,10 +64,9 @@ async fn main() -> anyhow::Result<()> {
             }
         });
     } else {
-        let settings = ClusterSingletonManagerSettings::builder()
-            .build();
+        let settings = ClusterSingletonManagerSettings::builder().build();
         let singleton_props = ClusterSingletonManager::props(
-            PropsBuilder::new(|()| { Ok(SingletonActor) }),
+            PropsBuilder::new(|()| Ok(SingletonActor)),
             DynMessage::user(StopSingleton),
             settings,
         )?;

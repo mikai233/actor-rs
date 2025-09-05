@@ -23,7 +23,8 @@ pub struct ClusterShardingSettings {
 impl ClusterShardingSettings {
     pub fn create(system: &ActorSystem) -> Self {
         let sharding_config = system.get_config::<ClusterShardingConfig>();
-        let settings = Self {
+        
+        Self {
             role: sharding_config.role.clone(),
             shard_region_query_timeout: sharding_config.shard_region_query_timeout,
             coordinator_singleton_settings: sharding_config.coordinator_singleton.clone().into(),
@@ -32,16 +33,19 @@ impl ClusterShardingSettings {
             shard_start_timeout: sharding_config.shard_start_timeout,
             rebalance_interval: sharding_config.rebalance_interval,
             buffer_size: sharding_config.buffer_size,
-        };
-        settings
+        }
     }
 
     pub(crate) fn should_host_shard(&self, cluster: &Cluster) -> bool {
-        self.role.iter().all(|role| { cluster.self_member().has_role(role) })
+        self.role
+            .iter()
+            .all(|role| cluster.self_member().has_role(role))
     }
 
     pub(crate) fn should_host_coordinator(&self, cluster: &Cluster) -> bool {
-        self.role.iter().all(|role| { cluster.self_member().has_role(role) })
+        self.role
+            .iter()
+            .all(|role| cluster.self_member().has_role(role))
     }
 }
 
@@ -49,7 +53,6 @@ impl ClusterShardingSettings {
 struct PassivationStrategySettings {
     idle_entity_settings: IdleSettings,
     active_entity_limit: Option<usize>,
-
 }
 
 #[derive(Debug, Clone)]

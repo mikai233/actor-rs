@@ -9,13 +9,13 @@ use actor_derive::AsAny;
 use crate::actor::actor_selection::ActorSelectionMessage;
 use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
-use crate::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, get_child_default, TActorRef};
-use crate::DynMessage;
+use crate::actor_ref::{get_child_default, ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
 use crate::ext::option_ext::OptionExt;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::identify::{ActorIdentity, Identify};
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
+use crate::DynMessage;
 
 #[derive(Clone, AsAny)]
 pub struct EmptyLocalActorRef {
@@ -63,7 +63,7 @@ impl TActorRef for EmptyLocalActorRef {
         None
     }
 
-    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {
         get_child_default(self.clone(), names)
     }
 }
@@ -88,7 +88,9 @@ impl EmptyLocalActorRef {
                     existence_confirmed: true,
                     address_terminated: false,
                 };
-                watch.watcher.cast_system(notification, ActorRef::no_sender());
+                watch
+                    .watcher
+                    .cast_system(notification, ActorRef::no_sender());
             }
         } else if message.name == unwatch {
             // just ignore
@@ -96,17 +98,16 @@ impl EmptyLocalActorRef {
             sender.foreach(|s| s.cast_orphan_ns(ActorIdentity { actor_ref: None }));
         } else if message.name == actor_selection {
             let actor_selection = message.downcast_orphan::<ActorSelectionMessage>().unwrap();
-            if actor_selection.identify_request().is_some() {
-                if !actor_selection.wildcard_fan_out {
+            if actor_selection.identify_request().is_some()
+                && !actor_selection.wildcard_fan_out {
                     sender.foreach(|s| s.cast_orphan_ns(ActorIdentity { actor_ref: None }));
                 }
-            }
         }
     }
 }
 
-impl Into<ActorRef> for EmptyLocalActorRef {
-    fn into(self) -> ActorRef {
-        ActorRef::new(self)
+impl From<EmptyLocalActorRef> for ActorRef {
+    fn from(val: EmptyLocalActorRef) -> Self {
+        ActorRef::new(val)
     }
 }

@@ -9,10 +9,7 @@ pub(crate) struct Envelope {
 
 impl Envelope {
     pub fn new(message: DynMessage, sender: Option<ActorRef>) -> Self {
-        Self {
-            message,
-            sender,
-        }
+        Self { message, sender }
     }
 
     pub fn name(&self) -> &'static str {

@@ -2,12 +2,13 @@ use std::sync::Arc;
 
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::props::DeferredSpawn;
-use crate::config::ConfigBuilder;
 use crate::config::core_config::CoreConfig;
-use crate::provider::ActorRefProvider;
+use crate::config::ConfigBuilder;
 use crate::provider::local_actor_ref_provider::LocalActorRefProvider;
+use crate::provider::ActorRefProvider;
 
-pub type ProviderBuilder = Box<dyn Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)>>;
+pub type ProviderBuilder =
+    Box<dyn Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)>>;
 
 #[derive(Clone)]
 pub struct ActorSetting {
@@ -17,8 +18,9 @@ pub struct ActorSetting {
 
 impl ActorSetting {
     pub fn new<F>(provider: F, config: CoreConfig) -> anyhow::Result<Self>
-        where
-            F: Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> + 'static
+    where
+        F: Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)>
+            + 'static,
     {
         let setting = Self {
             provider: Arc::new(Box::new(provider)),
@@ -27,10 +29,10 @@ impl ActorSetting {
         Ok(setting)
     }
 
-
     pub fn new_with_default_config<F>(provider: F) -> anyhow::Result<Self>
-        where
-            F: Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)> + 'static
+    where
+        F: Fn(ActorSystem) -> anyhow::Result<(ActorRefProvider, Vec<Box<dyn DeferredSpawn>>)>
+            + 'static,
     {
         let config = CoreConfig::builder().build()?;
         Self::new(provider, config)

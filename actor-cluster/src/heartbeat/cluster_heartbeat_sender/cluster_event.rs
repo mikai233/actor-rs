@@ -15,31 +15,54 @@ pub(super) struct ClusterEventWrap(pub(super) ClusterEvent);
 impl Message for ClusterEventWrap {
     type A = ClusterHeartbeatSender;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        _context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         match self.0 {
             ClusterEvent::MemberUp(m) => {
-                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                if actor
+                    .self_member
+                    .as_ref()
+                    .is_some_and(|sm| sm.addr == m.addr)
+                {
                     actor.self_member = Some(m.clone());
                 }
                 actor.active_receivers.insert(m.addr);
             }
             ClusterEvent::MemberPrepareForLeaving(m) => {
-                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                if actor
+                    .self_member
+                    .as_ref()
+                    .is_some_and(|sm| sm.addr == m.addr)
+                {
                     actor.self_member = Some(m.clone());
                 }
             }
             ClusterEvent::MemberLeaving(m) => {
-                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                if actor
+                    .self_member
+                    .as_ref()
+                    .is_some_and(|sm| sm.addr == m.addr)
+                {
                     actor.self_member = Some(m.clone());
                 }
             }
             ClusterEvent::MemberRemoved(m) => {
-                if actor.self_member.as_ref().is_some_and(|sm| sm.addr == m.addr) {
+                if actor
+                    .self_member
+                    .as_ref()
+                    .is_some_and(|sm| sm.addr == m.addr)
+                {
                     actor.self_member = Some(m.clone());
                 }
                 actor.active_receivers.remove(&m.addr);
             }
-            ClusterEvent::CurrentClusterState { members, self_member } => {
+            ClusterEvent::CurrentClusterState {
+                members,
+                self_member,
+            } => {
                 actor.self_member = Some(self_member);
                 let up_members = members
                     .into_iter()

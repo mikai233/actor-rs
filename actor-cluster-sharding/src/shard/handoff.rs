@@ -8,10 +8,10 @@ use async_trait::async_trait;
 use tracing::{debug, info, warn};
 
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::EmptyCodec;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::option_ext::OptionExt;
+use actor_core::EmptyCodec;
 use actor_core::Message;
 
 use crate::handoff_stopper::HandoffStopper;
@@ -29,7 +29,11 @@ pub(crate) struct Handoff {
 impl Message for Handoff {
     type A = Shard;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let shard_id = self.shard;
         if shard_id.as_str() == actor.shard_id.as_str() {
             match &actor.handoff_stopper {
@@ -39,37 +43,62 @@ impl Message for Handoff {
                     if actor.preparing_for_shutdown {
                         info!("{}: Handoff shard [{}] while preparing for shutdown. Stopping right away.", actor.type_name, shard_id);
                         for entity in active_entities {
-                            entity.tell(actor.handoff_stop_message.dyn_clone()?, ActorRef::no_sender());
+                            entity.tell(
+                                actor.handoff_stop_message.dyn_clone()?,
+                                ActorRef::no_sender(),
+                            );
                         }
-                        let reply_to = context.sender().into_result().context(type_name::<Handoff>())?;
+                        let reply_to = context
+                            .sender()
+                            .into_result()
+                            .context(type_name::<Handoff>())?;
                         reply_to.cast_ns(ShardStopped { shard: shard_id });
                         context.stop(context.myself());
                     } else if active_entities.is_empty().not() && !actor.preparing_for_shutdown {
-                        debug!("{}: Starting HandoffStopper for shard [{}] to terminate [{}] entities", actor.type_name, shard_id, active_entities.len());
+                        debug!(
+                            "{}: Starting HandoffStopper for shard [{}] to terminate [{}] entities",
+                            actor.type_name,
+                            shard_id,
+                            active_entities.len()
+                        );
                         for entity in &active_entities {
                             context.unwatch(entity);
                         }
-                        let entities = active_entities.iter().map(|a| (**a).clone()).collect::<HashSet<_>>();
-                        let reply_to = context.sender().into_result().context(type_name::<Handoff>())?;
+                        let entities = active_entities
+                            .iter()
+                            .map(|a| (**a).clone())
+                            .collect::<HashSet<_>>();
+                        let reply_to = context
+                            .sender()
+                            .into_result()
+                            .context(type_name::<Handoff>())?;
                         let stopper = context.spawn(
                             HandoffStopper::props(
                                 actor.type_name.clone(),
-                                actor.shard_id.clone(), reply_to.clone(),
+                                actor.shard_id.clone(),
+                                reply_to.clone(),
                                 entities,
                                 actor.handoff_stop_message.dyn_clone()?,
                                 Duration::from_secs(5),
                             ),
-                            "handoff_stopper")?;
+                            "handoff_stopper",
+                        )?;
                         context.watch(stopper.clone(), HandoffStopperTerminated::new)?;
                         actor.handoff_stopper = Some(stopper);
                     } else {
-                        let reply_to = context.sender().into_result().context(type_name::<Handoff>())?;
+                        let reply_to = context
+                            .sender()
+                            .into_result()
+                            .context(type_name::<Handoff>())?;
                         reply_to.cast_ns(ShardStopped { shard: shard_id });
                         context.stop(context.myself());
                     }
                 }
                 Some(_) => {
-                    warn!("{}: Handoff shard [{}] received during existing handoff", actor.type_name, actor.shard_id);
+                    warn!(
+                        "{}: Handoff shard [{}] received during existing handoff",
+                        actor.type_name, actor.shard_id
+                    );
                 }
             }
         } else {

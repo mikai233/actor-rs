@@ -35,7 +35,9 @@ impl AddressTerminatedTopic {
     }
 
     pub fn get(system: &ActorSystem) -> Self {
-        system.get_ext::<Self>().expect(&format!("{} not found", type_name::<Self>()))
+        system
+            .get_ext::<Self>()
+            .unwrap_or_else(|| panic!("{} not found", type_name::<Self>()))
     }
 
     pub fn subscribe(&self, subscriber: ActorRef) {

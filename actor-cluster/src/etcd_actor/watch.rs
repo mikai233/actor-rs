@@ -2,13 +2,13 @@ use async_trait::async_trait;
 use etcd_client::{WatchOptions, WatchResponse};
 use tracing::debug;
 
-use actor_core::{DynMessage, Message};
-use actor_core::{EmptyCodec, OrphanEmptyCodec};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::{DynMessage, Message};
+use actor_core::{EmptyCodec, OrphanEmptyCodec};
 
-use crate::etcd_actor::EtcdActor;
 use crate::etcd_actor::watch_started::WatchStarted;
+use crate::etcd_actor::EtcdActor;
 
 #[derive(Debug, EmptyCodec)]
 pub struct Watch {
@@ -21,14 +21,21 @@ pub struct Watch {
 impl Message for Watch {
     type A = EtcdActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         debug!("{} request watch key {}", self.applicant, self.key);
         let mut client = actor.client.clone();
         let myself = context.myself().clone();
         context.spawn_fut(format!("watch-{}", self.key), async move {
             match client.watch(self.key, self.options).await {
                 Ok((watcher, stream)) => {
-                    self.applicant.tell(DynMessage::orphan(WatchResp::Started), ActorRef::no_sender());
+                    self.applicant.tell(
+                        DynMessage::orphan(WatchResp::Started),
+                        ActorRef::no_sender(),
+                    );
                     let started = WatchStarted {
                         watcher,
                         stream,

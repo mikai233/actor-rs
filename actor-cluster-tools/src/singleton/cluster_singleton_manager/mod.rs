@@ -12,15 +12,15 @@ use actor_cluster::cluster_provider::ClusterActorRefProvider;
 use actor_cluster::etcd_actor::keep_alive::KeepAlive;
 use actor_cluster::etcd_client::LockOptions;
 use actor_cluster::member::MemberStatus;
-use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_EXITING};
 use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::provider::downcast_provider;
+use actor_core::{Actor, CodecMessage, DynMessage};
 
 use crate::config::singleton_config::SingletonConfig;
 use crate::singleton::cluster_singleton_manager::lock_failed::LockFailed;
@@ -28,15 +28,14 @@ use crate::singleton::cluster_singleton_manager::lock_success::LockSuccess;
 use crate::singleton::cluster_singleton_manager::shutdown_singleton::ShutdownSingleton;
 use crate::singleton::cluster_singleton_manager::singleton_keep_alive_failed::SingletonKeepAliveFailed;
 
-mod shutdown_singleton;
-mod singleton_terminated;
 mod lock_failed;
 mod lock_success;
+mod shutdown_singleton;
 mod singleton_keep_alive_failed;
+mod singleton_terminated;
 
 const SINGLETON_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(3);
 const SINGLETON_LEASE_TTL: i64 = 30;
-
 
 #[derive(Debug, Clone, TypedBuilder)]
 pub struct ClusterSingletonManagerSettings {
@@ -48,7 +47,10 @@ pub struct ClusterSingletonManagerSettings {
 
 impl From<SingletonConfig> for ClusterSingletonManagerSettings {
     fn from(value: SingletonConfig) -> Self {
-        let SingletonConfig { singleton_name, role } = value;
+        let SingletonConfig {
+            singleton_name,
+            role,
+        } = value;
         Self {
             singleton_name,
             role,
@@ -79,16 +81,24 @@ impl ClusterSingletonManager {
         settings: ClusterSingletonManagerSettings,
     ) -> anyhow::Result<Self> {
         let cluster = Cluster::get(context.system()).clone();
-        let singleton_keep_alive_adapter = context.adapter(|m| { SingletonKeepAliveFailed(Some(m)).into_dyn() });
+        let singleton_keep_alive_adapter =
+            context.adapter(|m| SingletonKeepAliveFailed(Some(m)).into_dyn());
         let myself = context.myself().clone();
         let coordinate_shutdown = CoordinatedShutdown::get(context.system());
-        coordinate_shutdown.add_task(context.system(), PHASE_CLUSTER_EXITING, "wait-singleton-exiting", async move {
-            if !(cluster.is_terminated() || cluster.self_member().status == MemberStatus::Removed) {
-                let (tx, rx) = tokio::sync::oneshot::channel();
-                myself.cast_ns(ShutdownSingleton(tx));
-                let _ = rx.await;
-            }
-        })?;
+        coordinate_shutdown.add_task(
+            context.system(),
+            PHASE_CLUSTER_EXITING,
+            "wait-singleton-exiting",
+            async move {
+                if !(cluster.is_terminated()
+                    || cluster.self_member().status == MemberStatus::Removed)
+                {
+                    let (tx, rx) = tokio::sync::oneshot::channel();
+                    myself.cast_ns(ShutdownSingleton(tx));
+                    let _ = rx.await;
+                }
+            },
+        )?;
         let cluster = Cluster::get(context.system()).clone();
         let provider = context.system().provider();
         let cluster_provider = downcast_provider::<ClusterActorRefProvider>(&provider);
@@ -138,7 +148,12 @@ impl ClusterSingletonManager {
             if !self_member.has_role(role) {
                 let addr = &self_member.addr;
                 let name = context.myself().path().name();
-                trace!("{} do not has role {}, no need to start singleton {}", addr, role, name);
+                trace!(
+                    "{} do not has role {}, no need to start singleton {}",
+                    addr,
+                    role,
+                    name
+                );
                 return Ok(());
             }
         }
@@ -166,9 +181,16 @@ impl ClusterSingletonManager {
         Ok(())
     }
 
-    pub fn props(props: PropsBuilder<()>, termination_message: DynMessage, settings: ClusterSingletonManagerSettings) -> anyhow::Result<Props> {
+    pub fn props(
+        props: PropsBuilder<()>,
+        termination_message: DynMessage,
+        settings: ClusterSingletonManagerSettings,
+    ) -> anyhow::Result<Props> {
         if !termination_message.cloneable() {
-            return Err(anyhow!("termination message {} require cloneable", termination_message.name()));
+            return Err(anyhow!(
+                "termination message {} require cloneable",
+                termination_message.name()
+            ));
         }
         let props = Props::new_with_ctx(move |context| {
             Self::new(context, props, termination_message, settings)
@@ -195,7 +217,11 @@ impl Actor for ClusterSingletonManager {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

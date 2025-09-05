@@ -23,21 +23,23 @@ pub trait ClusterShardAllocation {
     fn self_member(&self) -> Member;
 
     fn region_entries_for(&self, current_shard_allocations: AllocationMap) -> Vec<RegionEntry> {
-        let address_to_member: HashMap<_, _> = self.cluster_state()
+        let address_to_member: HashMap<_, _> = self
+            .cluster_state()
             .members()
-            .iter().map(|(addr, member)| {
-            (addr.address.clone(), member.clone())
-        }).collect();
-        current_shard_allocations.into_iter().flat_map(|(region, shard_ids)| {
-            let region_address = region.path().address();
-            let member_for_region = address_to_member.get(region_address);
-            member_for_region.map(|member| {
-                RegionEntry {
+            .iter()
+            .map(|(addr, member)| (addr.address.clone(), member.clone()))
+            .collect();
+        current_shard_allocations
+            .into_iter()
+            .flat_map(|(region, shard_ids)| {
+                let region_address = region.path().address();
+                let member_for_region = address_to_member.get(region_address);
+                member_for_region.map(|member| RegionEntry {
                     region,
                     member: member.clone(),
                     shard_ids,
-                }
+                })
             })
-        }).collect_vec()
+            .collect_vec()
     }
 }

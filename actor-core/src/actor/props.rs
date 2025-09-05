@@ -5,13 +5,13 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use tokio::sync::mpsc::channel;
 
-use crate::Actor;
 use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::context::ActorContext;
 use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
+use crate::Actor;
 
 type ActorSpawner = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem) -> anyhow::Result<()> + Send>;
 
@@ -32,13 +32,18 @@ impl Debug for Props {
 
 impl Props {
     pub fn new<F, A>(func: F) -> Self
-        where
-            F: FnOnce() -> anyhow::Result<A> + Send + 'static,
-            A: Actor {
+    where
+        F: FnOnce() -> anyhow::Result<A> + Send + 'static,
+        A: Actor,
+    {
         let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
             let context = ActorContext::new(myself, system);
             let actor = func()?;
-            let runtime = ActorRuntime { actor, context, mailbox };
+            let runtime = ActorRuntime {
+                actor,
+                context,
+                mailbox,
+            };
             Self::run_actor(runtime)?;
             Ok::<_, anyhow::Error>(())
         };
@@ -50,14 +55,19 @@ impl Props {
     }
 
     pub fn new_with_ctx<F, A>(func: F) -> Self
-        where
-            F: FnOnce(&mut ActorContext) -> anyhow::Result<A> + Send + 'static,
-            A: Actor {
+    where
+        F: FnOnce(&mut ActorContext) -> anyhow::Result<A> + Send + 'static,
+        A: Actor,
+    {
         let actor_name = type_name::<A>();
         let spawner = move |myself: ActorRef, mailbox: Mailbox, system: ActorSystem| {
             let mut context = ActorContext::new(myself, system);
             let actor = func(&mut context)?;
-            let runtime = ActorRuntime { actor, context, mailbox };
+            let runtime = ActorRuntime {
+                actor,
+                context,
+                mailbox,
+            };
             Self::run_actor(runtime)?;
             Ok::<_, anyhow::Error>(())
         };
@@ -70,8 +80,13 @@ impl Props {
 
     pub(crate) fn mailbox(&self, system: &ActorSystem) -> anyhow::Result<(MailboxSender, Mailbox)> {
         let core_config = system.core_config();
-        let mailbox_name = self.mailbox.as_ref().map(|m| m.as_str()).unwrap_or("default");
-        let mailbox = core_config.mailbox.get(mailbox_name).ok_or(anyhow!("mailbox {} config not found", mailbox_name))?;
+        let mailbox_name = self
+            .mailbox.as_deref()
+            .unwrap_or("default");
+        let mailbox = core_config
+            .mailbox
+            .get(mailbox_name)
+            .ok_or(anyhow!("mailbox {} config not found", mailbox_name))?;
         let (m_tx, m_rx) = channel(mailbox.mailbox_capacity);
         let (s_tx, s_rx) = channel(SYSTEM_MAILBOX_SIZE);
         let sender = MailboxSender {
@@ -92,12 +107,20 @@ impl Props {
         self
     }
 
-    pub(crate) fn spawn(self, myself: ActorRef, mailbox: Mailbox, system: WeakActorSystem) -> anyhow::Result<()> {
+    pub(crate) fn spawn(
+        self,
+        myself: ActorRef,
+        mailbox: Mailbox,
+        system: WeakActorSystem,
+    ) -> anyhow::Result<()> {
         (self.spawner)(myself, mailbox, system.upgrade()?)
     }
 
     #[cfg(feature = "tokio-tracing")]
-    pub(crate) fn run_actor<A>(rt: ActorRuntime<A>) -> anyhow::Result<()> where A: Actor {
+    pub(crate) fn run_actor<A>(rt: ActorRuntime<A>) -> anyhow::Result<()>
+    where
+        A: Actor,
+    {
         tokio::task::Builder::new()
             .name(type_name::<A>())
             .spawn(rt.run())?;
@@ -105,7 +128,10 @@ impl Props {
     }
 
     #[cfg(not(feature = "tokio-tracing"))]
-    pub(crate) fn run_actor<A>(rt: ActorRuntime<A>) -> anyhow::Result<()> where A: Actor {
+    pub(crate) fn run_actor<A>(rt: ActorRuntime<A>) -> anyhow::Result<()>
+    where
+        A: Actor,
+    {
         tokio::spawn(rt.run());
         Ok(())
     }
@@ -133,7 +159,11 @@ impl ActorDeferredSpawn {
 
 impl DeferredSpawn for ActorDeferredSpawn {
     fn spawn(self: Box<Self>, system: ActorSystem) -> anyhow::Result<()> {
-        let Self { actor_ref, mailbox, spawner } = *self;
+        let Self {
+            actor_ref,
+            mailbox,
+            spawner,
+        } = *self;
         spawner(actor_ref, mailbox, system)
     }
 }
@@ -152,10 +182,11 @@ pub struct FuncDeferredSpawn {
 }
 
 impl FuncDeferredSpawn {
-    pub fn new<F>(f: F) -> Self where F: FnOnce(ActorSystem) -> anyhow::Result<()> + 'static {
-        Self {
-            func: Box::new(f),
-        }
+    pub fn new<F>(f: F) -> Self
+    where
+        F: FnOnce(ActorSystem) -> anyhow::Result<()> + 'static,
+    {
+        Self { func: Box::new(f) }
     }
 }
 
@@ -175,14 +206,15 @@ pub struct PropsBuilder<Arg> {
 
 impl<Arg> PropsBuilder<Arg> {
     pub fn new<A, Builder>(builder: Builder) -> Self
-        where
-            Builder: Fn(Arg) -> anyhow::Result<A> + Send + Sync + 'static,
-            Arg: Send + 'static,
-            A: Actor {
+    where
+        Builder: Fn(Arg) -> anyhow::Result<A> + Send + Sync + 'static,
+        Arg: Send + 'static,
+        A: Actor,
+    {
         let builder = Arc::new(builder);
         let props_builder = move |arg: Arg| {
             let builder = builder.clone();
-            Props::new(move || { builder(arg) })
+            Props::new(move || builder(arg))
         };
 
         Self {
@@ -192,14 +224,15 @@ impl<Arg> PropsBuilder<Arg> {
     }
 
     pub fn new_wit_ctx<A, Builder>(builder: Builder) -> Self
-        where
-            Builder: Fn(&mut ActorContext, Arg) -> anyhow::Result<A> + Send + Sync + 'static,
-            Arg: Send + 'static,
-            A: Actor {
+    where
+        Builder: Fn(&mut ActorContext, Arg) -> anyhow::Result<A> + Send + Sync + 'static,
+        Arg: Send + 'static,
+        A: Actor,
+    {
         let builder = Arc::new(builder);
         let props_builder = move |arg: Arg| {
             let builder = builder.clone();
-            Props::new_with_ctx(move |ctx| { builder(ctx, arg) })
+            Props::new_with_ctx(move |ctx| builder(ctx, arg))
         };
 
         Self {

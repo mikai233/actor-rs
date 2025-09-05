@@ -27,7 +27,10 @@ pub(super) struct Connection<T: AsyncWrite + Unpin + Send + 'static> {
     pub(super) transport: ActorRef,
 }
 
-impl<T> Connection<T> where T: AsyncWrite + Unpin + Send + 'static {
+impl<T> Connection<T>
+where
+    T: AsyncWrite + Unpin + Send + 'static,
+{
     pub fn new(
         addr: SocketAddr,
         framed: FramedWrite<T, PacketCodec>,
@@ -57,7 +60,10 @@ impl<T> Connection<T> where T: AsyncWrite + Unpin + Send + 'static {
                         if let Some(err) = connection.send(envelope).await.err() {
                             connection.disconnect();
                             let addr = &connection.peer;
-                            warn!("send message to {} error {:?}, drop current connection", addr, err);
+                            warn!(
+                                "send message to {} error {:?}, drop current connection",
+                                addr, err
+                            );
                         }
                     }
                 }

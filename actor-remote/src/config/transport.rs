@@ -46,7 +46,11 @@ impl Transport {
     }
 
     pub fn quic(addr: SocketAddrV4, buffer: Buffer, config: (ServerConfig, Vec<u8>)) -> Self {
-        Self::Quic(QuicTransport { addr, buffer, config: Some(config) })
+        Self::Quic(QuicTransport {
+            addr,
+            buffer,
+            config: Some(config),
+        })
     }
 }
 
@@ -70,7 +74,6 @@ impl KcpTransport {
         "kcp"
     }
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuicTransport {

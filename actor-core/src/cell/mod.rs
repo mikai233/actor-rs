@@ -3,9 +3,9 @@ use dashmap::DashMap;
 use crate::actor_ref::ActorRef;
 use crate::cell::actor_cell::ActorCell;
 
+pub(crate) mod actor_cell;
 pub mod envelope;
 pub(crate) mod runtime;
-pub(crate) mod actor_cell;
 
 pub(crate) trait Cell {
     fn underlying(&self) -> ActorCell;

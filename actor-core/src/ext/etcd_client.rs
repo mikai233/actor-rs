@@ -22,8 +22,7 @@ impl DerefMut for EtcdClient {
 
 impl Debug for EtcdClient {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EtcdClient")
-            .finish_non_exhaustive()
+        f.debug_struct("EtcdClient").finish_non_exhaustive()
     }
 }
 
@@ -33,8 +32,8 @@ impl From<Client> for EtcdClient {
     }
 }
 
-impl Into<Client> for EtcdClient {
-    fn into(self) -> Client {
-        self.0
+impl From<EtcdClient> for Client {
+    fn from(val: EtcdClient) -> Self {
+        val.0
     }
 }

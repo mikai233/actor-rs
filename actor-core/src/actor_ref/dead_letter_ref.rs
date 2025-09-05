@@ -74,13 +74,13 @@ impl TActorRef for DeadLetterActorRef {
         None
     }
 
-    fn get_child(&self, _names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+    fn get_child(&self, _names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {
         None
     }
 }
 
-impl Into<ActorRef> for DeadLetterActorRef {
-    fn into(self) -> ActorRef {
-        ActorRef::new(self)
+impl From<DeadLetterActorRef> for ActorRef {
+    fn from(val: DeadLetterActorRef) -> Self {
+        ActorRef::new(val)
     }
 }

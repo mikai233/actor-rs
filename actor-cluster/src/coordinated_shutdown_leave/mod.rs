@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 
-use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::{Actor, CodecMessage, DynMessage};
 
 use crate::cluster::Cluster;
 use crate::coordinated_shutdown_leave::cluster_event::ClusterEventWrap;
@@ -21,10 +21,7 @@ pub(crate) struct CoordinatedShutdownLeave {
 impl CoordinatedShutdownLeave {
     pub(crate) fn new(context: &mut ActorContext, reply_to: ActorRef) -> Self {
         let cluster = Cluster::get(context.system()).clone();
-        Self {
-            cluster,
-            reply_to,
-        }
+        Self { cluster, reply_to }
     }
 
     fn done(&self, context: &mut ActorContext) {
@@ -36,10 +33,10 @@ impl CoordinatedShutdownLeave {
 #[async_trait]
 impl Actor for CoordinatedShutdownLeave {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        self.cluster.subscribe_cluster_event(
-            context.myself().clone(),
-            |event| { ClusterEventWrap(event).into_dyn() },
-        )?;
+        self.cluster
+            .subscribe_cluster_event(context.myself().clone(), |event| {
+                ClusterEventWrap(event).into_dyn()
+            })?;
         self.cluster.leave(self.cluster.self_address().clone());
         Ok(())
     }
@@ -49,7 +46,11 @@ impl Actor for CoordinatedShutdownLeave {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

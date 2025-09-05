@@ -10,9 +10,9 @@ use actor_core::actor_ref::ActorRefExt;
 use actor_core::EmptyCodec;
 use actor_core::Message;
 
-use crate::cluster_core_daemon::ClusterCoreDaemon;
 use crate::cluster_core_daemon::self_removed::SelfRemoved;
 use crate::cluster_core_daemon::watch_failed::WatchFailed;
+use crate::cluster_core_daemon::ClusterCoreDaemon;
 use crate::cluster_event::ClusterEvent;
 use crate::etcd_actor::watch::WatchResp;
 use crate::member::MemberStatus;
@@ -26,7 +26,11 @@ pub(crate) struct MemberWatchResp(pub(crate) WatchResp);
 impl Message for MemberWatchResp {
     type A = ClusterCoreDaemon;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         match self.0 {
             WatchResp::Update(resp) => {
                 Self::update_member_status(context, actor, resp).await?;
@@ -34,31 +38,42 @@ impl Message for MemberWatchResp {
             WatchResp::Failed(error) => {
                 match error {
                     None => {
-                        warn!("{} watch members status error, try rewatch it", context.myself());
+                        warn!(
+                            "{} watch members status error, try rewatch it",
+                            context.myself()
+                        );
                     }
                     Some(error) => {
-                        warn!("{} watch members status error {:?}, try rewatch it", context.myself(), error);
+                        warn!(
+                            "{} watch members status error {:?}, try rewatch it",
+                            context.myself(),
+                            error
+                        );
                     }
                 }
                 let myself = context.myself().clone();
-                context.system().scheduler.schedule_once(WATCH_RETRY_DELAY, move || {
-                    myself.cast_ns(WatchFailed);
-                });
+                context
+                    .system()
+                    .scheduler
+                    .schedule_once(WATCH_RETRY_DELAY, move || {
+                        myself.cast_ns(WatchFailed);
+                    });
             }
-            WatchResp::Started => {
-                match actor.get_all_members(context).await {
-                    Ok(_) => {
-                        actor.try_keep_alive(context).await;
-                    }
-                    Err(error) => {
-                        warn!("get members form etcd error {:?}", error);
-                        let myself = context.myself().clone();
-                        context.system().scheduler.schedule_once(WATCH_RETRY_DELAY, move || {
+            WatchResp::Started => match actor.get_all_members(context).await {
+                Ok(_) => {
+                    actor.try_keep_alive(context).await;
+                }
+                Err(error) => {
+                    warn!("get members form etcd error {:?}", error);
+                    let myself = context.myself().clone();
+                    context
+                        .system()
+                        .scheduler
+                        .schedule_once(WATCH_RETRY_DELAY, move || {
                             myself.cast_ns(WatchFailed);
                         });
-                    }
                 }
-            }
+            },
         }
         Ok(())
     }
@@ -66,7 +81,11 @@ impl Message for MemberWatchResp {
 
 impl MemberWatchResp {
     /// update local member status form etcd
-    async fn update_member_status(context: &mut ActorContext, actor: &mut ClusterCoreDaemon, resp: WatchResponse) -> anyhow::Result<()> {
+    async fn update_member_status(
+        context: &mut ActorContext,
+        actor: &mut ClusterCoreDaemon,
+        resp: WatchResponse,
+    ) -> anyhow::Result<()> {
         for event in resp.events() {
             if let Some(kv) = event.kv() {
                 match event.event_type() {

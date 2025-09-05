@@ -18,7 +18,11 @@ impl Node {
         let name = name.into();
         let mut hasher = Sha256::new();
         hasher.update(name);
-        hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect()
+        hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect()
     }
 
     fn new(name: impl Into<String>) -> Self {
@@ -62,15 +66,11 @@ struct VectorClock {
 
 impl VectorClock {
     fn new(versions: BTreeMap<Node, i64>) -> Self {
-        Self {
-            versions,
-        }
+        Self { versions }
     }
 
     fn cmp_end_maker() -> (&'static Node, &'static i64) {
-        let (node, timestamp) = CMP_END_MARKER.get_or_init(|| {
-            (Node::new("endmaker"), 0)
-        });
+        let (node, timestamp) = CMP_END_MARKER.get_or_init(|| (Node::new("endmaker"), 0));
         (node, timestamp)
     }
 
@@ -91,12 +91,22 @@ impl VectorClock {
     }
 
     fn compare_only_to(&self, that: &VectorClock, order: Ordering) -> Ordering {
-        fn next_or_else<T>(iter: &mut impl Iterator<Item=T>, default: impl FnOnce() -> T) -> T {
+        fn next_or_else<T>(iter: &mut impl Iterator<Item = T>, default: impl FnOnce() -> T) -> T {
             iter.next().unwrap_or_else(default)
         }
 
-        fn compare_next<'a, 'b>(nt1: (&'a Node, &'a i64), nt2: (&'b Node, &'b i64), current_order: Ordering, mut i1: impl Iterator<Item=(&'a Node, &'a i64)>, mut i2: impl Iterator<Item=(&'b Node, &'b i64)>, request_order: Ordering) -> Ordering {
-            if request_order != Ordering::FullOrder && current_order != Ordering::Same && current_order != request_order {
+        fn compare_next<'a, 'b>(
+            nt1: (&'a Node, &'a i64),
+            nt2: (&'b Node, &'b i64),
+            current_order: Ordering,
+            mut i1: impl Iterator<Item = (&'a Node, &'a i64)>,
+            mut i2: impl Iterator<Item = (&'b Node, &'b i64)>,
+            request_order: Ordering,
+        ) -> Ordering {
+            if request_order != Ordering::FullOrder
+                && current_order != Ordering::Same
+                && current_order != request_order
+            {
                 current_order
             } else if nt1 == VectorClock::cmp_end_maker() && nt2 == VectorClock::cmp_end_maker() {
                 current_order
@@ -119,23 +129,51 @@ impl VectorClock {
                         if current_order == Ordering::Before {
                             Ordering::Concurrent
                         } else {
-                            compare_next(next_or_else(&mut i1, || VectorClock::cmp_end_maker()), nt2, Ordering::After, i1, i2, request_order)
+                            compare_next(
+                                next_or_else(&mut i1, || VectorClock::cmp_end_maker()),
+                                nt2,
+                                Ordering::After,
+                                i1,
+                                i2,
+                                request_order,
+                            )
                         }
                     }
                     std::cmp::Ordering::Equal => {
                         if nt1.1 == nt2.1 {
-                            compare_next(next_or_else(&mut i1, || VectorClock::cmp_end_maker()), next_or_else(&mut i2, || VectorClock::cmp_end_maker()), current_order, i1, i2, request_order)
+                            compare_next(
+                                next_or_else(&mut i1, || VectorClock::cmp_end_maker()),
+                                next_or_else(&mut i2, || VectorClock::cmp_end_maker()),
+                                current_order,
+                                i1,
+                                i2,
+                                request_order,
+                            )
                         } else if nt1.1 < nt2.1 {
                             if current_order == Ordering::After {
                                 Ordering::Concurrent
                             } else {
-                                compare_next(next_or_else(&mut i1, || VectorClock::cmp_end_maker()), next_or_else(&mut i2, || VectorClock::cmp_end_maker()), Ordering::Before, i1, i2, request_order)
+                                compare_next(
+                                    next_or_else(&mut i1, || VectorClock::cmp_end_maker()),
+                                    next_or_else(&mut i2, || VectorClock::cmp_end_maker()),
+                                    Ordering::Before,
+                                    i1,
+                                    i2,
+                                    request_order,
+                                )
                             }
                         } else {
                             if current_order == Ordering::Before {
                                 Ordering::Concurrent
                             } else {
-                                compare_next(next_or_else(&mut i1, || VectorClock::cmp_end_maker()), next_or_else(&mut i2, || VectorClock::cmp_end_maker()), Ordering::After, i1, i2, request_order)
+                                compare_next(
+                                    next_or_else(&mut i1, || VectorClock::cmp_end_maker()),
+                                    next_or_else(&mut i2, || VectorClock::cmp_end_maker()),
+                                    Ordering::After,
+                                    i1,
+                                    i2,
+                                    request_order,
+                                )
                             }
                         }
                     }
@@ -143,15 +181,33 @@ impl VectorClock {
                         if current_order == Ordering::After {
                             Ordering::Concurrent
                         } else {
-                            compare_next(nt1, next_or_else(&mut i2, || VectorClock::cmp_end_maker()), Ordering::Before, i1, i2, request_order)
+                            compare_next(
+                                nt1,
+                                next_or_else(&mut i2, || VectorClock::cmp_end_maker()),
+                                Ordering::Before,
+                                i1,
+                                i2,
+                                request_order,
+                            )
                         }
                     }
                 }
             }
         }
 
-        fn compare<'a, 'b>(mut i1: impl Iterator<Item=(&'a Node, &'a i64)>, mut i2: impl Iterator<Item=(&'b Node, &'b i64)>, request_order: Ordering) -> Ordering {
-            compare_next(next_or_else(&mut i1, || VectorClock::cmp_end_maker()), next_or_else(&mut i2, || VectorClock::cmp_end_maker()), Ordering::Same, i1, i2, request_order)
+        fn compare<'a, 'b>(
+            mut i1: impl Iterator<Item = (&'a Node, &'a i64)>,
+            mut i2: impl Iterator<Item = (&'b Node, &'b i64)>,
+            request_order: Ordering,
+        ) -> Ordering {
+            compare_next(
+                next_or_else(&mut i1, || VectorClock::cmp_end_maker()),
+                next_or_else(&mut i2, || VectorClock::cmp_end_maker()),
+                Ordering::Same,
+                i1,
+                i2,
+                request_order,
+            )
         }
 
         if self == that || self.versions == that.versions {
@@ -205,7 +261,11 @@ impl Add<Node> for VectorClock {
 
 impl Display for VectorClock {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let versions = self.versions.iter().map(|(n, t)| format!("{} -> {}", n, t)).join(", ");
+        let versions = self
+            .versions
+            .iter()
+            .map(|(n, t)| format!("{} -> {}", n, t))
+            .join(", ");
         write!(f, "VectorClock({})", versions)
     }
 }

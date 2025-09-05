@@ -3,16 +3,16 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use imstr::ImString;
 
-use actor_core::{DynMessage, Message};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::PropsBuilder;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
-use actor_core::EmptyCodec;
 use actor_core::ext::option_ext::OptionExt;
+use actor_core::EmptyCodec;
+use actor_core::{DynMessage, Message};
 
-use crate::cluster_sharding_guardian::ClusterShardingGuardian;
 use crate::cluster_sharding_guardian::started::Started;
+use crate::cluster_sharding_guardian::ClusterShardingGuardian;
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::message_extractor::MessageExtractor;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
@@ -32,7 +32,11 @@ pub(crate) struct Start {
 impl Message for Start {
     type A = ClusterShardingGuardian;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let Self {
             type_name,
             entity_props,
@@ -43,12 +47,18 @@ impl Message for Start {
         } = *self;
         let shard_region = match context.child(&type_name) {
             None => {
-                actor.start_coordinator_if_needed(context, type_name.clone(), allocation_strategy, settings.clone())?;
-                let coordinator_path = ClusterShardingGuardian::coordinator_path(context.myself(), &type_name);
+                actor.start_coordinator_if_needed(
+                    context,
+                    type_name.clone(),
+                    allocation_strategy,
+                    settings.clone(),
+                )?;
+                let coordinator_path =
+                    ClusterShardingGuardian::coordinator_path(context.myself(), &type_name);
                 context.spawn(
                     ShardRegion::props(
                         type_name.clone(),
-                        entity_props.into(),
+                        entity_props,
                         settings,
                         coordinator_path,
                         message_extractor,
@@ -57,7 +67,7 @@ impl Message for Start {
                     type_name,
                 )?
             }
-            Some(shard_region) => { shard_region }
+            Some(shard_region) => shard_region,
         };
         let started = Started { shard_region };
         context.sender().into_result()?.cast_orphan_ns(started);

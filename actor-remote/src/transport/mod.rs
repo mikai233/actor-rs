@@ -11,17 +11,17 @@ use tokio::net::TcpListener;
 use tokio_util::codec::FramedRead;
 use tracing::{debug, info, warn};
 
-use actor_core::{Actor, DynMessage};
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::coordinated_shutdown::ActorSystemStartFailedReason;
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::decode_bytes;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_buffer::MessageBufferMap;
 use actor_core::message::message_registry::MessageRegistry;
-use actor_core::provider::{ActorRefProvider, downcast_provider};
+use actor_core::provider::{downcast_provider, ActorRefProvider};
+use actor_core::{Actor, DynMessage};
 
 use crate::config::buffer::Buffer;
 use crate::config::transport::{QuicTransport, Transport};
@@ -35,20 +35,20 @@ use crate::transport::spawn_inbound::SpawnInbound;
 use crate::transport::transport_buffer_envelop::TransportBufferEnvelope;
 
 mod codec;
+mod connect_quic;
+mod connect_tcp;
+mod connect_tcp_failed;
+mod connected;
+mod connection;
+mod connection_status;
+pub mod disconnect;
+mod disconnected;
+mod inbound_message;
+pub(crate) mod outbound_message;
 pub(crate) mod remote_envelope;
 mod remote_packet;
-mod connection_status;
-mod connect_tcp;
-mod connected;
-pub mod disconnect;
-pub(crate) mod outbound_message;
 mod spawn_inbound;
-mod connection;
-mod inbound_message;
 mod transport_buffer_envelop;
-mod disconnected;
-mod connect_quic;
-mod connect_tcp_failed;
 
 pub const ACTOR_REF_CACHE: usize = 10000;
 
@@ -79,11 +79,14 @@ impl Actor for TransportActor {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
-
 
 impl TransportActor {
     pub(crate) fn new(system: ActorSystem, transport: Transport) -> Self {
@@ -101,23 +104,21 @@ impl TransportActor {
     }
 
     async fn accept_inbound_connection<S>(stream: S, addr: SocketAddr, actor: ActorRef)
-        where
-            S: Send + AsyncRead + Unpin + 'static,
+    where
+        S: Send + AsyncRead + Unpin + 'static,
     {
         let mut framed = FramedRead::new(stream, PacketCodec);
         loop {
             match framed.next().await {
-                Some(Ok(packet)) => {
-                    match decode_bytes::<RemotePacket>(packet.body.as_slice()) {
-                        Ok(packet) => {
-                            actor.cast_ns(InboundMessage { packet });
-                        }
-                        Err(error) => {
-                            warn!("{} deserialize error {:?}", addr, error);
-                            break;
-                        }
+                Some(Ok(packet)) => match decode_bytes::<RemotePacket>(packet.body.as_slice()) {
+                    Ok(packet) => {
+                        actor.cast_ns(InboundMessage { packet });
                     }
-                }
+                    Err(error) => {
+                        warn!("{} deserialize error {:?}", addr, error);
+                        break;
+                    }
+                },
                 Some(Err(error)) => {
                     warn!("{} codec error {:?}", addr, error);
                     break;
@@ -136,9 +137,7 @@ impl TransportActor {
                 self.actor_ref_cache.insert(path, actor_ref.clone());
                 actor_ref
             }
-            Some(actor_ref) => {
-                actor_ref.clone()
-            }
+            Some(actor_ref) => actor_ref.clone(),
         }
     }
 
@@ -155,7 +154,10 @@ impl TransportActor {
         };
         match transport.buffer() {
             Buffer::NoBuffer => {
-                debug!("no buffer configured, drop buffer message {}", envelope.message.name());
+                debug!(
+                    "no buffer configured, drop buffer message {}",
+                    envelope.message.name()
+                );
             }
             Buffer::Bound(max_buffer) => {
                 message_buffer.push(addr, envelope);
@@ -178,31 +180,34 @@ impl TransportActor {
         context.spawn_fut(format!("tcp_listener_{}", addr), async move {
             info!("start bind tcp addr {}", addr);
             match TcpListener::bind(addr).await {
-                Ok(tcp_listener) => {
-                    loop {
-                        match tcp_listener.accept().await {
-                            Ok((stream, peer_addr)) => {
-                                let actor = myself.clone();
-                                let connection_fut = async move {
-                                    TransportActor::accept_inbound_connection(stream, peer_addr, actor).await;
-                                };
-                                myself.cast_ns(SpawnInbound { peer_addr, fut: Box::pin(connection_fut) });
-                            }
-                            Err(error) => {
-                                warn!("{} accept connection error {:?}", addr, error);
-                            }
+                Ok(tcp_listener) => loop {
+                    match tcp_listener.accept().await {
+                        Ok((stream, peer_addr)) => {
+                            let actor = myself.clone();
+                            let connection_fut = async move {
+                                TransportActor::accept_inbound_connection(stream, peer_addr, actor)
+                                    .await;
+                            };
+                            myself.cast_ns(SpawnInbound {
+                                peer_addr,
+                                fut: Box::pin(connection_fut),
+                            });
+                        }
+                        Err(error) => {
+                            warn!("{} accept connection error {:?}", addr, error);
                         }
                     }
-                }
+                },
                 Err(error) => {
-                    let fut = system.run_coordinated_shutdown(ActorSystemStartFailedReason(anyhow::Error::from(error)));
+                    let fut = system.run_coordinated_shutdown(ActorSystemStartFailedReason(
+                        anyhow::Error::from(error),
+                    ));
                     tokio::spawn(fut);
                 }
             }
         })?;
         Ok(())
     }
-
 
     fn spawn_quic_listener(
         context: &mut ActorContext,
@@ -223,9 +228,15 @@ impl TransportActor {
                             Ok(stream) => {
                                 let actor = myself.clone();
                                 let connection_fut = async move {
-                                    TransportActor::accept_inbound_connection(stream, peer_addr, actor).await;
+                                    TransportActor::accept_inbound_connection(
+                                        stream, peer_addr, actor,
+                                    )
+                                    .await;
                                 };
-                                myself.cast_ns(SpawnInbound { peer_addr, fut: Box::pin(connection_fut) });
+                                myself.cast_ns(SpawnInbound {
+                                    peer_addr,
+                                    fut: Box::pin(connection_fut),
+                                });
                             }
                             Err(error) => {
                                 warn!("{} accept connection error {:?}", addr, error);
@@ -252,16 +263,15 @@ impl TransportActor {
     }
 
     fn is_connecting_or_connected(&self, addr: &SocketAddr) -> bool {
-        if let Some(status) = self.connections.get(&addr) {
+        if let Some(status) = self.connections.get(addr) {
             match status {
-                ConnectionStatus::Connecting(_) |
-                ConnectionStatus::Connected(_) => {
+                ConnectionStatus::Connecting(_) | ConnectionStatus::Connected(_) => {
                     return true;
                 }
                 _ => {}
             }
         }
-        return false;
+        false
     }
 }
 
@@ -274,8 +284,6 @@ mod test {
     use bincode::{Decode, Encode};
     use tracing::info;
 
-    use actor_core::{Actor, DynMessage, EmptyTestActor, Message};
-    use actor_core::{EmptyCodec, MessageCodec, OrphanCodec};
     use actor_core::actor::actor_system::ActorSystem;
     use actor_core::actor::context::{ActorContext, Context};
     use actor_core::actor::props::Props;
@@ -283,10 +291,12 @@ mod test {
     use actor_core::actor_ref::ActorRefExt;
     use actor_core::config::actor_setting::ActorSetting;
     use actor_core::pattern::patterns::Patterns;
+    use actor_core::{Actor, DynMessage, EmptyTestActor, Message};
+    use actor_core::{EmptyCodec, MessageCodec, OrphanCodec};
 
     use crate::config::buffer::Buffer;
-    use crate::config::RemoteConfig;
     use crate::config::transport::Transport;
+    use crate::config::RemoteConfig;
     use crate::remote_provider::RemoteActorRefProvider;
     use crate::remote_setting::RemoteSetting;
 
@@ -299,7 +309,11 @@ mod test {
     impl Message for Ping {
         type A = PingPongActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(
+            self: Box<Self>,
+            context: &mut ActorContext,
+            _actor: &mut Self::A,
+        ) -> anyhow::Result<()> {
             let myself = context.myself().clone();
             let sender = context.sender().unwrap().clone();
             context.spawn_fut("pong", async move {
@@ -317,7 +331,11 @@ mod test {
     impl Message for Pong {
         type A = PingPongActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(
+            self: Box<Self>,
+            context: &mut ActorContext,
+            _actor: &mut Self::A,
+        ) -> anyhow::Result<()> {
             info!("{} pong", context.myself());
             Ok(())
         }
@@ -332,7 +350,11 @@ mod test {
     impl Message for PingTo {
         type A = PingPongActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(
+            self: Box<Self>,
+            context: &mut ActorContext,
+            _actor: &mut Self::A,
+        ) -> anyhow::Result<()> {
             let to = context.system().provider().resolve_actor_ref(&self.to);
             to.cast(Ping, Some(context.myself().clone()));
             Ok(())
@@ -346,14 +368,20 @@ mod test {
             Ok(())
         }
 
-        async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+        async fn on_recv(
+            &mut self,
+            context: &mut ActorContext,
+            message: DynMessage,
+        ) -> anyhow::Result<()> {
             Self::handle_message(self, context, message).await
         }
     }
 
     fn build_setting(addr: SocketAddrV4) -> anyhow::Result<ActorSetting> {
         let mut remote_setting = RemoteSetting {
-            config: RemoteConfig { transport: Transport::tcp(addr, Buffer::default()) },
+            config: RemoteConfig {
+                transport: Transport::tcp(addr, Buffer::default()),
+            },
             reg: Default::default(),
         };
         remote_setting.reg.register_user::<Ping>();
@@ -366,11 +394,16 @@ mod test {
     #[tokio::test]
     async fn test() -> anyhow::Result<()> {
         let system_a = ActorSystem::new("game", build_setting("127.0.0.1:12121".parse()?)?)?;
-        let actor_a = system_a.spawn(Props::new(|| { Ok(PingPongActor) }), "actor_a")?;
+        let actor_a = system_a.spawn(Props::new(|| Ok(PingPongActor)), "actor_a")?;
         let system_b = ActorSystem::new("game", build_setting("127.0.0.1:12122".parse()?)?)?;
         let _ = system_b.spawn(Props::new(|| Ok(PingPongActor)), "actor_b")?;
         loop {
-            actor_a.cast(PingTo { to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string() }, None);
+            actor_a.cast(
+                PingTo {
+                    to: "tcp://game@127.0.0.1:12122/user/actor_b".to_string(),
+                },
+                None,
+            );
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
     }
@@ -382,7 +415,11 @@ mod test {
     impl Message for MessageToAsk {
         type A = EmptyTestActor;
 
-        async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+        async fn handle(
+            self: Box<Self>,
+            context: &mut ActorContext,
+            _actor: &mut Self::A,
+        ) -> anyhow::Result<()> {
             context.sender().unwrap().cast_orphan_ns(MessageToAns {
                 content: "hello world".to_string(),
             });
@@ -405,13 +442,14 @@ mod test {
         let start = SystemTime::now();
         let range = 0..10000;
         for _ in range {
-            let _: MessageToAns = Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;
+            let _: MessageToAns =
+                Patterns::ask(&actor_a, MessageToAsk, Duration::from_secs(3)).await?;
         }
         let end = SystemTime::now();
         let cost = end.duration_since(start)?;
         info!("cost {:?}", cost);
         let qps = 10000.0 / cost.as_millis() as f64;
-        info!("{} per/millis",qps);
+        info!("{} per/millis", qps);
         Ok(())
     }
 }

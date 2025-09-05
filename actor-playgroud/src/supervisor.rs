@@ -2,15 +2,15 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use tracing::{info, Level};
 
-use actor_core::{Actor, DynMessage, Message};
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::config::actor_setting::ActorSetting;
-use actor_core::EmptyCodec;
 use actor_core::ext::init_logger;
+use actor_core::EmptyCodec;
+use actor_core::{Actor, DynMessage, Message};
 
 struct TestActor;
 
@@ -21,7 +21,11 @@ impl Actor for TestActor {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
@@ -33,7 +37,11 @@ struct ErrorMessage;
 impl Message for ErrorMessage {
     type A = TestActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        _context: &mut ActorContext,
+        _actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         Err(anyhow!("test error message"))
     }
 }
@@ -45,7 +53,11 @@ struct NormalMessage;
 impl Message for NormalMessage {
     type A = TestActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        _context: &mut ActorContext,
+        _actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         info!("recv {:?}", *self);
         Ok(())
     }

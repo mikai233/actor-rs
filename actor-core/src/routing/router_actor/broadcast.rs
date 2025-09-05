@@ -6,10 +6,10 @@ use async_trait::async_trait;
 
 use actor_derive::EmptyCodec;
 
-use crate::{DynMessage, Message};
 use crate::actor::context::{ActorContext, Context};
 use crate::routing::routee::TRoutee;
 use crate::routing::router_actor::Router;
+use crate::{DynMessage, Message};
 
 #[derive(Debug, EmptyCodec)]
 pub struct Broadcast {
@@ -17,9 +17,15 @@ pub struct Broadcast {
 }
 
 impl Broadcast {
-    pub fn new<M>(message: M) -> anyhow::Result<Self> where M: Message {
+    pub fn new<M>(message: M) -> anyhow::Result<Self>
+    where
+        M: Message,
+    {
         if message.cloneable().not() {
-            return Err(anyhow!("broadcast message {} require cloneable", type_name::<M>()));
+            return Err(anyhow!(
+                "broadcast message {} require cloneable",
+                type_name::<M>()
+            ));
         }
         let msg = Self {
             message: DynMessage::user(message),
@@ -32,7 +38,11 @@ impl Broadcast {
 impl Message for Broadcast {
     type A = Box<dyn Router>;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         for routee in actor.routees() {
             routee.send(self.message.dyn_clone()?, context.sender().cloned());
         }

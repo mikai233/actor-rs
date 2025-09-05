@@ -6,8 +6,8 @@ use crate::actor::actor_selection::{ActorSelection, ActorSelectionPath};
 use crate::actor::actor_system::ActorSystem;
 use crate::actor::props::Props;
 use crate::actor_path::TActorPath;
-use crate::actor_ref::ActorRef;
 use crate::actor_ref::local_ref::LocalActorRef;
+use crate::actor_ref::ActorRef;
 use crate::provider::ActorRefProvider;
 
 pub trait ActorRefFactory {
@@ -30,15 +30,19 @@ pub trait ActorRefFactory {
             ActorSelectionPath::RelativePath(rp) => {
                 let mut elements = rp.split("/").peekable();
                 match elements.peek() {
-                    None => {
-                        ActorSelection::new(self.provider().dead_letters().clone(), vec![""])
-                    }
+                    None => ActorSelection::new(self.provider().dead_letters().clone(), vec![""]),
                     Some(n) => {
                         if n.is_empty() {
                             elements.next();
-                            ActorSelection::new(self.provider().root_guardian().clone().into(), elements.into_iter())
+                            ActorSelection::new(
+                                self.provider().root_guardian().clone().into(),
+                                elements,
+                            )
                         } else {
-                            ActorSelection::new(self.provider().root_guardian().clone().into(), elements.into_iter())
+                            ActorSelection::new(
+                                self.provider().root_guardian().clone().into(),
+                                elements,
+                            )
                         }
                     }
                 }

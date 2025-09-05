@@ -4,9 +4,9 @@ use async_trait::async_trait;
 use tracing::info;
 
 use actor_cluster_sharding::shard_region::ImShardId;
-use actor_core::{Actor, DynMessage};
 use actor_core::actor::context::ActorContext;
 use actor_core::actor::props::PropsBuilder;
+use actor_core::{Actor, DynMessage};
 
 #[derive(Debug)]
 pub struct PlayerActor {
@@ -22,14 +22,22 @@ impl Actor for PlayerActor {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
 
 pub fn player_actor_builder() -> PropsBuilder<ImShardId> {
     PropsBuilder::new(|id| {
-        let player = PlayerActor { id, count: 0, start: None };
+        let player = PlayerActor {
+            id,
+            count: 0,
+            start: None,
+        };
         Ok(player)
     })
 }

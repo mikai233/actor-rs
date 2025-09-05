@@ -17,8 +17,8 @@ pub struct DefaultFailureDetectorRegistry<A> {
 
 impl<A> DefaultFailureDetectorRegistry<A> {
     pub fn new<F>(factory: F) -> DefaultFailureDetectorRegistry<A>
-        where
-            F: Fn() -> Box<dyn FailureDetector> + Send + 'static,
+    where
+        F: Fn() -> Box<dyn FailureDetector> + Send + 'static,
     {
         let detector_factory = Box::new(factory);
         Self {
@@ -32,12 +32,14 @@ impl<A> DefaultFailureDetectorRegistry<A> {
 impl<A> Debug for DefaultFailureDetectorRegistry<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let struct_name = format!("DefaultFailureDetectorRegistry<{}>", type_name::<A>());
-        f.debug_struct(&struct_name)
-            .finish_non_exhaustive()
+        f.debug_struct(&struct_name).finish_non_exhaustive()
     }
 }
 
-impl<A> FailureDetectorRegistry for DefaultFailureDetectorRegistry<A> where A: Send + Hash + Eq {
+impl<A> FailureDetectorRegistry for DefaultFailureDetectorRegistry<A>
+where
+    A: Send + Hash + Eq,
+{
     type A = A;
 
     fn is_available(&self, resource: &Self::A) -> bool {

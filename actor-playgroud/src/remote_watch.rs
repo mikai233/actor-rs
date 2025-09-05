@@ -5,7 +5,6 @@ use async_trait::async_trait;
 use clap::Parser;
 use tracing::info;
 
-use actor_core::{Actor, CodecMessage, DynMessage, Message};
 use actor_core::actor::actor_selection::ActorSelectionPath;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::address::Address;
@@ -16,15 +15,16 @@ use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRef;
 use actor_core::config::actor_setting::ActorSetting;
-use actor_core::config::ConfigBuilder;
 use actor_core::config::core_config::CoreConfig;
-use actor_core::EmptyCodec;
+use actor_core::config::ConfigBuilder;
 use actor_core::ext::init_logger_with_filter;
 use actor_core::message::message_registry::MessageRegistry;
 use actor_core::message::terminated::Terminated;
+use actor_core::EmptyCodec;
+use actor_core::{Actor, CodecMessage, DynMessage, Message};
 use actor_remote::config::buffer::Buffer;
-use actor_remote::config::RemoteConfig;
 use actor_remote::config::transport::Transport;
+use actor_remote::config::RemoteConfig;
 use actor_remote::remote_provider::RemoteActorRefProvider;
 use actor_remote::remote_setting::RemoteSetting;
 
@@ -44,7 +44,11 @@ impl Actor for RemoteActor {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
@@ -62,7 +66,11 @@ impl RemoteTerminated {
 impl Message for RemoteTerminated {
     type A = RemoteActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        _actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         info!("{} watched {} terminated", context.myself(), self.0);
         Ok(())
     }
@@ -80,9 +88,13 @@ struct Args {
 async fn main() -> anyhow::Result<()> {
     let arg = Args::parse();
     let addr = arg.addr;
-    init_logger_with_filter("debug,actor=debug,actor-core::scheduler=info,h2=info,tower=info,hyper=info");
+    init_logger_with_filter(
+        "debug,actor=debug,actor-core::scheduler=info,h2=info,tower=info,hyper=info",
+    );
     let remote_setting = RemoteSetting {
-        config: RemoteConfig { transport: Transport::tcp(addr, Buffer::default()) },
+        config: RemoteConfig {
+            transport: Transport::tcp(addr, Buffer::default()),
+        },
         reg: MessageRegistry::new(),
     };
     let setting = ActorSetting::new(
@@ -92,11 +104,10 @@ async fn main() -> anyhow::Result<()> {
     let system = ActorSystem::new("mikai233", setting)?;
     match arg.remote_addr {
         None => {
-            system.spawn(Props::new(|| {
-                Ok(RemoteActor {
-                    remote_ref: None,
-                })
-            }), "watchee")?;
+            system.spawn(
+                Props::new(|| Ok(RemoteActor { remote_ref: None })),
+                "watchee",
+            )?;
         }
         Some(remote_addr) => {
             let path = RootActorPath::new(Address::new("tcp", "mikai233", Some(remote_addr)), "/")
@@ -104,11 +115,14 @@ async fn main() -> anyhow::Result<()> {
                 .child("watchee");
             let selection = system.actor_selection(ActorSelectionPath::FullPath(path))?;
             let remote = selection.resolve_one(Duration::from_secs(3)).await?;
-            system.spawn(Props::new(move || {
-                Ok(RemoteActor {
-                    remote_ref: Some(remote),
-                })
-            }), "watcher")?;
+            system.spawn(
+                Props::new(move || {
+                    Ok(RemoteActor {
+                        remote_ref: Some(remote),
+                    })
+                }),
+                "watcher",
+            )?;
         }
     }
     system.await?;

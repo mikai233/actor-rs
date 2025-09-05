@@ -8,13 +8,13 @@ use tracing::{debug, warn};
 use actor_cluster::cluster::Cluster;
 use actor_cluster::member::Member;
 use actor_cluster::unique_address::UniqueAddress;
-use actor_core::{Actor, CodecMessage, DynMessage};
 use actor_core::actor::context::{ActorContext, Context, ContextExt};
 use actor_core::actor::props::Props;
 use actor_core::actor::scheduler::ScheduleKey;
 use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
+use actor_core::{Actor, CodecMessage, DynMessage};
 
 use crate::singleton::cluster_singleton_proxy::actor_identity_wrap::ActorIdentityWrap;
 use crate::singleton::cluster_singleton_proxy::cluster_event_wrap::ClusterEventWrap;
@@ -22,14 +22,13 @@ use crate::singleton::cluster_singleton_proxy::cluster_singleton_proxy_settings:
 use crate::singleton::cluster_singleton_proxy::singleton_terminated::SingletonTerminated;
 use crate::singleton::cluster_singleton_proxy::try_to_identify_singleton::TryToIdentifySingleton;
 
-pub mod cluster_singleton_proxy_settings;
-mod cluster_event_wrap;
-mod try_to_identify_singleton;
 mod actor_identity_wrap;
+mod cluster_event_wrap;
+pub mod cluster_singleton_proxy_settings;
 mod singleton_terminated;
+mod try_to_identify_singleton;
 
 static ALL_PROXY_MESSAGE: OnceLock<HashSet<&'static str>> = OnceLock::new();
-
 
 #[derive(Debug)]
 pub struct ClusterSingletonProxy {
@@ -44,7 +43,11 @@ pub struct ClusterSingletonProxy {
 }
 
 impl ClusterSingletonProxy {
-    fn new(context: &mut ActorContext, singleton_mgr_path: String, settings: ClusterSingletonProxySettings) -> Self {
+    fn new(
+        context: &mut ActorContext,
+        singleton_mgr_path: String,
+        settings: ClusterSingletonProxySettings,
+    ) -> Self {
         let identify_adapter = context.adapter(|m| DynMessage::user(ActorIdentityWrap(m)));
         let cluster = Cluster::get(context.system()).clone();
         Self {
@@ -59,11 +62,12 @@ impl ClusterSingletonProxy {
         }
     }
 
-    pub fn props(singleton_mgr_path: impl Into<String>, settings: ClusterSingletonProxySettings) -> Props {
+    pub fn props(
+        singleton_mgr_path: impl Into<String>,
+        settings: ClusterSingletonProxySettings,
+    ) -> Props {
         let singleton_mgr_path = singleton_mgr_path.into();
-        Props::new_with_ctx(move |context| {
-            Ok(Self::new(context, singleton_mgr_path, settings))
-        })
+        Props::new_with_ctx(move |context| Ok(Self::new(context, singleton_mgr_path, settings)))
     }
 
     fn cancel_timer(&mut self) {
@@ -96,7 +100,11 @@ impl ClusterSingletonProxy {
         let buffer_size = self.settings.buffer_size;
         let proxy_name = context.myself().path().name();
         if buffer_size <= 0 {
-            debug!("{} buffer is disabled, drop current message {}", proxy_name, message.name());
+            debug!(
+                "{} buffer is disabled, drop current message {}",
+                proxy_name,
+                message.name()
+            );
         } else {
             debug!("{} buffer message {}", proxy_name, message.name());
             let sender = context.sender().cloned();
@@ -105,7 +113,10 @@ impl ClusterSingletonProxy {
                 if let Some((oldest, _)) = self.buffer.pop_front() {
                     let msg_name = oldest.name();
                     let proxy_name = context.myself().path().name();
-                    warn!("{} buffer full({}), drop oldest message {}", proxy_name, buffer_size, msg_name);
+                    warn!(
+                        "{} buffer full({}), drop oldest message {}",
+                        proxy_name, buffer_size, msg_name
+                    );
                 }
             }
         }
@@ -125,14 +136,22 @@ impl ClusterSingletonProxy {
         let myself = context.myself().clone();
         let scheduler = &context.system().scheduler;
         self.cancel_timer();
-        let timer = scheduler.schedule_with_fixed_delay(None, self.settings.singleton_identification_interval, move || {
-            myself.cast_ns(TryToIdentifySingleton);
-        });
+        let timer = scheduler.schedule_with_fixed_delay(
+            None,
+            self.settings.singleton_identification_interval,
+            move || {
+                myself.cast_ns(TryToIdentifySingleton);
+            },
+        );
         self.identify_timer = Some(timer);
     }
 
     fn singleton_paths(&self) -> Vec<String> {
-        let mut paths = self.singleton_mgr_path.split("/").map(|p| p.to_string()).collect::<Vec<_>>();
+        let mut paths = self
+            .singleton_mgr_path
+            .split("/")
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>();
         paths.push(self.settings.singleton_name.clone());
         paths
     }
@@ -141,14 +160,13 @@ impl ClusterSingletonProxy {
 #[async_trait]
 impl Actor for ClusterSingletonProxy {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
-        self.cluster.subscribe_cluster_event(
-            context.myself().clone(),
-            |event| { ClusterEventWrap(event).into_dyn() },
-        )?;
+        self.cluster
+            .subscribe_cluster_event(context.myself().clone(), |event| {
+                ClusterEventWrap(event).into_dyn()
+            })?;
         self.identify_singleton(context);
         Ok(())
     }
-
 
     async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         self.cancel_timer();
@@ -159,7 +177,11 @@ impl Actor for ClusterSingletonProxy {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         if self.is_proxy_message(message.name()) {
             Self::handle_message(self, context, message).await?;
         } else {
@@ -168,7 +190,11 @@ impl Actor for ClusterSingletonProxy {
                     self.buffer_message(context, message);
                 }
                 Some(singleton) => {
-                    debug!("forward message {} to singleton {}", message.name(), singleton.path());
+                    debug!(
+                        "forward message {} to singleton {}",
+                        message.name(),
+                        singleton.path()
+                    );
                     context.forward(singleton, message);
                 }
             }

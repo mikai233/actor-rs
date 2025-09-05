@@ -1,6 +1,6 @@
-pub mod event_stream;
 mod actor_subscriber;
 pub mod address_terminated_topic;
+pub mod event_stream;
 
 pub trait EventBus {
     type Event;

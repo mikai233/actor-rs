@@ -2,8 +2,8 @@ use std::marker::PhantomData;
 
 use anyhow::ensure;
 
-use actor_core::Actor;
 use actor_core::actor_ref::ActorRef;
+use actor_core::Actor;
 
 #[derive(Debug)]
 pub struct Subscribe<A: Actor> {
@@ -13,9 +13,12 @@ pub struct Subscribe<A: Actor> {
     _phantom: PhantomData<A>,
 }
 
-impl<A> Subscribe<A> where A: Actor {
+impl<A> Subscribe<A>
+where
+    A: Actor,
+{
     pub fn new(topic: String, subscriber: ActorRef) -> anyhow::Result<Self> {
-        ensure!(topic.len() > 0, "topic must not be empty");
+        ensure!(!topic.is_empty(), "topic must not be empty");
         let subscribe = Self {
             topic,
             group: None,
@@ -25,9 +28,13 @@ impl<A> Subscribe<A> where A: Actor {
         Ok(subscribe)
     }
 
-    pub fn new_with_group(topic: String, group: String, subscriber: ActorRef) -> anyhow::Result<Self> {
-        ensure!(topic.len() > 0, "topic must not be empty");
-        ensure!(group.len() > 0, "group must not be empty");
+    pub fn new_with_group(
+        topic: String,
+        group: String,
+        subscriber: ActorRef,
+    ) -> anyhow::Result<Self> {
+        ensure!(!topic.is_empty(), "topic must not be empty");
+        ensure!(!group.is_empty(), "group must not be empty");
         let subscribe = Self {
             topic,
             group: Some(group),

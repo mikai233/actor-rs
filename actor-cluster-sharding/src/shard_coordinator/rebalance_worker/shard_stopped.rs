@@ -18,17 +18,27 @@ pub(crate) struct ShardStopped {
 impl Message for ShardStopped {
     type A = RebalanceWorker;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let shard = self.shard;
         if shard == actor.shard.as_str() {
             if actor.stopping_shard {
                 debug!("{}: ShardStopped {}", actor.type_name, shard);
                 actor.done(context, true);
             } else {
-                debug!("{}: Ignore ShardStopped {} because RebalanceWorker not in stopping shard", actor.type_name, shard);
+                debug!(
+                    "{}: Ignore ShardStopped {} because RebalanceWorker not in stopping shard",
+                    actor.type_name, shard
+                );
             }
         } else {
-            debug!("{}: Ignore unknown ShardStopped {} for shard {}", actor.type_name, shard, actor.shard);
+            debug!(
+                "{}: Ignore unknown ShardStopped {} for shard {}",
+                actor.type_name, shard, actor.shard
+            );
         }
         Ok(())
     }

@@ -3,8 +3,8 @@ use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
 
-use dashmap::DashMap;
 use dashmap::mapref::entry::Entry;
+use dashmap::DashMap;
 use imstr::ImString;
 use tracing::debug;
 
@@ -12,18 +12,18 @@ use actor_cluster::cluster::Cluster;
 use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::{Props, PropsBuilder};
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::AsAny;
-use actor_core::CodecMessage;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::config::ConfigBuilder;
 use actor_core::pattern::patterns::PatternsExt;
+use actor_core::AsAny;
+use actor_core::CodecMessage;
 
-use crate::cluster_sharding_guardian::ClusterShardingGuardian;
 use crate::cluster_sharding_guardian::start::Start;
 use crate::cluster_sharding_guardian::start_coordinator_if_needed::StartCoordinatorIfNeeded;
 use crate::cluster_sharding_guardian::start_proxy::StartProxy;
 use crate::cluster_sharding_guardian::started::Started;
+use crate::cluster_sharding_guardian::ClusterShardingGuardian;
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::config::ClusterShardingConfig;
 use crate::message_extractor::MessageExtractor;
@@ -57,12 +57,20 @@ impl Deref for ClusterSharding {
 impl Extension for ClusterSharding {}
 
 impl ClusterSharding {
-    pub fn new(system: ActorSystem, sharding_config: ClusterShardingConfig) -> anyhow::Result<Self> {
+    pub fn new(
+        system: ActorSystem,
+        sharding_config: ClusterShardingConfig,
+    ) -> anyhow::Result<Self> {
         let guardian_name = sharding_config.guardian_name.clone();
         system.add_config(sharding_config)?;
-        let guardian = system.spawn_system(Props::new_with_ctx(|context| {
-            Ok(ClusterShardingGuardian { cluster: Cluster::get(context.system()).clone() })
-        }), Some(guardian_name))?;
+        let guardian = system.spawn_system(
+            Props::new_with_ctx(|context| {
+                Ok(ClusterShardingGuardian {
+                    cluster: Cluster::get(context.system()).clone(),
+                })
+            }),
+            Some(guardian_name),
+        )?;
         let cluster = Cluster::get(&system).clone();
         let inner = Inner {
             system: system.downgrade(),
@@ -71,7 +79,9 @@ impl ClusterSharding {
             proxies: Default::default(),
             guardian,
         };
-        Ok(ClusterSharding { inner: Arc::new(inner) })
+        Ok(ClusterSharding {
+            inner: Arc::new(inner),
+        })
     }
 
     pub fn new_with_default_config(system: ActorSystem) -> anyhow::Result<Self> {
@@ -80,7 +90,9 @@ impl ClusterSharding {
     }
 
     pub fn get(system: &ActorSystem) -> Self {
-        system.get_ext::<Self>().expect(&format!("{} not found", type_name::<Self>()))
+        system
+            .get_ext::<Self>()
+            .unwrap_or_else(|| panic!("{} not found", type_name::<Self>()))
     }
 
     pub async fn start<E, S, M>(
@@ -91,7 +103,8 @@ impl ClusterSharding {
         extractor: E,
         allocation_strategy: S,
         handoff_message: M,
-    ) -> anyhow::Result<ActorRef> where
+    ) -> anyhow::Result<ActorRef>
+    where
         E: MessageExtractor + 'static,
         S: ShardAllocationStrategy + 'static,
         M: CodecMessage,
@@ -100,9 +113,7 @@ impl ClusterSharding {
         let handoff_message = handoff_message.into_dyn();
         if settings.should_host_shard(&self.cluster) {
             match self.regions.entry(type_name.clone()) {
-                Entry::Occupied(o) => {
-                    Ok(o.get().clone())
-                }
+                Entry::Occupied(o) => Ok(o.get().clone()),
                 Entry::Vacant(v) => {
                     let start = Start {
                         type_name: v.key().clone(),
@@ -119,7 +130,10 @@ impl ClusterSharding {
                 }
             }
         } else {
-            debug!("starting shard region proxy [{}] (no actors will be hosted on this node)...", type_name);
+            debug!(
+                "starting shard region proxy [{}] (no actors will be hosted on this node)...",
+                type_name
+            );
             let role = settings.role.clone();
             if settings.should_host_coordinator(&self.cluster) {
                 let start_coordinator_msg = StartCoordinatorIfNeeded {
@@ -138,8 +152,10 @@ impl ClusterSharding {
         type_name: impl Into<String>,
         role: Option<String>,
         extractor: E,
-    ) -> anyhow::Result<ActorRef> where
-        E: MessageExtractor + 'static {
+    ) -> anyhow::Result<ActorRef>
+    where
+        E: MessageExtractor + 'static,
+    {
         let type_name: ImString = type_name.into().into();
         let proxy_name = Self::proxy_name(type_name.as_str());
         match self.proxies.get(proxy_name.as_str()) {
@@ -170,6 +186,8 @@ impl ClusterSharding {
     }
 
     pub fn shard_region_proxy(&self, type_name: &str) -> Option<ActorRef> {
-        self.proxies.get(Self::proxy_name(type_name).as_str()).map(|r| r.clone())
+        self.proxies
+            .get(Self::proxy_name(type_name).as_str())
+            .map(|r| r.clone())
     }
 }

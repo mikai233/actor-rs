@@ -6,11 +6,11 @@ use std::time::Duration;
 use anyhow::anyhow;
 use tokio::time::error::Elapsed;
 
-use crate::{CodecMessage, DynMessage, MessageType, OrphanMessage, SystemMessage};
 use crate::actor::actor_selection::ActorSelection;
 use crate::actor_path::TActorPath;
-use crate::actor_ref::ActorRef;
 use crate::actor_ref::deferred_ref::DeferredActorRef;
+use crate::actor_ref::ActorRef;
+use crate::{CodecMessage, DynMessage, MessageType, OrphanMessage, SystemMessage};
 
 #[derive(Debug)]
 pub struct Patterns;
@@ -21,9 +21,10 @@ impl Patterns {
         message: Req,
         timeout: Duration,
     ) -> anyhow::Result<Resp>
-        where
-            Req: CodecMessage,
-            Resp: OrphanMessage {
+    where
+        Req: CodecMessage,
+        Resp: OrphanMessage,
+    {
         let message = message.into_dyn();
         Self::internal_ask::<Req, Resp>(actor, timeout, message).await
     }
@@ -33,9 +34,10 @@ impl Patterns {
         message: Req,
         timeout: Duration,
     ) -> anyhow::Result<Resp>
-        where
-            Req: SystemMessage,
-            Resp: OrphanMessage {
+    where
+        Req: SystemMessage,
+        Resp: OrphanMessage,
+    {
         let message = DynMessage::system(message);
         Self::internal_ask::<Req, Resp>(actor, timeout, message).await
     }
@@ -45,15 +47,13 @@ impl Patterns {
         timeout: Duration,
         message: DynMessage,
     ) -> anyhow::Result<Resp>
-        where
-            Req: CodecMessage,
-            Resp: OrphanMessage {
+    where
+        Req: CodecMessage,
+        Resp: OrphanMessage,
+    {
         let req = type_name::<Req>();
-        let (deferred, rx) = DeferredActorRef::new(
-            actor.system().clone(),
-            actor.path().name(),
-            req,
-        )?;
+        let (deferred, rx) =
+            DeferredActorRef::new(actor.system().clone(), actor.path().name(), req)?;
         let resp = deferred.ask(actor, rx, message, timeout).await;
         Self::handle_resp::<Req, Resp>(actor.to_string(), resp, timeout)
     }
@@ -63,9 +63,10 @@ impl Patterns {
         message: Req,
         timeout: Duration,
     ) -> anyhow::Result<Resp>
-        where
-            Req: CodecMessage,
-            Resp: OrphanMessage {
+    where
+        Req: CodecMessage,
+        Resp: OrphanMessage,
+    {
         let message = message.into_dyn();
         Self::internal_ask_selection::<Req, Resp>(sel, timeout, message).await
     }
@@ -75,9 +76,10 @@ impl Patterns {
         message: Req,
         timeout: Duration,
     ) -> anyhow::Result<Resp>
-        where
-            Req: SystemMessage,
-            Resp: OrphanMessage {
+    where
+        Req: SystemMessage,
+        Resp: OrphanMessage,
+    {
         let message = DynMessage::system(message);
         Self::internal_ask_selection::<Req, Resp>(sel, timeout, message).await
     }
@@ -87,9 +89,10 @@ impl Patterns {
         timeout: Duration,
         message: DynMessage,
     ) -> anyhow::Result<Resp>
-        where
-            Req: CodecMessage,
-            Resp: OrphanMessage {
+    where
+        Req: CodecMessage,
+        Resp: OrphanMessage,
+    {
         let req_name = type_name::<Req>();
         let mut hasher = ahash::AHasher::default();
         sel.path_str().hash(&mut hasher);
@@ -108,32 +111,44 @@ impl Patterns {
         resp: Result<Option<DynMessage>, Elapsed>,
         timeout: Duration,
     ) -> anyhow::Result<Resp>
-        where
-            Req: CodecMessage,
-            Resp: OrphanMessage {
+    where
+        Req: CodecMessage,
+        Resp: OrphanMessage,
+    {
         match resp {
             Ok(Some(resp)) => {
                 let message = resp.message.into_any();
                 let message_type = resp.ty;
                 if matches!(message_type, MessageType::Orphan) {
                     match message.downcast::<Resp>() {
-                        Ok(resp) => {
-                            Ok(*resp)
-                        }
+                        Ok(resp) => Ok(*resp),
                         Err(_) => {
                             let req = type_name::<Req>();
                             let resp = type_name::<Resp>();
-                            Err(anyhow!("ask {} with {} expect {} resp, but found other resp", target, req, resp))
+                            Err(anyhow!(
+                                "ask {} with {} expect {} resp, but found other resp",
+                                target,
+                                req,
+                                resp
+                            ))
                         }
                     }
                 } else {
                     let req = type_name::<Req>();
-                    Err(anyhow!("ask {} with {} expect OrphanMessage resp, but found other type message", target, req))
+                    Err(anyhow!(
+                        "ask {} with {} expect OrphanMessage resp, but found other type message",
+                        target,
+                        req
+                    ))
                 }
             }
             Ok(None) => {
                 let req = type_name::<Req>();
-                Err(anyhow!("ask {} with {} got empty resp, because DeferredActorRef is dropped", target, req))
+                Err(anyhow!(
+                    "ask {} with {} got empty resp, because DeferredActorRef is dropped",
+                    target,
+                    req
+                ))
             }
             Err(_) => {
                 let req = type_name::<Req>();
@@ -148,10 +163,10 @@ pub trait PatternsExt {
         &self,
         message: Req,
         timeout: Duration,
-    ) -> impl Future<Output=anyhow::Result<Resp>> + Send
-        where
-            Req: CodecMessage,
-            Resp: OrphanMessage;
+    ) -> impl Future<Output = anyhow::Result<Resp>> + Send
+    where
+        Req: CodecMessage,
+        Resp: OrphanMessage;
 }
 
 impl PatternsExt for ActorRef {
@@ -159,10 +174,11 @@ impl PatternsExt for ActorRef {
         &self,
         message: Req,
         timeout: Duration,
-    ) -> impl Future<Output=anyhow::Result<Resp>> + Send
-        where
-            Req: CodecMessage,
-            Resp: OrphanMessage {
+    ) -> impl Future<Output = anyhow::Result<Resp>> + Send
+    where
+        Req: CodecMessage,
+        Resp: OrphanMessage,
+    {
         Patterns::ask(self, message, timeout)
     }
 }
@@ -172,10 +188,11 @@ impl PatternsExt for ActorSelection {
         &self,
         message: Req,
         timeout: Duration,
-    ) -> impl Future<Output=anyhow::Result<Resp>> + Send
-        where
-            Req: CodecMessage,
-            Resp: OrphanMessage {
+    ) -> impl Future<Output = anyhow::Result<Resp>> + Send
+    where
+        Req: CodecMessage,
+        Resp: OrphanMessage,
+    {
         Patterns::ask_selection(self, message, timeout)
     }
 }

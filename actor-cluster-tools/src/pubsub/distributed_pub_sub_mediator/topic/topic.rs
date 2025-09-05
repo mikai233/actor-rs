@@ -1,13 +1,13 @@
-use std::any::{Any, type_name};
+use std::any::{type_name, Any};
 use std::time::Duration;
 
 use async_trait::async_trait;
 
-use actor_core::{Actor, CodecMessage, DynMessage, Message};
 use actor_core::actor::context::ActorContext;
 use actor_core::message::message_registry::MessageRegistry;
 use actor_core::message::MessageDecoder;
 use actor_core::routing::routing_logic::RoutingLogic;
+use actor_core::{Actor, CodecMessage, DynMessage, Message};
 
 use crate::pubsub::distributed_pub_sub_mediator::subscribe::Subscribe;
 
@@ -18,7 +18,11 @@ pub(crate) struct Topic {
 
 #[async_trait]
 impl Actor for Topic {
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
@@ -36,16 +40,25 @@ impl CodecMessage for Subscribe<Topic> {
         self
     }
 
-    fn decoder() -> Option<Box<dyn MessageDecoder>> where Self: Sized {
+    fn decoder() -> Option<Box<dyn MessageDecoder>>
+    where
+        Self: Sized,
+    {
         None
     }
 
     fn encode(self: Box<Self>, _reg: &MessageRegistry) -> anyhow::Result<Vec<u8>> {
-        Err(anyhow::anyhow!("{} cannot codec", type_name::<Subscribe<Topic>>()))
+        Err(anyhow::anyhow!(
+            "{} cannot codec",
+            type_name::<Subscribe<Topic>>()
+        ))
     }
 
     fn clone_box(&self) -> anyhow::Result<Box<dyn CodecMessage>> {
-        Err(anyhow::anyhow!("message {} is not cloneable", type_name::<Subscribe<Topic>>()))
+        Err(anyhow::anyhow!(
+            "message {} is not cloneable",
+            type_name::<Subscribe<Topic>>()
+        ))
     }
 
     fn cloneable(&self) -> bool {
@@ -61,7 +74,11 @@ impl CodecMessage for Subscribe<Topic> {
 impl Message for Subscribe<Topic> {
     type A = Topic;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        _context: &mut ActorContext,
+        _actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         Ok(())
     }
 }

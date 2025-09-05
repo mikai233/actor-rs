@@ -3,13 +3,13 @@ use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
-use syn::{DeriveInput, parse_str};
+use syn::{parse_str, DeriveInput};
 
 use crate::metadata::{CodecType, MessageImpl};
 
+mod as_any;
 mod message;
 mod metadata;
-mod as_any;
 
 #[proc_macro_derive(EmptyCodec)]
 pub fn empty_codec_derive(input: TokenStream) -> TokenStream {

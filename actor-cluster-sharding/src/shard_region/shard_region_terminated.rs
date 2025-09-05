@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use itertools::Itertools;
 use tracing::debug;
 
-use actor_core::{CodecMessage, DynMessage, Message};
 use actor_core::actor::context::ActorContext;
-use actor_core::EmptyCodec;
 use actor_core::message::terminated::Terminated;
+use actor_core::EmptyCodec;
+use actor_core::{CodecMessage, DynMessage, Message};
 
 use crate::shard_region::ShardRegion;
 
@@ -22,7 +22,11 @@ impl ShardRegionTerminated {
 impl Message for ShardRegionTerminated {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        _context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let shard_region = self.0.actor;
         if actor.regions.contains_key(&shard_region) {
             if let Some(shards) = actor.regions.remove(&shard_region) {
@@ -31,8 +35,7 @@ impl Message for ShardRegionTerminated {
                 }
                 let type_name = &actor.type_name;
                 let size = shards.len();
-                let shard_str = shards.iter()
-                    .join(", ");
+                let shard_str = shards.iter().join(", ");
                 debug!("{type_name}: Region [{shard_region}] terminated with [{size}] shards [{shard_str}]");
             }
         }

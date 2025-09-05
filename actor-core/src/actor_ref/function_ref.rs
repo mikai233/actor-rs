@@ -60,20 +60,16 @@ impl TActorRef for FunctionRef {
         None
     }
 
-    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {
         match names.next() {
-            None => {
-                Some(self.clone().into())
-            }
-            Some(_) => {
-                None
-            }
+            None => Some(self.clone().into()),
+            Some(_) => None,
         }
     }
 }
 
-impl Into<ActorRef> for FunctionRef {
-    fn into(self) -> ActorRef {
-        ActorRef::new(self)
+impl From<FunctionRef> for ActorRef {
+    fn from(val: FunctionRef) -> Self {
+        ActorRef::new(val)
     }
 }

@@ -7,8 +7,8 @@ use async_trait::async_trait;
 use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::ActorRef;
-use crate::DynMessage;
 use crate::ext::as_any::AsAny;
+use crate::DynMessage;
 
 #[async_trait]
 pub trait TAsyncActorRef: Debug + Send + Sync + Any + AsAny {
@@ -22,7 +22,7 @@ pub trait TAsyncActorRef: Debug + Send + Sync + Any + AsAny {
 
     fn parent(&self) -> Option<&ActorRef>;
 
-    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef>;
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef>;
 
     fn resume(&self) {}
 

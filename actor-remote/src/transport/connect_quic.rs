@@ -28,7 +28,11 @@ pub(super) struct ConnectQuic {
 impl Message for ConnectQuic {
     type A = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let Self { addr, config } = *self;
         if actor.is_connecting_or_connected(&addr) {
             debug!("ignore connect to {} because it is already connected", addr);
@@ -40,22 +44,23 @@ impl Message for ConnectQuic {
             match Self::connect(addr, config).await {
                 Ok(stream) => {
                     let framed = FramedWrite::new(stream, PacketCodec);
-                    let (connection, tx) = Connection::new(
-                        addr,
-                        framed,
-                        myself.clone(),
-                        myself_addr,
-                    );
+                    let (connection, tx) =
+                        Connection::new(addr, framed, myself.clone(), myself_addr);
                     connection.start();
                     myself.cast_ns(Connected { addr, tx });
                 }
                 Err(error) => {
-                    error!("connect {} error {:?}, drop current connection", addr, error);
+                    error!(
+                        "connect {} error {:?}, drop current connection",
+                        addr, error
+                    );
                     myself.cast_ns(ConnectFailed { addr });
                 }
             };
         })?;
-        actor.connections.insert(addr, ConnectionStatus::Connecting(handle));
+        actor
+            .connections
+            .insert(addr, ConnectionStatus::Connecting(handle));
         Ok(())
     }
 }
@@ -65,7 +70,11 @@ impl ConnectQuic {
         let mut endpoint = Endpoint::client("0.0.0.0:0".parse()?)?;
         endpoint.set_default_client_config(config);
         let connection = endpoint.connect(addr, "localhost")?.await?;
-        info!("{} connected to {}", endpoint.local_addr()?, connection.remote_address());
+        info!(
+            "{} connected to {}",
+            endpoint.local_addr()?,
+            connection.remote_address()
+        );
         let stream = connection.open_uni().await?;
         Ok(stream)
     }

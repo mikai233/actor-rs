@@ -4,8 +4,8 @@ use std::ops::{Deref, DerefMut};
 use ahash::HashMap;
 
 use crate::actor_ref::ActorRef;
-use crate::DynMessage;
 use crate::message::terminated::Terminated;
+use crate::DynMessage;
 
 #[derive(Default)]
 pub(crate) struct Watching(HashMap<ActorRef, Box<dyn FnOnce(Terminated) -> DynMessage + Send>>);
@@ -26,7 +26,8 @@ impl DerefMut for Watching {
 
 impl Debug for Watching {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let watching = self.keys()
+        let watching = self
+            .keys()
             .map(|key| (key, ".."))
             .collect::<HashMap<_, _>>();
         Debug::fmt(&watching, f)

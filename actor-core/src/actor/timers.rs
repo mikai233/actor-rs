@@ -1,8 +1,8 @@
 use std::any::type_name;
 use std::collections::hash_map::Entry;
 use std::fmt::{Debug, Formatter};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
 use std::task::Poll;
 use std::time::Duration;
 
@@ -15,12 +15,12 @@ use tracing::{debug, error, trace};
 
 use actor_derive::EmptyCodec;
 
-use crate::{Actor, CodecMessage, DynMessage, Message};
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::props::Props;
-use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
+use crate::actor_ref::{ActorRef, ActorRefExt};
 use crate::message::terminated::Terminated;
+use crate::{Actor, CodecMessage, DynMessage, Message};
 
 #[derive(Debug)]
 pub(crate) struct TimersActor {
@@ -84,7 +84,11 @@ impl Actor for TimersActor {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
@@ -109,7 +113,10 @@ impl ScheduleKey {
 
     pub fn cancel(self) {
         if !self.cancelled.swap(true, Ordering::Relaxed) {
-            self.scheduler.cast_ns(CancelSchedule { index: self.index, message: self.message });
+            self.scheduler.cast_ns(CancelSchedule {
+                index: self.index,
+                message: self.message,
+            });
         }
     }
 }
@@ -166,27 +173,57 @@ enum Schedule {
 impl Message for Schedule {
     type A = TimersActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         match &*self {
-            Schedule::Once { index, delay, receiver, .. } => {
+            Schedule::Once {
+                index,
+                delay,
+                receiver,
+                ..
+            } => {
                 let index = *index;
                 let delay = *delay;
-                TimersActor::watch_receiver(&mut actor.watching_receivers, context, receiver, index)?;
+                TimersActor::watch_receiver(
+                    &mut actor.watching_receivers,
+                    context,
+                    receiver,
+                    index,
+                )?;
                 self.once(actor, index, delay);
             }
-            Schedule::FixedDelay { index, initial_delay, interval, receiver, .. } => {
+            Schedule::FixedDelay {
+                index,
+                initial_delay,
+                interval,
+                receiver,
+                ..
+            } => {
                 let index = *index;
                 let initial_delay = *initial_delay;
                 let interval = *interval;
-                TimersActor::watch_receiver(&mut actor.watching_receivers, context, receiver, index)?;
+                TimersActor::watch_receiver(
+                    &mut actor.watching_receivers,
+                    context,
+                    receiver,
+                    index,
+                )?;
                 self.fixed_delay(actor, index, initial_delay, interval);
             }
             Schedule::OnceWith { index, delay, .. } => {
                 let index = *index;
-                let delay = delay.clone();
+                let delay = *delay;
                 self.once(actor, index, delay);
             }
-            Schedule::FixedDelayWith { index, initial_delay, interval, .. } => {
+            Schedule::FixedDelayWith {
+                index,
+                initial_delay,
+                interval,
+                ..
+            } => {
                 let index = *index;
                 let initial_delay = *initial_delay;
                 let interval = *interval;
@@ -205,7 +242,13 @@ impl Schedule {
         actor.index.insert(index, delay_key);
     }
 
-    fn fixed_delay(self: Box<Self>, actor: &mut TimersActor, index: u64, initial_delay: Option<Duration>, interval: Duration) {
+    fn fixed_delay(
+        self: Box<Self>,
+        actor: &mut TimersActor,
+        index: u64,
+        initial_delay: Option<Duration>,
+        interval: Duration,
+    ) {
         let delay_key = match initial_delay {
             None => {
                 let delay = interval;
@@ -224,38 +267,50 @@ impl Schedule {
 impl Debug for Schedule {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Schedule::Once { index, delay, message, receiver } => {
-                f.debug_struct("Once")
-                    .field("index", index)
-                    .field("delay", delay)
-                    .field("message", message)
-                    .field("receiver", receiver)
-                    .finish()
-            }
-            Schedule::FixedDelay { index, initial_delay, interval, message, receiver } => {
-                f.debug_struct("FixedDelay")
-                    .field("index", index)
-                    .field("initial_delay", initial_delay)
-                    .field("interval", interval)
-                    .field("message", message)
-                    .field("receiver", receiver)
-                    .finish()
-            }
-            Schedule::OnceWith { index, delay, .. } => {
-                f.debug_struct("OnceWith")
-                    .field("index", index)
-                    .field("delay", delay)
-                    .field("block", &"..")
-                    .finish()
-            }
-            Schedule::FixedDelayWith { index, initial_delay, interval, .. } => {
-                f.debug_struct("FixedDelayWith")
-                    .field("index", index)
-                    .field("initial_delay", initial_delay)
-                    .field("interval", interval)
-                    .field("factory", &"..")
-                    .finish()
-            }
+            Schedule::Once {
+                index,
+                delay,
+                message,
+                receiver,
+            } => f
+                .debug_struct("Once")
+                .field("index", index)
+                .field("delay", delay)
+                .field("message", message)
+                .field("receiver", receiver)
+                .finish(),
+            Schedule::FixedDelay {
+                index,
+                initial_delay,
+                interval,
+                message,
+                receiver,
+            } => f
+                .debug_struct("FixedDelay")
+                .field("index", index)
+                .field("initial_delay", initial_delay)
+                .field("interval", interval)
+                .field("message", message)
+                .field("receiver", receiver)
+                .finish(),
+            Schedule::OnceWith { index, delay, .. } => f
+                .debug_struct("OnceWith")
+                .field("index", index)
+                .field("delay", delay)
+                .field("block", &"..")
+                .finish(),
+            Schedule::FixedDelayWith {
+                index,
+                initial_delay,
+                interval,
+                ..
+            } => f
+                .debug_struct("FixedDelayWith")
+                .field("index", index)
+                .field("initial_delay", initial_delay)
+                .field("interval", interval)
+                .field("factory", &"..")
+                .finish(),
         }
     }
 }
@@ -270,10 +325,17 @@ struct CancelSchedule {
 impl Message for CancelSchedule {
     type A = TimersActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         match actor.index.remove(&self.index) {
             None => {
-                debug!("{}[{}] not found in TimerScheduler", self.message, self.index);
+                debug!(
+                    "{}[{}] not found in TimerScheduler",
+                    self.message, self.index
+                );
             }
             Some(key) => {
                 actor.queue.try_remove(&key);
@@ -293,7 +355,11 @@ struct CancelAllSchedule;
 impl Message for CancelAllSchedule {
     type A = TimersActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         actor.index.clear();
         actor.queue.clear();
         for receiver in actor.watching_receivers.keys() {
@@ -312,7 +378,11 @@ struct PollExpired;
 impl Message for PollExpired {
     type A = TimersActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let waker = &actor.waker;
         let queue = &mut actor.queue;
         let indexes = &mut actor.index;
@@ -321,12 +391,23 @@ impl Message for PollExpired {
         while let Poll::Ready(Some(expired)) = queue.poll_expired(&mut ctx) {
             let schedule = expired.into_inner();
             match schedule {
-                Schedule::Once { index, message, receiver, .. } => {
+                Schedule::Once {
+                    index,
+                    message,
+                    receiver,
+                    ..
+                } => {
                     indexes.remove(&index);
                     receiver.tell(message, ActorRef::no_sender());
                     TimersActor::unwatch_receiver(&mut actor.watching_receivers, context, index);
                 }
-                Schedule::FixedDelay { index, interval, message, receiver, .. } => {
+                Schedule::FixedDelay {
+                    index,
+                    interval,
+                    message,
+                    receiver,
+                    ..
+                } => {
                     match message.dyn_clone() {
                         Ok(message) => {
                             receiver.tell(message, ActorRef::no_sender());
@@ -350,7 +431,12 @@ impl Message for PollExpired {
                     indexes.remove(&index);
                     block();
                 }
-                Schedule::FixedDelayWith { index, interval, block, .. } => {
+                Schedule::FixedDelayWith {
+                    index,
+                    interval,
+                    block,
+                    ..
+                } => {
                     block();
                     let next_delay = interval;
                     let reschedule = Schedule::FixedDelayWith {
@@ -381,16 +467,29 @@ impl ReceiverTerminated {
 impl Message for ReceiverTerminated {
     type A = TimersActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let watchee = self.0.actor;
         if let Some(indexes) = actor.watching_receivers.remove(&watchee) {
             for index in &indexes {
-                if let Some(key) = actor.index.remove(&index) {
+                if let Some(key) = actor.index.remove(index) {
                     actor.queue.try_remove(&key);
                 }
             }
-            let indexes = indexes.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(", ");
-            trace!("{} watch receiver {} stopped, stop associated timers {:?}", context.myself(), watchee, indexes);
+            let indexes = indexes
+                .iter()
+                .map(|i| i.to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            trace!(
+                "{} watch receiver {} stopped, stop associated timers {:?}",
+                context.myself(),
+                watchee,
+                indexes
+            );
         }
         Ok(())
     }
@@ -415,11 +514,10 @@ pub struct Timers {
 
 impl Timers {
     pub fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
-        let scheduler_actor = context
-            .spawn(
-                Props::new_with_ctx(move |context| Ok(TimersActor::new(context.myself.clone()))),
-                "timers",
-            )?;
+        let scheduler_actor = context.spawn(
+            Props::new_with_ctx(move |context| Ok(TimersActor::new(context.myself.clone()))),
+            "timers",
+        )?;
         Ok(Self {
             index: AtomicU64::new(0).into(),
             scheduler_actor,
@@ -433,8 +531,14 @@ impl Timers {
         }
     }
 
-    pub fn start_single_timer<M>(&self, delay: Duration, message: M, receiver: ActorRef) -> ScheduleKey
-        where M: CodecMessage,
+    pub fn start_single_timer<M>(
+        &self,
+        delay: Duration,
+        message: M,
+        receiver: ActorRef,
+    ) -> ScheduleKey
+    where
+        M: CodecMessage,
     {
         let message = message.into_dyn();
         let index = self.index.fetch_add(1, Ordering::Relaxed);
@@ -449,8 +553,9 @@ impl Timers {
     }
 
     pub fn start_single_timer_with<F>(&self, delay: Duration, block: F) -> ScheduleKey
-        where
-            F: FnOnce() + Send + 'static {
+    where
+        F: FnOnce() + Send + 'static,
+    {
         let index = self.index.fetch_add(1, Ordering::Relaxed);
         let once_with = Schedule::OnceWith {
             index,
@@ -467,7 +572,10 @@ impl Timers {
         interval: Duration,
         message: M,
         receiver: ActorRef,
-    ) -> ScheduleKey where M: CodecMessage + Clone {
+    ) -> ScheduleKey
+    where
+        M: CodecMessage + Clone,
+    {
         let message = message.into_dyn();
         let index = self.index.fetch_add(1, Ordering::Relaxed);
         let fixed_delay = Schedule::FixedDelay {
@@ -487,8 +595,8 @@ impl Timers {
         interval: Duration,
         block: F,
     ) -> ScheduleKey
-        where
-            F: Fn() + Send + Sync + 'static,
+    where
+        F: Fn() + Send + Sync + 'static,
     {
         let index = self.index.fetch_add(1, Ordering::Relaxed);
         let fixed_delay_with = Schedule::FixedDelayWith {

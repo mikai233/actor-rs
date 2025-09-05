@@ -1,12 +1,11 @@
 use async_trait::async_trait;
 use tracing::debug;
 
-use crate::{Actor, DynMessage};
 use crate::actor::context::{ActorContext, Context};
+use crate::{Actor, DynMessage};
 
 #[derive(Debug)]
 pub(crate) struct UserGuardian;
-
 
 #[async_trait]
 impl Actor for UserGuardian {
@@ -15,7 +14,11 @@ impl Actor for UserGuardian {
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }

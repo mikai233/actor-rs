@@ -117,7 +117,13 @@ fn impl_trait(
     };
     let impl_message = if matches!(message_impl, MessageImpl::OrphanMessage) {
         let message_trait = with_crate_str("OrphanMessage");
-        Some(expand_message_impl(&message_ty, message_trait, &impl_generics, &ty_generics, where_clause))
+        Some(expand_message_impl(
+            message_ty,
+            message_trait,
+            impl_generics,
+            ty_generics,
+            where_clause,
+        ))
     } else {
         None
     };
@@ -149,37 +155,29 @@ pub(crate) fn expand_decoder(
         CodecType::NonCodec => {
             quote!(None)
         }
-        CodecType::Codec => {
-            match message_impl {
-                MessageImpl::Message => {
-                    decoder(decoder_trait, dy_message, reg, || {
-                        quote! {
-                            let message: #message_ty = #ext_path::decode_bytes(bytes)?;
-                            let message = #dy_message::user(message);
-                            Ok(message)
-                        }
-                    })
+        CodecType::Codec => match message_impl {
+            MessageImpl::Message => decoder(decoder_trait, dy_message, reg, || {
+                quote! {
+                    let message: #message_ty = #ext_path::decode_bytes(bytes)?;
+                    let message = #dy_message::user(message);
+                    Ok(message)
                 }
-                MessageImpl::SystemMessage => {
-                    decoder(decoder_trait, dy_message, reg, || {
-                        quote! {
-                            let message: #message_ty = #ext_path::decode_bytes(bytes)?;
-                            let message = #dy_message::system(message);
-                            Ok(message)
-                        }
-                    })
+            }),
+            MessageImpl::SystemMessage => decoder(decoder_trait, dy_message, reg, || {
+                quote! {
+                    let message: #message_ty = #ext_path::decode_bytes(bytes)?;
+                    let message = #dy_message::system(message);
+                    Ok(message)
                 }
-                MessageImpl::OrphanMessage => {
-                    decoder(decoder_trait, dy_message, reg, || {
-                        quote! {
-                            let message: #message_ty = #ext_path::decode_bytes(bytes)?;
-                            let message = #dy_message::orphan(message);
-                            Ok(message)
-                        }
-                    })
+            }),
+            MessageImpl::OrphanMessage => decoder(decoder_trait, dy_message, reg, || {
+                quote! {
+                    let message: #message_ty = #ext_path::decode_bytes(bytes)?;
+                    let message = #dy_message::orphan(message);
+                    Ok(message)
                 }
-            }
-        }
+            }),
+        },
     }
 }
 
@@ -188,7 +186,10 @@ pub(crate) fn decoder<F>(
     dy_message: &TokenStream,
     reg: &TokenStream,
     fn_body: F,
-) -> TokenStream where F: FnOnce() -> TokenStream {
+) -> TokenStream
+where
+    F: FnOnce() -> TokenStream,
+{
     let body = fn_body();
     quote! {
         #[derive(Clone)]
@@ -260,7 +261,8 @@ pub(crate) fn expand_message_impl(
     message_trait: TokenStream,
     impl_generics: &ImplGenerics,
     ty_generics: &TypeGenerics,
-    where_clause: Option<&WhereClause>) -> TokenStream {
+    where_clause: Option<&WhereClause>,
+) -> TokenStream {
     quote! {
         impl #impl_generics #message_trait for #message_ty #ty_generics #where_clause {
 

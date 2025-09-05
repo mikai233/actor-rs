@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
-use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
 
 use crate::actor::address::Address;
 use crate::actor_path::{ActorPath, TActorPath};
@@ -57,7 +57,7 @@ impl TActorPath for RootActorPath {
     }
 
     fn root(&self) -> &RootActorPath {
-        &self
+        self
     }
 
     fn uid(&self) -> i32 {
@@ -72,7 +72,7 @@ impl TActorPath for RootActorPath {
             uid,
             ActorPath::undefined_uid()
         );
-        ActorPath::RootActorPath(self.clone()).into()
+        ActorPath::RootActorPath(self.clone())
     }
 
     fn to_string_with_address(&self, address: &Address) -> String {
@@ -102,7 +102,11 @@ impl RootActorPath {
             name
         );
         Self {
-            inner: Arc::new(Inner { address, name, cached_hash: AtomicU64::default() }),
+            inner: Arc::new(Inner {
+                address,
+                name,
+                cached_hash: AtomicU64::default(),
+            }),
         }
     }
 

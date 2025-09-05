@@ -15,7 +15,11 @@ pub(super) struct StopTimeout;
 impl Message for StopTimeout {
     type A = HandoffStopper;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         let type_name = &actor.type_name;
         let stop_msg = actor.stop_message.name();
         let shard = &actor.shard;

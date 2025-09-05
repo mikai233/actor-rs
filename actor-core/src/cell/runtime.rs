@@ -1,5 +1,5 @@
-use std::any::Any;
 use std::any::type_name;
+use std::any::Any;
 use std::panic::AssertUnwindSafe;
 
 use anyhow::{anyhow, Error};
@@ -9,22 +9,32 @@ use tokio::task::yield_now;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
 
-use crate::Actor;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::mailbox::Mailbox;
 use crate::actor::state::ActorState;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::cell::envelope::Envelope;
+use crate::Actor;
 
-pub struct ActorRuntime<A> where A: Actor {
+pub struct ActorRuntime<A>
+where
+    A: Actor,
+{
     pub(crate) actor: A,
     pub(crate) context: ActorContext,
     pub(crate) mailbox: Mailbox,
 }
 
-impl<A> ActorRuntime<A> where A: Actor {
+impl<A> ActorRuntime<A>
+where
+    A: Actor,
+{
     pub(crate) async fn run(self) {
-        let Self { mut actor, mut context, mut mailbox } = self;
+        let Self {
+            mut actor,
+            mut context,
+            mut mailbox,
+        } = self;
         let token = context.myself.local().unwrap().cell.token.clone();
         context.stash_capacity = mailbox.stash_capacity;
         let actor_name = type_name::<A>();
@@ -38,7 +48,7 @@ impl<A> ActorRuntime<A> where A: Actor {
         };
         if let Err(err) = started_fut {
             error!("actor {} start error {:?}", actor_name, err);
-            context.stop(&context.myself());
+            context.stop(context.myself());
             while let Some(message) = mailbox.system.recv().await {
                 Self::handle_system(&mut context, &mut actor, message).await;
                 if matches!(context.state, ActorState::CanTerminate) {
@@ -90,7 +100,9 @@ impl<A> ActorRuntime<A> where A: Actor {
         context.sender = sender;
         match message.downcast_system_delegate() {
             Ok(system) => {
-                let catch_unwind_result = AssertUnwindSafe(system.message.handle(context, actor)).catch_unwind().await;
+                let catch_unwind_result = AssertUnwindSafe(system.message.handle(context, actor))
+                    .catch_unwind()
+                    .await;
                 Self::catch_handle_error(context, catch_unwind_result);
             }
             Err(error) => {
@@ -100,7 +112,10 @@ impl<A> ActorRuntime<A> where A: Actor {
         context.sender.take();
     }
 
-    fn catch_handle_error(context: &mut ActorContext, catch_unwind_result: Result<anyhow::Result<()>, Box<dyn Any + Send>>) {
+    fn catch_handle_error(
+        context: &mut ActorContext,
+        catch_unwind_result: Result<anyhow::Result<()>, Box<dyn Any + Send>>,
+    ) {
         match catch_unwind_result {
             Ok(Err(logic_error)) => {
                 let name = type_name::<A>();
@@ -116,7 +131,12 @@ impl<A> ActorRuntime<A> where A: Actor {
         }
     }
 
-    async fn handle_message(context: &mut ActorContext, actor: &mut A, envelope: Envelope, token: &CancellationToken) {
+    async fn handle_message(
+        context: &mut ActorContext,
+        actor: &mut A,
+        envelope: Envelope,
+        token: &CancellationToken,
+    ) {
         let Envelope { message, sender } = envelope;
         let name = message.name();
         context.sender = sender;

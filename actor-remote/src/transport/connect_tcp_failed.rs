@@ -2,8 +2,8 @@ use std::net::SocketAddr;
 
 use async_trait::async_trait;
 
-use actor_core::{EmptyCodec, Message};
 use actor_core::actor::context::ActorContext;
+use actor_core::{EmptyCodec, Message};
 
 use crate::transport::TransportActor;
 
@@ -16,7 +16,11 @@ pub(super) struct ConnectFailed {
 impl Message for ConnectFailed {
     type A = TransportActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        _context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         actor.connections.remove(&self.addr);
         Ok(())
     }

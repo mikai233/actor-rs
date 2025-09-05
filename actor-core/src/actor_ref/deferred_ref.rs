@@ -13,10 +13,10 @@ use actor_derive::AsAny;
 use crate::actor::actor_selection::ActorSelection;
 use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
-use crate::actor_ref::{ActorRef, get_child_default, TActorRef};
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
-use crate::DynMessage;
+use crate::actor_ref::{get_child_default, ActorRef, TActorRef};
 use crate::provider::ActorRefProvider;
+use crate::DynMessage;
 
 #[derive(Clone, AsAny)]
 pub struct DeferredActorRef {
@@ -72,13 +72,17 @@ impl TActorRef for DeferredActorRef {
         Some(&self.parent)
     }
 
-    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item=&str>>) -> Option<ActorRef> {
+    fn get_child(&self, names: &mut Peekable<&mut dyn Iterator<Item = &str>>) -> Option<ActorRef> {
         get_child_default(self.clone(), names)
     }
 }
 
 impl DeferredActorRef {
-    pub(crate) fn new(system: WeakActorSystem, ref_path_prefix: &String, message_name: &'static str) -> anyhow::Result<(Self, Receiver<DynMessage>)> {
+    pub(crate) fn new(
+        system: WeakActorSystem,
+        ref_path_prefix: &String,
+        message_name: &'static str,
+    ) -> anyhow::Result<(Self, Receiver<DynMessage>)> {
         let provider = system.upgrade()?.provider();
         let path = provider.temp_path_of_prefix(Some(ref_path_prefix));
         let (tx, rx) = tokio::sync::mpsc::channel(1);
@@ -94,7 +98,9 @@ impl DeferredActorRef {
         let deferred_ref = DeferredActorRef {
             inner: inner.into(),
         };
-        deferred_ref.provider.register_temp_actor(deferred_ref.clone().into(), deferred_ref.path());
+        deferred_ref
+            .provider
+            .register_temp_actor(deferred_ref.clone().into(), deferred_ref.path());
         Ok((deferred_ref, rx))
     }
     pub(crate) async fn ask(
@@ -124,8 +130,8 @@ impl DeferredActorRef {
     }
 }
 
-impl Into<ActorRef> for DeferredActorRef {
-    fn into(self) -> ActorRef {
-        ActorRef::new(self)
+impl From<DeferredActorRef> for ActorRef {
+    fn from(val: DeferredActorRef) -> Self {
+        ActorRef::new(val)
     }
 }

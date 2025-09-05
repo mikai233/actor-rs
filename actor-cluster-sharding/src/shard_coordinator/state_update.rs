@@ -4,24 +4,11 @@ use crate::shard_region::ImShardId;
 
 #[derive(Debug)]
 pub(super) enum ShardState {
-    ShardHomeDeallocated {
-        shard: ImShardId,
-    },
-    ShardRegionProxyTerminated {
-        region_proxy: ActorRef,
-    },
+    ShardHomeDeallocated { shard: ImShardId },
+    ShardRegionProxyTerminated { region_proxy: ActorRef },
     ShardCoordinatorInitialized,
-    ShardRegionTerminated {
-        region: ActorRef,
-    },
-    ShardRegionProxyRegistered {
-        region_proxy: ActorRef,
-    },
-    ShardHomeAllocated {
-        shard: ImShardId,
-        region: ActorRef,
-    },
-    ShardRegionRegistered {
-        region: ActorRef,
-    },
+    ShardRegionTerminated { region: ActorRef },
+    ShardRegionProxyRegistered { region_proxy: ActorRef },
+    ShardHomeAllocated { shard: ImShardId, region: ActorRef },
+    ShardRegionRegistered { region: ActorRef },
 }

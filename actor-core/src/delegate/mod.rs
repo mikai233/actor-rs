@@ -1,24 +1,30 @@
-use std::any::{Any, type_name};
+use std::any::{type_name, Any};
 
 use anyhow::anyhow;
 
-use crate::{Actor, CodecMessage};
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::UserDelegate;
+use crate::{Actor, CodecMessage};
 
-pub mod user;
 pub mod system;
+pub mod user;
 
-pub(crate) enum MessageDelegate<A> where A: Actor {
+pub(crate) enum MessageDelegate<A>
+where
+    A: Actor,
+{
     User(Box<UserDelegate<A>>),
     System(Box<SystemDelegate>),
 }
 
-impl<A> MessageDelegate<A> where A: Actor {
+impl<A> MessageDelegate<A>
+where
+    A: Actor,
+{
     pub(crate) fn name(&self) -> &'static str {
         match self {
-            MessageDelegate::User(m) => { m.name }
-            MessageDelegate::System(m) => { m.name }
+            MessageDelegate::User(m) => m.name,
+            MessageDelegate::System(m) => m.name,
         }
     }
 
@@ -37,16 +43,22 @@ impl<A> MessageDelegate<A> where A: Actor {
     }
 }
 
-pub(crate) enum MessageDelegateRef<'a, A> where A: Actor {
+pub(crate) enum MessageDelegateRef<'a, A>
+where
+    A: Actor,
+{
     User(&'a UserDelegate<A>),
     System(&'a SystemDelegate),
 }
 
-impl<'a, A> MessageDelegateRef<'a, A> where A: Actor {
+impl<'a, A> MessageDelegateRef<'a, A>
+where
+    A: Actor,
+{
     pub(crate) fn name(&self) -> &'static str {
         match self {
-            MessageDelegateRef::User(m) => { m.name }
-            MessageDelegateRef::System(m) => { m.name }
+            MessageDelegateRef::User(m) => m.name,
+            MessageDelegateRef::System(m) => m.name,
         }
     }
 
@@ -58,13 +70,16 @@ impl<'a, A> MessageDelegateRef<'a, A> where A: Actor {
     }
 }
 
-pub(crate) fn downcast_box_message<M: CodecMessage>(name: &'static str, msg: Box<dyn Any>) -> anyhow::Result<M> {
+pub(crate) fn downcast_box_message<M: CodecMessage>(
+    name: &'static str,
+    msg: Box<dyn Any>,
+) -> anyhow::Result<M> {
     match msg.downcast::<M>() {
-        Ok(m) => {
-            Ok(*m)
-        }
-        Err(_) => {
-            Err(anyhow!("message {} cannot downcast to {}", name, type_name::<M>()))
-        }
+        Ok(m) => Ok(*m),
+        Err(_) => Err(anyhow!(
+            "message {} cannot downcast to {}",
+            name,
+            type_name::<M>()
+        )),
     }
 }

@@ -4,7 +4,9 @@ use async_trait::async_trait;
 use tracing::debug;
 
 use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor::coordinated_shutdown::{CoordinatedShutdown, PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION};
+use actor_core::actor::coordinated_shutdown::{
+    CoordinatedShutdown, PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION,
+};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::EmptyCodec;
 use actor_core::Message;
@@ -19,20 +21,35 @@ pub(super) struct GracefulShutdown;
 impl Message for GracefulShutdown {
     type A = ShardRegion;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         if actor.preparing_for_shutdown {
             debug!("{}: Skipping graceful shutdown of region and all its shards as cluster is preparing for shutdown", actor.type_name);
             let _ = actor.graceful_shutdown_progress.send(()).await;
             context.stop(context.myself());
         } else {
-            debug!("{}: Starting graceful shutdown of region and all its shards", actor.type_name);
+            debug!(
+                "{}: Starting graceful shutdown of region and all its shards",
+                actor.type_name
+            );
             let coord_shutdown = CoordinatedShutdown::get(context.system());
             if coord_shutdown.run_started() {
-                let timeout = CoordinatedShutdown::timeout(context.system(), PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION)
-                    .expect(&format!("phase {} not found", PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION))
-                    .checked_sub(Duration::from_secs(1));
+                let timeout = CoordinatedShutdown::timeout(
+                    context.system(),
+                    PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION,
+                )
+                .unwrap_or_else(|| panic!("phase {} not found",
+                    PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION))
+                .checked_sub(Duration::from_secs(1));
                 if let Some(timeout) = timeout {
-                    actor.timers.start_single_timer(timeout, GracefulShutdownTimeout, context.myself().clone());
+                    actor.timers.start_single_timer(
+                        timeout,
+                        GracefulShutdownTimeout,
+                        context.myself().clone(),
+                    );
                 }
             }
             drop(coord_shutdown);

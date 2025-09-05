@@ -4,10 +4,10 @@ use async_trait::async_trait;
 
 use actor_derive::EmptyCodec;
 
-use crate::{Actor, Message};
 use crate::actor::context::ActorContext;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::ActorRef;
+use crate::{Actor, Message};
 
 #[derive(EmptyCodec)]
 pub(crate) struct StopChild<A: Actor> {
@@ -15,20 +15,30 @@ pub(crate) struct StopChild<A: Actor> {
     child: ActorRef,
 }
 
-impl<A> StopChild<A> where A: Actor {
+impl<A> StopChild<A>
+where
+    A: Actor,
+{
     pub fn new(child: ActorRef) -> Self {
         Self {
-            _phantom: PhantomData::default(),
+            _phantom: PhantomData,
             child,
         }
     }
 }
 
 #[async_trait]
-impl<T> Message for StopChild<T> where T: Actor {
+impl<T> Message for StopChild<T>
+where
+    T: Actor,
+{
     type A = T;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        _actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         context.stop(&self.child);
         Ok(())
     }

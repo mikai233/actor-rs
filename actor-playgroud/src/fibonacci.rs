@@ -4,15 +4,15 @@ use async_trait::async_trait;
 use rand::Rng;
 use tracing::info;
 
-use actor_core::{Actor, DynMessage, Message};
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor::timers::Timers;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::CEmptyCodec;
 use actor_core::config::actor_setting::ActorSetting;
 use actor_core::ext::init_logger_with_filter;
+use actor_core::CEmptyCodec;
+use actor_core::{Actor, DynMessage, Message};
 
 pub fn fibonacci(n: i32) -> u64 {
     if n < 0 {
@@ -41,9 +41,7 @@ struct FibActor {
 impl FibActor {
     fn new(context: &mut ActorContext) -> anyhow::Result<Self> {
         let timers = Timers::new(context)?;
-        Ok(Self {
-            timers,
-        })
+        Ok(Self { timers })
     }
 }
 
@@ -51,12 +49,21 @@ impl FibActor {
 impl Actor for FibActor {
     async fn started(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let n = rand::thread_rng().gen_range(1..=50);
-        self.timers.start_timer_with_fixed_delay(None, Duration::from_millis(100), Fib(n), context.myself().clone());
+        self.timers.start_timer_with_fixed_delay(
+            None,
+            Duration::from_millis(100),
+            Fib(n),
+            context.myself().clone(),
+        );
         info!("{} started", context.myself());
         Ok(())
     }
 
-    async fn on_recv(&mut self, context: &mut ActorContext, message: DynMessage) -> anyhow::Result<()> {
+    async fn on_recv(
+        &mut self,
+        context: &mut ActorContext,
+        message: DynMessage,
+    ) -> anyhow::Result<()> {
         Self::handle_message(self, context, message).await
     }
 }
@@ -68,7 +75,11 @@ struct Fib(i32);
 impl Message for Fib {
     type A = FibActor;
 
-    async fn handle(self: Box<Self>, _context: &mut ActorContext, _actor: &mut Self::A) -> anyhow::Result<()> {
+    async fn handle(
+        self: Box<Self>,
+        _context: &mut ActorContext,
+        _actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
         fibonacci(self.0);
         Ok(())
     }
@@ -78,7 +89,7 @@ impl Message for Fib {
 async fn main() -> anyhow::Result<()> {
     init_logger_with_filter("actor=info");
     let system = ActorSystem::new("mikai233", ActorSetting::default())?;
-    system.spawn_anonymous(Props::new_with_ctx(|ctx| { FibActor::new(ctx) }))?;
+    system.spawn_anonymous(Props::new_with_ctx(FibActor::new))?;
     system.await?;
     Ok(())
 }

@@ -8,8 +8,8 @@ use tracing::{debug, warn};
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_path::TActorPath;
 use actor_core::actor_ref::ActorRefExt;
-use actor_core::EmptyCodec;
 use actor_core::ext::option_ext::OptionExt;
+use actor_core::EmptyCodec;
 use actor_core::Message;
 
 use crate::config::transport::Transport;
@@ -30,18 +30,34 @@ pub(crate) struct OutboundMessage {
 impl Message for OutboundMessage {
     type A = TransportActor;
 
-    async fn handle(self: Box<Self>, context: &mut ActorContext, actor: &mut Self::A) -> anyhow::Result<()> {
-        let addr: SocketAddr = self.envelope.target.path()
-            .address().addr
+    async fn handle(
+        self: Box<Self>,
+        context: &mut ActorContext,
+        actor: &mut Self::A,
+    ) -> anyhow::Result<()> {
+        let addr: SocketAddr = self
+            .envelope
+            .target
+            .path()
+            .address()
+            .addr
             .map(|a| a.into())
             .ok_or(anyhow!("socket addr not set"))?;
-        let sender = actor.connections.entry(addr).or_insert(ConnectionStatus::NotConnected);
+        let sender = actor
+            .connections
+            .entry(addr)
+            .or_insert(ConnectionStatus::NotConnected);
         match sender {
             ConnectionStatus::NotConnected => {
-                debug!("connection to {} not established, stash {} and start connect", addr, self.name);
+                debug!(
+                    "connection to {} not established, stash {} and start connect",
+                    addr, self.name
+                );
                 match &actor.transport {
                     Transport::Tcp(_) => {
-                        context.myself().cast_ns(ConnectTcp::with_infinite_retry(addr));
+                        context
+                            .myself()
+                            .cast_ns(ConnectTcp::with_infinite_retry(addr));
                     }
                     Transport::Kcp(_) => {
                         unimplemented!("kcp unimplemented");
@@ -53,22 +69,40 @@ impl Message for OutboundMessage {
                         context.myself().cast_ns(connect_quic);
                     }
                 }
-                Self::A::buffer_message(&mut actor.message_buffer, &actor.transport, addr, *self, context.sender().cloned());
+                Self::A::buffer_message(
+                    &mut actor.message_buffer,
+                    &actor.transport,
+                    addr,
+                    *self,
+                    context.sender().cloned(),
+                );
                 *sender = ConnectionStatus::PrepareForConnect;
             }
             ConnectionStatus::PrepareForConnect | ConnectionStatus::Connecting(_) => {
-                debug!("connection to {} is establishing, stash {} and wait it established", addr, self.name);
-                Self::A::buffer_message(&mut actor.message_buffer, &actor.transport, addr, *self, context.sender().cloned());
+                debug!(
+                    "connection to {} is establishing, stash {} and wait it established",
+                    addr, self.name
+                );
+                Self::A::buffer_message(
+                    &mut actor.message_buffer,
+                    &actor.transport,
+                    addr,
+                    *self,
+                    context.sender().cloned(),
+                );
             }
             ConnectionStatus::Connected(tx) => {
                 if let Some(error) = tx.try_send(self.envelope).err() {
                     match error {
                         TrySendError::Full(_) => {
-                            warn!("message {} to {} connection buffer full, current message dropped", self.name, addr);
+                            warn!(
+                                "message {} to {} connection buffer full, current message dropped",
+                                self.name, addr
+                            );
                         }
                         TrySendError::Closed(_) => {
                             context.myself().cast(Disconnect { addr }, None);
-                            warn!( "message {} to {} connection closed", self.name, addr );
+                            warn!("message {} to {} connection closed", self.name, addr);
                         }
                     }
                 }
