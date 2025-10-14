@@ -6,8 +6,8 @@ use std::marker::PhantomData;
 
 use ahash::HashMap;
 
-use crate::failure_detector::failure_detector_registry::FailureDetectorRegistry;
 use crate::failure_detector::FailureDetector;
+use crate::failure_detector::failure_detector_registry::FailureDetectorRegistry;
 
 pub struct DefaultFailureDetectorRegistry<A> {
     _phantom: PhantomData<A>,

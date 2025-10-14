@@ -1,12 +1,12 @@
 use async_trait::async_trait;
 
-use actor_core::actor::context::ActorContext;
-use actor_core::actor_ref::PROVIDER;
 use actor_core::EmptyCodec;
 use actor_core::Message;
+use actor_core::actor::context::ActorContext;
+use actor_core::actor_ref::PROVIDER;
 
-use crate::transport::remote_packet::RemotePacket;
 use crate::transport::TransportActor;
+use crate::transport::remote_packet::RemotePacket;
 
 #[derive(Debug, EmptyCodec)]
 pub(super) struct InboundMessage {

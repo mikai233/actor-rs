@@ -32,10 +32,12 @@ impl SystemMessage for Failed {
                 failed_child.resume();
             }
             Directive::Stop => {
-                debug_assert!(context
-                    .children()
-                    .iter()
-                    .any(|child| child == &failed_child));
+                debug_assert!(
+                    context
+                        .children()
+                        .iter()
+                        .any(|child| child == &failed_child)
+                );
                 context.stop(&failed_child);
             }
             Directive::Escalate => {

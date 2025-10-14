@@ -6,16 +6,16 @@ use std::sync::Arc;
 
 use actor_derive::AsAny;
 
+use crate::DynMessage;
 use crate::actor::actor_selection::ActorSelectionMessage;
 use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
-use crate::actor_ref::{get_child_default, ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef};
+use crate::actor_ref::{ActorRef, ActorRefExt, ActorRefSystemExt, TActorRef, get_child_default};
 use crate::ext::option_ext::OptionExt;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::identify::{ActorIdentity, Identify};
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
-use crate::DynMessage;
 
 #[derive(Clone, AsAny)]
 pub struct EmptyLocalActorRef {
@@ -98,10 +98,9 @@ impl EmptyLocalActorRef {
             sender.foreach(|s| s.cast_orphan_ns(ActorIdentity { actor_ref: None }));
         } else if message.name == actor_selection {
             let actor_selection = message.downcast_orphan::<ActorSelectionMessage>().unwrap();
-            if actor_selection.identify_request().is_some()
-                && !actor_selection.wildcard_fan_out {
-                    sender.foreach(|s| s.cast_orphan_ns(ActorIdentity { actor_ref: None }));
-                }
+            if actor_selection.identify_request().is_some() && !actor_selection.wildcard_fan_out {
+                sender.foreach(|s| s.cast_orphan_ns(ActorIdentity { actor_ref: None }));
+            }
         }
     }
 }

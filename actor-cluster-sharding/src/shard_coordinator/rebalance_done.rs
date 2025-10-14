@@ -4,16 +4,16 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use tracing::{debug, warn};
 
+use actor_core::EmptyCodec;
+use actor_core::Message;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::EmptyCodec;
-use actor_core::Message;
 
+use crate::shard_coordinator::ShardCoordinator;
 use crate::shard_coordinator::get_shard_home::GetShardHome;
 use crate::shard_coordinator::rebalance_worker::shard_stopped::ShardStopped;
 use crate::shard_coordinator::state_update::ShardState;
-use crate::shard_coordinator::ShardCoordinator;
 use crate::shard_region::ImShardId;
 
 #[derive(Debug, EmptyCodec)]

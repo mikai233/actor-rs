@@ -1,5 +1,5 @@
-use std::collections::hash_map::Entry;
 use std::collections::VecDeque;
+use std::collections::hash_map::Entry;
 use std::ops::Not;
 use std::sync::Arc;
 
@@ -93,13 +93,19 @@ impl Shard {
             }
             Some(id) => {
                 if self.entities.is_passivating(&id) {
-                    debug!("{}: Passivation already in progress for [{}]. Not sending stop message back to entity", type_name, id);
+                    debug!(
+                        "{}: Passivation already in progress for [{}]. Not sending stop message back to entity",
+                        type_name, id
+                    );
                 } else if self
                     .message_buffers
                     .get(&id)
                     .is_some_and(|buffer| buffer.is_empty().not())
                 {
-                    debug!("{}: Passivation when there are buffered messages for [{}], ignoring passivation", type_name, id);
+                    debug!(
+                        "{}: Passivation when there are buffered messages for [{}], ignoring passivation",
+                        type_name, id
+                    );
                 } else {
                     self.entities.entity_passivating(id)?;
                     entity.tell(stop_message, ActorRef::no_sender());
@@ -145,7 +151,10 @@ impl Shard {
             EntityState::WaitingForRestart => {
                 let payload = self.extractor.unwrap_message(message);
                 let message_name = payload.name();
-                debug!("{}: Delivering message of type [{}] to [{}] (starting because [WaitingForRestart])", type_name, message_name, entity_id);
+                debug!(
+                    "{}: Delivering message of type [{}] to [{}] (starting because [WaitingForRestart])",
+                    type_name, message_name, entity_id
+                );
                 let entity_id: ImEntityId = entity_id.into();
                 self.get_or_create_entity(context, &entity_id)?
                     .tell(payload, sender);

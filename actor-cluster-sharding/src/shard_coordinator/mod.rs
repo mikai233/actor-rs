@@ -1,5 +1,5 @@
-use std::collections::hash_map::Entry;
 use std::collections::BTreeSet;
+use std::collections::hash_map::Entry;
 use std::ops::Not;
 use std::sync::Arc;
 use std::time::Duration;
@@ -27,8 +27,8 @@ use crate::shard_allocation_strategy::ShardAllocationStrategy;
 use crate::shard_coordinator::coordinator_state::CoordinatorState;
 use crate::shard_coordinator::get_shard_home::GetShardHome;
 use crate::shard_coordinator::rebalance_tick::RebalanceTick;
-use crate::shard_coordinator::rebalance_worker::shard_region_terminated::ShardRegionTerminated;
 use crate::shard_coordinator::rebalance_worker::RebalanceWorker;
+use crate::shard_coordinator::rebalance_worker::shard_region_terminated::ShardRegionTerminated;
 use crate::shard_coordinator::resend_shard_host::ResendShardHost;
 use crate::shard_coordinator::state::{BinState, State};
 use crate::shard_coordinator::state_update::ShardState;
@@ -272,7 +272,10 @@ impl ShardCoordinator {
     ) -> anyhow::Result<()> {
         if shards.is_empty().not() {
             let shards_str = shards.iter().join(", ");
-            info!("{}: Starting shutting down shards [{}] due to region shutting down or explicit stopping of shards.", self.type_name, shards_str);
+            info!(
+                "{}: Starting shutting down shards [{}] due to region shutting down or explicit stopping of shards.",
+                self.type_name, shards_str
+            );
             for shard in shards {
                 self.start_shard_rebalance_if_needed(
                     context,
@@ -337,13 +340,10 @@ impl ShardCoordinator {
     ) -> anyhow::Result<()> {
         if let Entry::Vacant(v) = self.rebalance_in_progress.entry(shard.clone()) {
             v.insert(HashSet::new());
-            let regions = self
-                .state
-                .regions
-                .keys().cloned()
-                .collect::<HashSet<_>>();
+            let regions = self.state.regions.keys().cloned().collect::<HashSet<_>>();
             let regions = regions
-                .union(&self.state.region_proxies).cloned()
+                .union(&self.state.region_proxies)
+                .cloned()
                 .collect::<HashSet<_>>();
             let worker = context.spawn_anonymous(Self::rebalance_worker_props(
                 self.type_name.clone(),
@@ -532,9 +532,7 @@ impl ShardCoordinator {
         } else if !self.has_all_regions_registered() {
             debug!(
                 "{}: GetShardHome [{}] request from [{}] ignored, because not all regions have registered yet.",
-                self.type_name,
-                shard,
-                sender,
+                self.type_name, shard, sender,
             );
             true
         } else {
@@ -547,8 +545,7 @@ impl ShardCoordinator {
                     {
                         debug!(
                             "{}: GetShardHome [{}] request ignored, due to region [{}] termination in progress",
-                            self.type_name,
-                            shard, shard_region_ref,
+                            self.type_name, shard, shard_region_ref,
                         );
                     } else {
                         sender.cast_ns(ShardHome {
@@ -576,9 +573,7 @@ impl ShardCoordinator {
         debug!(
             "{}: GetShardHome [{}] request from [{}] deferred, because rebalance is in progress for this shard. \
             It will be handled when reblance is done.",
-            self.type_name,
-            shard,
-            from,
+            self.type_name, shard, from,
         );
         match self.rebalance_in_progress.entry(shard) {
             Entry::Occupied(mut o) => {
@@ -596,9 +591,7 @@ impl ShardCoordinator {
         debug!(
             "{}: GetShardHome [{}] request from [{}] stashed, because waiting for initial state or update of state. \
             It will be handled afterwards.",
-            self.type_name,
-            request.shard,
-            sender,
+            self.type_name, request.shard, sender,
         );
         self.get_shard_home_requests.insert((sender, request));
     }
@@ -645,10 +638,7 @@ impl ShardCoordinator {
                     } else {
                         debug!(
                             "{}: Allocated region [{}] for shard [{}] is not (any longer) one of the registered regions: {:?}",
-                            self.type_name,
-                            region,
-                            shard,
-                            self.state,
+                            self.type_name, region, shard, self.state,
                         );
                     }
                 }

@@ -8,7 +8,7 @@ use anyhow::anyhow;
 use bincode::de::Decoder;
 use bincode::enc::Encoder;
 use bincode::error::{DecodeError, EncodeError};
-use bincode::{impl_borrow_decode, Decode, Encode};
+use bincode::{Decode, Encode, impl_borrow_decode};
 use enum_dispatch::enum_dispatch;
 use regex::Regex;
 use tracing::error;
@@ -20,9 +20,9 @@ use crate::actor_ref::empty_local_ref::EmptyLocalActorRef;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::cell::Cell;
 use crate::ext::{decode_bytes, encode_bytes};
+use crate::message::MessageDecoder;
 use crate::message::identify::{ActorIdentity, Identify};
 use crate::message::message_registry::{IDPacket, MessageRegistry};
-use crate::message::MessageDecoder;
 use crate::pattern::patterns::Patterns;
 use crate::{CodecMessage, DynMessage, OrphanMessage};
 
@@ -150,8 +150,7 @@ impl ActorSelection {
                                         }
                                     }
                                 } else if matching_children.is_empty() && !sel.wildcard_fan_out {
-                                    empty_ref
-                                        .tell(DynMessage::orphan(sel.clone()), sender.clone())
+                                    empty_ref.tell(DynMessage::orphan(sel.clone()), sender.clone())
                                 } else {
                                     let wildcard_fan_out =
                                         sel.wildcard_fan_out || matching_children.len() > 1;
@@ -189,10 +188,8 @@ impl ActorSelection {
                         }
                     },
                     None => {
-                        let sel = sel.copy_with_elements(
-                            iter.cloned().collect(),
-                            sel.wildcard_fan_out,
-                        );
+                        let sel =
+                            sel.copy_with_elements(iter.cloned().collect(), sel.wildcard_fan_out);
                         actor.tell(DynMessage::orphan(sel), sender);
                         break;
                     }

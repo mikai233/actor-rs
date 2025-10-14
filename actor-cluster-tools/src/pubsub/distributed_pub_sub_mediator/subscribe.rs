@@ -2,8 +2,8 @@ use std::marker::PhantomData;
 
 use anyhow::ensure;
 
-use actor_core::actor_ref::ActorRef;
 use actor_core::Actor;
+use actor_core::actor_ref::ActorRef;
 
 #[derive(Debug)]
 pub struct Subscribe<A: Actor> {

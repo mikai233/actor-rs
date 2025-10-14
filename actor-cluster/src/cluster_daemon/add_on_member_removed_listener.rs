@@ -1,17 +1,17 @@
 use async_trait::async_trait;
 use tracing::trace;
 
-use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor::props::Props;
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::actor_ref::ActorRefExt;
 use actor_core::EmptyCodec;
 use actor_core::Message;
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor::props::Props;
+use actor_core::actor_ref::ActorRefExt;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 
 use crate::cluster_daemon::ClusterDaemon;
 use crate::member::MemberStatus;
-use crate::on_member_status_changed_listener::add_status_callback::AddStatusCallback;
 use crate::on_member_status_changed_listener::OnMemberStatusChangedListener;
+use crate::on_member_status_changed_listener::add_status_callback::AddStatusCallback;
 
 #[derive(EmptyCodec)]
 pub(crate) struct AddOnMemberRemovedListener(pub(crate) Box<dyn FnOnce() + Send>);

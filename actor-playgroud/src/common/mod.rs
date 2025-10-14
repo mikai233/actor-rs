@@ -4,13 +4,13 @@ use actor_cluster::cluster_provider::ClusterActorRefProvider;
 use actor_cluster::cluster_setting::ClusterSetting;
 use actor_cluster::config::ClusterConfig;
 use actor_cluster_sharding::register_sharding;
-use actor_core::config::actor_setting::ActorSetting;
 use actor_core::config::ConfigBuilder;
+use actor_core::config::actor_setting::ActorSetting;
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::message::message_registry::MessageRegistry;
+use actor_remote::config::RemoteConfig;
 use actor_remote::config::buffer::Buffer;
 use actor_remote::config::transport::Transport;
-use actor_remote::config::RemoteConfig;
 
 use crate::common::ask_ans::{MessageToAns, MessageToAsk};
 use crate::common::greet::Greet;

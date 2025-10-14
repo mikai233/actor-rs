@@ -2,12 +2,12 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
+use actor_core::EmptyCodec;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::scheduler::ScheduleKey;
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::EmptyCodec;
 use actor_core::{Actor, DynMessage, Message};
 
 use crate::etcd_actor::keeper_keep_alive_failed::KeeperKeepAliveFailed;

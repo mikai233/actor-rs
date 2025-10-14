@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use tracing::debug;
 
-use actor_core::actor::context::ActorContext;
-use actor_core::actor_ref::ActorRef;
 use actor_core::EmptyCodec;
 use actor_core::Message;
+use actor_core::actor::context::ActorContext;
+use actor_core::actor_ref::ActorRef;
 
 use crate::shard_coordinator::rebalance_worker::RebalanceWorker;
 
@@ -27,9 +27,7 @@ impl Message for ShardRegionTerminated {
             if actor.remaining.contains(&region) {
                 debug!(
                     "{}: ShardRegion [{}] terminated while waiting for BeginHandOffAck for shard [{}]",
-                    actor.type_name,
-                    region,
-                    actor.shard,
+                    actor.type_name, region, actor.shard,
                 );
                 actor.acked(context, &region);
             }

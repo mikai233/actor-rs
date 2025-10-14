@@ -8,14 +8,14 @@ use bincode::{Decode, Encode};
 use itertools::Itertools;
 use tracing::error;
 
+use actor_core::Message;
+use actor_core::MessageCodec;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::Message;
-use actor_core::MessageCodec;
 
-use crate::shard_coordinator::allocate_shard_result::AllocateShardResult;
 use crate::shard_coordinator::ShardCoordinator;
+use crate::shard_coordinator::allocate_shard_result::AllocateShardResult;
 use crate::shard_region::{ImShardId, ShardId};
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Encode, Decode, MessageCodec)]
@@ -47,12 +47,7 @@ impl Message for GetShardHome {
                     actor.graceful_shutdown_in_progress.contains(region).not()
                         && actor.region_termination_in_progress.contains(region).not()
                 })
-                .map(|(region, shards)| {
-                    (
-                        region.clone(),
-                        shards.iter().cloned().collect_vec(),
-                    )
-                })
+                .map(|(region, shards)| (region.clone(), shards.iter().cloned().collect_vec()))
                 .collect();
             if active_regions.is_empty().not() {
                 let strategy = actor.allocation_strategy.clone();

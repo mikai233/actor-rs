@@ -1,12 +1,12 @@
-use std::any::{type_name, Any};
+use std::any::{Any, type_name};
 
 use async_trait::async_trait;
 use tracing::debug;
 
 use actor_core::actor::context::ActorContext;
 use actor_core::ext::{decode_bytes, encode_bytes};
-use actor_core::message::message_registry::MessageRegistry;
 use actor_core::message::MessageDecoder;
+use actor_core::message::message_registry::MessageRegistry;
 use actor_core::{CodecMessage, DynMessage, Message};
 
 use crate::message_extractor::{CodecShardEnvelope, ShardEnvelope};

@@ -4,13 +4,13 @@ use async_trait::async_trait;
 use itertools::Itertools;
 use tracing::debug;
 
-use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor_ref::ActorRefExt;
 use actor_core::CEmptyCodec;
 use actor_core::Message;
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_ref::ActorRefExt;
 
-use crate::shard_coordinator::rebalance_result::RebalanceResult;
 use crate::shard_coordinator::ShardCoordinator;
+use crate::shard_coordinator::rebalance_result::RebalanceResult;
 
 #[derive(Debug, Clone, CEmptyCodec)]
 pub(super) struct RebalanceTick;
@@ -31,17 +31,9 @@ impl Message for RebalanceTick {
                 .regions
                 .clone()
                 .into_iter()
-                .map(|(region, shards)| {
-                    (
-                        region,
-                        shards.iter().cloned().collect_vec(),
-                    )
-                })
+                .map(|(region, shards)| (region, shards.iter().cloned().collect_vec()))
                 .collect();
-            let rebalance_in_progress = actor
-                .rebalance_in_progress
-                .keys().cloned()
-                .collect();
+            let rebalance_in_progress = actor.rebalance_in_progress.keys().cloned().collect();
             let myself = context.myself().clone();
             let type_name = actor.type_name.clone();
             context.spawn_fut("rebalance", async move {

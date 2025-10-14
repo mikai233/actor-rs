@@ -5,12 +5,12 @@ use std::sync::Arc;
 
 use actor_derive::AsAny;
 
+use crate::DynMessage;
 use crate::actor::actor_system::WeakActorSystem;
 use crate::actor::address::Address;
 use crate::actor_path::root_actor_path::RootActorPath;
 use crate::actor_path::{ActorPath, TActorPath};
-use crate::actor_ref::{get_child_default, ActorRef, TActorRef};
-use crate::DynMessage;
+use crate::actor_ref::{ActorRef, TActorRef, get_child_default};
 
 #[derive(Clone, AsAny)]
 pub struct IgnoreActorRef {
@@ -80,8 +80,7 @@ impl IgnoreActorRef {
     }
 
     fn path() -> ActorPath {
-        RootActorPath::new(Address::new("tcp", Self::fake_system_name(), None), "/")
-            .child("ignore")
+        RootActorPath::new(Address::new("tcp", Self::fake_system_name(), None), "/").child("ignore")
     }
 
     fn is_ignore_ref_path_str(&self, other_path: &str) -> bool {

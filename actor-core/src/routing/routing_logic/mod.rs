@@ -1,6 +1,6 @@
+use crate::DynMessage;
 use crate::ext::maybe_ref::MaybeRef;
 use crate::routing::routee::Routee;
-use crate::DynMessage;
 
 pub mod broadcast_routing_logic;
 pub mod round_robin_routing_logic;

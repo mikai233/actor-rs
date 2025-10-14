@@ -5,10 +5,10 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::debug;
 
-use actor_core::actor::context::{ActorContext, Context};
-use actor_core::ext::option_ext::OptionExt;
 use actor_core::Message;
 use actor_core::MessageCodec;
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::ext::option_ext::OptionExt;
 
 use crate::shard_coordinator::rebalance_worker::RebalanceWorker;
 use crate::shard_region::ShardId;

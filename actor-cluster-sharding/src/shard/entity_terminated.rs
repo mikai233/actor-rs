@@ -3,13 +3,13 @@ use std::ops::Not;
 use async_trait::async_trait;
 use tracing::{debug, warn};
 
+use actor_core::EmptyCodec;
 use actor_core::actor::context::ActorContext;
 use actor_core::message::terminated::Terminated;
-use actor_core::EmptyCodec;
 use actor_core::{CodecMessage, DynMessage, Message};
 
-use crate::shard::entity_state::EntityState;
 use crate::shard::Shard;
+use crate::shard::entity_state::EntityState;
 
 #[derive(Debug, EmptyCodec)]
 pub(super) struct EntityTerminated(pub(super) Terminated);
@@ -41,7 +41,10 @@ impl Message for EntityTerminated {
                 // TODO passivationStrategy
                 match &*actor.entities.entity_state(&entity_id) {
                     EntityState::NoState => {
-                        debug!("{}: Got a terminated for [{}], entity id [{}] which is in unexpected state NoState", actor.type_name, entity, entity_id);
+                        debug!(
+                            "{}: Got a terminated for [{}], entity id [{}] which is in unexpected state NoState",
+                            actor.type_name, entity, entity_id
+                        );
                     }
                     EntityState::Active(_, _) => {
                         debug!("{}: Entity [{}] terminated", actor.type_name, entity_id);
@@ -50,7 +53,10 @@ impl Message for EntityTerminated {
                     EntityState::Passivation(_, _) => {
                         if let Some(messages) = actor.message_buffers.remove(&entity_id) {
                             if messages.is_empty().not() {
-                                debug!("{}: [{}] terminated after passivating, buffered messages found, restarting", actor.type_name, entity_id);
+                                debug!(
+                                    "{}: [{}] terminated after passivating, buffered messages found, restarting",
+                                    actor.type_name, entity_id
+                                );
                                 actor.entities.remove_entity(&entity_id);
                                 actor.get_or_create_entity(context, &entity_id)?;
                                 actor.send_message_buffer(context, &entity_id)?;
@@ -70,7 +76,10 @@ impl Message for EntityTerminated {
                         }
                     }
                     EntityState::WaitingForRestart => {
-                        debug!("{}: Got a terminated for [{}], entity id [{}] which is in unexpected state NoState", actor.type_name, entity, entity_id);
+                        debug!(
+                            "{}: Got a terminated for [{}], entity id [{}] which is in unexpected state NoState",
+                            actor.type_name, entity, entity_id
+                        );
                     }
                 }
             }

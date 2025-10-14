@@ -1,9 +1,9 @@
 use proc_macro::TokenStream;
 
+use proc_macro_crate::{FoundCrate, crate_name};
 use proc_macro2::{Ident, Span};
-use proc_macro_crate::{crate_name, FoundCrate};
 use quote::quote;
-use syn::{parse_str, DeriveInput};
+use syn::{DeriveInput, parse_str};
 
 use crate::metadata::{CodecType, MessageImpl};
 

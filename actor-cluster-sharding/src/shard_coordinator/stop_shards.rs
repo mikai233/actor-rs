@@ -8,15 +8,15 @@ use async_trait::async_trait;
 use itertools::Itertools;
 use tracing::{info, warn};
 
+use actor_core::EmptyCodec;
+use actor_core::Message;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::EmptyCodec;
-use actor_core::Message;
 
+use crate::shard_coordinator::ShardCoordinator;
 use crate::shard_coordinator::rebalance_worker::shard_stopped::ShardStopped;
 use crate::shard_coordinator::stop_shard_timeout::StopShardTimeout;
-use crate::shard_coordinator::ShardCoordinator;
 use crate::shard_region::ImShardId;
 
 #[derive(Debug, EmptyCodec)]
@@ -112,8 +112,7 @@ impl Message for StopShards {
                 .join(", ");
             warn!(
                 "{}: Explicit stop shards of shards [{}] ignored (no known regions or shading shutting down)",
-                actor.type_name,
-                shard_ids_str,
+                actor.type_name, shard_ids_str,
             );
         }
         Ok(())

@@ -6,6 +6,7 @@ use anyhow::anyhow;
 use bincode::{Decode, Encode};
 
 use crate::actor::actor_selection::ActorSelectionMessage;
+use crate::message::MessageDecoder;
 use crate::message::address_terminated::AddressTerminated;
 use crate::message::death_watch_notification::DeathWatchNotification;
 use crate::message::identify::{ActorIdentity, Identify};
@@ -15,7 +16,6 @@ use crate::message::suspend::Suspend;
 use crate::message::terminate::Terminate;
 use crate::message::unwatch::Unwatch;
 use crate::message::watch::Watch;
-use crate::message::MessageDecoder;
 use crate::{CodecMessage, DynMessage};
 
 #[derive(Debug, Eq, PartialEq, Hash, Encode, Decode)]

@@ -150,9 +150,7 @@ impl ClusterSingletonManager {
                 let name = context.myself().path().name();
                 trace!(
                     "{} do not has role {}, no need to start singleton {}",
-                    addr,
-                    role,
-                    name
+                    addr, role, name
                 );
                 return Ok(());
             }

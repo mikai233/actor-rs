@@ -8,7 +8,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use etcd_client::{GetOptions, KeyValue, PutOptions, WatchOptions};
 use parking_lot::RwLockWriteGuard;
-use tokio::sync::mpsc::{channel, Sender};
+use tokio::sync::mpsc::{Sender, channel};
 use tracing::{debug, error};
 
 use actor_core::actor::actor_selection::{ActorSelection, ActorSelectionPath};
@@ -17,8 +17,8 @@ use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::coordinated_shutdown::{
     CoordinatedShutdown, PHASE_CLUSTER_EXITING, PHASE_CLUSTER_EXITING_DONE,
 };
-use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
+use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::etcd_client::EtcdClient;

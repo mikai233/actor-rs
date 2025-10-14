@@ -1,15 +1,15 @@
 use std::ops::{Deref, Sub};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use ahash::{HashMap, HashMapExt};
 use futures::StreamExt;
 use tokio::select;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use tokio::time::Instant;
-use tokio_util::time::delay_queue::{Expired, Key};
 use tokio_util::time::DelayQueue;
+use tokio_util::time::delay_queue::{Expired, Key};
 use tracing::{debug, trace, warn};
 
 enum Schedule {
@@ -165,8 +165,7 @@ impl Scheduler {
         let key = queue.insert(Schedule::FixedDelay(fixed_delay), timeout);
         trace!(
             "schedule fixed delay with index {} after {:?}",
-            index,
-            timeout
+            index, timeout
         );
         index_map.insert(index, key);
     }
@@ -181,8 +180,7 @@ impl Scheduler {
         let key = queue.insert(Schedule::FixedRate(fixed_rate), timeout);
         trace!(
             "schedule fixed rate with index {} after {:?}",
-            index,
-            timeout
+            index, timeout
         );
         index_map.insert(index, key);
     }
@@ -254,8 +252,7 @@ impl Scheduler {
         let current_delay = initial_delay.unwrap_or(interval);
         trace!(
             "execute fixed delay expired task {} after {:?}",
-            index,
-            current_delay
+            index, current_delay
         );
         block();
         let next_schedule = Schedule::fixed_delay(index, None, interval, block);
@@ -279,9 +276,7 @@ impl Scheduler {
         let current_delay = initial_delay.unwrap_or(interval);
         trace!(
             "execute fixed rate expired task {} after {:?} with actual delay {:?}",
-            index,
-            current_delay,
-            actual_delay
+            index, current_delay, actual_delay
         );
         block();
         let next_actual_delay = interval.sub(deadline.elapsed());
@@ -408,7 +403,7 @@ pub fn scheduler() -> SchedulerSender {
         index: HashMap::new(),
     };
     scheduler.run();
-    
+
     SchedulerSender {
         inner: Arc::new(Inner {
             index: AtomicU64::new(0),
@@ -450,9 +445,11 @@ mod tests {
             },
         );
         for _ in 0..3 {
-            assert!(tokio::time::timeout(Duration::from_secs(2050), rx.recv())
-                .await?
-                .is_some());
+            assert!(
+                tokio::time::timeout(Duration::from_secs(2050), rx.recv())
+                    .await?
+                    .is_some()
+            );
         }
         key.cancel();
         assert!(rx.recv().await.is_none());

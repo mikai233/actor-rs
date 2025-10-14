@@ -1,11 +1,11 @@
-use std::any::{type_name, Any};
+use std::any::{Any, type_name};
 use std::time::Duration;
 
 use async_trait::async_trait;
 
 use actor_core::actor::context::ActorContext;
-use actor_core::message::message_registry::MessageRegistry;
 use actor_core::message::MessageDecoder;
+use actor_core::message::message_registry::MessageRegistry;
 use actor_core::routing::routing_logic::RoutingLogic;
 use actor_core::{Actor, CodecMessage, DynMessage, Message};
 

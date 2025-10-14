@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use tracing::warn;
 
-use actor_core::actor::context::ActorContext;
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::EmptyCodec;
 use actor_core::Message;
+use actor_core::actor::context::ActorContext;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 
 use crate::handoff_stopper::HandoffStopper;
 
@@ -25,7 +25,9 @@ impl Message for StopTimeout {
         let shard = &actor.shard;
         let timeout = &actor.entity_handoff_timeout;
         let remaining_size = actor.remaining_entities.len();
-        warn!("{type_name}: handoff stop message [{stop_msg}] is not handled by some of the entities in shard [{shard}] after [{timeout:?}], stopping the remaining [{remaining_size}] entities");
+        warn!(
+            "{type_name}: handoff stop message [{stop_msg}] is not handled by some of the entities in shard [{shard}] after [{timeout:?}], stopping the remaining [{remaining_size}] entities"
+        );
         if let Some(key) = actor.stop_timeout_warning_key.take() {
             key.cancel();
         }

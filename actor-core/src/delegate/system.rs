@@ -1,11 +1,11 @@
-use std::any::{type_name, Any};
+use std::any::{Any, type_name};
 
 use async_trait::async_trait;
 
 use crate::actor::context::ActorContext;
 use crate::delegate::downcast_box_message;
-use crate::message::message_registry::MessageRegistry;
 use crate::message::MessageDecoder;
+use crate::message::message_registry::MessageRegistry;
 use crate::{Actor, CodecMessage, DynMessage, MessageType, SystemMessage};
 
 pub struct SystemDelegate {

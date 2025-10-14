@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use tracing::info;
 
 use actor_cluster::cluster_event::ClusterEvent;
-use actor_core::actor::context::ActorContext;
 use actor_core::EmptyCodec;
 use actor_core::Message;
+use actor_core::actor::context::ActorContext;
 
 use crate::shard::Shard;
 
@@ -21,10 +21,11 @@ impl Message for ClusterEventWrap {
         actor: &mut Self::A,
     ) -> anyhow::Result<()> {
         if matches!(self.0, ClusterEvent::MemberPrepareForLeaving(_))
-            && !actor.preparing_for_shutdown {
-                info!("{}: Preparing for shutdown", actor.type_name);
-                actor.preparing_for_shutdown = true;
-            }
+            && !actor.preparing_for_shutdown
+        {
+            info!("{}: Preparing for shutdown", actor.type_name);
+            actor.preparing_for_shutdown = true;
+        }
         Ok(())
     }
 }

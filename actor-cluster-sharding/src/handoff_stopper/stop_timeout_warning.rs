@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 use tracing::warn;
 
+use actor_core::EmptyCodec;
+use actor_core::Message;
 use actor_core::actor::context::ActorContext;
 use actor_core::actor::coordinated_shutdown::CoordinatedShutdown;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::EmptyCodec;
-use actor_core::Message;
 
 use crate::handoff_stopper::{HandoffStopper, STOP_TIMEOUT_WARNING_AFTER};
 
@@ -28,11 +28,15 @@ impl Message for StopTimeoutWarning {
         let timeout = &STOP_TIMEOUT_WARNING_AFTER;
         let stop_msg = actor.stop_message.name();
         if is_terminating {
-            warn!( "{type_name}: [{remaining_size}] of the entities in shard [{shard}] not stopped after [{timeout:?}]. Maybe the handoff stop message [{stop_msg}] is not handled?");
+            warn!(
+                "{type_name}: [{remaining_size}] of the entities in shard [{shard}] not stopped after [{timeout:?}]. Maybe the handoff stop message [{stop_msg}] is not handled?"
+            );
         } else {
             let remaining_timeout = actor.entity_handoff_timeout - *timeout;
-            warn!( "{type_name}: [{remaining_size}] of the entities in shard [{shard}] not stopped after [{timeout:?}]. Maybe the handoff stop message [{stop_msg}] is not handled? \
-            Waiting additional [{remaining_timeout:?}] before stopping the remaining entities.");
+            warn!(
+                "{type_name}: [{remaining_size}] of the entities in shard [{shard}] not stopped after [{timeout:?}]. Maybe the handoff stop message [{stop_msg}] is not handled? \
+            Waiting additional [{remaining_timeout:?}] before stopping the remaining entities."
+            );
         }
         Ok(())
     }

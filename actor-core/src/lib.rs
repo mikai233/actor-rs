@@ -1,5 +1,5 @@
-use std::any::type_name;
 use std::any::Any;
+use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 
 use anyhow::anyhow;
@@ -16,8 +16,8 @@ use crate::actor_ref::ActorRef;
 use crate::delegate::downcast_box_message;
 use crate::delegate::system::SystemDelegate;
 use crate::delegate::user::UserDelegate;
-use crate::message::message_registry::MessageRegistry;
 use crate::message::MessageDecoder;
+use crate::message::message_registry::MessageRegistry;
 
 pub(crate) const CORE_CONFIG: &str = include_str!("../core.toml");
 
@@ -366,7 +366,7 @@ mod actor_test {
 
     use anyhow::anyhow;
     use async_trait::async_trait;
-    use tracing::{info, Level};
+    use tracing::{Level, info};
 
     use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 

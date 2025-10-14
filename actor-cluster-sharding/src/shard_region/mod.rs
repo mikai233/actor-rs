@@ -8,7 +8,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use imstr::ImString;
 use itertools::Itertools;
-use tokio::sync::mpsc::{channel, Sender};
+use tokio::sync::mpsc::{Sender, channel};
 use tracing::{debug, info, warn};
 
 use actor_cluster::cluster::Cluster;
@@ -22,8 +22,8 @@ use actor_core::actor::coordinated_shutdown::{
 use actor_core::actor::dead_letter_listener::DeadMessage;
 use actor_core::actor::props::{Props, PropsBuilder};
 use actor_core::actor::timers::{ScheduleKey, Timers};
-use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_path::TActorPath;
+use actor_core::actor_path::root_actor_path::RootActorPath;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::option_ext::OptionExt;
@@ -232,17 +232,12 @@ impl ShardRegion {
                 if buffer_size > 0 {
                     warn!(
                         "{}: Trying to register to coordinator at [{}], but no acknowledgement. Total [{}] buffered messages. All up members {}",
-                        type_name,
-                        selections_str,
-                        buffer_size,
-                        all_up_members,
+                        type_name, selections_str, buffer_size, all_up_members,
                     )
                 } else {
                     debug!(
                         "{}: Trying to register to coordinator at [{}], but no acknowledgement. No buffered messages yet. All up members {}",
-                        type_name,
-                        selections_str,
-                        all_up_members,
+                        type_name, selections_str, all_up_members,
                     )
                 }
             } else {
@@ -333,7 +328,9 @@ impl ShardRegion {
                             );
                         }
                         Some(coordinator) => {
-                            debug!("{type_name}: Request shard [{shard_id}] home, Coordinator [{coordinator}]");
+                            debug!(
+                                "{type_name}: Request shard [{shard_id}] home, Coordinator [{coordinator}]"
+                            );
                             coordinator.cast(
                                 GetShardHome {
                                     shard: shard_id.clone(),
@@ -372,7 +369,9 @@ impl ShardRegion {
                 }
             }
             Some((shard_id, shard_region_ref)) => {
-                debug!("{type_name}: Forwarding message for shard [{shard_id}] to [{shard_region_ref}]");
+                debug!(
+                    "{type_name}: Forwarding message for shard [{shard_id}] to [{shard_region_ref}]"
+                );
                 context.forward(shard_region_ref, envelope.into_dyn());
             }
         }
@@ -409,7 +408,10 @@ impl ShardRegion {
                 if total <= buffer_size / 2 {
                     info!(log_msg);
                 } else {
-                    warn!("{} The coordinator might not be available. You might want to check cluster membership status.", log_msg);
+                    warn!(
+                        "{} The coordinator might not be available. You might want to check cluster membership status.",
+                        log_msg
+                    );
                 }
             }
         }
@@ -453,9 +455,7 @@ impl ShardRegion {
                 None => {
                     panic!("Shard must not be allocated to a proxy only ShardRegion");
                 }
-                Some(props_builder)
-                    if !self.shards_by_ref.values().any(|r| *r == id) =>
-                {
+                Some(props_builder) if !self.shards_by_ref.values().any(|r| *r == id) => {
                     debug!("{}: Starting shard [{}] in region", self.type_name, id);
                     let shard_props = Shard::props(
                         self.type_name.clone(),
@@ -554,7 +554,9 @@ impl ShardRegion {
         debug!("{type_name}: Shard [{shard}] located at [{shard_region_ref}]");
         if let Some(r) = self.region_by_shard.get(&shard) {
             if r == context.myself() && &shard_region_ref != context.myself() {
-                return Err(anyhow!("{type_name}: Unexpected change of shard [{shard}] from self to [{shard_region_ref}]"));
+                return Err(anyhow!(
+                    "{type_name}: Unexpected change of shard [{shard}] from self to [{shard_region_ref}]"
+                ));
             }
         }
         self.region_by_shard
@@ -569,10 +571,9 @@ impl ShardRegion {
                 v.insert(shards);
             }
         }
-        if &shard_region_ref != context.myself()
-            && context.is_watching(&shard_region_ref).not() {
-                context.watch(shard_region_ref.clone(), ShardRegionTerminated::new)?;
-            }
+        if &shard_region_ref != context.myself() && context.is_watching(&shard_region_ref).not() {
+            context.watch(shard_region_ref.clone(), ShardRegionTerminated::new)?;
+        }
         if &shard_region_ref == context.myself() {
             self.get_shard(context, shard.clone())?.foreach(|region| {
                 self.deliver_buffered_messages(&shard, DeliverTarget::ShardRegion(region));

@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::info;
 
-use actor_core::actor::context::{ActorContext, Context};
 use actor_core::CMessageCodec;
+use actor_core::actor::context::{ActorContext, Context};
 use actor_core::{EmptyTestActor, Message};
 
 #[derive(Debug, Clone, Encode, Decode, CMessageCodec)]

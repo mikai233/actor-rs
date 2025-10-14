@@ -3,11 +3,11 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::{debug, warn};
 
-use actor_core::actor::context::{ActorContext, Context, ContextExt};
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::actor_ref::ActorRefExt;
-use actor_core::ext::option_ext::OptionExt;
 use actor_core::MessageCodec;
+use actor_core::actor::context::{ActorContext, Context, ContextExt};
+use actor_core::actor_ref::ActorRefExt;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
+use actor_core::ext::option_ext::OptionExt;
 use actor_core::{CodecMessage, Message};
 
 use crate::shard_coordinator::rebalance_worker::shard_stopped::ShardStopped;
@@ -38,7 +38,9 @@ impl Message for Handoff {
             );
             if dropped > 0 {
                 let type_name = &actor.type_name;
-                warn!("{type_name}: Dropping [{dropped}] buffered messages to shard [{shard_id}] during hand off to avoid re-ordering")
+                warn!(
+                    "{type_name}: Dropping [{dropped}] buffered messages to shard [{shard_id}] during hand off to avoid re-ordering"
+                )
             }
         }
         match actor.shards.get(&shard_id) {

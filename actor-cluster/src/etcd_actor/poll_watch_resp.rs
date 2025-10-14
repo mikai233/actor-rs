@@ -3,16 +3,16 @@ use std::sync::Arc;
 use std::task::Poll;
 
 use async_trait::async_trait;
-use futures::task::ArcWake;
 use futures::StreamExt;
+use futures::task::ArcWake;
 
-use actor_core::actor::context::ActorContext;
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::EmptyCodec;
 use actor_core::Message;
+use actor_core::actor::context::ActorContext;
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 
-use crate::etcd_actor::watch::WatchResp;
 use crate::etcd_actor::EtcdActor;
+use crate::etcd_actor::watch::WatchResp;
 
 #[derive(Debug, EmptyCodec)]
 pub(super) struct PollWatchResp;

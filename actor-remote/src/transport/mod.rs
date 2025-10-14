@@ -20,7 +20,7 @@ use actor_core::ext::decode_bytes;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::message::message_buffer::MessageBufferMap;
 use actor_core::message::message_registry::MessageRegistry;
-use actor_core::provider::{downcast_provider, ActorRefProvider};
+use actor_core::provider::{ActorRefProvider, downcast_provider};
 use actor_core::{Actor, DynMessage};
 
 use crate::config::buffer::Buffer;
@@ -164,7 +164,9 @@ impl TransportActor {
                 if message_buffer.total_size() > max_buffer {
                     for envelope in message_buffer.drop_first_n(&addr, 1) {
                         let msg_name = envelope.message.name();
-                        warn!("stash buffer is going to large than {max_buffer}, drop the oldest message {msg_name}");
+                        warn!(
+                            "stash buffer is going to large than {max_buffer}, drop the oldest message {msg_name}"
+                        );
                     }
                 }
             }
@@ -202,7 +204,7 @@ impl TransportActor {
                     let fut = system.run_coordinated_shutdown(ActorSystemStartFailedReason(
                         anyhow::Error::from(error),
                     ));
-                    tokio::spawn(fut);
+                    tokio::spawn(async move { fut.await });
                 }
             }
         })?;
@@ -287,16 +289,16 @@ mod test {
     use actor_core::actor::actor_system::ActorSystem;
     use actor_core::actor::context::{ActorContext, Context};
     use actor_core::actor::props::Props;
-    use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
     use actor_core::actor_ref::ActorRefExt;
+    use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
     use actor_core::config::actor_setting::ActorSetting;
     use actor_core::pattern::patterns::Patterns;
     use actor_core::{Actor, DynMessage, EmptyTestActor, Message};
     use actor_core::{EmptyCodec, MessageCodec, OrphanCodec};
 
+    use crate::config::RemoteConfig;
     use crate::config::buffer::Buffer;
     use crate::config::transport::Transport;
-    use crate::config::RemoteConfig;
     use crate::remote_provider::RemoteActorRefProvider;
     use crate::remote_setting::RemoteSetting;
 

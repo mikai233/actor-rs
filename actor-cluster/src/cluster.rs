@@ -2,13 +2,15 @@ use std::any::type_name;
 use std::fmt::Debug;
 use std::mem::MaybeUninit;
 use std::ops::Deref;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use ahash::{HashMap, HashSet};
 use anyhow::Context;
 use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+use actor_core::AsAny;
+use actor_core::DynMessage;
 use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
 use actor_core::actor::address::Address;
 use actor_core::actor::extension::Extension;
@@ -18,17 +20,15 @@ use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::etcd_client::EtcdClient;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
-use actor_core::provider::{downcast_provider, TActorRefProvider};
-use actor_core::AsAny;
-use actor_core::DynMessage;
+use actor_core::provider::{TActorRefProvider, downcast_provider};
 
 use crate::cluster_core_daemon::leave::Leave;
+use crate::cluster_daemon::ClusterDaemon;
 use crate::cluster_daemon::add_on_member_removed_listener::AddOnMemberRemovedListener;
 use crate::cluster_daemon::add_on_member_up_listener::AddOnMemberUpListener;
 use crate::cluster_daemon::get_cluster_core_ref_req::{
     GetClusterCoreRefReq, GetClusterCoreRefResp,
 };
-use crate::cluster_daemon::ClusterDaemon;
 use crate::cluster_event::ClusterEvent;
 use crate::cluster_provider::ClusterActorRefProvider;
 use crate::cluster_state::ClusterState;

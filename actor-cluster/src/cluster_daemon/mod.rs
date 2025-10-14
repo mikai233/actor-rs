@@ -3,7 +3,7 @@ use std::fmt::Debug;
 
 use anyhow::Context as _;
 use async_trait::async_trait;
-use tokio::sync::mpsc::{channel, Sender};
+use tokio::sync::mpsc::{Sender, channel};
 use tracing::{debug, warn};
 
 use actor_core::actor::context::{ActorContext, Context};
@@ -11,8 +11,8 @@ use actor_core::actor::coordinated_shutdown::{
     ClusterDowningReason, CoordinatedShutdown, PHASE_CLUSTER_LEAVE, PHASE_CLUSTER_SHUTDOWN,
 };
 use actor_core::actor::props::Props;
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRef;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::option_ext::OptionExt;
 use actor_core::pattern::patterns::PatternsExt;
 use actor_core::{Actor, DynMessage};
@@ -67,9 +67,9 @@ impl Actor for ClusterDaemon {
     async fn stopped(&mut self, context: &mut ActorContext) -> anyhow::Result<()> {
         let _ = self.cluster_shutdown.send(()).await;
         let system = context.system().clone();
-        let fut = {
+        let fut = async move {
             let coord_shutdown = CoordinatedShutdown::get(&system);
-            coord_shutdown.run(ClusterDowningReason)
+            coord_shutdown.run(ClusterDowningReason).await
         };
         tokio::spawn(fut);
         Ok(())

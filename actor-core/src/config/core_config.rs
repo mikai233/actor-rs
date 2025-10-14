@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 
 use actor_derive::AsAny;
 
+use crate::CORE_CONFIG;
 use crate::actor::coordinated_shutdown::Phase;
 use crate::config::mailbox::Mailbox;
 use crate::config::{Config, ConfigBuilder};
-use crate::CORE_CONFIG;
 
 #[derive(Debug, Clone, Serialize, Deserialize, AsAny)]
 pub struct CoreConfig {

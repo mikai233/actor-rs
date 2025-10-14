@@ -1,8 +1,8 @@
 use std::str::FromStr;
 
+use actor_cluster_sharding::ShardEnvelope;
 use actor_cluster_sharding::message_extractor::MessageExtractor;
 use actor_cluster_sharding::shard_region::{EntityId, ShardId};
-use actor_cluster_sharding::ShardEnvelope;
 
 pub const SHARD_MOD: usize = 10000;
 

@@ -3,10 +3,10 @@ use bincode::{Decode, Encode};
 
 use actor_derive::MessageCodec;
 
+use crate::Message;
 use crate::actor::context::ActorContext;
 use crate::actor_ref::ActorRef;
 use crate::routing::router_actor::RouterActor;
-use crate::Message;
 
 #[derive(Decode, Encode, MessageCodec)]
 pub(crate) struct RouteeTerminated(ActorRef);

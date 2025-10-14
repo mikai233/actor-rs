@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
-use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 
 use crate::actor::address::Address;
 use crate::actor_path::{ActorPath, TActorPath};
@@ -94,8 +94,11 @@ impl TActorPath for RootActorPath {
 impl RootActorPath {
     pub fn new(address: Address, name: impl Into<String>) -> Self {
         let name = name.into();
-        assert!(name.len() == 1 || name.rfind('/').unwrap_or_default() == 0,
-                "/ may only exist at the beginning of the root actors name, it is a path separator and is not legal in ActorPath names: {}", name);
+        assert!(
+            name.len() == 1 || name.rfind('/').unwrap_or_default() == 0,
+            "/ may only exist at the beginning of the root actors name, it is a path separator and is not legal in ActorPath names: {}",
+            name
+        );
         assert!(
             name.find('#').is_none(),
             "# is a fragment separator and is not legal in ActorPath names: {}",

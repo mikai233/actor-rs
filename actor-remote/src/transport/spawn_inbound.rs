@@ -4,9 +4,9 @@ use std::pin::Pin;
 
 use async_trait::async_trait;
 
-use actor_core::actor::context::ActorContext;
 use actor_core::EmptyCodec;
 use actor_core::Message;
+use actor_core::actor::context::ActorContext;
 
 use crate::transport::TransportActor;
 

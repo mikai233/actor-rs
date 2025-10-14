@@ -10,13 +10,13 @@ use crate::shard_coordinator::register::Register;
 use crate::shard_coordinator::register_proxy::RegisterProxy;
 use crate::shard_coordinator::shard_started::ShardStarted;
 use crate::shard_coordinator::terminate_coordinator::TerminateCoordinator;
+use crate::shard_region::ShardRegion;
 use crate::shard_region::begin_handoff::BeginHandoff;
 use crate::shard_region::handoff::Handoff;
 use crate::shard_region::host_shard::HostShard;
 use crate::shard_region::register_ack::RegisterAck;
 use crate::shard_region::shard_home::ShardHome;
 use crate::shard_region::shard_homes::ShardHomes;
-use crate::shard_region::ShardRegion;
 
 pub const CLUSTER_SHARDING_CONFIG: &str = include_str!("../cluster-sharding.toml");
 

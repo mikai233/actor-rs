@@ -1,7 +1,7 @@
 use dyn_clone::DynClone;
 
-use crate::message::message_registry::MessageRegistry;
 use crate::DynMessage;
+use crate::message::message_registry::MessageRegistry;
 
 pub mod address_terminated;
 pub mod death_watch_notification;

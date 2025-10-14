@@ -2,12 +2,12 @@ use async_trait::async_trait;
 
 use actor_derive::{EmptyCodec, OrphanEmptyCodec};
 
+use crate::Message;
 use crate::actor::context::ActorContext;
 use crate::actor_ref::ActorRefExt;
 use crate::ext::option_ext::OptionExt;
 use crate::routing::routee::Routee;
 use crate::routing::router_actor::Router;
-use crate::Message;
 
 #[derive(Debug, EmptyCodec)]
 pub struct GetRoutees;

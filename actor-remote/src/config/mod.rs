@@ -2,11 +2,11 @@ use config::builder::DefaultState;
 use config::{File, FileFormat, Source};
 use serde::{Deserialize, Serialize};
 
-use actor_core::config::{Config, ConfigBuilder};
 use actor_core::AsAny;
+use actor_core::config::{Config, ConfigBuilder};
 
-use crate::config::transport::Transport;
 use crate::REMOTE_CONFIG;
+use crate::config::transport::Transport;
 
 pub mod buffer;
 pub mod transport;
@@ -52,9 +52,9 @@ impl ConfigBuilder for RemoteConfigBuilder {
 
 #[cfg(test)]
 mod tests {
+    use crate::config::RemoteConfig;
     use crate::config::buffer::Buffer;
     use crate::config::transport::{TcpTransport, Transport};
-    use crate::config::RemoteConfig;
 
     #[test]
     fn test() {

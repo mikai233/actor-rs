@@ -5,10 +5,10 @@ use clap::Parser;
 use etcd_client::Client;
 use rand::random;
 
+use actor_cluster_sharding::ShardEnvelope;
 use actor_cluster_sharding::cluster_sharding::ClusterSharding;
 use actor_cluster_sharding::cluster_sharding_settings::ClusterShardingSettings;
 use actor_cluster_sharding::shard_allocation_strategy::least_shard_allocation_strategy::LeastShardAllocationStrategy;
-use actor_cluster_sharding::ShardEnvelope;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor_ref::ActorRefExt;
 use actor_core::ext::init_logger_with_filter;
@@ -38,7 +38,9 @@ async fn main() -> anyhow::Result<()> {
         etcd,
         start_entity,
     } = Args::try_parse()?;
-    init_logger_with_filter("debug,actor=debug,actor_core::actor::scheduler=info,actor_remote::remote_watcher=info,h2=info,tower=info,hyper=info");
+    init_logger_with_filter(
+        "debug,actor=debug,actor_core::actor::scheduler=info,actor_remote::remote_watcher=info,h2=info,tower=info,hyper=info",
+    );
     let client = Client::connect([etcd.to_string()], None).await?;
     let setting = actor_sharding_setting(addr, client)?;
     let system = ActorSystem::new(system_name, setting)?;

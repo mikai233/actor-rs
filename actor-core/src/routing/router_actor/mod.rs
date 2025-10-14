@@ -3,11 +3,11 @@ use async_trait::async_trait;
 
 use crate::actor::context::ActorContext;
 use crate::actor::directive::Directive;
-use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::actor_ref::ActorRef;
+use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::routing::routee::Routee;
-use crate::routing::router_config::pool::Pool;
 use crate::routing::router_config::RouterConfig;
+use crate::routing::router_config::pool::Pool;
 use crate::{Actor, DynMessage};
 
 mod add_routee;

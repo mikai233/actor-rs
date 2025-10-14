@@ -3,14 +3,14 @@ use std::net::SocketAddr;
 use async_trait::async_trait;
 use tracing::info;
 
-use actor_core::actor::context::{ActorContext, Context};
-use actor_core::message::message_buffer::BufferEnvelope;
 use actor_core::EmptyCodec;
 use actor_core::Message;
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::message::message_buffer::BufferEnvelope;
 
+use crate::transport::TransportActor;
 use crate::transport::connection::ConnectionTx;
 use crate::transport::connection_status::ConnectionStatus;
-use crate::transport::TransportActor;
 
 #[derive(Debug, EmptyCodec)]
 pub(super) struct Connected {

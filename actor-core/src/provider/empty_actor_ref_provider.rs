@@ -7,9 +7,9 @@ use actor_derive::AsAny;
 use crate::actor::address::Address;
 use crate::actor::props::Props;
 use crate::actor_path::ActorPath;
-use crate::actor_ref::local_ref::LocalActorRef;
 use crate::actor_ref::ActorRef;
-use crate::provider::{cast_self_to_dyn, ActorRefProvider, TActorRefProvider};
+use crate::actor_ref::local_ref::LocalActorRef;
+use crate::provider::{ActorRefProvider, TActorRefProvider, cast_self_to_dyn};
 
 #[derive(Debug, Default, Clone, Copy, AsAny)]
 pub(crate) struct EmptyActorRefProvider;

@@ -4,15 +4,15 @@ use async_trait::async_trait;
 use etcd_client::{EventType, WatchResponse};
 use tracing::warn;
 
-use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::actor_ref::ActorRefExt;
 use actor_core::EmptyCodec;
 use actor_core::Message;
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_ref::ActorRefExt;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 
+use crate::cluster_core_daemon::ClusterCoreDaemon;
 use crate::cluster_core_daemon::self_removed::SelfRemoved;
 use crate::cluster_core_daemon::watch_failed::WatchFailed;
-use crate::cluster_core_daemon::ClusterCoreDaemon;
 use crate::cluster_event::ClusterEvent;
 use crate::etcd_actor::watch::WatchResp;
 use crate::member::MemberStatus;

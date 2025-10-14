@@ -2,8 +2,8 @@ use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 
-use crate::actor_ref::ActorRef;
 use crate::DynMessage;
+use crate::actor_ref::ActorRef;
 
 pub(crate) struct ActorSubscriber {
     pub(crate) subscriber: ActorRef,

@@ -7,8 +7,8 @@ use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::{DynMessage, Message};
 use actor_core::{EmptyCodec, OrphanEmptyCodec};
 
-use crate::etcd_actor::watch_started::WatchStarted;
 use crate::etcd_actor::EtcdActor;
+use crate::etcd_actor::watch_started::WatchStarted;
 
 #[derive(Debug, EmptyCodec)]
 pub struct Watch {

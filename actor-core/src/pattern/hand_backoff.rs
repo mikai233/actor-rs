@@ -1,7 +1,7 @@
+use crate::DynMessage;
 use crate::actor::props::Props;
 use crate::actor_ref::ActorRef;
 use crate::pattern::backoff_opts::BackoffReset;
-use crate::DynMessage;
 
 pub(crate) trait HandBackoff {
     fn child_props(&self) -> Props;

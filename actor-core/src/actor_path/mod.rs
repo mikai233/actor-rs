@@ -5,10 +5,10 @@ use std::format;
 use std::hash::{Hash, Hasher};
 use std::net::SocketAddrV4;
 use std::str::FromStr;
-use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use enum_dispatch::enum_dispatch;
 use rand::random;
 use url::Url;
@@ -178,7 +178,9 @@ impl ActorPath {
             None => (name.to_string(), ActorPath::undefined_uid()),
             Some(index) => {
                 let (name, id) = (name[0..index].to_string(), &name[(index + 1)..]);
-                let id: i32 = id.parse().unwrap_or_else(|_| panic!("expect i32, got {}", id));
+                let id: i32 = id
+                    .parse()
+                    .unwrap_or_else(|_| panic!("expect i32, got {}", id));
                 (name, id)
             }
         }

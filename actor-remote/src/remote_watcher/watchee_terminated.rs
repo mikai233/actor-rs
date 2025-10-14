@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 use tracing::debug;
 
+use actor_core::EmptyCodec;
 use actor_core::actor::context::ActorContext;
 use actor_core::actor_ref::{ActorRef, ActorRefSystemExt};
 use actor_core::message::death_watch_notification::DeathWatchNotification;
 use actor_core::message::terminated::Terminated;
-use actor_core::EmptyCodec;
 use actor_core::{CodecMessage, DynMessage, Message};
 
 use crate::remote_watcher::RemoteWatcher;

@@ -12,10 +12,10 @@ use actor_cluster::member::{Member, MemberStatus};
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor_ref::ActorRef;
 
+use crate::shard_allocation_strategy::ShardAllocationStrategy;
 use crate::shard_allocation_strategy::cluster_shard_allocation::{
     ClusterShardAllocation, RegionEntry,
 };
-use crate::shard_allocation_strategy::ShardAllocationStrategy;
 use crate::shard_region::ImShardId;
 
 #[derive(Debug, Clone)]

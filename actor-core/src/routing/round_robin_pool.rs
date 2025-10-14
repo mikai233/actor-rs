@@ -5,8 +5,8 @@ use crate::routing::routee::Routee;
 use crate::routing::router_actor::{Router, RouterActor};
 use crate::routing::router_config::pool::{Pool, PoolRouterConfig};
 use crate::routing::router_config::{RouterConfig, RouterProps, TRouterConfig};
-use crate::routing::routing_logic::round_robin_routing_logic::RoundRobinRoutingLogic;
 use crate::routing::routing_logic::RoutingLogic;
+use crate::routing::routing_logic::round_robin_routing_logic::RoundRobinRoutingLogic;
 use crate::routing::spawn_actor_routee;
 
 pub struct RoundRobinPool<A>
@@ -81,8 +81,8 @@ mod test {
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::PropsBuilder;
-    use crate::actor_ref::actor_ref_factory::ActorRefFactory;
     use crate::actor_ref::ActorRefExt;
+    use crate::actor_ref::actor_ref_factory::ActorRefFactory;
     use crate::config::actor_setting::ActorSetting;
     use crate::routing::round_robin_pool::RoundRobinPool;
     use crate::routing::router_actor::routee_envelope::RouteeEnvelope;

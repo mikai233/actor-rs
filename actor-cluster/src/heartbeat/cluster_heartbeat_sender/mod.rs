@@ -7,8 +7,8 @@ use tracing::trace;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor::scheduler::ScheduleKey;
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::{Actor, CodecMessage, DynMessage};
 
 use crate::cluster::Cluster;

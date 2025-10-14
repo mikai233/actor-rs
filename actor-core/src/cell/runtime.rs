@@ -1,20 +1,20 @@
-use std::any::type_name;
 use std::any::Any;
+use std::any::type_name;
 use std::panic::AssertUnwindSafe;
 
-use anyhow::{anyhow, Error};
+use anyhow::{Error, anyhow};
 use futures::FutureExt;
 use tokio::select;
 use tokio::task::yield_now;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
 
+use crate::Actor;
 use crate::actor::context::{ActorContext, Context};
 use crate::actor::mailbox::Mailbox;
 use crate::actor::state::ActorState;
 use crate::actor_ref::actor_ref_factory::ActorRefFactory;
 use crate::cell::envelope::Envelope;
-use crate::Actor;
 
 pub struct ActorRuntime<A>
 where

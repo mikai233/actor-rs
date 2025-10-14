@@ -3,17 +3,17 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tracing::{debug, error};
 
+use actor_core::Message;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
-use actor_core::Message;
 use actor_core::{EmptyCodec, OrphanEmptyCodec};
 
+use crate::etcd_actor::EtcdActor;
 use crate::etcd_actor::keeper::Keeper;
 use crate::etcd_actor::lease::Lease;
 use crate::etcd_actor::poll_keep_alive_resp::PollKeepAliveResp;
-use crate::etcd_actor::EtcdActor;
 
 #[derive(Debug, EmptyCodec)]
 pub struct KeepAlive {

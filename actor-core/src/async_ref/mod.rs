@@ -4,11 +4,11 @@ use std::iter::Peekable;
 
 use async_trait::async_trait;
 
+use crate::DynMessage;
 use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::ActorRef;
 use crate::ext::as_any::AsAny;
-use crate::DynMessage;
 
 #[async_trait]
 pub trait TAsyncActorRef: Debug + Send + Sync + Any + AsAny {

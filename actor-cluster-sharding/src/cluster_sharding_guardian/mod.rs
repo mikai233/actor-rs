@@ -9,14 +9,14 @@ use actor_cluster_tools::singleton::cluster_singleton_manager::ClusterSingletonM
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::PropsBuilder;
 use actor_core::actor_path::TActorPath;
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRef;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::{Actor, DynMessage};
 
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;
-use crate::shard_coordinator::terminate_coordinator::TerminateCoordinator;
 use crate::shard_coordinator::ShardCoordinator;
+use crate::shard_coordinator::terminate_coordinator::TerminateCoordinator;
 
 pub(crate) mod start;
 pub(crate) mod start_coordinator_if_needed;

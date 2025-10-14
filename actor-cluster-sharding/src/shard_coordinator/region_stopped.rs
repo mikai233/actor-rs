@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::debug;
 
-use actor_core::actor::context::ActorContext;
-use actor_core::actor_ref::ActorRef;
 use actor_core::Message;
 use actor_core::MessageCodec;
+use actor_core::actor::context::ActorContext;
+use actor_core::actor_ref::ActorRef;
 
 use crate::shard_coordinator::ShardCoordinator;
 

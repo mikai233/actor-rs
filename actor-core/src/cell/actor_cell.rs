@@ -6,8 +6,8 @@ use tokio_util::sync::CancellationToken;
 
 use crate::actor_path::ActorPath;
 use crate::actor_path::TActorPath;
-use crate::actor_ref::function_ref::FunctionRef;
 use crate::actor_ref::ActorRef;
+use crate::actor_ref::function_ref::FunctionRef;
 
 #[derive(Debug, Clone)]
 pub(crate) struct ActorCell {
@@ -43,7 +43,8 @@ impl ActorCell {
         match name.find('#') {
             Some(_) => {
                 let (child_name, uid) = ActorPath::split_name_and_uid(name);
-                self.get_child_by_name(&child_name).filter(|a| a.path().uid() == uid)
+                self.get_child_by_name(&child_name)
+                    .filter(|a| a.path().uid() == uid)
             }
             None => self.get_child_by_name(name),
         }

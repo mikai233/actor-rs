@@ -1,4 +1,4 @@
-use std::any::{type_name, Any};
+use std::any::{Any, type_name};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 
@@ -6,8 +6,8 @@ use async_trait::async_trait;
 
 use crate::actor::context::ActorContext;
 use crate::delegate::downcast_box_message;
-use crate::message::message_registry::MessageRegistry;
 use crate::message::MessageDecoder;
+use crate::message::message_registry::MessageRegistry;
 use crate::{Actor, CodecMessage, DynMessage, Message, MessageType};
 
 pub struct UserDelegate<A>

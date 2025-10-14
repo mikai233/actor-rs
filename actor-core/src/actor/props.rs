@@ -5,13 +5,13 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use tokio::sync::mpsc::channel;
 
+use crate::Actor;
 use crate::actor::actor_system::{ActorSystem, WeakActorSystem};
 use crate::actor::context::ActorContext;
 use crate::actor::mailbox::{Mailbox, MailboxSender};
 use crate::actor_ref::ActorRef;
 use crate::cell::runtime::ActorRuntime;
 use crate::config::mailbox::SYSTEM_MAILBOX_SIZE;
-use crate::Actor;
 
 type ActorSpawner = Box<dyn FnOnce(ActorRef, Mailbox, ActorSystem) -> anyhow::Result<()> + Send>;
 
@@ -80,9 +80,7 @@ impl Props {
 
     pub(crate) fn mailbox(&self, system: &ActorSystem) -> anyhow::Result<(MailboxSender, Mailbox)> {
         let core_config = system.core_config();
-        let mailbox_name = self
-            .mailbox.as_deref()
-            .unwrap_or("default");
+        let mailbox_name = self.mailbox.as_deref().unwrap_or("default");
         let mailbox = core_config
             .mailbox
             .get(mailbox_name)

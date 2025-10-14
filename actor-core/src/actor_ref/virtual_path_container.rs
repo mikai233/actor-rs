@@ -4,8 +4,8 @@ use std::iter::Peekable;
 use std::ops::{Deref, Not};
 use std::sync::Arc;
 
-use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
+use dashmap::mapref::one::Ref;
 
 use actor_derive::AsAny;
 
@@ -57,15 +57,14 @@ impl TActorRef for VirtualPathContainer {
     }
 
     fn tell(&self, message: DynMessage, _sender: Option<ActorRef>) {
-        if matches!(message.ty, MessageType::System)
-            && message.name == type_name::<Terminate>() {
-                let notification = DeathWatchNotification {
-                    actor: self.clone().into(),
-                    existence_confirmed: true,
-                    address_terminated: false,
-                };
-                self.parent.cast_system(notification, ActorRef::no_sender());
-            }
+        if matches!(message.ty, MessageType::System) && message.name == type_name::<Terminate>() {
+            let notification = DeathWatchNotification {
+                actor: self.clone().into(),
+                existence_confirmed: true,
+                address_terminated: false,
+            };
+            self.parent.cast_system(notification, ActorRef::no_sender());
+        }
     }
 
     fn stop(&self) {}

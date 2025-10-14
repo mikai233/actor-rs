@@ -7,21 +7,21 @@ use std::sync::{Arc, Weak};
 use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::{anyhow, Context as _};
+use anyhow::{Context as _, anyhow};
 use arc_swap::{ArcSwap, Guard};
 use dashmap::mapref::one::MappedRef;
-use futures::future::BoxFuture;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 use parking_lot::Mutex;
 use pin_project::pin_project;
 use rand::random;
-use tokio::sync::mpsc::{channel, Sender};
+use tokio::sync::mpsc::{Sender, channel};
 
 use crate::actor::address::Address;
 use crate::actor::coordinated_shutdown::{ActorSystemTerminateReason, CoordinatedShutdown, Reason};
 use crate::actor::extension::{Extension, SystemExtension};
 use crate::actor::props::{ActorDeferredSpawn, Props};
-use crate::actor::scheduler::{scheduler, SchedulerSender};
+use crate::actor::scheduler::{SchedulerSender, scheduler};
 use crate::actor::system_guardian::SystemGuardian;
 use crate::actor::user_guardian::UserGuardian;
 use crate::actor_path::ActorPath;
@@ -36,8 +36,8 @@ use crate::event::address_terminated_topic::AddressTerminatedTopic;
 use crate::event::event_stream::EventStream;
 use crate::ext::option_ext::OptionExt;
 use crate::message::stop_child::StopChild;
-use crate::provider::empty_actor_ref_provider::EmptyActorRefProvider;
 use crate::provider::ActorRefProvider;
+use crate::provider::empty_actor_ref_provider::EmptyActorRefProvider;
 
 #[derive(Debug, Clone)]
 pub struct ActorSystem {
@@ -223,11 +223,12 @@ impl ActorSystem {
         WeakActorSystem { inner }
     }
 
-    pub fn run_coordinated_shutdown<R>(&self, reason: R) -> impl Future<Output = ()>
+    pub fn run_coordinated_shutdown<R>(&self, reason: R) -> impl Future<Output = ()> + 'static
     where
         R: Reason + 'static,
     {
-        CoordinatedShutdown::get(self.system()).run(reason)
+        let shutdown = CoordinatedShutdown::get(self.system());
+        async move { shutdown.run(reason).await }
     }
 }
 

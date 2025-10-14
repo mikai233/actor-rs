@@ -4,15 +4,15 @@ use async_trait::async_trait;
 use bincode::{Decode, Encode};
 use tracing::debug;
 
-use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::CMessageCodec;
 use actor_core::Message;
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_ref::{ActorRef, ActorRefExt};
 
+use crate::shard_coordinator::ShardCoordinator;
 use crate::shard_coordinator::coordinator_state::CoordinatorState;
 use crate::shard_coordinator::shard_region_terminated::ShardRegionTerminated;
 use crate::shard_coordinator::state_update::ShardState;
-use crate::shard_coordinator::ShardCoordinator;
 use crate::shard_region::register_ack::RegisterAck;
 
 #[derive(Debug, Clone, Encode, Decode, CMessageCodec)]
@@ -69,8 +69,7 @@ impl Message for Register {
         } else {
             debug!(
                 "{}: ShardRegion [{}] was not registered since the coordinator currently does not know about a node of that region",
-                actor.type_name,
-                region,
+                actor.type_name, region,
             );
         }
         Ok(())

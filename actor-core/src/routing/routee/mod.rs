@@ -2,12 +2,12 @@ use std::fmt::Debug;
 
 use enum_dispatch::enum_dispatch;
 
+use crate::DynMessage;
 use crate::actor_ref::ActorRef;
 use crate::routing::routee::actor_ref_routee::ActorRefRoutee;
 use crate::routing::routee::actor_selection_routee::ActorSelectionRoutee;
 use crate::routing::routee::no_routee::NoRoutee;
 use crate::routing::routee::several_routees::SeveralRoutees;
-use crate::DynMessage;
 
 pub mod actor_ref_routee;
 pub mod actor_selection_routee;

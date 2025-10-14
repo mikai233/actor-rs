@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
-use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 
 use crate::actor::address::Address;
 use crate::actor_path::root_actor_path::RootActorPath;

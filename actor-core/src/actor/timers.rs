@@ -1,16 +1,16 @@
 use std::any::type_name;
 use std::collections::hash_map::Entry;
 use std::fmt::{Debug, Formatter};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::task::Poll;
 use std::time::Duration;
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use async_trait::async_trait;
 use futures::task::ArcWake;
-use tokio_util::time::delay_queue::Key;
 use tokio_util::time::DelayQueue;
+use tokio_util::time::delay_queue::Key;
 use tracing::{debug, error, trace};
 
 use actor_derive::EmptyCodec;
@@ -413,7 +413,10 @@ impl Message for PollExpired {
                             receiver.tell(message, ActorRef::no_sender());
                         }
                         Err(_) => {
-                            error!("fixed delay with message {:?} not impl dyn_clone, message cannot be cloned", message);
+                            error!(
+                                "fixed delay with message {:?} not impl dyn_clone, message cannot be cloned",
+                                message
+                            );
                         }
                     }
                     let next_delay = interval;

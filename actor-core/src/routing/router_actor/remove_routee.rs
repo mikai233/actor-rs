@@ -2,10 +2,10 @@ use async_trait::async_trait;
 
 use actor_derive::EmptyCodec;
 
+use crate::Message;
 use crate::actor::context::ActorContext;
 use crate::routing::routee::Routee;
 use crate::routing::router_actor::Router;
-use crate::Message;
 
 #[derive(EmptyCodec)]
 pub struct RemoveRoutee {

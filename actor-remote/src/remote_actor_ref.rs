@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use tracing::error;
 
+use actor_core::AsAny;
 use actor_core::actor::actor_system::WeakActorSystem;
 use actor_core::actor_path::ActorPath;
 use actor_core::actor_path::TActorPath;
@@ -16,7 +17,6 @@ use actor_core::message::resume::Resume;
 use actor_core::message::suspend::Suspend;
 use actor_core::message::unwatch::Unwatch;
 use actor_core::message::watch::Watch;
-use actor_core::AsAny;
 use actor_core::{CodecMessage, DynMessage};
 
 use crate::remote_watcher::unwatch_remote::UnwatchRemote;

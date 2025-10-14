@@ -14,9 +14,9 @@ use actor_core::{Actor, DynMessage};
 
 use crate::shard_coordinator::rebalance_done::RebalanceDone;
 use crate::shard_coordinator::rebalance_worker::receive_timeout::ReceiveTimeout;
+use crate::shard_region::ImShardId;
 use crate::shard_region::begin_handoff::BeginHandoff;
 use crate::shard_region::handoff::Handoff;
-use crate::shard_region::ImShardId;
 
 pub(crate) mod begin_handoff_ack;
 mod receive_timeout;

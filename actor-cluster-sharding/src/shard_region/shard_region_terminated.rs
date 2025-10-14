@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use itertools::Itertools;
 use tracing::debug;
 
+use actor_core::EmptyCodec;
 use actor_core::actor::context::ActorContext;
 use actor_core::message::terminated::Terminated;
-use actor_core::EmptyCodec;
 use actor_core::{CodecMessage, DynMessage, Message};
 
 use crate::shard_region::ShardRegion;
@@ -36,7 +36,9 @@ impl Message for ShardRegionTerminated {
                 let type_name = &actor.type_name;
                 let size = shards.len();
                 let shard_str = shards.iter().join(", ");
-                debug!("{type_name}: Region [{shard_region}] terminated with [{size}] shards [{shard_str}]");
+                debug!(
+                    "{type_name}: Region [{shard_region}] terminated with [{size}] shards [{shard_str}]"
+                );
             }
         }
         Ok(())

@@ -1,6 +1,6 @@
 use std::cmp::{max, min};
-use std::collections::hash_map::Entry;
 use std::collections::VecDeque;
+use std::collections::hash_map::Entry;
 use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
 

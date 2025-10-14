@@ -3,13 +3,13 @@ use std::ops::Not;
 use async_trait::async_trait;
 use bincode::{Decode, Encode};
 
-use actor_core::actor::context::{ActorContext, Context};
-use actor_core::actor_ref::ActorRef;
 use actor_core::Message;
 use actor_core::MessageCodec;
+use actor_core::actor::context::{ActorContext, Context};
+use actor_core::actor_ref::ActorRef;
 
-use crate::shard_region::coordinator_terminated::CoordinatorTerminated;
 use crate::shard_region::ShardRegion;
+use crate::shard_region::coordinator_terminated::CoordinatorTerminated;
 
 #[derive(Debug, Encode, Decode, MessageCodec)]
 pub(crate) struct RegisterAck {

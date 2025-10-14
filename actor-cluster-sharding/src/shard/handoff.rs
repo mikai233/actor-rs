@@ -7,16 +7,16 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use tracing::{debug, info, warn};
 
+use actor_core::EmptyCodec;
+use actor_core::Message;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::EmptyCodec;
-use actor_core::Message;
 
 use crate::handoff_stopper::HandoffStopper;
-use crate::shard::handoff_stopper_terminated::HandoffStopperTerminated;
 use crate::shard::Shard;
+use crate::shard::handoff_stopper_terminated::HandoffStopperTerminated;
 use crate::shard_coordinator::rebalance_worker::shard_stopped::ShardStopped;
 use crate::shard_region::ShardId;
 
@@ -41,7 +41,10 @@ impl Message for Handoff {
                     debug!("{}: Handoff shard [{}]", actor.type_name, actor.shard_id);
                     let active_entities = actor.entities.active_entities();
                     if actor.preparing_for_shutdown {
-                        info!("{}: Handoff shard [{}] while preparing for shutdown. Stopping right away.", actor.type_name, shard_id);
+                        info!(
+                            "{}: Handoff shard [{}] while preparing for shutdown. Stopping right away.",
+                            actor.type_name, shard_id
+                        );
                         for entity in active_entities {
                             entity.tell(
                                 actor.handoff_stop_message.dyn_clone()?,
@@ -104,7 +107,9 @@ impl Message for Handoff {
         } else {
             let type_name = &actor.type_name;
             let self_shard_id = &actor.shard_id;
-            warn!("{type_name}: Shard [{self_shard_id}] can not hand off for another Shard [{shard_id}]")
+            warn!(
+                "{type_name}: Shard [{self_shard_id}] can not hand off for another Shard [{shard_id}]"
+            )
         }
         Ok(())
     }

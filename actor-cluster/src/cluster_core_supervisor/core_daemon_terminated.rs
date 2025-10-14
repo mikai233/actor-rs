@@ -3,9 +3,9 @@ use std::any::type_name;
 use async_trait::async_trait;
 use tracing::debug;
 
+use actor_core::EmptyCodec;
 use actor_core::actor::context::ActorContext;
 use actor_core::message::terminated::Terminated;
-use actor_core::EmptyCodec;
 use actor_core::{CodecMessage, DynMessage, Message};
 
 use crate::cluster_core_daemon::ClusterCoreDaemon;

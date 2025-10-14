@@ -3,9 +3,9 @@ use std::ops::{Deref, DerefMut};
 
 use ahash::HashMap;
 
+use crate::DynMessage;
 use crate::actor_ref::ActorRef;
 use crate::message::terminated::Terminated;
-use crate::DynMessage;
 
 #[derive(Default)]
 pub(crate) struct Watching(HashMap<ActorRef, Box<dyn FnOnce(Terminated) -> DynMessage + Send>>);

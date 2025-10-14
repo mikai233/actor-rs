@@ -1,11 +1,11 @@
 use std::any::type_name;
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use anyhow::{anyhow, Context, Ok};
+use anyhow::{Context, Ok, anyhow};
 use bincode::{Decode, Encode};
 use bytes::BytesMut;
-use tracing_subscriber::fmt::time::LocalTime;
 use tracing_subscriber::EnvFilter;
+use tracing_subscriber::fmt::time::LocalTime;
 
 pub mod as_any;
 pub mod duration_ext;
@@ -70,11 +70,7 @@ pub(crate) fn base64(l: i64, mut s: String) -> String {
     let c = BASE64_CHARS.get(index..index + 1).unwrap();
     s.push_str(c);
     let next = (l >> 6).abs();
-    if next == 0 {
-        s
-    } else {
-        base64(next, s)
-    }
+    if next == 0 { s } else { base64(next, s) }
 }
 
 pub(crate) fn random_actor_name() -> String {

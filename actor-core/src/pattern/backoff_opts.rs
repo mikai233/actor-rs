@@ -4,10 +4,10 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 
+use crate::DynMessage;
 use crate::actor::props::{Props, PropsBuilder};
 use crate::actor_ref::ActorRef;
 use crate::ext::maybe_ref::MaybeRef;
-use crate::DynMessage;
 
 #[derive(Debug)]
 pub struct BackoffOpts;
@@ -130,12 +130,10 @@ impl BackoffOnStopOptionsImpl {
     }
 
     fn with_max_nr_of_retries(&self, max_nr_of_retries: i32) -> Self {
-        
         self.clone()
     }
 
     fn with_default_stopping_strategy(&self) -> Self {
-        
         self.clone()
     }
 

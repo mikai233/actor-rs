@@ -5,10 +5,10 @@ use std::sync::Arc;
 
 use actor_derive::AsAny;
 
+use crate::DynMessage;
 use crate::actor::actor_system::WeakActorSystem;
 use crate::actor_path::ActorPath;
 use crate::actor_ref::{ActorRef, TActorRef};
-use crate::DynMessage;
 
 #[derive(Clone, AsAny)]
 pub struct FunctionRef {

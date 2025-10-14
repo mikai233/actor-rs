@@ -5,8 +5,8 @@ use crate::routing::routee::Routee;
 use crate::routing::router_actor::{Router, RouterActor};
 use crate::routing::router_config::pool::{Pool, PoolRouterConfig};
 use crate::routing::router_config::{RouterConfig, RouterProps, TRouterConfig};
-use crate::routing::routing_logic::broadcast_routing_logic::BroadcastRoutingLogic;
 use crate::routing::routing_logic::RoutingLogic;
+use crate::routing::routing_logic::broadcast_routing_logic::BroadcastRoutingLogic;
 use crate::routing::spawn_actor_routee;
 
 pub struct BroadcastPool<A>

@@ -2,13 +2,13 @@ use config::builder::DefaultState;
 use config::{File, FileFormat, Source};
 use serde::{Deserialize, Serialize};
 
-use actor_core::config::{Config, ConfigBuilder};
 use actor_core::AsAny;
+use actor_core::config::{Config, ConfigBuilder};
 
+use crate::CLUSTER_TOOLS_CONFIG;
 use crate::config::pub_sub_config::PubSubConfig;
 use crate::config::singleton_config::SingletonConfig;
 use crate::config::singleton_proxy_config::SingletonProxyConfig;
-use crate::CLUSTER_TOOLS_CONFIG;
 
 pub mod pub_sub_config;
 pub mod singleton_config;

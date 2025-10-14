@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use dashmap::DashMap;
-use tokio::sync::broadcast::{channel, Receiver, Sender};
+use tokio::sync::broadcast::{Receiver, Sender, channel};
 
 use actor_derive::AsAny;
 
@@ -20,7 +20,7 @@ use crate::actor_ref::virtual_path_container::VirtualPathContainer;
 use crate::actor_ref::{ActorRef, TActorRef};
 use crate::cell::actor_cell::ActorCell;
 use crate::ext::base64;
-use crate::provider::{cast_self_to_dyn, ActorRefProvider, TActorRefProvider};
+use crate::provider::{ActorRefProvider, TActorRefProvider, cast_self_to_dyn};
 
 #[derive(Debug, AsAny)]
 pub struct LocalActorRefProvider {

@@ -372,8 +372,8 @@ mod test {
     use crate::actor::actor_system::ActorSystem;
     use crate::actor::context::{ActorContext, Context};
     use crate::actor::props::Props;
-    use crate::actor_ref::actor_ref_factory::ActorRefFactory;
     use crate::actor_ref::ActorRefExt;
+    use crate::actor_ref::actor_ref_factory::ActorRefFactory;
     use crate::config::actor_setting::ActorSetting;
     use crate::pattern::circuit_breaker::CircuitBreaker;
     use crate::{Actor, DynMessage, Message};

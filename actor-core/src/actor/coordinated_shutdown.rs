@@ -3,14 +3,14 @@ use std::collections::{BTreeSet, HashSet};
 use std::fmt::{Debug, Display, Formatter};
 use std::future::Future;
 use std::ops::Deref;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use ahash::HashMap;
-use anyhow::{anyhow, Error};
-use futures::future::{join_all, BoxFuture};
+use anyhow::{Error, anyhow};
 use futures::FutureExt;
+use futures::future::{BoxFuture, join_all};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn};
@@ -88,7 +88,11 @@ impl CoordinatedShutdown {
             u: String,
         ) -> anyhow::Result<()> {
             if temp_mark.contains(&u) {
-                return Err(anyhow!("Cycle detected in graph of phases. It must be a DAG. phase [{}] depends transitively on itself. All dependencies: {:?}", u, phases));
+                return Err(anyhow!(
+                    "Cycle detected in graph of phases. It must be a DAG. phase [{}] depends transitively on itself. All dependencies: {:?}",
+                    u,
+                    phases
+                ));
             }
             if unmarked.contains(&u) {
                 temp_mark.insert(u.clone());
@@ -114,9 +118,7 @@ impl CoordinatedShutdown {
         F: Future<Output = ()> + Send + 'static,
     {
         let mut registered_phases = self.registered_phases.lock();
-        let phase_tasks = registered_phases
-            .entry(phase_name)
-            .or_default();
+        let phase_tasks = registered_phases.entry(phase_name).or_default();
         let task = TaskDefinition {
             name,
             fut: fut.boxed(),
@@ -137,11 +139,17 @@ impl CoordinatedShutdown {
         let phase = phase.into();
         let known_phases = Self::known_phases(system);
         if !known_phases.contains(&phase) {
-            return Err(anyhow!("Unknown phase [{}], known phases [{:?}]. All phases (alone with their optional dependencies) mut be defined in configuration",phase, known_phases));
+            return Err(anyhow!(
+                "Unknown phase [{}], known phases [{:?}]. All phases (alone with their optional dependencies) mut be defined in configuration",
+                phase,
+                known_phases
+            ));
         }
         let task_name = task_name.into();
         if task_name.is_empty() {
-            return Err(anyhow!("Set a task name when adding tasks to the Coordinated Shutdown. Try to use unique, self-explanatory names."));
+            return Err(anyhow!(
+                "Set a task name when adding tasks to the Coordinated Shutdown. Try to use unique, self-explanatory names."
+            ));
         }
         self.register(phase, task_name, fut);
         Ok(())

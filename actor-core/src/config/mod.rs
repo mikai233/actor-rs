@@ -1,12 +1,12 @@
-use std::any::type_name;
 use std::any::Any;
+use std::any::type_name;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use anyhow::anyhow;
 use config::Source;
-use dashmap::mapref::one::MappedRef;
 use dashmap::DashMap;
+use dashmap::mapref::one::MappedRef;
 use dyn_clone::DynClone;
 
 use crate::ext::as_any::AsAny;

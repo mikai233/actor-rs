@@ -3,12 +3,14 @@ use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Duration;
 
-use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
+use dashmap::mapref::entry::Entry;
 use imstr::ImString;
 use tracing::debug;
 
 use actor_cluster::cluster::Cluster;
+use actor_core::AsAny;
+use actor_core::CodecMessage;
 use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::{Props, PropsBuilder};
@@ -16,14 +18,12 @@ use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::{ActorRef, ActorRefExt};
 use actor_core::config::ConfigBuilder;
 use actor_core::pattern::patterns::PatternsExt;
-use actor_core::AsAny;
-use actor_core::CodecMessage;
 
+use crate::cluster_sharding_guardian::ClusterShardingGuardian;
 use crate::cluster_sharding_guardian::start::Start;
 use crate::cluster_sharding_guardian::start_coordinator_if_needed::StartCoordinatorIfNeeded;
 use crate::cluster_sharding_guardian::start_proxy::StartProxy;
 use crate::cluster_sharding_guardian::started::Started;
-use crate::cluster_sharding_guardian::ClusterShardingGuardian;
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::config::ClusterShardingConfig;
 use crate::message_extractor::MessageExtractor;

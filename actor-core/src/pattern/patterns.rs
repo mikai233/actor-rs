@@ -8,8 +8,8 @@ use tokio::time::error::Elapsed;
 
 use crate::actor::actor_selection::ActorSelection;
 use crate::actor_path::TActorPath;
-use crate::actor_ref::deferred_ref::DeferredActorRef;
 use crate::actor_ref::ActorRef;
+use crate::actor_ref::deferred_ref::DeferredActorRef;
 use crate::{CodecMessage, DynMessage, MessageType, OrphanMessage, SystemMessage};
 
 #[derive(Debug)]
@@ -152,7 +152,12 @@ impl Patterns {
             }
             Err(_) => {
                 let req = type_name::<Req>();
-                Err(anyhow!("ask {} with {} timeout after {:?}, a typical reason is that the recipient actor didn't send a reply", target, req, timeout))
+                Err(anyhow!(
+                    "ask {} with {} timeout after {:?}, a typical reason is that the recipient actor didn't send a reply",
+                    target,
+                    req,
+                    timeout
+                ))
             }
         }
     }

@@ -1,10 +1,10 @@
 use std::any::type_name;
 
+use actor_core::AsAny;
 use actor_core::actor::actor_system::{ActorSystem, WeakActorSystem};
 use actor_core::actor::extension::Extension;
 use actor_core::actor::props::Props;
 use actor_core::actor_ref::ActorRef;
-use actor_core::AsAny;
 
 use crate::pubsub::distributed_pub_sub_mediator::DistributedPubSubMediator;
 

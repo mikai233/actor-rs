@@ -3,16 +3,16 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tracing::debug;
 
+use actor_core::EmptyCodec;
+use actor_core::Message;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::coordinated_shutdown::{
     CoordinatedShutdown, PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION,
 };
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
-use actor_core::EmptyCodec;
-use actor_core::Message;
 
-use crate::shard_region::graceful_shutdown_timeout::GracefulShutdownTimeout;
 use crate::shard_region::ShardRegion;
+use crate::shard_region::graceful_shutdown_timeout::GracefulShutdownTimeout;
 
 #[derive(Debug, EmptyCodec)]
 pub(super) struct GracefulShutdown;
@@ -27,7 +27,10 @@ impl Message for GracefulShutdown {
         actor: &mut Self::A,
     ) -> anyhow::Result<()> {
         if actor.preparing_for_shutdown {
-            debug!("{}: Skipping graceful shutdown of region and all its shards as cluster is preparing for shutdown", actor.type_name);
+            debug!(
+                "{}: Skipping graceful shutdown of region and all its shards as cluster is preparing for shutdown",
+                actor.type_name
+            );
             let _ = actor.graceful_shutdown_progress.send(()).await;
             context.stop(context.myself());
         } else {
@@ -41,8 +44,9 @@ impl Message for GracefulShutdown {
                     context.system(),
                     PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION,
                 )
-                .unwrap_or_else(|| panic!("phase {} not found",
-                    PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION))
+                .unwrap_or_else(|| {
+                    panic!("phase {} not found", PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION)
+                })
                 .checked_sub(Duration::from_secs(1));
                 if let Some(timeout) = timeout {
                     actor.timers.start_single_timer(

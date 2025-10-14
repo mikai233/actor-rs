@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use rand::Rng;
 use tracing::info;
 
+use actor_core::CEmptyCodec;
 use actor_core::actor::actor_system::ActorSystem;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::Props;
@@ -11,7 +12,6 @@ use actor_core::actor::timers::Timers;
 use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::config::actor_setting::ActorSetting;
 use actor_core::ext::init_logger_with_filter;
-use actor_core::CEmptyCodec;
 use actor_core::{Actor, DynMessage, Message};
 
 pub fn fibonacci(n: i32) -> u64 {

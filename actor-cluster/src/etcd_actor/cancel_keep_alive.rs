@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use tracing::debug;
 
-use actor_core::actor::context::ActorContext;
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::EmptyCodec;
 use actor_core::Message;
+use actor_core::actor::context::ActorContext;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 
 use crate::etcd_actor::EtcdActor;
 

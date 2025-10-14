@@ -3,16 +3,16 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use imstr::ImString;
 
+use actor_core::EmptyCodec;
 use actor_core::actor::context::{ActorContext, Context};
 use actor_core::actor::props::PropsBuilder;
-use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::actor_ref::ActorRefExt;
+use actor_core::actor_ref::actor_ref_factory::ActorRefFactory;
 use actor_core::ext::option_ext::OptionExt;
-use actor_core::EmptyCodec;
 use actor_core::{DynMessage, Message};
 
-use crate::cluster_sharding_guardian::started::Started;
 use crate::cluster_sharding_guardian::ClusterShardingGuardian;
+use crate::cluster_sharding_guardian::started::Started;
 use crate::cluster_sharding_settings::ClusterShardingSettings;
 use crate::message_extractor::MessageExtractor;
 use crate::shard_allocation_strategy::ShardAllocationStrategy;

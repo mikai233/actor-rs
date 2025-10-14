@@ -3,8 +3,8 @@ use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use anyhow::anyhow;
-use dashmap::mapref::one::{MappedRef, MappedRefMut};
 use dashmap::DashMap;
+use dashmap::mapref::one::{MappedRef, MappedRefMut};
 
 use crate::ext::as_any::AsAny;
 

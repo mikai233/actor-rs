@@ -107,7 +107,8 @@ where
         let nodes = self
             .recency
             .iter()
-            .filter(|n| n.timestamp < min).cloned()
+            .filter(|n| n.timestamp < min)
+            .cloned()
             .collect_vec();
         for node in &nodes {
             self.remove(&node.value);
@@ -121,7 +122,8 @@ where
             .recency
             .iter()
             .rev()
-            .filter(|n| n.timestamp > max).cloned()
+            .filter(|n| n.timestamp > max)
+            .cloned()
             .collect_vec();
         for node in &nodes {
             self.remove(&node.value);

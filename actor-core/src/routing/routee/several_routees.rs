@@ -2,9 +2,9 @@ use std::ops::Deref;
 
 use tracing::error;
 
+use crate::DynMessage;
 use crate::actor_ref::ActorRef;
 use crate::routing::routee::{Routee, TRoutee};
-use crate::DynMessage;
 
 //TODO reference
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
