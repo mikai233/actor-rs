@@ -1,11 +1,14 @@
 # actor-rs
 
-本项目的目标是移植一个最小功能的scala actor
-框架（[akka](https://doc.akka.io/docs/akka/current/typed/guide/introduction.html)）
-到 rust 这边，大部分逻辑参考 akka 的实现方式，部分地方受限于不同语言之间的差异以及自己的理解，采用了不同的逻辑实现相同的功能。
-akka 采用的是 gossip 协议来保持集群状态的一致性， 这边暂时没有使用 gossip ，而是采用了 etcd 来作为整个集群的配置中心，后续会实现 gossip 协议。
+> ### ⚠️ Project Status: On Hold / Blocked
+>
+> This project is currently blocked and will not be updated for the time being. I am dissatisfied with the current code architecture and believe it is unreasonable. A complete redesign is needed, which will involve significant code changes. I currently do not have enough time to dedicate to this major overhaul.
 
-# 计划实现的核心功能
+The goal of this project is to port a minimal functional Scala Actor framework ([akka](https://doc.akka.io/docs/akka/current/typed/guide/introduction.html)) to Rust. Most of the logic refers to Akka's implementation, while some parts adopt different logic to achieve the same functionality due to language differences and my own understanding.
+
+Akka uses the Gossip protocol to maintain cluster state consistency. Currently, this project uses etcd as the configuration center for the entire cluster instead of Gossip. The Gossip protocol will be implemented in the future.
+
+# Core Planned Features
 
 - [x] actor
 - [x] router
@@ -17,9 +20,9 @@ akka 采用的是 gossip 协议来保持集群状态的一致性， 这边暂时
 - [ ] distributed pubsub
 - [x] circuit breaker
 
-# 使用
+# Usage
 
-## 声明一个Actor
+## Declaring an Actor
 
 ```rust
 use actor_core::Actor;
@@ -29,7 +32,7 @@ struct MyActor;
 impl Actor for MyActor {}
 ```
 
-## 处理Actor消息
+## Handling Actor Messages
 
 ```rust
 #[derive(Debug, EmptyCodec)]
@@ -48,7 +51,7 @@ impl Message for MyMessage {
 }
 ```
 
-## 创建Actor
+## Creating an Actor
 
 ```rust
 #[tokio::main]
@@ -60,13 +63,13 @@ async fn main() -> anyhow::Result<()> {
 }
 ```
 
-## 向Actor发送消息
+## Sending Messages to an Actor
 
 ```rust
 my_actor.tell(DynMessage::user(MyMessage { name: "hello".to_string() }), ActorRef::no_sender());
 ```
 
-## 几个核心的trait
+## Core Traits
 
 ### Actor
 
@@ -95,7 +98,7 @@ pub trait Actor: Send + Any {
 }
 ```
 
-要启动一个actor，则需要定义一个结构实现此 `trait`
+To start an actor, you need to define a struct that implements this `trait`.
 
 ### Message
 
@@ -119,7 +122,7 @@ pub trait CodecMessage: Any + Send {
 }
 ```
 
-actor消息需要实现的顶层 `trait` ，用于决定此消息需不需要序列化（如果一条消息只是本地处理，那么不需要实现序列化）以及可否进行复制
+The top-level `trait` that actor messages need to implement. It determines whether the message needs serialization (if a message is only handled locally, serialization is not required) and whether it can be cloned.
 
 ```rust
 #[async_trait]
@@ -130,29 +133,19 @@ pub trait Message: CodecMessage {
 }
 ```
 
-发送给actor的消息需要实现 `CodecMessage` 这个 `trait` 之外还需要实现 `Message` 这个 `trait` ，这个 `trait`
-决定此消息在actor中的处理逻辑。
+Messages sent to an actor must implement the `Message` trait in addition to the `CodecMessage` trait. This trait determines the handling logic of the message within the actor.
 
 ```rust
 pub trait OrphanMessage: CodecMessage {}
 ```
 
-actor与actor之间的通信方式除了fire and forget（tell）方式之外，还支持request
-response（ask）模式，这个时候返回的消息需要实现 `OrphanMessage`
-这个 `trait`， 这个 `trait` 仅仅时作为标记作用，以确保使用者正确的使用框架的接口。 `CodeMessage` 这个 `trait`
-提供了过程宏来快速实现这个 `trait` ，
-以减少样板代码（参见下文）。
+In addition to fire-and-forget (tell), communication between actors also supports the request-response (ask) pattern. In this case, the returned message needs to implement the `OrphanMessage` trait. This trait serves only as a marker to ensure the user correctly uses the framework's interface. The `CodecMessage` trait provides procedural macros to quickly implement this trait and reduce boilerplate code (see below).
 
-## 序列化与DyMessage
+## Serialization and DynMessage
 
-`DyMessage` 代表着一条actor消息，actor 收到此消息之后会根据自身的类型把 `DyMessage`
-向下转型成具体的消息，然后调用 `handle` 方法处理此消息，如果此消息向下转型失败，那么就代表这个消息不属于此actor
+`DynMessage` represents an actor message. After receiving this message, the actor will downcast `DynMessage` to a specific message type based on its own type and then call the `handle` method. If the downcast fails, it means the message does not belong to this actor.
 
-在声明actor消息的时候，需要派生一个宏属性，来确定这个消息是否要支持序列化以及复制，例如 `EmptyCodec` 表示此消息不需要序列化以及不可以复制，
-只能发送给本地的actor处理， `CEmptyCodec` 表示此消息不需要序列化但是可以进行复制，需要同时添加 `Clone` 宏。`MessageCodec`
-表示此消息需要进行序列化，消息发送到远程的actor处理时需要把消息进行序列化和反序列化，此过程宏默认使用 `bincode`
-进行序列化反序列化，所以需要额外添加 `bincode::Serailize` `bincode::Deserialize` 两个过程宏，如果有其它自定义的序列化需求，可以自行实现
-`CodecMessage` 这个 `trait`
+When declaring an actor message, you need to derive a macro attribute to determine whether the message supports serialization and cloning. For example, `EmptyCodec` indicates that the message does not need serialization and cannot be cloned (can only be sent to local actors). `CEmptyCodec` indicates no serialization but supports cloning (requires the `Clone` macro). `MessageCodec` indicates that serialization is required; when sent to a remote actor, the message will be serialized and deserialized. This procedural macro uses `bincode` by default, so you need to add `bincode::Serialize` and `bincode::Deserialize`. For other custom serialization needs, you can implement the `CodecMessage` trait yourself.
 
 ```rust
 pub trait CodecMessage: Any + Send {
@@ -170,44 +163,36 @@ pub trait CodecMessage: Any + Send {
 }
 ```
 
-同样的，还有 `SystemCodec` `CSystemCode` `OrphanCodec` 等不同的类型， `system`
-开头的属于actor的系统消息，业务中一般不使用，`orphan` 开头的属于 `ask` 消息的返回消息（response）需要派生的宏。
+Similarly, there are different types like `SystemCodec`, `CSystemCodec`, `OrphanCodec`, etc. Those starting with `system` are actor system messages (generally not used in business logic). Those starting with `orphan` are messages returned by `ask` (response) that need to be derived.
 
 # Cluster Sharding
 
-此模块是本项目比较核心的一个功能，通过 Cluster Sharding ，可以实现一个大型的集群系统，每个节点上的 actor 都可以通过一个唯一的
-id 来访问，而不需要关心这个 actor 在哪个节点上。并且可以实现动态的扩容与缩容，实现的逻辑也参考 akka 的实现方式。
+This module is a core feature of this project. Through Cluster Sharding, a large-scale cluster system can be achieved. Actors on each node can be accessed through a unique ID without worrying about which node the actor is on. It also enables dynamic expansion and contraction. The implementation logic refers to Akka.
 
-## 使用
+## Usage
 
-sharding 的例子可以参考[sharding.rs](actor-playgroud/src/sharding.rs)
+For sharding examples, please refer to [sharding.rs](actor-playgroud/src/sharding.rs).
 
-大致的使用流程为：
+The general usage flow is:
 
-1. 构建 `ActorSetting` 时，向 `MessageRegistry` 中注册所有的 cluster sharding 需要的内部消息
-2. 向 `ActorSystem` 中注册 `ClusterSharding` 的拓展模块
-3. 定义消息路由 `MessageExtractor` ，每条消息都会调用 `MessageExtractor` 的 `entity_id` 方法，根据返回的 id
-   来路由消息， `shard_id`
-   用来确定这个Actor属于哪个Shard管理
-4. 通过 `ClusterSharding` 的 `start` 方法启动一个 `ShardRegion` ， `ShardRegion` 是一个特殊的 Actor
-   ，用来管理一组 `Shard` ， `Shard`
-   是一组具有相同 `shard_id` 的 Actor
+1. When building `ActorSetting`, register all internal messages required for cluster sharding in the `MessageRegistry`.
+2. Register the `ClusterSharding` extension module in the `ActorSystem`.
+3. Define the message router `MessageExtractor`. Each message will call the `entity_id` method of `MessageExtractor`. Messages are routed based on the returned ID. `shard_id` is used to determine which Shard this Actor belongs to.
+4. Start a `ShardRegion` via the `start` method of `ClusterSharding`. `ShardRegion` is a special Actor that manages a group of `Shard`s. A `Shard` is a group of Actors with the same `shard_id`.
 
-然后通过向 `ShardRegion` 发送消息， `ShardRegion` 会根据 `MessageExtractor` 的 `entity_id`
-方法来路由消息，如果这个 `entity_id`
-对应的 `Shard` 不存在，那么会创建一个新的 `Shard` ，然后再创建一个新的 Actor 来处理这个消息。
+Then, by sending messages to `ShardRegion`, it routes messages according to the `entity_id` method of `MessageExtractor`. If the `Shard` corresponding to the `entity_id` does not exist, a new `Shard` will be created, followed by a new Actor to handle the message.
 
-# 更多的例子可以参考[actor-playground](actor-playgroud/src)
+# More examples can be found in [actor-playground](actor-playgroud/src)
 
-## 后续计划
+## Future Plans
 
-- [ ] 完善测试用例
-- [ ] 完善文档
-- [ ] 清理todo
-- [ ] 优化实现逻辑
+- [ ] Improve test cases
+- [ ] Improve documentation
+- [ ] Clean up TODOs
+- [ ] Optimize implementation logic
 
-## 鸣谢
+## Acknowledgments
 
-特别感谢 [JetBrains](https://www.jetbrains.com/?from=actor-rs) 为开源项目提供免费的 IDE 授权
+Special thanks to [JetBrains](https://www.jetbrains.com/?from=actor-rs) for providing free IDE licenses for open-source projects.
 
 ![JetBrains logo](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.png)
