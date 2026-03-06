@@ -15,7 +15,7 @@ pub(super) struct Entities {
 }
 
 impl Entities {
-    pub(super) fn entity_state(&self, entity_id: &str) -> MaybeRef<EntityState> {
+    pub(super) fn entity_state(&self, entity_id: &str) -> MaybeRef<'_, EntityState> {
         match self.entities.get(entity_id) {
             None => MaybeRef::Own(EntityState::NoState),
             Some(state) => MaybeRef::Ref(state),

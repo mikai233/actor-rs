@@ -229,7 +229,8 @@ impl DynMessage {
     {
         let Self { name, ty, message } = self;
         let message = message.into_any();
-        let user_delegate = if matches!(ty, MessageType::User) {
+
+        if matches!(ty, MessageType::User) {
             message.downcast::<UserDelegate<A>>().map_err(|_| {
                 anyhow!(
                     "message {} cannot downcast to UserDelegate<{}>",
@@ -239,14 +240,14 @@ impl DynMessage {
             })
         } else {
             Err(anyhow!("message {} is not a user message", name))
-        };
-        user_delegate
+        }
     }
 
     pub fn downcast_system_delegate(self) -> anyhow::Result<Box<SystemDelegate>> {
         let Self { name, ty, message } = self;
         let message = message.into_any();
-        let system_delegate = if matches!(ty, MessageType::System) {
+
+        if matches!(ty, MessageType::System) {
             message.downcast::<SystemDelegate>().map_err(|_| {
                 anyhow!(
                     "message {} cannot downcast to {}",
@@ -256,8 +257,7 @@ impl DynMessage {
             })
         } else {
             Err(anyhow!("message {} is not a user message", name))
-        };
-        system_delegate
+        }
     }
 
     pub fn downcast_user_delegate_ref<A>(&self) -> Option<&UserDelegate<A>>

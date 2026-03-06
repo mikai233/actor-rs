@@ -23,10 +23,10 @@ impl Message for ResendShardHost {
         context: &mut ActorContext,
         actor: &mut Self::A,
     ) -> anyhow::Result<()> {
-        if let Some(region) = actor.state.shards.get(&self.shard) {
-            if region == &self.region {
-                actor.send_host_shard_msg(context, self.shard, self.region);
-            }
+        if let Some(region) = actor.state.shards.get(&self.shard)
+            && region == &self.region
+        {
+            actor.send_host_shard_msg(context, self.shard, self.region);
         }
         Ok(())
     }

@@ -41,28 +41,28 @@ impl SystemExtension {
         self.get_ref::<E>().map(|e| e.value().clone())
     }
 
-    pub fn get_ref<E>(&self) -> Option<MappedRef<&'static str, Box<dyn Extension>, E>>
+    pub fn get_ref<E>(&self) -> Option<MappedRef<'_, &'static str, Box<dyn Extension>, E>>
     where
         E: Extension,
     {
         let name = type_name::<E>();
-        let extension = self.extensions.get(name).and_then(|e| {
+
+        self.extensions.get(name).and_then(|e| {
             let e = e.try_map::<_, E>(|e| e.deref().as_any().downcast_ref::<E>());
             e.ok()
-        });
-        extension
+        })
     }
 
-    pub fn get_mut<E>(&self) -> Option<MappedRefMut<&'static str, Box<dyn Extension>, E>>
+    pub fn get_mut<E>(&self) -> Option<MappedRefMut<'_, &'static str, Box<dyn Extension>, E>>
     where
         E: Extension,
     {
         let name = type_name::<E>();
-        let extension = self.extensions.get_mut(name).and_then(|e| {
+
+        self.extensions.get_mut(name).and_then(|e| {
             let e = e.try_map::<_, E>(|e| e.deref_mut().as_any_mut().downcast_mut::<E>());
             e.ok()
-        });
-        extension
+        })
     }
 }
 

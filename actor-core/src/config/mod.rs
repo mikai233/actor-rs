@@ -48,16 +48,16 @@ impl ActorConfig {
         Ok(())
     }
 
-    pub fn get<C>(&self) -> Option<MappedRef<&'static str, Box<dyn Config>, C>>
+    pub fn get<C>(&self) -> Option<MappedRef<'_, &'static str, Box<dyn Config>, C>>
     where
         C: Config,
     {
         let name = type_name::<C>();
-        let config = self.configs.get(name).and_then(|e| {
+
+        self.configs.get(name).and_then(|e| {
             let e = e.try_map::<_, C>(|e| e.deref().as_any().downcast_ref::<C>());
             e.ok()
-        });
-        config
+        })
     }
 }
 

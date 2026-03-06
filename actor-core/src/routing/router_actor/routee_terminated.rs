@@ -20,7 +20,7 @@ impl Message for RouteeTerminated {
         _context: &mut ActorContext,
         _actor: &mut Self::A,
     ) -> anyhow::Result<()> {
-        let terminated_routee = self.0;
+        let _terminated_routee = self.0;
         todo!()
     }
 }

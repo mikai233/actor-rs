@@ -23,25 +23,23 @@ impl Message for ShardTerminated {
 
     async fn handle(
         self: Box<Self>,
-        context: &mut ActorContext,
+        _context: &mut ActorContext,
         actor: &mut Self::A,
     ) -> anyhow::Result<()> {
         let shard = self.0;
-        if actor.shards_by_ref.contains_key(&shard) {
-            if let Some(shard_id) = actor.shards_by_ref.remove(&shard) {
-                actor.shards.remove(&shard_id);
-                actor.starting_shards.remove(&shard_id);
-                //TODO passivation strategy
-                let type_name = &actor.type_name;
-                match actor.handing_off.remove(&shard) {
-                    true => {
-                        debug!("{type_name}: Shard [{shard_id}] handoff complete")
-                    }
-                    false => {
-                        debug!(
-                            "{type_name}: Shard [{shard_id}] terminated while not being handed off"
-                        );
-                    }
+        if actor.shards_by_ref.contains_key(&shard)
+            && let Some(shard_id) = actor.shards_by_ref.remove(&shard)
+        {
+            actor.shards.remove(&shard_id);
+            actor.starting_shards.remove(&shard_id);
+            //TODO passivation strategy
+            let type_name = &actor.type_name;
+            match actor.handing_off.remove(&shard) {
+                true => {
+                    debug!("{type_name}: Shard [{shard_id}] handoff complete")
+                }
+                false => {
+                    debug!("{type_name}: Shard [{shard_id}] terminated while not being handed off");
                 }
             }
         }

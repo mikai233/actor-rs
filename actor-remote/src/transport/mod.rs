@@ -204,7 +204,7 @@ impl TransportActor {
                     let fut = system.run_coordinated_shutdown(ActorSystemStartFailedReason(
                         anyhow::Error::from(error),
                     ));
-                    tokio::spawn(async move { fut.await });
+                    tokio::spawn(fut);
                 }
             }
         })?;

@@ -195,22 +195,21 @@ impl CoordinatedShutdown {
             };
             let core_config = system.core_config();
             for phase_name in &self.ordered_phases {
-                if let Some(phase) = core_config.phases.get(phase_name) {
-                    if phase.enabled {
-                        if let Some(phase_task) = registered_phases.remove(phase_name) {
-                            let mut tasks = vec![];
-                            for task in phase_task.into_inner() {
-                                let TaskDefinition { name, fut } = task;
-                                let task = TaskRun {
-                                    name,
-                                    phase: phase_name.clone(),
-                                    task: fut,
-                                };
-                                tasks.push(task);
-                            }
-                            run_tasks.push((phase_name.clone(), phase.timeout, tasks));
-                        }
+                if let Some(phase) = core_config.phases.get(phase_name)
+                    && phase.enabled
+                    && let Some(phase_task) = registered_phases.remove(phase_name)
+                {
+                    let mut tasks = vec![];
+                    for task in phase_task.into_inner() {
+                        let TaskDefinition { name, fut } = task;
+                        let task = TaskRun {
+                            name,
+                            phase: phase_name.clone(),
+                            task: fut,
+                        };
+                        tasks.push(task);
                     }
+                    run_tasks.push((phase_name.clone(), phase.timeout, tasks));
                 }
             }
         }

@@ -209,22 +209,22 @@ impl Shard {
         context: &mut ActorContext,
         entity_id: &ImEntityId,
     ) -> anyhow::Result<()> {
-        if let Some(messages) = self.message_buffers.remove(entity_id) {
-            if messages.is_empty().not() {
-                self.get_or_create_entity(context, entity_id)?;
-                debug!(
-                    "{}: Sending message buffer for entity [{}] ([{}] messages)",
-                    self.type_name,
-                    entity_id,
-                    messages.len()
-                );
-                for message in messages {
-                    let ShardBufferEnvelope {
-                        message: envelope,
-                        sender,
-                    } = message;
-                    self.deliver_message(context, envelope, sender)?;
-                }
+        if let Some(messages) = self.message_buffers.remove(entity_id)
+            && messages.is_empty().not()
+        {
+            self.get_or_create_entity(context, entity_id)?;
+            debug!(
+                "{}: Sending message buffer for entity [{}] ([{}] messages)",
+                self.type_name,
+                entity_id,
+                messages.len()
+            );
+            for message in messages {
+                let ShardBufferEnvelope {
+                    message: envelope,
+                    sender,
+                } = message;
+                self.deliver_message(context, envelope, sender)?;
             }
         }
         Ok(())

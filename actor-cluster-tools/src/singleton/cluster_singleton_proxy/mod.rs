@@ -109,15 +109,15 @@ impl ClusterSingletonProxy {
             debug!("{} buffer message {}", proxy_name, message.name());
             let sender = context.sender().cloned();
             self.buffer.push_back((message, sender));
-            if self.buffer.len() > buffer_size {
-                if let Some((oldest, _)) = self.buffer.pop_front() {
-                    let msg_name = oldest.name();
-                    let proxy_name = context.myself().path().name();
-                    warn!(
-                        "{} buffer full({}), drop oldest message {}",
-                        proxy_name, buffer_size, msg_name
-                    );
-                }
+            if self.buffer.len() > buffer_size
+                && let Some((oldest, _)) = self.buffer.pop_front()
+            {
+                let msg_name = oldest.name();
+                let proxy_name = context.myself().path().name();
+                warn!(
+                    "{} buffer full({}), drop oldest message {}",
+                    proxy_name, buffer_size, msg_name
+                );
             }
         }
     }

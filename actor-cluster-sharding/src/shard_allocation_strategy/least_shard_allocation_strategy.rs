@@ -181,7 +181,7 @@ impl ShardAllocationStrategy for LeastShardAllocationStrategy {
                     Ok(HashSet::new())
                 } else {
                     let mut optimal_per_region = number_of_shards / number_of_regions;
-                    if number_of_shards % number_of_regions != 0 {
+                    if !number_of_shards.is_multiple_of(number_of_regions) {
                         optimal_per_region += 1;
                     }
                     let result1 = rebalance_phase1(

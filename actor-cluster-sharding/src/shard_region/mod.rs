@@ -401,7 +401,7 @@ impl ShardRegion {
             };
             self.shard_buffers.push(shard_id, envelop);
             let total = total_buf_size + 1;
-            if total % (buffer_size / 10) == 0 {
+            if total.is_multiple_of(buffer_size / 10) {
                 let cap = 100.0 * total as f64 / buffer_size as f64;
                 let log_msg =
                     format!("{type_name}: ShardRegion is using [{cap} %] of its buffer capacity.");
@@ -418,22 +418,20 @@ impl ShardRegion {
     }
 
     fn deliver_buffered_messages(&mut self, shard_id: &ImShardId, target: DeliverTarget) {
-        if self.shard_buffers.contains_key(shard_id) {
-            if let Some(buffers) = self.shard_buffers.remove(shard_id) {
-                let type_name = &self.type_name;
-                let buf_size = buffers.len();
-                debug!(
-                    "{type_name}: Deliver [{buf_size}] buffered messages for shard [{shard_id}]"
-                );
-                for envelope in buffers {
-                    let (msg, sender) = envelope.into_inner();
-                    match target {
-                        DeliverTarget::Shard(receiver) => {
-                            receiver.cast(msg.into_shard_envelope(), sender);
-                        }
-                        DeliverTarget::ShardRegion(receiver) => {
-                            receiver.cast(msg, sender);
-                        }
+        if self.shard_buffers.contains_key(shard_id)
+            && let Some(buffers) = self.shard_buffers.remove(shard_id)
+        {
+            let type_name = &self.type_name;
+            let buf_size = buffers.len();
+            debug!("{type_name}: Deliver [{buf_size}] buffered messages for shard [{shard_id}]");
+            for envelope in buffers {
+                let (msg, sender) = envelope.into_inner();
+                match target {
+                    DeliverTarget::Shard(receiver) => {
+                        receiver.cast(msg.into_shard_envelope(), sender);
+                    }
+                    DeliverTarget::ShardRegion(receiver) => {
+                        receiver.cast(msg, sender);
                     }
                 }
             }
@@ -494,7 +492,7 @@ impl ShardRegion {
                 );
                 coord.cast(GetShardHome { shard: shard.clone().into() }, Some(context.myself().clone()));
             });
-            if self.retry_count >= 5 && self.retry_count % 5 == 0 {
+            if self.retry_count >= 5 && self.retry_count.is_multiple_of(5) {
                 let shards_str = shards.iter().map(|shard| shard.as_str()).join(", ");
                 warn!(
                     "{}: Requested shard homes [{}] from coordinator at [{}]. [{}] total buffered messages.",
@@ -552,12 +550,13 @@ impl ShardRegion {
     ) -> anyhow::Result<()> {
         let type_name = &self.type_name;
         debug!("{type_name}: Shard [{shard}] located at [{shard_region_ref}]");
-        if let Some(r) = self.region_by_shard.get(&shard) {
-            if r == context.myself() && &shard_region_ref != context.myself() {
-                return Err(anyhow!(
-                    "{type_name}: Unexpected change of shard [{shard}] from self to [{shard_region_ref}]"
-                ));
-            }
+        if let Some(r) = self.region_by_shard.get(&shard)
+            && r == context.myself()
+            && &shard_region_ref != context.myself()
+        {
+            return Err(anyhow!(
+                "{type_name}: Unexpected change of shard [{shard}] from self to [{shard_region_ref}]"
+            ));
         }
         self.region_by_shard
             .insert(shard.clone(), shard_region_ref.clone());

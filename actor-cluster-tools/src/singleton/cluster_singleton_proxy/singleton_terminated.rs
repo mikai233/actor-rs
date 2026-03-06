@@ -26,11 +26,11 @@ impl Message for SingletonTerminated {
         _context: &mut ActorContext,
         actor: &mut Self::A,
     ) -> anyhow::Result<()> {
-        if let Some(singleton) = &actor.singleton {
-            if *singleton == *self.0 {
-                debug!("singleton {} terminated", singleton);
-                actor.singleton = None;
-            }
+        if let Some(singleton) = &actor.singleton
+            && *singleton == *self.0
+        {
+            debug!("singleton {} terminated", singleton);
+            actor.singleton = None;
         }
         Ok(())
     }

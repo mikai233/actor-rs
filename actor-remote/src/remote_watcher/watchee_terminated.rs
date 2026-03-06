@@ -37,16 +37,14 @@ impl Message for WatcheeTerminated {
         // When watchee is stopped it sends DeathWatchNotification to this RemoteWatcher,
         // which will propagate it to all watchers of this watchee.
         // address_terminated case is already handled by the watcher itself in DeathWatch trait
-        if !address_terminated {
-            if let Some(watchers) = actor.watching.get(&watchee) {
-                let notify = DeathWatchNotification {
-                    actor: watchee.clone(),
-                    existence_confirmed,
-                    address_terminated,
-                };
-                for watcher in watchers {
-                    watcher.cast_system(notify.clone(), ActorRef::no_sender());
-                }
+        if !address_terminated && let Some(watchers) = actor.watching.get(&watchee) {
+            let notify = DeathWatchNotification {
+                actor: watchee.clone(),
+                existence_confirmed,
+                address_terminated,
+            };
+            for watcher in watchers {
+                watcher.cast_system(notify.clone(), ActorRef::no_sender());
             }
         }
         actor.remove_watchee(&watchee);

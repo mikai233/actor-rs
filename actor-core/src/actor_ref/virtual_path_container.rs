@@ -126,7 +126,7 @@ impl VirtualPathContainer {
         self.children.remove_if(name, |_, c| c == child)
     }
 
-    pub(crate) fn get_child(&self, name: &String) -> Option<Ref<String, ActorRef>> {
+    pub(crate) fn get_child(&self, name: &String) -> Option<Ref<'_, String, ActorRef>> {
         self.children.get(name)
     }
 

@@ -14,21 +14,21 @@ pub struct BackoffOpts;
 
 impl BackoffOpts {
     fn on_failure(
-        child_props: Props,
-        child_name: impl Into<String>,
-        min_backoff: Duration,
-        max_backoff: Duration,
-        random_factor: f64,
+        _child_props: Props,
+        _child_name: impl Into<String>,
+        _min_backoff: Duration,
+        _max_backoff: Duration,
+        _random_factor: f64,
     ) {
         todo!()
     }
 
     fn on_stop(
-        child_props: Props,
-        child_name: impl Into<String>,
-        min_backoff: Duration,
-        max_backoff: Duration,
-        random_factor: f64,
+        _child_props: Props,
+        _child_name: impl Into<String>,
+        _min_backoff: Duration,
+        _max_backoff: Duration,
+        _random_factor: f64,
     ) {
         todo!()
     }
@@ -86,7 +86,7 @@ impl Debug for BackoffOnStopOptionsImpl {
 }
 
 impl BackoffOnStopOptionsImpl {
-    fn backoff_reset(&self) -> MaybeRef<BackoffReset> {
+    fn backoff_reset(&self) -> MaybeRef<'_, BackoffReset> {
         match &self.reset {
             None => MaybeRef::Own(BackoffReset::AutoReset {
                 reset_backoff: self.max_backoff,
@@ -129,7 +129,7 @@ impl BackoffOnStopOptionsImpl {
         myself
     }
 
-    fn with_max_nr_of_retries(&self, max_nr_of_retries: i32) -> Self {
+    fn with_max_nr_of_retries(&self, _max_nr_of_retries: i32) -> Self {
         self.clone()
     }
 
@@ -156,15 +156,15 @@ impl BackoffOnStopOptionsImpl {
         if !(self.random_factor >= 0.0 && self.random_factor <= 1.0) {
             return Err(anyhow!("random factor must be between 0.0 and 1.0"));
         }
-        if let Some(BackoffReset::AutoReset { reset_backoff }) = self.reset {
-            if !(self.min_backoff <= reset_backoff && self.max_backoff >= reset_backoff) {
-                return Err(anyhow!(
-                    "auto reset {:?} must in min backoff {:?} and max backoff {:?}",
-                    reset_backoff,
-                    self.min_backoff,
-                    self.max_backoff
-                ));
-            }
+        if let Some(BackoffReset::AutoReset { reset_backoff }) = self.reset
+            && !(self.min_backoff <= reset_backoff && self.max_backoff >= reset_backoff)
+        {
+            return Err(anyhow!(
+                "auto reset {:?} must in min backoff {:?} and max backoff {:?}",
+                reset_backoff,
+                self.min_backoff,
+                self.max_backoff
+            ));
         }
         todo!()
     }

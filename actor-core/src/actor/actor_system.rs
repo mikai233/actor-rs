@@ -195,7 +195,7 @@ impl ActorSystem {
         self.extension.get()
     }
 
-    pub fn get_config<C>(&self) -> MappedRef<&'static str, Box<dyn Config>, C>
+    pub fn get_config<C>(&self) -> MappedRef<'_, &'static str, Box<dyn Config>, C>
     where
         C: Config,
     {

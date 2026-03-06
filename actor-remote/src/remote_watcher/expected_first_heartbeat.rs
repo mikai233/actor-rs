@@ -19,7 +19,7 @@ impl Message for ExpectedFirstHeartbeat {
 
     async fn handle(
         self: Box<Self>,
-        context: &mut ActorContext,
+        _context: &mut ActorContext,
         actor: &mut Self::A,
     ) -> anyhow::Result<()> {
         let address = self.from;

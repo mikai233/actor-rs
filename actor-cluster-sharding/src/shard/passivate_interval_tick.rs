@@ -15,8 +15,8 @@ impl Message for PassivateIntervalTick {
 
     async fn handle(
         self: Box<Self>,
-        context: &mut ActorContext,
-        actor: &mut Self::A,
+        _context: &mut ActorContext,
+        _actor: &mut Self::A,
     ) -> anyhow::Result<()> {
         todo!()
     }

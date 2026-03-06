@@ -32,13 +32,13 @@ impl Message for BeginHandoff {
     ) -> anyhow::Result<()> {
         debug!("{}: BeginHandOff shard [{}]", actor.type_name, self.shard);
         if actor.preparing_for_shutdown.not() {
-            if let Some(region_ref) = actor.region_by_shard.remove(self.shard.as_str()) {
-                if let Entry::Occupied(mut o) = actor.regions.entry(region_ref) {
-                    let shards = o.get_mut();
-                    shards.remove(self.shard.as_str());
-                    if shards.is_empty() {
-                        o.remove();
-                    }
+            if let Some(region_ref) = actor.region_by_shard.remove(self.shard.as_str())
+                && let Entry::Occupied(mut o) = actor.regions.entry(region_ref)
+            {
+                let shards = o.get_mut();
+                shards.remove(self.shard.as_str());
+                if shards.is_empty() {
+                    o.remove();
                 }
             }
             context
