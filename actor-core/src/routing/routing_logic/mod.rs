@@ -6,5 +6,5 @@ pub mod broadcast_routing_logic;
 pub mod round_robin_routing_logic;
 
 pub trait RoutingLogic: Send {
-    fn select<'a>(&self, message: &DynMessage, routees: &'a Vec<Routee>) -> MaybeRef<'a, Routee>;
+    fn select<'a>(&self, message: &DynMessage, routees: &'a [Routee]) -> MaybeRef<'a, Routee>;
 }

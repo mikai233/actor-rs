@@ -31,17 +31,9 @@ impl Message for RebalanceTick {
                 .regions
                 .clone()
                 .into_iter()
-                .map(|(region, shards)| {
-                    (
-                        region,
-                        shards.iter().cloned().collect_vec(),
-                    )
-                })
+                .map(|(region, shards)| (region, shards.iter().cloned().collect_vec()))
                 .collect();
-            let rebalance_in_progress = actor
-                .rebalance_in_progress
-                .keys().cloned()
-                .collect();
+            let rebalance_in_progress = actor.rebalance_in_progress.keys().cloned().collect();
             let myself = context.myself().clone();
             let type_name = actor.type_name.clone();
             context.spawn_fut("rebalance", async move {

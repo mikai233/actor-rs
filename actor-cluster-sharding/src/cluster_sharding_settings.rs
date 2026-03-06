@@ -23,7 +23,7 @@ pub struct ClusterShardingSettings {
 impl ClusterShardingSettings {
     pub fn create(system: &ActorSystem) -> Self {
         let sharding_config = system.get_config::<ClusterShardingConfig>();
-        
+
         Self {
             role: sharding_config.role.clone(),
             shard_region_query_timeout: sharding_config.shard_region_query_timeout,

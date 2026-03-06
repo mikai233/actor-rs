@@ -41,8 +41,9 @@ impl Message for GracefulShutdown {
                     context.system(),
                     PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION,
                 )
-                .unwrap_or_else(|| panic!("phase {} not found",
-                    PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION))
+                .unwrap_or_else(|| {
+                    panic!("phase {} not found", PHASE_CLUSTER_SHARDING_SHUTDOWN_REGION)
+                })
                 .checked_sub(Duration::from_secs(1));
                 if let Some(timeout) = timeout {
                     actor.timers.start_single_timer(

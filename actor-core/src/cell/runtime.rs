@@ -70,7 +70,7 @@ where
                 }
                 Some(message) = mailbox.message.recv(), if matches!(context.state, ActorState::Started) => {
                     let name = message.name();
-                    if let Err(_) = AssertUnwindSafe(Self::handle_message(&mut context, &mut actor, message, &token)).catch_unwind().await {
+                    if AssertUnwindSafe(Self::handle_message(&mut context, &mut actor, message, &token)).catch_unwind().await.is_err() {
                         Self::handle_failure(&mut context, anyhow!("{} handle message {} panic", type_name::<A>(), name));
                     }
                     throughput += 1;

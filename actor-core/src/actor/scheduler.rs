@@ -408,7 +408,7 @@ pub fn scheduler() -> SchedulerSender {
         index: HashMap::new(),
     };
     scheduler.run();
-    
+
     SchedulerSender {
         inner: Arc::new(Inner {
             index: AtomicU64::new(0),

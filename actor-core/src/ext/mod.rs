@@ -87,10 +87,9 @@ pub(crate) fn random_name(prefix: String) -> String {
 }
 
 pub(crate) fn check_name(name: &String) -> anyhow::Result<()> {
-    let valid = name.chars().all(|c| match c {
-        'a'..='z' | 'A'..='Z' | '0'..='9' | '_' => true,
-        _ => false,
-    });
+    let valid = name
+        .chars()
+        .all(|c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_'));
     if valid {
         Ok(())
     } else {

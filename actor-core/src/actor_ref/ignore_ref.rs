@@ -80,8 +80,7 @@ impl IgnoreActorRef {
     }
 
     fn path() -> ActorPath {
-        RootActorPath::new(Address::new("tcp", Self::fake_system_name(), None), "/")
-            .child("ignore")
+        RootActorPath::new(Address::new("tcp", Self::fake_system_name(), None), "/").child("ignore")
     }
 
     fn is_ignore_ref_path_str(&self, other_path: &str) -> bool {

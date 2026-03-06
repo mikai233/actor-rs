@@ -98,10 +98,9 @@ impl EmptyLocalActorRef {
             sender.foreach(|s| s.cast_orphan_ns(ActorIdentity { actor_ref: None }));
         } else if message.name == actor_selection {
             let actor_selection = message.downcast_orphan::<ActorSelectionMessage>().unwrap();
-            if actor_selection.identify_request().is_some()
-                && !actor_selection.wildcard_fan_out {
-                    sender.foreach(|s| s.cast_orphan_ns(ActorIdentity { actor_ref: None }));
-                }
+            if actor_selection.identify_request().is_some() && !actor_selection.wildcard_fan_out {
+                sender.foreach(|s| s.cast_orphan_ns(ActorIdentity { actor_ref: None }));
+            }
         }
     }
 }

@@ -12,8 +12,8 @@ pub struct Mailbox {
 
 impl Mailbox {
     pub(crate) fn close(&mut self) {
-        while let Ok(_) = self.message.try_recv() {}
-        while let Ok(_) = self.system.try_recv() {}
+        while self.message.try_recv().is_ok() {}
+        while self.system.try_recv().is_ok() {}
         self.message.close();
         self.system.close();
     }

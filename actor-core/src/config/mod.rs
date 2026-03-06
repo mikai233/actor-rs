@@ -48,7 +48,7 @@ impl ActorConfig {
         Ok(())
     }
 
-    pub fn get<C>(&self) -> Option<MappedRef<&'static str, Box<dyn Config>, C>>
+    pub fn get<C>(&self) -> Option<MappedRef<'_, &'static str, Box<dyn Config>, C>>
     where
         C: Config,
     {

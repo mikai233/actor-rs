@@ -68,6 +68,7 @@ impl Deref for ActorSystem {
 }
 
 impl ActorSystem {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         name: impl Into<String>,
         setting: ActorSetting,
@@ -118,7 +119,7 @@ impl ActorSystem {
         self.provider().get_default_address().clone()
     }
 
-    fn child(&self, child: &String) -> ActorPath {
+    fn child(&self, child: &str) -> ActorPath {
         self.guardian().path.child(child)
     }
 
@@ -195,7 +196,7 @@ impl ActorSystem {
         self.extension.get()
     }
 
-    pub fn get_config<C>(&self) -> MappedRef<&'static str, Box<dyn Config>, C>
+    pub fn get_config<C>(&self) -> MappedRef<'_, &'static str, Box<dyn Config>, C>
     where
         C: Config,
     {

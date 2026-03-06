@@ -43,7 +43,8 @@ impl ActorCell {
         match name.find('#') {
             Some(_) => {
                 let (child_name, uid) = ActorPath::split_name_and_uid(name);
-                self.get_child_by_name(&child_name).filter(|a| a.path().uid() == uid)
+                self.get_child_by_name(&child_name)
+                    .filter(|a| a.path().uid() == uid)
             }
             None => self.get_child_by_name(name),
         }

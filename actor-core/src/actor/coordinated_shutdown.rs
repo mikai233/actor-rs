@@ -114,9 +114,7 @@ impl CoordinatedShutdown {
         F: Future<Output = ()> + Send + 'static,
     {
         let mut registered_phases = self.registered_phases.lock();
-        let phase_tasks = registered_phases
-            .entry(phase_name)
-            .or_default();
+        let phase_tasks = registered_phases.entry(phase_name).or_default();
         let task = TaskDefinition {
             name,
             fut: fut.boxed(),

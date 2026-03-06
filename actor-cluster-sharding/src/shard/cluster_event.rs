@@ -21,10 +21,11 @@ impl Message for ClusterEventWrap {
         actor: &mut Self::A,
     ) -> anyhow::Result<()> {
         if matches!(self.0, ClusterEvent::MemberPrepareForLeaving(_))
-            && !actor.preparing_for_shutdown {
-                info!("{}: Preparing for shutdown", actor.type_name);
-                actor.preparing_for_shutdown = true;
-            }
+            && !actor.preparing_for_shutdown
+        {
+            info!("{}: Preparing for shutdown", actor.type_name);
+            actor.preparing_for_shutdown = true;
+        }
         Ok(())
     }
 }

@@ -41,7 +41,7 @@ impl SystemExtension {
         self.get_ref::<E>().map(|e| e.value().clone())
     }
 
-    pub fn get_ref<E>(&self) -> Option<MappedRef<&'static str, Box<dyn Extension>, E>>
+    pub fn get_ref<E>(&self) -> Option<MappedRef<'_, &'static str, Box<dyn Extension>, E>>
     where
         E: Extension,
     {
@@ -53,7 +53,7 @@ impl SystemExtension {
         extension
     }
 
-    pub fn get_mut<E>(&self) -> Option<MappedRefMut<&'static str, Box<dyn Extension>, E>>
+    pub fn get_mut<E>(&self) -> Option<MappedRefMut<'_, &'static str, Box<dyn Extension>, E>>
     where
         E: Extension,
     {

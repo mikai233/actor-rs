@@ -14,7 +14,7 @@ impl Message for WatchFailed {
 
     async fn handle(
         self: Box<Self>,
-        context: &mut ActorContext,
+        _context: &mut ActorContext,
         actor: &mut Self::A,
     ) -> anyhow::Result<()> {
         actor.watch_cluster_members();

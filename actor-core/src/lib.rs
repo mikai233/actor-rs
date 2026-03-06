@@ -157,8 +157,8 @@ impl DynMessage {
         &self.ty
     }
 
-    pub fn message(&self) -> &Box<dyn CodecMessage> {
-        &self.message
+    pub fn message(&self) -> &dyn CodecMessage {
+        &*self.message
     }
 
     pub fn into_inner(self) -> Box<dyn CodecMessage> {

@@ -45,7 +45,7 @@ impl ActorSelection {
                         let pattern = SelectChildPattern::new(x)?;
                         path.push(pattern.into())
                     }
-                    x if x == ".." => {
+                    ".." => {
                         path.push(SelectParent.into());
                     }
                     x => path.push(SelectChildName::new(x.to_string()).into()),
@@ -150,8 +150,7 @@ impl ActorSelection {
                                         }
                                     }
                                 } else if matching_children.is_empty() && !sel.wildcard_fan_out {
-                                    empty_ref
-                                        .tell(DynMessage::orphan(sel.clone()), sender.clone())
+                                    empty_ref.tell(DynMessage::orphan(sel.clone()), sender.clone())
                                 } else {
                                     let wildcard_fan_out =
                                         sel.wildcard_fan_out || matching_children.len() > 1;
@@ -189,10 +188,8 @@ impl ActorSelection {
                         }
                     },
                     None => {
-                        let sel = sel.copy_with_elements(
-                            iter.cloned().collect(),
-                            sel.wildcard_fan_out,
-                        );
+                        let sel =
+                            sel.copy_with_elements(iter.cloned().collect(), sel.wildcard_fan_out);
                         actor.tell(DynMessage::orphan(sel), sender);
                         break;
                     }
@@ -213,6 +210,7 @@ pub(crate) trait TSelectionPathElement: Display {}
 
 #[enum_dispatch]
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Encode, Decode)]
+#[allow(clippy::enum_variant_names)]
 pub(crate) enum SelectionPathElement {
     SelectChildName,
     SelectChildPattern,

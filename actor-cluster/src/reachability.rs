@@ -267,7 +267,7 @@ impl Reachability {
     fn observers_grouped_by_unreachable(&self) -> HashMap<&UniqueAddress, HashSet<&UniqueAddress>> {
         let mut observers_grouped_by_unreachable = HashMap::new();
         for (subject, records_for_subject) in
-            self.records.iter().group_by(|r| &r.subject).into_iter()
+            self.records.iter().chunk_by(|r| &r.subject).into_iter()
         {
             let observers = records_for_subject
                 .filter(|r| matches!(r.status, ReachabilityStatus::Unreachable))
@@ -324,7 +324,7 @@ impl Display for Reachability {
 }
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq)]
-struct Record {
+pub(crate) struct Record {
     observer: UniqueAddress,
     subject: UniqueAddress,
     status: ReachabilityStatus,

@@ -47,12 +47,7 @@ impl Message for GetShardHome {
                     actor.graceful_shutdown_in_progress.contains(region).not()
                         && actor.region_termination_in_progress.contains(region).not()
                 })
-                .map(|(region, shards)| {
-                    (
-                        region.clone(),
-                        shards.iter().cloned().collect_vec(),
-                    )
-                })
+                .map(|(region, shards)| (region.clone(), shards.iter().cloned().collect_vec()))
                 .collect();
             if active_regions.is_empty().not() {
                 let strategy = actor.allocation_strategy.clone();

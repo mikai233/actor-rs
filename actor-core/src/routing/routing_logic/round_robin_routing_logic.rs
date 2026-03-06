@@ -12,7 +12,7 @@ pub struct RoundRobinRoutingLogic {
 }
 
 impl RoutingLogic for RoundRobinRoutingLogic {
-    fn select<'a>(&self, _message: &DynMessage, routees: &'a Vec<Routee>) -> MaybeRef<'a, Routee> {
+    fn select<'a>(&self, _message: &DynMessage, routees: &'a [Routee]) -> MaybeRef<'a, Routee> {
         if !routees.is_empty() {
             let size = routees.len();
             let current = self.next.get();

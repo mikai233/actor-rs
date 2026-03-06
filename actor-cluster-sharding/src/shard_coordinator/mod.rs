@@ -337,13 +337,10 @@ impl ShardCoordinator {
     ) -> anyhow::Result<()> {
         if let Entry::Vacant(v) = self.rebalance_in_progress.entry(shard.clone()) {
             v.insert(HashSet::new());
-            let regions = self
-                .state
-                .regions
-                .keys().cloned()
-                .collect::<HashSet<_>>();
+            let regions = self.state.regions.keys().cloned().collect::<HashSet<_>>();
             let regions = regions
-                .union(&self.state.region_proxies).cloned()
+                .union(&self.state.region_proxies)
+                .cloned()
                 .collect::<HashSet<_>>();
             let worker = context.spawn_anonymous(Self::rebalance_worker_props(
                 self.type_name.clone(),

@@ -23,7 +23,7 @@ impl Message for ShardTerminated {
 
     async fn handle(
         self: Box<Self>,
-        context: &mut ActorContext,
+        _context: &mut ActorContext,
         actor: &mut Self::A,
     ) -> anyhow::Result<()> {
         let shard = self.0;

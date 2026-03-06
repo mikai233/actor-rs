@@ -158,7 +158,7 @@ impl Eq for ActorRef {}
 
 impl PartialOrd<Self> for ActorRef {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.path().partial_cmp(other.path())
+        Some(self.cmp(other))
     }
 }
 

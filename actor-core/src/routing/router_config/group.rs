@@ -9,7 +9,7 @@ use crate::routing::routing_logic::RoutingLogic;
 pub trait Group: TRouterConfig {
     fn paths(&self, system: &ActorSystem) -> Vec<String>;
 
-    fn routee_for(&self, path: &String, context: &mut ActorContext) -> Box<dyn TRoutee>;
+    fn routee_for(&self, path: &str, context: &mut ActorContext) -> Box<dyn TRoutee>;
 }
 
 pub struct GroupRouterConfig {
@@ -50,7 +50,7 @@ impl Group for GroupRouterConfig {
         self.group.paths(system)
     }
 
-    fn routee_for(&self, path: &String, context: &mut ActorContext) -> Box<dyn TRoutee> {
+    fn routee_for(&self, path: &str, context: &mut ActorContext) -> Box<dyn TRoutee> {
         self.group.routee_for(path, context)
     }
 }

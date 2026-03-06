@@ -40,7 +40,7 @@ impl Eq for ActorSubscriber {}
 
 impl PartialOrd for ActorSubscriber {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.subscriber.partial_cmp(&other.subscriber)
+        Some(self.cmp(other))
     }
 }
 

@@ -131,7 +131,7 @@ impl Eq for ScheduleKey {}
 
 impl PartialOrd for ScheduleKey {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.index.partial_cmp(&other.index)
+        Some(self.cmp(other))
     }
 }
 
@@ -236,12 +236,14 @@ impl Message for Schedule {
 }
 
 impl Schedule {
+    #[allow(clippy::boxed_local)]
     fn once(self: Box<Self>, actor: &mut TimersActor, index: u64, delay: Duration) {
         let delay_key = actor.queue.insert(*self, delay);
         debug_assert!(!actor.index.contains_key(&index));
         actor.index.insert(index, delay_key);
     }
 
+    #[allow(clippy::boxed_local)]
     fn fixed_delay(
         self: Box<Self>,
         actor: &mut TimersActor,
@@ -458,6 +460,7 @@ impl Message for PollExpired {
 struct ReceiverTerminated(Terminated);
 
 impl ReceiverTerminated {
+    #[allow(clippy::new_ret_no_self)]
     pub(super) fn new(terminated: Terminated) -> DynMessage {
         Self(terminated).into_dyn()
     }

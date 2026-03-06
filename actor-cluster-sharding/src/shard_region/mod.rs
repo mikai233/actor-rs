@@ -402,7 +402,7 @@ impl ShardRegion {
             };
             self.shard_buffers.push(shard_id, envelop);
             let total = total_buf_size + 1;
-            if total % (buffer_size / 10) == 0 {
+            if total.is_multiple_of(buffer_size / 10) {
                 let cap = 100.0 * total as f64 / buffer_size as f64;
                 let log_msg =
                     format!("{type_name}: ShardRegion is using [{cap} %] of its buffer capacity.");
@@ -453,9 +453,7 @@ impl ShardRegion {
                 None => {
                     panic!("Shard must not be allocated to a proxy only ShardRegion");
                 }
-                Some(props_builder)
-                    if !self.shards_by_ref.values().any(|r| *r == id) =>
-                {
+                Some(props_builder) if !self.shards_by_ref.values().any(|r| *r == id) => {
                     debug!("{}: Starting shard [{}] in region", self.type_name, id);
                     let shard_props = Shard::props(
                         self.type_name.clone(),
@@ -494,7 +492,7 @@ impl ShardRegion {
                 );
                 coord.cast(GetShardHome { shard: shard.clone().into() }, Some(context.myself().clone()));
             });
-            if self.retry_count >= 5 && self.retry_count % 5 == 0 {
+            if self.retry_count >= 5 && self.retry_count.is_multiple_of(5) {
                 let shards_str = shards.iter().map(|shard| shard.as_str()).join(", ");
                 warn!(
                     "{}: Requested shard homes [{}] from coordinator at [{}]. [{}] total buffered messages.",
@@ -569,10 +567,9 @@ impl ShardRegion {
                 v.insert(shards);
             }
         }
-        if &shard_region_ref != context.myself()
-            && context.is_watching(&shard_region_ref).not() {
-                context.watch(shard_region_ref.clone(), ShardRegionTerminated::new)?;
-            }
+        if &shard_region_ref != context.myself() && context.is_watching(&shard_region_ref).not() {
+            context.watch(shard_region_ref.clone(), ShardRegionTerminated::new)?;
+        }
         if &shard_region_ref == context.myself() {
             self.get_shard(context, shard.clone())?.foreach(|region| {
                 self.deliver_buffered_messages(&shard, DeliverTarget::ShardRegion(region));

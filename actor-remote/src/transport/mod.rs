@@ -263,13 +263,10 @@ impl TransportActor {
     }
 
     fn is_connecting_or_connected(&self, addr: &SocketAddr) -> bool {
-        if let Some(status) = self.connections.get(addr) {
-            match status {
-                ConnectionStatus::Connecting(_) | ConnectionStatus::Connected(_) => {
-                    return true;
-                }
-                _ => {}
-            }
+        if let Some(ConnectionStatus::Connecting(_) | ConnectionStatus::Connected(_)) =
+            self.connections.get(addr)
+        {
+            return true;
         }
         false
     }

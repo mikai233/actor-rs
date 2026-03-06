@@ -8,10 +8,10 @@ use crate::DynMessage;
 pub struct BroadcastRoutingLogic;
 
 impl RoutingLogic for BroadcastRoutingLogic {
-    fn select<'a>(&self, _message: &DynMessage, routees: &'a Vec<Routee>) -> MaybeRef<'a, Routee> {
+    fn select<'a>(&self, _message: &DynMessage, routees: &'a [Routee]) -> MaybeRef<'a, Routee> {
         MaybeRef::Own(
             SeveralRoutees {
-                routees: routees.clone(),
+                routees: routees.to_vec(),
             }
             .into(),
         )

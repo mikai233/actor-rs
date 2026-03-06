@@ -14,21 +14,21 @@ pub struct BackoffOpts;
 
 impl BackoffOpts {
     fn on_failure(
-        child_props: Props,
-        child_name: impl Into<String>,
-        min_backoff: Duration,
-        max_backoff: Duration,
-        random_factor: f64,
+        _child_props: Props,
+        _child_name: impl Into<String>,
+        _min_backoff: Duration,
+        _max_backoff: Duration,
+        _random_factor: f64,
     ) {
         todo!()
     }
 
     fn on_stop(
-        child_props: Props,
-        child_name: impl Into<String>,
-        min_backoff: Duration,
-        max_backoff: Duration,
-        random_factor: f64,
+        _child_props: Props,
+        _child_name: impl Into<String>,
+        _min_backoff: Duration,
+        _max_backoff: Duration,
+        _random_factor: f64,
     ) {
         todo!()
     }
@@ -86,7 +86,7 @@ impl Debug for BackoffOnStopOptionsImpl {
 }
 
 impl BackoffOnStopOptionsImpl {
-    fn backoff_reset(&self) -> MaybeRef<BackoffReset> {
+    fn backoff_reset(&self) -> MaybeRef<'_, BackoffReset> {
         match &self.reset {
             None => MaybeRef::Own(BackoffReset::AutoReset {
                 reset_backoff: self.max_backoff,
@@ -129,13 +129,11 @@ impl BackoffOnStopOptionsImpl {
         myself
     }
 
-    fn with_max_nr_of_retries(&self, max_nr_of_retries: i32) -> Self {
-        
+    fn with_max_nr_of_retries(&self, _max_nr_of_retries: i32) -> Self {
         self.clone()
     }
 
     fn with_default_stopping_strategy(&self) -> Self {
-        
         self.clone()
     }
 

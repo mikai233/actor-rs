@@ -52,8 +52,8 @@ impl Actor for ClusterCoreSupervisor {
     fn on_child_failure(
         &mut self,
         context: &mut ActorContext,
-        child: &ActorRef,
-        error: &Error,
+        _child: &ActorRef,
+        _error: &Error,
     ) -> Directive {
         //TODO check panic error
         context

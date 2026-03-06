@@ -111,15 +111,7 @@ impl Eq for ActorPath {}
 
 impl PartialOrd for ActorPath {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let self_elements = self.elements();
-        let self_address = self.address();
-        let other_elements = other.elements();
-        let other_address = other.address();
-        let order = self_address.partial_cmp(other_address);
-        match &order {
-            Some(Ordering::Equal) => self_elements.partial_cmp(&other_elements),
-            _ => order,
-        }
+        Some(self.cmp(other))
     }
 }
 
@@ -178,7 +170,9 @@ impl ActorPath {
             None => (name.to_string(), ActorPath::undefined_uid()),
             Some(index) => {
                 let (name, id) = (name[0..index].to_string(), &name[(index + 1)..]);
-                let id: i32 = id.parse().unwrap_or_else(|_| panic!("expect i32, got {}", id));
+                let id: i32 = id
+                    .parse()
+                    .unwrap_or_else(|_| panic!("expect i32, got {}", id));
                 (name, id)
             }
         }

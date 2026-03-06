@@ -14,6 +14,7 @@ use crate::remote_watcher::RemoteWatcher;
 pub(super) struct WatcheeTerminated(pub(super) Terminated);
 
 impl WatcheeTerminated {
+    #[allow(clippy::new_ret_no_self)]
     pub(super) fn new(terminated: Terminated) -> DynMessage {
         Self(terminated).into_dyn()
     }

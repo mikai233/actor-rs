@@ -57,15 +57,14 @@ impl TActorRef for VirtualPathContainer {
     }
 
     fn tell(&self, message: DynMessage, _sender: Option<ActorRef>) {
-        if matches!(message.ty, MessageType::System)
-            && message.name == type_name::<Terminate>() {
-                let notification = DeathWatchNotification {
-                    actor: self.clone().into(),
-                    existence_confirmed: true,
-                    address_terminated: false,
-                };
-                self.parent.cast_system(notification, ActorRef::no_sender());
-            }
+        if matches!(message.ty, MessageType::System) && message.name == type_name::<Terminate>() {
+            let notification = DeathWatchNotification {
+                actor: self.clone().into(),
+                existence_confirmed: true,
+                address_terminated: false,
+            };
+            self.parent.cast_system(notification, ActorRef::no_sender());
+        }
     }
 
     fn stop(&self) {}
@@ -127,7 +126,7 @@ impl VirtualPathContainer {
         self.children.remove_if(name, |_, c| c == child)
     }
 
-    pub(crate) fn get_child(&self, name: &String) -> Option<Ref<String, ActorRef>> {
+    pub(crate) fn get_child(&self, name: &String) -> Option<Ref<'_, String, ActorRef>> {
         self.children.get(name)
     }
 
