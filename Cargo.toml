@@ -1,5 +1,5 @@
 [workspace]
-members = ["kairo-*"]
+members = ["crates/kairo-*"]
 
 resolver = "2"
 
