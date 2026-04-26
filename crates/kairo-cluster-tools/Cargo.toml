@@ -6,8 +6,8 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-kairo-core = { path = "../kairo-core", features = ["derive"] }
-kairo-cluster = { path = "../kairo-cluster" }
+kairo-core = { workspace = true, features = ["derive"] }
+kairo-cluster = { workspace = true }
 async-trait = { workspace = true }
 ahash = { workspace = true }
 dashmap = { workspace = true, features = ["inline"] }

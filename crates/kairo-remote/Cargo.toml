@@ -6,7 +6,7 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-kairo-core = { path = "../kairo-core", features = ["derive"] }
+kairo-core = { workspace = true, features = ["derive"] }
 tokio = { workspace = true }
 tokio-util = { workspace = true, features = ["codec"] }
 futures = { workspace = true }

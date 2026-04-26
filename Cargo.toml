@@ -7,6 +7,12 @@ resolver = "2"
 opt-level = 3
 
 [workspace.dependencies]
+kairo-derive = { path = "crates/kairo-derive" }
+kairo-core = { path = "crates/kairo-core" }
+kairo-remote = { path = "crates/kairo-remote" }
+kairo-cluster = { path = "crates/kairo-cluster" }
+kairo-cluster-tools = { path = "crates/kairo-cluster-tools" }
+kairo-cluster-sharding = { path = "crates/kairo-cluster-sharding" }
 enum_dispatch = "0.3"
 tokio = "1.3"
 tokio-util = "0.7.16"
