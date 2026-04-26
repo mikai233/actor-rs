@@ -3,167 +3,6 @@
 version = 4
 
 [[package]]
-name = "actor-cluster"
-version = "0.1.0"
-dependencies = [
- "actor-core",
- "actor-remote",
- "ahash",
- "anyhow",
- "arc-swap",
- "async-trait",
- "bincode",
- "config",
- "ctor",
- "dashmap",
- "etcd-client",
- "futures",
- "itertools",
- "parking_lot",
- "serde",
- "serde_json",
- "sha2",
- "tokio",
- "toml",
- "tracing",
- "typed-builder",
-]
-
-[[package]]
-name = "actor-cluster-sharding"
-version = "0.1.0"
-dependencies = [
- "actor-cluster",
- "actor-cluster-tools",
- "actor-core",
- "actor-remote",
- "ahash",
- "anyhow",
- "async-trait",
- "bincode",
- "config",
- "dashmap",
- "dyn-clone",
- "enum_dispatch",
- "imstr",
- "itertools",
- "serde",
- "serde_json",
- "tokio",
- "toml",
- "tracing",
- "typed-builder",
- "uuid",
-]
-
-[[package]]
-name = "actor-cluster-tools"
-version = "0.1.0"
-dependencies = [
- "actor-cluster",
- "actor-core",
- "ahash",
- "anyhow",
- "async-trait",
- "bincode",
- "config",
- "dashmap",
- "futures",
- "serde",
- "tokio",
- "tracing",
- "typed-builder",
-]
-
-[[package]]
-name = "actor-core"
-version = "0.1.0"
-dependencies = [
- "actor-derive",
- "ahash",
- "anyhow",
- "arc-swap",
- "async-trait",
- "bincode",
- "bytes",
- "config",
- "ctor",
- "dashmap",
- "dyn-clone",
- "enum_dispatch",
- "etcd-client",
- "futures",
- "parking_lot",
- "pin-project",
- "rand 0.9.2",
- "regex",
- "serde",
- "tokio",
- "tokio-util",
- "toml",
- "tracing",
- "tracing-subscriber",
- "url",
-]
-
-[[package]]
-name = "actor-derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "actor-playgroud"
-version = "0.1.0"
-dependencies = [
- "actor-cluster",
- "actor-cluster-sharding",
- "actor-cluster-tools",
- "actor-core",
- "actor-remote",
- "anyhow",
- "async-trait",
- "bincode",
- "clap",
- "etcd-client",
- "futures",
- "rand 0.9.2",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "actor-remote"
-version = "0.1.0"
-dependencies = [
- "actor-core",
- "ahash",
- "anyhow",
- "async-trait",
- "bincode",
- "config",
- "ctor",
- "futures",
- "quick_cache",
- "quinn",
- "rcgen",
- "rustls",
- "serde",
- "stubborn-io",
- "tokio",
- "tokio-util",
- "toml",
- "tracing",
- "tracing-subscriber",
- "typed-builder",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1227,6 +1066,167 @@ dependencies = [
  "pest",
  "pest_derive",
  "serde",
+]
+
+[[package]]
+name = "kairo-cluster"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "anyhow",
+ "arc-swap",
+ "async-trait",
+ "bincode",
+ "config",
+ "ctor",
+ "dashmap",
+ "etcd-client",
+ "futures",
+ "itertools",
+ "kairo-core",
+ "kairo-remote",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "toml",
+ "tracing",
+ "typed-builder",
+]
+
+[[package]]
+name = "kairo-cluster-sharding"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "config",
+ "dashmap",
+ "dyn-clone",
+ "enum_dispatch",
+ "imstr",
+ "itertools",
+ "kairo-cluster",
+ "kairo-cluster-tools",
+ "kairo-core",
+ "kairo-remote",
+ "serde",
+ "serde_json",
+ "tokio",
+ "toml",
+ "tracing",
+ "typed-builder",
+ "uuid",
+]
+
+[[package]]
+name = "kairo-cluster-tools"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "config",
+ "dashmap",
+ "futures",
+ "kairo-cluster",
+ "kairo-core",
+ "serde",
+ "tokio",
+ "tracing",
+ "typed-builder",
+]
+
+[[package]]
+name = "kairo-core"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "anyhow",
+ "arc-swap",
+ "async-trait",
+ "bincode",
+ "bytes",
+ "config",
+ "ctor",
+ "dashmap",
+ "dyn-clone",
+ "enum_dispatch",
+ "etcd-client",
+ "futures",
+ "kairo-derive",
+ "parking_lot",
+ "pin-project",
+ "rand 0.9.2",
+ "regex",
+ "serde",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+]
+
+[[package]]
+name = "kairo-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "kairo-playgroud"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "clap",
+ "etcd-client",
+ "futures",
+ "kairo-cluster",
+ "kairo-cluster-sharding",
+ "kairo-cluster-tools",
+ "kairo-core",
+ "kairo-remote",
+ "rand 0.9.2",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "kairo-remote"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "config",
+ "ctor",
+ "futures",
+ "kairo-core",
+ "quick_cache",
+ "quinn",
+ "rcgen",
+ "rustls",
+ "serde",
+ "stubborn-io",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "typed-builder",
 ]
 
 [[package]]

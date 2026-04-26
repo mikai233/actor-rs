@@ -1,4 +1,4 @@
-# actor-rs
+# kairo
 
 > ### ⚠️ Project Status: On Hold / Blocked
 >
@@ -25,7 +25,7 @@ Akka uses the Gossip protocol to maintain cluster state consistency. Currently, 
 ## Declaring an Actor
 
 ```rust
-use actor_core::Actor;
+use kairo_core::Actor;
 
 struct MyActor;
 
@@ -171,7 +171,7 @@ This module is a core feature of this project. Through Cluster Sharding, a large
 
 ## Usage
 
-For sharding examples, please refer to [sharding.rs](actor-playgroud/src/sharding.rs).
+For sharding examples, please refer to [sharding.rs](kairo-playgroud/src/sharding.rs).
 
 The general usage flow is:
 
@@ -182,7 +182,7 @@ The general usage flow is:
 
 Then, by sending messages to `ShardRegion`, it routes messages according to the `entity_id` method of `MessageExtractor`. If the `Shard` corresponding to the `entity_id` does not exist, a new `Shard` will be created, followed by a new Actor to handle the message.
 
-# More examples can be found in [actor-playground](actor-playgroud/src)
+# More examples can be found in [actor-playground](kairo-playgroud/src)
 
 ## Future Plans
 
@@ -193,6 +193,6 @@ Then, by sending messages to `ShardRegion`, it routes messages according to the 
 
 ## Acknowledgments
 
-Special thanks to [JetBrains](https://www.jetbrains.com/?from=actor-rs) for providing free IDE licenses for open-source projects.
+Special thanks to [JetBrains](https://www.jetbrains.com/?from=kairo) for providing free IDE licenses for open-source projects.
 
 ![JetBrains logo](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.png)
