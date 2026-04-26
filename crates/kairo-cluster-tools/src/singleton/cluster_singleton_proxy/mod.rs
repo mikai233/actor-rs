@@ -99,7 +99,7 @@ impl ClusterSingletonProxy {
     fn buffer_message(&mut self, context: &mut ActorContext, message: DynMessage) {
         let buffer_size = self.settings.buffer_size;
         let proxy_name = context.myself().path().name();
-        if buffer_size <= 0 {
+        if buffer_size == 0 {
             debug!(
                 "{} buffer is disabled, drop current message {}",
                 proxy_name,
